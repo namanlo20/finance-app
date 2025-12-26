@@ -72,17 +72,18 @@ def get_stock_data_yfinance(ticker):
         stock = yf.Ticker(ticker)
         info = stock.info
         
-        return {
-            'price': info.get('currentPrice', info.get('regularMarketPrice', 0)),
-            'change': info.get('regularMarketChange', 0),
-            'change_percent': info.get('regularMarketChangePercent', 0),
-            'previous_close': info.get('previousClose', info.get('regularMarketPreviousClose', 0)),
-            'market_cap': info.get('marketCap', 0),
-            'pe_ratio': info.get('trailingPE', info.get('forwardPE', 0)),
-            'forward_pe': info.get('forwardPE', 0),
-        }
-    except:
-        pass
+        if info:
+            return {
+                'price': info.get('currentPrice', info.get('regularMarketPrice', 0)),
+                'change': info.get('regularMarketChange', 0),
+                'change_percent': info.get('regularMarketChangePercent', 0),
+                'previous_close': info.get('previousClose', info.get('regularMarketPreviousClose', 0)),
+                'market_cap': info.get('marketCap', 0),
+                'pe_ratio': info.get('trailingPE', info.get('forwardPE', 0)),
+                'forward_pe': info.get('forwardPE', 0),
+            }
+    except Exception as e:
+        st.sidebar.warning(f"yfinance error: {str(e)}")
     
     try:
         url = f"https://financialmodelingprep.com/api/v3/quote/{ticker}?apikey=demo"
@@ -99,8 +100,8 @@ def get_stock_data_yfinance(ticker):
                 'pe_ratio': item.get('pe', 0),
                 'forward_pe': 0,
             }
-    except:
-        pass
+    except Exception as e:
+        st.sidebar.error(f"API error: {str(e)}")
     
     return None
 
@@ -423,54 +424,4 @@ with tab1:
                                 elif metric in display_df.columns:
                                     plot_df[metric] = display_df[metric]
                             
-                            fig = px.bar(plot_df, x=plot_df.index, y=selected_insights, barmode='group', color_discrete_sequence=['#00D9FF', '#FF6B9D', '#FFC837'])
-                            max_val = plot_df[selected_insights].max().max()
-                            min_val = plot_df[selected_insights].min().min()
-                            y_range = [min_val * 1.1 if min_val < 0 else 0, max_val * 1.15]
-                            
-                            fig.update_layout(
-                                height=500,
-                                yaxis=dict(range=y_range),
-                                plot_bgcolor='rgba(0,0,0,0)',
-                                paper_bgcolor='rgba(0,0,0,0)',
-                                font_color='white'
-                            )
-                            st.plotly_chart(fig, use_container_width=True)
-                            
-                            if 'FCF After SBC' in fcf_df.columns:
-                                latest_fcf = fcf_df['FCF After SBC'].iloc[-1]
-                                if len(fcf_df) > 1:
-                                    prev_fcf = fcf_df['FCF After SBC'].iloc[-2]
-                                    growth = ((latest_fcf - prev_fcf) / abs(prev_fcf) * 100) if prev_fcf != 0 else 0
-                                    
-                                    col1, col2 = st.columns(2)
-                                    col1.metric("Latest FCF After SBC", f"${latest_fcf/1e9:.2f}B", f"{growth:+.1f}%")
-                                    
-                                    if latest_fcf > 0:
-                                        col2.success("✅ Positive free cash flow after dilution!")
-                                    else:
-                                        col2.error("🚨 Negative free cash flow - burning cash!")
-                    else:
-                        st.warning("Not enough cash flow data available. Make sure the company reports operating cash flow and CapEx.")
-                
-                elif view_mode == "News":
-                    st.subheader(f"📰 Latest News for {ticker}")
-                    news = get_company_news(ticker)
-                    if news:
-                        for i, article in enumerate(news):
-                            with st.expander(f"{i+1}. {article.get('headline', 'No title')[:80]}..."):
-                                st.write(f"**Source:** {article.get('source', 'Unknown')}")
-                                st.write(f"**Date:** {datetime.fromtimestamp(article.get('datetime', 0)).strftime('%Y-%m-%d')}")
-                                st.write(article.get('summary', 'No summary')[:300])
-                                if article.get('url'):
-                                    st.markdown(f"[Read more]({article['url']})")
-                    else:
-                        st.info("No recent news available.")
-            else:
-                st.warning("No data for this timeframe.")
-        
-        except Exception as e:
-            st.error(f"Error: {str(e)}")
-            st.info("This might be due to API rate limits or missing data.")
-    else:
-        st.info("Enter a valid ticker!")
+                            fig = px.bar
