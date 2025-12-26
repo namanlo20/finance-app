@@ -267,8 +267,7 @@ with tab1:
         years_to_show = st.slider("History:", 1, 20, 10)
         target_form = "10-K" if "Annual" in freq else "10-Q"
         quirky_mode = st.toggle("🔥 Unhinged Mode", value=False)
-
-    if ticker in ticker_map:
+if ticker in ticker_map:
         try:
             cik = ticker_map[ticker]
             url = f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json"
@@ -304,8 +303,16 @@ with tab1:
                 
                 if view_mode == "Metrics":
                     available = list(display_df.columns)
-                    income_metrics = [m for m in available if m in ['Total Revenue', 'NetIncomeLoss', 'OperatingIncomeLoss', 'GrossProfit']]
-                    selected = st.multiselect("Select Metrics:", options=income_metrics, default=income_metrics[:3] if len(income_metrics) >= 3 else income_metrics)
+                    income_metrics = [m for m in available if m in ['Total Revenue', 'NetIncomeLoss', 'OperatingIncomeLoss', 'GrossProfit', 'CostOfRevenue', 'OperatingExpenses']]
+                    cashflow_metrics = [m for m in available if m in ['NetCashProvidedByUsedInOperatingActivities', 'NetCashProvidedByUsedInInvestingActivities', 'NetCashProvidedByUsedInFinancingActivities']]
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        income_selected = st.multiselect("Income Statement:", options=income_metrics, default=income_metrics[:3] if len(income_metrics) >= 3 else income_metrics)
+                    with col2:
+                        cashflow_selected = st.multiselect("Cash Flow:", options=cashflow_metrics, default=[])
+                    
+                    selected = income_selected + cashflow_selected
                     
                     if selected:
                         if quirky_mode:
@@ -313,9 +320,20 @@ with tab1:
                                 if metric in QUIRKY_COMMENTS:
                                     st.info(random.choice(QUIRKY_COMMENTS[metric]))
                         
+                        with st.expander("📖 What these mean"):
+                            for metric in selected:
+                                if metric in METRIC_DEFINITIONS:
+                                    st.write(f"**{metric}**: {METRIC_DEFINITIONS[metric]}")
+                        
                         fig = px.bar(display_df, x=display_df.index, y=selected, barmode='group')
                         fig.update_layout(height=500)
                         st.plotly_chart(fig, use_container_width=True)
+                        
+                        with st.expander("📂 Raw Data"):
+                            formatted = display_df[selected].copy()
+                            for col in formatted.columns:
+                                formatted[col] = formatted[col].apply(lambda x: f"${x:,.0f}" if pd.notnull(x) else "N/A")
+                            st.dataframe(formatted, use_container_width=True)
                 
                 elif view_mode == "Ratios":
                     ratios_df = calculate_ratios(display_df)
@@ -326,6 +344,11 @@ with tab1:
                             fig = px.bar(ratios_df, x=ratios_df.index, y=selected_ratios, barmode='group')
                             fig.update_layout(height=500)
                             st.plotly_chart(fig, use_container_width=True)
+                            
+                            with st.expander("📂 Data"):
+                                st.dataframe(ratios_df[selected_ratios], use_container_width=True)
+                    else:
+                        st.warning("Not enough data for ratios.")
                 
                 elif view_mode == "Insights":
                     custom_metrics = calculate_custom_metrics(display_df)
@@ -336,16 +359,44 @@ with tab1:
                             fig = px.bar(custom_metrics, x=custom_metrics.index, y=selected_custom, barmode='group')
                             fig.update_layout(height=500)
                             st.plotly_chart(fig, use_container_width=True)
+                            
+                            insider_trades = get_insider_trades(ticker)
+                            if insider_trades:
+                                st.subheader("👔 Insider Trading")
+                                insider_df = pd.DataFrame([
+                                    {
+                                        "Name": t.get('name', 'Unknown'),
+                                        "Position": t.get('position', 'N/A'),
+                                        "Transaction": t.get('transactionCode', 'N/A'),
+                                        "Shares": t.get('share', 0)
+                                    }
+                                    for t in insider_trades[:5]
+                                ])
+                                st.dataframe(insider_df, use_container_width=True)
+                    else:
+                        st.warning("Not enough cash flow data.")
                 
                 elif view_mode == "News":
+                    st.subheader(f"📰 Latest News for {ticker}")
                     news = get_company_news(ticker)
                     if news:
                         for i, article in enumerate(news):
                             with st.expander(f"{i+1}. {article.get('headline', 'No title')[:80]}..."):
                                 st.write(f"**Source:** {article.get('source', 'Unknown')}")
-                                st.write(article.get('summary', 'No summary')[:200])
+                                st.write(f"**Date:** {datetime.fromtimestamp(article.get('datetime', 0)).strftime('%Y-%m-%d %H:%M')}")
+                                st.write(article.get('summary', 'No summary')[:300])
+                                if article.get('url'):
+                                    st.markdown(f"[Read more]({article['url']})")
                     else:
                         st.info("No recent news available.")
+                    
+                    st.divider()
+                    st.subheader("🔔 Price Alerts (Coming Soon)")
+                    alert_price = st.number_input(f"Alert me when {ticker} hits:", value=stock_data['price'] if stock_data else 0)
+                    if st.button("Set Alert"):
+                        st.success(f"Alert set for ${alert_price:.2f}!")
+            else:
+                st.warning("No data for this timeframe.")
         
         except Exception as e:
             st.error(f"Error: {str(e)}")
