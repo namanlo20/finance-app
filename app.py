@@ -259,4 +259,4 @@ else:
         st.markdown("""
         - **By Ticker**: Enter stock symbols like `AAPL`, `MSFT`, `TSLA`
         - **By Name**: Enter company names like `APPLE INC`, `MICROSOFT CORP`
-        - The tool will try to find matches automatically!
+        - The tool will try to find matches automatically!""")
