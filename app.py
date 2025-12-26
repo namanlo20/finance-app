@@ -4,25 +4,22 @@ import pandas as pd
 import plotly.express as px
 
 st.set_page_config(page_title="TickerTotal", layout="wide")
-st.title("🔍 TickerTotal: Ultimate Pro Terminal")
+st.title("🔍 TickerTotal: 10-Year Pro Terminal")
 
 # --- SIDEBAR: DYNAMIC CONTROLS ---
 with st.sidebar:
     st.header("⚙️ Data Settings")
     view_mode = st.radio("Frequency:", ["Annual", "Quarterly"])
-    
-    # 5 is default, but user can pick ANY year from 1 to 15
     years_to_show = st.slider("Years of History:", min_value=1, max_value=15, value=5)
-    
     st.divider()
     user_color = st.color_picker("Primary Chart Color", "#00FFAA")
-    st.info("Charts now read Left-to-Right (Oldest to Newest).")
 
+# Updated Dictionary for the Glossary
 metric_defs = {
     "Total Revenue": "Total top-line money from sales.",
     "Net Income": "Bottom-line profit after all expenses.",
     "Free Cash Flow": "Cash available for expansion or dividends.",
-    "Debt to Equity": "Total Debt / Shareholders Equity (Risk measure).",
+    "Debt to Equity": "Total Debt / Shareholders Equity.",
     "FCF per Share": "Free Cash Flow for every share outstanding.",
     "Gross Margin %": "Profitability percentage after production costs."
 }
@@ -33,48 +30,50 @@ if ticker_symbol:
     stock = yf.Ticker(ticker_symbol)
     
     try:
-        # 1. FETCH MAX HISTORY
+        # 1. FETCH DATA
         if view_mode == "Annual":
-            fin, cf, bs = stock.get_financials(freq='yearly'), stock.get_cashflow(freq='yearly'), stock.get_balance_sheet(freq='yearly')
+            fin, cf, bs = stock.financials, stock.cashflow, stock.balance_sheet
         else:
-            fin, cf, bs = stock.get_financials(freq='quarterly'), stock.get_cashflow(freq='quarterly'), stock.get_balance_sheet(freq='quarterly')
+            fin, cf, bs = stock.quarterly_financials, stock.quarterly_cashflow, stock.quarterly_balance_sheet
 
-        # Merge and remove duplicates
+        # Merge all into one Master Table
         all_raw = pd.concat([fin, cf, bs], axis=0).T
         all_raw = all_raw.loc[:, ~all_raw.columns.duplicated()]
         
-        # 2. CALCULATE METRICS
-        shares = stock.info.get('sharesOutstanding', 1)
-        df = pd.DataFrame(index=all_raw.index)
-        
-        def safe_get(names):
-            for n in names:
-                if n in all_raw.columns: return all_raw[n]
-            return pd.Series(0, index=all_raw.index)
+        # 2. BULLETPROOF DATA EXTRACTION
+        def find_metric(possible_names):
+            for name in possible_names:
+                if name in all_raw.columns: return all_raw[name]
+            return pd.Series(0.0, index=all_raw.index) # Return 0s if not found
 
-        df["Total Revenue"] = safe_get(["Total Revenue", "Revenue"])
-        df["Net Income"] = safe_get(["Net Income"])
-        df["Free Cash Flow"] = safe_get(["Free Cash Flow"])
-        df["Gross Margin %"] = (safe_get(["Gross Profit"]) / df["Total Revenue"]) * 100
-        df["Debt to Equity"] = safe_get(["Total Debt"]) / safe_get(["Stockholders Equity"])
+        df = pd.DataFrame(index=all_raw.index)
+        df["Total Revenue"] = find_metric(["Total Revenue", "Revenue", "TotalRevenue"])
+        df["Net Income"] = find_metric(["Net Income", "NetIncome"])
+        df["Free Cash Flow"] = find_metric(["Free Cash Flow", "FreeCashFlow"])
+        
+        # Manual Math for Ratios
+        gross_profit = find_metric(["Gross Profit", "GrossProfit"])
+        df["Gross Margin %"] = (gross_profit / df["Total Revenue"].replace(0, 1)) * 100
+        
+        total_debt = find_metric(["Total Debt", "TotalDebt"])
+        equity = find_metric(["Stockholders Equity", "StockholdersEquity"])
+        df["Debt to Equity"] = total_debt / equity.replace(0, 1)
+
+        shares = stock.info.get('sharesOutstanding', 1)
         df["FCF per Share"] = df["Free Cash Flow"] / shares
 
-        # 3. CHRONOLOGICAL FILTERING
-        # Slice based on slider
+        # 3. CHRONOLOGICAL FILTERING (Fix for "Backwards" & "Empty" charts)
         count = years_to_show if view_mode == "Annual" else (years_to_show * 4)
-        df = df.head(count)
+        df = df.iloc[:count] # Take most recent X periods
+        df = df.sort_index(ascending=True) # Flip to Oldest -> Newest (Left to Right)
         
-        # SORT: Oldest -> Newest (Fixes the 'backwards' issue)
-        df = df.sort_index(ascending=True) 
-        
-        # Format the dates for the chart labels
         if view_mode == "Annual":
             df.index = pd.to_datetime(df.index).year
         else:
             df.index = pd.to_datetime(df.index).strftime('%b %Y')
 
     except Exception as e:
-        st.error(f"Waiting for data... ({e})")
+        st.error(f"Data Fetching Issue: Yahoo Finance might be down or rate-limiting. Try again in 1 minute. Error: {e}")
         df = pd.DataFrame()
 
     # --- 4. THE CHART ---
@@ -82,7 +81,7 @@ if ticker_symbol:
     selected = st.multiselect("Select Metrics:", options=list(metric_defs.keys()), default=["Total Revenue", "Net Income"])
 
     if not df.empty and selected:
-        # Category axis forces thick bars even with 15 years of data
+        # Force categorical axis to fix "skinny bars"
         fig = px.bar(
             df, x=df.index, y=selected,
             barmode='group',
@@ -90,10 +89,9 @@ if ticker_symbol:
         )
         
         fig.update_layout(
-            bargap=0.15, 
-            bargroupgap=0.05,
-            xaxis=dict(type='category', title="Time Period (Oldest to Newest)"),
-            yaxis=dict(title="Financial Value"),
+            bargap=0.15, bargroupgap=0.05,
+            xaxis=dict(type='category', title="Time Period (Oldest → Newest)"),
+            yaxis=dict(title="Value"),
             margin=dict(l=0, r=0, t=10, b=0)
         )
         st.plotly_chart(fig, use_container_width=True)
