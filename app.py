@@ -24,11 +24,13 @@ METRIC_DEFINITIONS = {
     "CostOfRevenue": "Direct costs of producing goods/services.",
     "GrossProfit": "Revenue minus Cost of Revenue.",
     "OperatingExpenses": "Business running costs.",
-    "NetCashProvidedByUsedInOperatingActivities": "Cash from operations.",
-    "NetCashProvidedByUsedInInvestingActivities": "Cash used for investments.",
-    "NetCashProvidedByUsedInFinancingActivities": "Cash from financing activities.",
-    "ShareBasedCompensation": "Stock-based compensation expense.",
-    "PaymentsToAcquirePropertyPlantAndEquipment": "Capital expenditures (CapEx).",
+    "NetCashProvidedByUsedInOperatingActivities": "Cash from operations - the lifeblood of a business.",
+    "NetCashProvidedByUsedInInvestingActivities": "Cash used for investments in equipment or acquisitions.",
+    "NetCashProvidedByUsedInFinancingActivities": "Cash from debt, equity, or buybacks.",
+    "ShareBasedCompensation": "Stock-based compensation expense - dilution in disguise.",
+    "PaymentsToAcquirePropertyPlantAndEquipment": "Capital expenditures (CapEx) - money spent on assets.",
+    "Free Cash Flow": "Operating Cash Flow minus CapEx - cash available for growth or returns.",
+    "FCF After SBC": "FCF minus stock comp - the MOST honest cash metric. No BS, just real cash.",
 }
 
 SECTOR_STOCKS = {
@@ -50,51 +52,63 @@ def calculate_ratios(df):
         ratios['Net Profit Margin %'] = (df['NetIncomeLoss'] / df['Total Revenue'] * 100).round(2)
     return ratios
 
-def calculate_custom_metrics(df):
-    custom = pd.DataFrame(index=df.index)
+def calculate_fcf_metrics(df):
+    fcf_metrics = pd.DataFrame(index=df.index)
     ocf = df.get('NetCashProvidedByUsedInOperatingActivities', pd.Series(dtype=float))
     sbc = df.get('ShareBasedCompensation', pd.Series(dtype=float))
     capex = df.get('PaymentsToAcquirePropertyPlantAndEquipment', pd.Series(dtype=float))
-    if not ocf.empty:
-        custom['Operating Cash Flow'] = ocf
+    
     if not ocf.empty and not capex.empty:
-        custom['Free Cash Flow'] = ocf - capex.abs()
-    if not ocf.empty and not sbc.empty and not capex.empty:
-        custom['FCF After SBC'] = ocf - sbc - capex.abs()
-    return custom
+        fcf_metrics['Free Cash Flow'] = ocf - capex.abs()
+        if not sbc.empty:
+            fcf_metrics['FCF After SBC'] = ocf - sbc - capex.abs()
+    
+    return fcf_metrics
 
 @st.cache_data(ttl=300)
-def get_stock_quote(ticker):
+def get_stock_data_yfinance(ticker):
     try:
-        url = f"https://query2.finance.yahoo.com/v10/finance/quoteSummary/{ticker}?modules=price,summaryDetail,defaultKeyStatistics"
-        response = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'})
-        data = response.json()
-        
-        price_data = data['quoteSummary']['result'][0]['price']
-        summary = data['quoteSummary']['result'][0].get('summaryDetail', {})
-        stats = data['quoteSummary']['result'][0].get('defaultKeyStatistics', {})
-        
-        market_cap = price_data.get('marketCap', {}).get('raw', 0)
-        shares = stats.get('sharesOutstanding', {}).get('raw', 0)
+        import yfinance as yf
+        stock = yf.Ticker(ticker)
+        info = stock.info
         
         return {
-            'price': price_data.get('regularMarketPrice', {}).get('raw', 0),
-            'change': price_data.get('regularMarketChange', {}).get('raw', 0),
-            'change_percent': price_data.get('regularMarketChangePercent', {}).get('raw', 0),
-            'previous_close': price_data.get('regularMarketPreviousClose', {}).get('raw', 0),
-            'market_cap': market_cap if market_cap > 0 else (shares * price_data.get('regularMarketPrice', {}).get('raw', 0)),
-            'pe_ratio': summary.get('trailingPE', {}).get('raw', 0),
-            'forward_pe': summary.get('forwardPE', {}).get('raw', 0),
+            'price': info.get('currentPrice', info.get('regularMarketPrice', 0)),
+            'change': info.get('regularMarketChange', 0),
+            'change_percent': info.get('regularMarketChangePercent', 0),
+            'previous_close': info.get('previousClose', info.get('regularMarketPreviousClose', 0)),
+            'market_cap': info.get('marketCap', 0),
+            'pe_ratio': info.get('trailingPE', info.get('forwardPE', 0)),
+            'forward_pe': info.get('forwardPE', 0),
         }
-    except Exception as e:
-        st.warning(f"Could not fetch full data for {ticker}: {e}")
-        return None
+    except:
+        pass
+    
+    try:
+        url = f"https://financialmodelingprep.com/api/v3/quote/{ticker}?apikey=demo"
+        response = requests.get(url, timeout=5)
+        data = response.json()
+        if data and len(data) > 0:
+            item = data[0]
+            return {
+                'price': item.get('price', 0),
+                'change': item.get('change', 0),
+                'change_percent': item.get('changesPercentage', 0),
+                'previous_close': item.get('previousClose', 0),
+                'market_cap': item.get('marketCap', 0),
+                'pe_ratio': item.get('pe', 0),
+                'forward_pe': 0,
+            }
+    except:
+        pass
+    
+    return None
 
 @st.cache_data(ttl=300)
-def get_multiple_stock_quotes(tickers):
+def get_multiple_stock_data(tickers):
     results = {}
     for ticker in tickers:
-        data = get_stock_quote(ticker)
+        data = get_stock_data_yfinance(ticker)
         if data:
             results[ticker] = data
     return results
@@ -210,7 +224,7 @@ with tab2:
     if selected_sector:
         with st.spinner(f"Loading {selected_sector} sector data..."):
             sector_tickers = SECTOR_STOCKS[selected_sector]
-            sector_data = get_multiple_stock_quotes(sector_tickers)
+            sector_data = get_multiple_stock_data(sector_tickers)
             
             if sector_data:
                 sector_df = pd.DataFrame([
@@ -229,13 +243,15 @@ with tab2:
                 sector_df = sector_df.sort_values(by=sort_by, ascending=False)
                 
                 display_df = sector_df.copy()
-                display_df['Price'] = display_df['Price'].apply(lambda x: f"${x:.2f}")
-                display_df['Change %'] = display_df['Change %'].apply(lambda x: f"{x:.2f}%")
-                display_df['Market Cap'] = display_df['Market Cap'].apply(lambda x: f"${x/1e9:.2f}B" if x > 0 else "N/A")
+                display_df['Price'] = display_df['Price'].apply(lambda x: f"${x:.2f}" if x > 0 else "N/A")
+                display_df['Change %'] = display_df['Change %'].apply(lambda x: f"{x:.2f}%" if pd.notnull(x) else "N/A")
+                display_df['Market Cap'] = display_df['Market Cap'].apply(lambda x: f"${x/1e9:.1f}B" if x > 1e6 else "N/A")
                 display_df['P/E Ratio'] = display_df['P/E Ratio'].apply(lambda x: f"{x:.2f}" if x > 0 else "N/A")
                 display_df['Forward P/E'] = display_df['Forward P/E'].apply(lambda x: f"{x:.2f}" if x > 0 else "N/A")
                 
                 st.dataframe(display_df, use_container_width=True, height=600)
+            else:
+                st.warning("Could not load sector data. Try again in a moment.")
 
 with tab1:
     search_input = st.text_input("🔍 Enter Ticker:", "NVDA").upper()
@@ -250,13 +266,13 @@ with tab1:
     view_mode = st.radio("View:", ["Metrics", "Ratios", "Insights", "News"], horizontal=True)
 
     if ticker in ticker_map:
-        stock_data = get_stock_quote(ticker)
+        stock_data = get_stock_data_yfinance(ticker)
         if stock_data:
             col1, col2, col3, col4, col5 = st.columns(5)
             col1.metric("Price", f"${stock_data['price']:.2f}", f"{stock_data['change_percent']:.2f}%")
             col2.metric("Prev Close", f"${stock_data['previous_close']:.2f}")
             mc = stock_data.get('market_cap', 0)
-            col3.metric("Market Cap", f"${mc/1e9:.1f}B" if mc > 0 else "N/A")
+            col3.metric("Market Cap", f"${mc/1e9:.1f}B" if mc > 1e6 else "Calculating...")
             pe = stock_data.get('pe_ratio', 0)
             col4.metric("P/E Ratio", f"{pe:.2f}" if pe > 0 else "N/A")
             fpe = stock_data.get('forward_pe', 0)
@@ -267,6 +283,8 @@ with tab1:
                 fig = px.area(chart_data, x='Date', y='Price', title=f'{ticker} Price Chart (1 Year)')
                 fig.update_layout(height=300, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='white')
                 st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.warning("Could not fetch live stock data. Showing SEC data only.")
 
     with st.sidebar:
         st.header("⚙️ Settings")
@@ -305,6 +323,10 @@ with tab1:
             if 'Total Revenue' in master_df.columns and 'CostOfRevenue' in master_df.columns:
                 master_df['GrossProfit'] = master_df['Total Revenue'] - master_df['CostOfRevenue']
             
+            fcf_df = calculate_fcf_metrics(master_df)
+            for col in fcf_df.columns:
+                master_df[col] = fcf_df[col]
+            
             cutoff_date = datetime.now() - timedelta(days=years_to_show*365)
             display_df = master_df[master_df.index >= cutoff_date].copy()
             if display_df.empty:
@@ -317,14 +339,17 @@ with tab1:
                     available = list(display_df.columns)
                     income_metrics = [m for m in available if m in ['Total Revenue', 'NetIncomeLoss', 'OperatingIncomeLoss', 'GrossProfit', 'CostOfRevenue', 'OperatingExpenses']]
                     cashflow_metrics = [m for m in available if m in ['NetCashProvidedByUsedInOperatingActivities', 'NetCashProvidedByUsedInInvestingActivities', 'NetCashProvidedByUsedInFinancingActivities', 'ShareBasedCompensation', 'PaymentsToAcquirePropertyPlantAndEquipment']]
+                    fcf_metrics = [m for m in available if m in ['Free Cash Flow', 'FCF After SBC']]
                     
-                    col1, col2 = st.columns(2)
+                    col1, col2, col3 = st.columns(3)
                     with col1:
-                        income_selected = st.multiselect("Income Statement:", options=income_metrics, default=income_metrics[:3] if len(income_metrics) >= 3 else income_metrics)
+                        income_selected = st.multiselect("💵 Income Statement:", options=income_metrics, default=income_metrics[:3] if len(income_metrics) >= 3 else income_metrics)
                     with col2:
-                        cashflow_selected = st.multiselect("Cash Flow:", options=cashflow_metrics, default=[])
+                        cashflow_selected = st.multiselect("💧 Cash Flow:", options=cashflow_metrics, default=[])
+                    with col3:
+                        fcf_selected = st.multiselect("🔥 Free Cash Flow:", options=fcf_metrics, default=fcf_metrics if fcf_metrics else [])
                     
-                    selected = income_selected + cashflow_selected
+                    selected = income_selected + cashflow_selected + fcf_selected
                     
                     if selected:
                         if quirky_mode:
@@ -337,16 +362,25 @@ with tab1:
                                 if metric in METRIC_DEFINITIONS:
                                     st.write(f"**{metric}**: {METRIC_DEFINITIONS[metric]}")
                         
-                        fig = px.bar(display_df, x=display_df.index, y=selected, barmode='group')
+                        fig = px.bar(display_df, x=display_df.index, y=selected, barmode='group', color_discrete_sequence=px.colors.qualitative.Bold)
                         max_val = display_df[selected].max().max()
+                        min_val = display_df[selected].min().min()
+                        y_range = [min_val * 1.1 if min_val < 0 else 0, max_val * 1.15]
+                        
                         fig.update_layout(
                             height=500,
-                            yaxis=dict(range=[0, max_val * 1.15]),
+                            yaxis=dict(range=y_range),
                             plot_bgcolor='rgba(0,0,0,0)',
                             paper_bgcolor='rgba(0,0,0,0)',
                             font_color='white'
                         )
                         st.plotly_chart(fig, use_container_width=True)
+                        
+                        with st.expander("📂 Raw Data"):
+                            formatted = display_df[selected].copy()
+                            for col in formatted.columns:
+                                formatted[col] = formatted[col].apply(lambda x: f"${x:,.0f}" if pd.notnull(x) else "N/A")
+                            st.dataframe(formatted, use_container_width=True)
                 
                 elif view_mode == "Ratios":
                     ratios_df = calculate_ratios(display_df)
@@ -354,7 +388,7 @@ with tab1:
                         available_ratios = list(ratios_df.columns)
                         selected_ratios = st.multiselect("Select Ratios:", options=available_ratios, default=available_ratios[:3] if len(available_ratios) >= 3 else available_ratios)
                         if selected_ratios:
-                            fig = px.bar(ratios_df, x=ratios_df.index, y=selected_ratios, barmode='group')
+                            fig = px.bar(ratios_df, x=ratios_df.index, y=selected_ratios, barmode='group', color_discrete_sequence=px.colors.qualitative.Pastel)
                             max_val = ratios_df[selected_ratios].max().max()
                             fig.update_layout(
                                 height=500,
@@ -364,31 +398,49 @@ with tab1:
                                 font_color='white'
                             )
                             st.plotly_chart(fig, use_container_width=True)
+                            
+                            with st.expander("📂 Data Table"):
+                                st.dataframe(ratios_df[selected_ratios], use_container_width=True)
                     else:
                         st.warning("Not enough data for ratios.")
                 
                 elif view_mode == "Insights":
-                    custom_metrics = calculate_custom_metrics(display_df)
-                    if not custom_metrics.empty:
+                    fcf_df = calculate_fcf_metrics(display_df)
+                    if not fcf_df.empty:
                         st.subheader("💎 Key Investment Metrics")
-                        available_custom = list(custom_metrics.columns)
-                        selected_custom = st.multiselect("Critical Metrics:", options=available_custom, default=available_custom)
-                        if selected_custom:
-                            fig = px.bar(custom_metrics, x=custom_metrics.index, y=selected_custom, barmode='group', color_discrete_sequence=['#00D9FF', '#FF6B9D', '#FFC837'])
-                            max_val = custom_metrics[selected_custom].max().max()
+                        available_fcf = list(fcf_df.columns)
+                        
+                        if 'OperatingIncomeLoss' in display_df.columns:
+                            available_fcf.append('OperatingIncomeLoss')
+                        
+                        selected_insights = st.multiselect("Critical Metrics:", options=available_fcf, default=available_fcf[:2] if len(available_fcf) >= 2 else available_fcf)
+                        
+                        if selected_insights:
+                            plot_df = pd.DataFrame(index=display_df.index)
+                            for metric in selected_insights:
+                                if metric in fcf_df.columns:
+                                    plot_df[metric] = fcf_df[metric]
+                                elif metric in display_df.columns:
+                                    plot_df[metric] = display_df[metric]
+                            
+                            fig = px.bar(plot_df, x=plot_df.index, y=selected_insights, barmode='group', color_discrete_sequence=['#00D9FF', '#FF6B9D', '#FFC837'])
+                            max_val = plot_df[selected_insights].max().max()
+                            min_val = plot_df[selected_insights].min().min()
+                            y_range = [min_val * 1.1 if min_val < 0 else 0, max_val * 1.15]
+                            
                             fig.update_layout(
                                 height=500,
-                                yaxis=dict(range=[0, max_val * 1.15]),
+                                yaxis=dict(range=y_range),
                                 plot_bgcolor='rgba(0,0,0,0)',
                                 paper_bgcolor='rgba(0,0,0,0)',
                                 font_color='white'
                             )
                             st.plotly_chart(fig, use_container_width=True)
                             
-                            if 'FCF After SBC' in custom_metrics.columns:
-                                latest_fcf = custom_metrics['FCF After SBC'].iloc[-1]
-                                if len(custom_metrics) > 1:
-                                    prev_fcf = custom_metrics['FCF After SBC'].iloc[-2]
+                            if 'FCF After SBC' in fcf_df.columns:
+                                latest_fcf = fcf_df['FCF After SBC'].iloc[-1]
+                                if len(fcf_df) > 1:
+                                    prev_fcf = fcf_df['FCF After SBC'].iloc[-2]
                                     growth = ((latest_fcf - prev_fcf) / abs(prev_fcf) * 100) if prev_fcf != 0 else 0
                                     
                                     col1, col2 = st.columns(2)
@@ -399,7 +451,7 @@ with tab1:
                                     else:
                                         col2.error("🚨 Negative free cash flow - burning cash!")
                     else:
-                        st.warning("Not enough cash flow data available.")
+                        st.warning("Not enough cash flow data available. Make sure the company reports operating cash flow and CapEx.")
                 
                 elif view_mode == "News":
                     st.subheader(f"📰 Latest News for {ticker}")
@@ -419,5 +471,6 @@ with tab1:
         
         except Exception as e:
             st.error(f"Error: {str(e)}")
+            st.info("This might be due to API rate limits or missing data.")
     else:
         st.info("Enter a valid ticker!")
