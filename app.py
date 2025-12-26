@@ -44,15 +44,10 @@ QUIRKY_COMMENTS = {
         "🔥 FCF = The cash left over for buybacks, dividends, or world domination.", 
         "💎 If this is negative for years, they're burning through cash like a tech startup in 2021.",
         "🎰 Free Cash Flow: The ONLY metric that doesn't lie. Cash is king, baby.",
-        "💰 This is 'can they actually fund themselves?' money. Everything else is accounting theater."
-    ],
-    "FCF After SBC": [
-        "🚨 THE REAL DEAL - this is cash after the Silicon Valley special (stock comp).", 
-        "💎 No lies, no fluff, just COLD HARD CASH after diluting shareholders.", 
-        "🎯 This metric doesn't lie. It's cash generation on HARD MODE. If it's negative, RUN.",
-        "⚡ The ultimate truth serum. This is what's left after paying employees in Monopoly money (shares).",
-        "🔥 If this number is trash, the CEO is basically paying employees with your equity. Not cool.",
-        "💀 Negative FCF after SBC = They're burning YOUR ownership to pay salaries. Red flag city."
+        "💰 This is 'can they actually fund themselves?' money. Everything else is accounting theater.",
+        "⚡ THE most honest metric. Operating cash minus CapEx = real money they can actually use.",
+        "🚨 If this is red, they're bleeding cash. If it's green and growing? Chef's kiss.",
+        "💎 This is the 'show me the money' metric. Revenue is vanity, profit is sanity, but cash is REALITY."
     ],
     "ShareBasedCompensation": [
         "🎭 Stock-based comp: AKA 'we're paying people by diluting YOU, the shareholder'",
@@ -75,8 +70,7 @@ METRIC_DEFINITIONS = {
     "NetCashProvidedByUsedInFinancingActivities": "Cash from debt, equity, or buybacks.",
     "ShareBasedCompensation": "Stock-based compensation expense - dilution in disguise.",
     "PaymentsToAcquirePropertyPlantAndEquipment": "Capital expenditures (CapEx) - money spent on assets.",
-    "Free Cash Flow": "Operating Cash Flow minus CapEx - cash available for growth or returns.",
-    "FCF After SBC": "FCF minus stock comp - the MOST honest cash metric. No BS, just real cash.",
+    "Free Cash Flow": "Operating Cash Flow minus CapEx - cash available for growth or returns. This is the REAL cash the business generates.",
     "Assets": "Total assets - everything the company owns.",
     "Liabilities": "Total liabilities - everything the company owes.",
     "StockholdersEquity": "Shareholders' equity - the net worth owned by shareholders.",
@@ -104,13 +98,11 @@ def calculate_ratios(df):
 def calculate_fcf_metrics(df):
     fcf_metrics = pd.DataFrame(index=df.index)
     ocf = df.get('NetCashProvidedByUsedInOperatingActivities', pd.Series(dtype=float))
-    sbc = df.get('ShareBasedCompensation', pd.Series(dtype=float))
     capex = df.get('PaymentsToAcquirePropertyPlantAndEquipment', pd.Series(dtype=float))
     
+    # Simple FCF calculation: Operating Cash Flow - CapEx
     if not ocf.empty and not capex.empty:
         fcf_metrics['Free Cash Flow'] = ocf - capex.abs()
-        if not sbc.empty:
-            fcf_metrics['FCF After SBC'] = ocf - sbc - capex.abs()
     
     return fcf_metrics
 
@@ -234,9 +226,9 @@ with tab3:
     st.markdown("""
     ### What I Look For When Investing:
     
-    **1. Free Cash Flow After SBC**
-    - Formula: Operating Cash Flow - Stock-Based Comp - CapEx
-    - THE most honest metric showing real cash after dilution
+    **1. Free Cash Flow**
+    - Formula: Operating Cash Flow - CapEx
+    - THE most honest metric showing real cash generation
     
     **2. Operating Income**
     - Core business profit before financial engineering
@@ -370,7 +362,7 @@ with tab1:
         
         st.divider()
         st.markdown("### 💡 Quick Tips")
-        st.info("**FCF After SBC**: Most honest cash metric\n\n**Operating Margin**: Pricing power\n\n**Current Ratio**: Liquidity check")
+        st.info("**Free Cash Flow**: Most honest cash metric (Op CF - CapEx)\n\n**Operating Margin**: Pricing power indicator\n\n**SBC**: Watch for excessive dilution")
 
     if ticker in ticker_map:
         chart_data = get_stock_chart_data(ticker, chart_timeframe)
@@ -422,28 +414,17 @@ with tab1:
                     income_metrics = [m for m in available if m in ['Total Revenue', 'NetIncomeLoss', 'OperatingIncomeLoss', 'GrossProfit', 'CostOfRevenue', 'OperatingExpenses']]
                     balance_metrics = [m for m in available if m in ['Assets', 'Liabilities', 'StockholdersEquity', 'AssetsCurrent', 'LiabilitiesCurrent']]
                     cashflow_metrics = [m for m in available if m in ['NetCashProvidedByUsedInOperatingActivities', 'NetCashProvidedByUsedInInvestingActivities', 'NetCashProvidedByUsedInFinancingActivities', 'ShareBasedCompensation', 'PaymentsToAcquirePropertyPlantAndEquipment']]
-                    fcf_metrics = [m for m in available if m in ['Free Cash Flow', 'FCF After SBC']]
+                    fcf_metrics = [m for m in available if m in ['Free Cash Flow']]
                     
                     # === CASH FLOW FIRST (TOP) ===
                     col_left, col_right = st.columns([1, 3])
                     with col_left:
-                        st.subheader("💧 Cash Flow & FCF")
-                        default_cf = [m for m in ['FCF After SBC', 'ShareBasedCompensation'] if m in cashflow_metrics or m in fcf_metrics]
+                        st.subheader("💧 Cash Flow")
+                        default_cf = [m for m in ['Free Cash Flow', 'ShareBasedCompensation'] if m in cashflow_metrics or m in fcf_metrics]
                         cashflow_selected = st.multiselect("Select metrics:", options=cashflow_metrics + fcf_metrics, default=default_cf, key="cf")
-                        
-                        # Debug toggle
-                        show_debug = st.checkbox("🔍 Debug: Show available data", value=False, key="debug_cf")
-                        if show_debug:
-                            st.caption(f"Available CF metrics: {cashflow_metrics}")
-                            st.caption(f"Available FCF metrics: {fcf_metrics}")
-                            st.caption(f"Selected: {cashflow_selected}")
-                            for m in cashflow_selected:
-                                if m in display_df.columns:
-                                    st.caption(f"✅ {m}: Has data")
-                                else:
-                                    st.caption(f"❌ {m}: Missing")
                     
                     with col_right:
+                        st.markdown("### 💧 Cash Flow Statement")
                         if cashflow_selected:
                             if quirky_mode:
                                 for metric in cashflow_selected:
@@ -469,10 +450,10 @@ with tab1:
                                 st.plotly_chart(fig, use_container_width=True)
                                 
                                 # Show definitions right below the chart
-                                st.markdown("**📖 Definitions:**")
-                                for metric in metrics_with_data:
-                                    if metric in METRIC_DEFINITIONS:
-                                        st.caption(f"**{metric}**: {METRIC_DEFINITIONS[metric]}")
+                                with st.expander("📖 Metric Definitions"):
+                                    for metric in metrics_with_data:
+                                        if metric in METRIC_DEFINITIONS:
+                                            st.write(f"**{metric}**: {METRIC_DEFINITIONS[metric]}")
                             else:
                                 st.warning("No data available for selected metrics.")
                     
@@ -481,11 +462,12 @@ with tab1:
                     # === INCOME STATEMENT SECOND (MIDDLE) ===
                     col_left, col_right = st.columns([1, 3])
                     with col_left:
-                        st.subheader("💵 Income Statement")
+                        st.subheader("💵 Income")
                         default_income = [m for m in ['Total Revenue', 'OperatingIncomeLoss', 'NetIncomeLoss'] if m in income_metrics]
                         income_selected = st.multiselect("Select metrics:", options=income_metrics, default=default_income, key="income")
                     
                     with col_right:
+                        st.markdown("### 💵 Income Statement")
                         if income_selected:
                             if quirky_mode:
                                 for metric in income_selected:
@@ -499,11 +481,11 @@ with tab1:
                             fig.update_layout(height=400, yaxis=dict(range=y_range), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='white', showlegend=True)
                             st.plotly_chart(fig, use_container_width=True)
                             
-                            # Show definitions right below the chart
-                            st.markdown("**📖 Definitions:**")
-                            for metric in income_selected:
-                                if metric in METRIC_DEFINITIONS:
-                                    st.caption(f"**{metric}**: {METRIC_DEFINITIONS[metric]}")
+                            # Show definitions in expander below the chart
+                            with st.expander("📖 Metric Definitions"):
+                                for metric in income_selected:
+                                    if metric in METRIC_DEFINITIONS:
+                                        st.write(f"**{metric}**: {METRIC_DEFINITIONS[metric]}")
                     
                     st.divider()
                     
@@ -515,6 +497,7 @@ with tab1:
                         balance_selected = st.multiselect("Select metrics:", options=balance_metrics, default=default_balance, key="balance")
                     
                     with col_right:
+                        st.markdown("### 🏦 Balance Sheet")
                         if balance_selected:
                             if quirky_mode:
                                 for metric in balance_selected:
@@ -528,11 +511,11 @@ with tab1:
                             fig.update_layout(height=400, yaxis=dict(range=y_range), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='white', showlegend=True)
                             st.plotly_chart(fig, use_container_width=True)
                             
-                            # Show definitions right below the chart
-                            st.markdown("**📖 Definitions:**")
-                            for metric in balance_selected:
-                                if metric in METRIC_DEFINITIONS:
-                                    st.caption(f"**{metric}**: {METRIC_DEFINITIONS[metric]}")
+                            # Show definitions in expander below the chart
+                            with st.expander("📖 Metric Definitions"):
+                                for metric in balance_selected:
+                                    if metric in METRIC_DEFINITIONS:
+                                        st.write(f"**{metric}**: {METRIC_DEFINITIONS[metric]}")
                     
                     with st.expander("📂 Raw Data"):
                         all_selected = income_selected + balance_selected + cashflow_selected
@@ -585,14 +568,14 @@ with tab1:
                             fig.update_layout(height=500, yaxis=dict(range=y_range), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='white')
                             st.plotly_chart(fig, use_container_width=True)
                             
-                            if 'FCF After SBC' in fcf_df.columns:
-                                latest_fcf = fcf_df['FCF After SBC'].iloc[-1]
+                            if 'Free Cash Flow' in fcf_df.columns:
+                                latest_fcf = fcf_df['Free Cash Flow'].iloc[-1]
                                 if len(fcf_df) > 1:
-                                    prev_fcf = fcf_df['FCF After SBC'].iloc[-2]
+                                    prev_fcf = fcf_df['Free Cash Flow'].iloc[-2]
                                     growth = ((latest_fcf - prev_fcf) / abs(prev_fcf) * 100) if prev_fcf != 0 else 0
                                     
                                     col1, col2 = st.columns(2)
-                                    col1.metric("Latest FCF After SBC", f"${latest_fcf/1e9:.2f}B", f"{growth:+.1f}%")
+                                    col1.metric("Latest Free Cash Flow", f"${latest_fcf/1e9:.2f}B", f"{growth:+.1f}%")
                                     
                                     if latest_fcf > 0:
                                         col2.success("✅ Positive free cash flow!")
