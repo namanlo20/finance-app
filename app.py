@@ -27,6 +27,8 @@ METRIC_DEFINITIONS = {
     "NetCashProvidedByUsedInOperatingActivities": "Cash from operations.",
     "NetCashProvidedByUsedInInvestingActivities": "Cash used for investments.",
     "NetCashProvidedByUsedInFinancingActivities": "Cash from financing activities.",
+    "ShareBasedCompensation": "Stock-based compensation expense.",
+    "PaymentsToAcquirePropertyPlantAndEquipment": "Capital expenditures (CapEx).",
 }
 
 SECTOR_STOCKS = {
@@ -62,28 +64,37 @@ def calculate_custom_metrics(df):
     return custom
 
 @st.cache_data(ttl=300)
-def get_stock_price(ticker):
+def get_stock_quote(ticker):
     try:
-        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}"
+        url = f"https://query2.finance.yahoo.com/v10/finance/quoteSummary/{ticker}?modules=price,summaryDetail,defaultKeyStatistics"
         response = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'})
         data = response.json()
-        quote = data['chart']['result'][0]['meta']
+        
+        price_data = data['quoteSummary']['result'][0]['price']
+        summary = data['quoteSummary']['result'][0].get('summaryDetail', {})
+        stats = data['quoteSummary']['result'][0].get('defaultKeyStatistics', {})
+        
+        market_cap = price_data.get('marketCap', {}).get('raw', 0)
+        shares = stats.get('sharesOutstanding', {}).get('raw', 0)
+        
         return {
-            'price': quote.get('regularMarketPrice', 0),
-            'change': quote.get('regularMarketChange', 0),
-            'change_percent': quote.get('regularMarketChangePercent', 0),
-            'previous_close': quote.get('previousClose', 0),
-            'market_cap': quote.get('marketCap', 0),
-            'pe_ratio': quote.get('trailingPE', 0),
+            'price': price_data.get('regularMarketPrice', {}).get('raw', 0),
+            'change': price_data.get('regularMarketChange', {}).get('raw', 0),
+            'change_percent': price_data.get('regularMarketChangePercent', {}).get('raw', 0),
+            'previous_close': price_data.get('regularMarketPreviousClose', {}).get('raw', 0),
+            'market_cap': market_cap if market_cap > 0 else (shares * price_data.get('regularMarketPrice', {}).get('raw', 0)),
+            'pe_ratio': summary.get('trailingPE', {}).get('raw', 0),
+            'forward_pe': summary.get('forwardPE', {}).get('raw', 0),
         }
-    except:
+    except Exception as e:
+        st.warning(f"Could not fetch full data for {ticker}: {e}")
         return None
 
 @st.cache_data(ttl=300)
-def get_multiple_stock_prices(tickers):
+def get_multiple_stock_quotes(tickers):
     results = {}
     for ticker in tickers:
-        data = get_stock_price(ticker)
+        data = get_stock_quote(ticker)
         if data:
             results[ticker] = data
     return results
@@ -129,35 +140,102 @@ st.markdown("""
 .main { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
 h1, h2, h3 { color: white !important; }
 .stMetric { background: rgba(255,255,255,0.15); padding: 15px; border-radius: 10px; }
+.stTabs [data-baseweb="tab"] { color: white; font-weight: 600; }
 </style>
 """, unsafe_allow_html=True)
 
 st.title("🚀 SEC Terminal Pro: Where Finance Meets Fun")
 st.caption("Your no-BS financial analysis platform")
 
-tab1, tab2, tab3 = st.tabs(["📊 Company Analysis", "🎯 Sector Explorer", "💼 My Portfolio"])
+tab1, tab2, tab3, tab4 = st.tabs(["📊 Company Analysis", "🎯 Sector Explorer", "💎 My Investment Checklist", "💼 My Portfolio"])
+
+with tab4:
+    st.header("💼 My Investment Portfolio")
+    st.info("Portfolio tracking coming soon! Track multiple positions, cost basis, and returns all in one place.")
 
 with tab3:
-    st.header("💼 My Investment Portfolio")
-    st.info("Portfolio tracking coming soon!")
+    st.header("💎 My Investment Checklist")
+    st.subheader("🔥 The Metrics That Actually Matter")
+    
+    st.markdown("""
+    ### What I Look For When Investing:
+    
+    **1. Free Cash Flow After SBC (Stock-Based Compensation)**
+    - This is THE most honest metric. It shows real cash generation after accounting for dilution.
+    - Formula: Operating Cash Flow - Stock-Based Comp - CapEx
+    - Why: Tech companies love to hide dilution. This metric doesn't let them.
+    
+    **2. Operating Income**
+    - Shows if the core business actually makes money.
+    - Strips out financial engineering and one-time items.
+    - Look for consistent growth, not volatility.
+    
+    **3. Gross Margin %**
+    - High margins (>60%) = pricing power and moat
+    - Low margins (<20%) = commodity business getting squeezed
+    - Expanding margins = getting better with scale
+    
+    **4. Operating Margin %**
+    - After all operating expenses, what's left?
+    - Target: >20% for software, >10% for most others
+    - Trend matters more than absolute number
+    
+    **5. Revenue Growth Rate**
+    - Growing >20% YoY = exciting
+    - Growing <5% YoY = mature/struggling
+    - Decelerating growth = red flag
+    
+    **6. Current Ratio**
+    - Can they pay bills? Above 1.5 is healthy.
+    - Below 1.0 = potential liquidity crisis
+    
+    **7. Debt-to-Equity**
+    - Lower is safer (generally <0.5 for tech)
+    - High debt in downturns = danger zone
+    
+    ### 🚨 Red Flags I Always Check:
+    - Declining gross margins (losing pricing power)
+    - Negative free cash flow for multiple years
+    - Stock-based comp >30% of revenue (massive dilution)
+    - Revenue growing but cash flow shrinking (fake growth)
+    - High debt + low margins (death spiral potential)
+    
+    ### 💡 Pro Tip:
+    Use the "Insights" tab to quickly see FCF After SBC trends. If it's consistently negative or declining while revenue grows, that's a major red flag! 🚩
+    """)
 
 with tab2:
     st.header("🎯 Sector Explorer")
     selected_sector = st.selectbox("Select Sector:", list(SECTOR_STOCKS.keys()))
     if selected_sector:
-        sector_tickers = SECTOR_STOCKS[selected_sector]
-        sector_data = get_multiple_stock_prices(sector_tickers)
-        if sector_data:
-            sector_df = pd.DataFrame([
-                {
-                    "Ticker": ticker,
-                    "Price": f"${data['price']:.2f}",
-                    "Change %": f"{data['change_percent']:.2f}%",
-                    "Market Cap": f"${data.get('market_cap', 0)/1e9:.2f}B" if data.get('market_cap', 0) > 0 else "N/A",
-                }
-                for ticker, data in sector_data.items()
-            ])
-            st.dataframe(sector_df, use_container_width=True, height=600)
+        with st.spinner(f"Loading {selected_sector} sector data..."):
+            sector_tickers = SECTOR_STOCKS[selected_sector]
+            sector_data = get_multiple_stock_quotes(sector_tickers)
+            
+            if sector_data:
+                sector_df = pd.DataFrame([
+                    {
+                        "Ticker": ticker,
+                        "Price": data['price'],
+                        "Change %": data['change_percent'],
+                        "Market Cap": data.get('market_cap', 0),
+                        "P/E Ratio": data.get('pe_ratio', 0),
+                        "Forward P/E": data.get('forward_pe', 0),
+                    }
+                    for ticker, data in sector_data.items()
+                ])
+                
+                sort_by = st.radio("Sort by:", ["Market Cap", "Price", "Change %", "P/E Ratio"], horizontal=True)
+                sector_df = sector_df.sort_values(by=sort_by, ascending=False)
+                
+                display_df = sector_df.copy()
+                display_df['Price'] = display_df['Price'].apply(lambda x: f"${x:.2f}")
+                display_df['Change %'] = display_df['Change %'].apply(lambda x: f"{x:.2f}%")
+                display_df['Market Cap'] = display_df['Market Cap'].apply(lambda x: f"${x/1e9:.2f}B" if x > 0 else "N/A")
+                display_df['P/E Ratio'] = display_df['P/E Ratio'].apply(lambda x: f"{x:.2f}" if x > 0 else "N/A")
+                display_df['Forward P/E'] = display_df['Forward P/E'].apply(lambda x: f"{x:.2f}" if x > 0 else "N/A")
+                
+                st.dataframe(display_df, use_container_width=True, height=600)
 
 with tab1:
     search_input = st.text_input("🔍 Enter Ticker:", "NVDA").upper()
@@ -172,20 +250,22 @@ with tab1:
     view_mode = st.radio("View:", ["Metrics", "Ratios", "Insights", "News"], horizontal=True)
 
     if ticker in ticker_map:
-        stock_data = get_stock_price(ticker)
+        stock_data = get_stock_quote(ticker)
         if stock_data:
-            col1, col2, col3, col4 = st.columns(4)
+            col1, col2, col3, col4, col5 = st.columns(5)
             col1.metric("Price", f"${stock_data['price']:.2f}", f"{stock_data['change_percent']:.2f}%")
             col2.metric("Prev Close", f"${stock_data['previous_close']:.2f}")
             mc = stock_data.get('market_cap', 0)
-            col3.metric("Market Cap", f"${mc/1e9:.2f}B" if mc > 0 else "N/A")
+            col3.metric("Market Cap", f"${mc/1e9:.1f}B" if mc > 0 else "N/A")
             pe = stock_data.get('pe_ratio', 0)
-            col4.metric("P/E", f"{pe:.2f}" if pe > 0 else "N/A")
+            col4.metric("P/E Ratio", f"{pe:.2f}" if pe > 0 else "N/A")
+            fpe = stock_data.get('forward_pe', 0)
+            col5.metric("Forward P/E", f"{fpe:.2f}" if fpe > 0 else "N/A")
             
             chart_data = get_stock_chart_data(ticker, '1y')
             if chart_data is not None:
-                fig = px.area(chart_data, x='Date', y='Price', title=f'{ticker} Price Chart')
-                fig.update_layout(height=300)
+                fig = px.area(chart_data, x='Date', y='Price', title=f'{ticker} Price Chart (1 Year)')
+                fig.update_layout(height=300, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='white')
                 st.plotly_chart(fig, use_container_width=True)
 
     with st.sidebar:
@@ -194,6 +274,10 @@ with tab1:
         years_to_show = st.slider("History:", 1, 20, 10)
         target_form = "10-K" if "Annual" in freq else "10-Q"
         quirky_mode = st.toggle("🔥 Unhinged Mode", value=False)
+        
+        st.divider()
+        st.markdown("### 💡 Quick Tips")
+        st.info("**FCF After SBC**: Most honest cash metric\n\n**Operating Margin**: Pricing power indicator\n\n**Current Ratio**: Liquidity health check")
 
     if ticker in ticker_map:
         try:
@@ -232,7 +316,7 @@ with tab1:
                 if view_mode == "Metrics":
                     available = list(display_df.columns)
                     income_metrics = [m for m in available if m in ['Total Revenue', 'NetIncomeLoss', 'OperatingIncomeLoss', 'GrossProfit', 'CostOfRevenue', 'OperatingExpenses']]
-                    cashflow_metrics = [m for m in available if m in ['NetCashProvidedByUsedInOperatingActivities', 'NetCashProvidedByUsedInInvestingActivities', 'NetCashProvidedByUsedInFinancingActivities']]
+                    cashflow_metrics = [m for m in available if m in ['NetCashProvidedByUsedInOperatingActivities', 'NetCashProvidedByUsedInInvestingActivities', 'NetCashProvidedByUsedInFinancingActivities', 'ShareBasedCompensation', 'PaymentsToAcquirePropertyPlantAndEquipment']]
                     
                     col1, col2 = st.columns(2)
                     with col1:
@@ -254,7 +338,14 @@ with tab1:
                                     st.write(f"**{metric}**: {METRIC_DEFINITIONS[metric]}")
                         
                         fig = px.bar(display_df, x=display_df.index, y=selected, barmode='group')
-                        fig.update_layout(height=500)
+                        max_val = display_df[selected].max().max()
+                        fig.update_layout(
+                            height=500,
+                            yaxis=dict(range=[0, max_val * 1.15]),
+                            plot_bgcolor='rgba(0,0,0,0)',
+                            paper_bgcolor='rgba(0,0,0,0)',
+                            font_color='white'
+                        )
                         st.plotly_chart(fig, use_container_width=True)
                 
                 elif view_mode == "Ratios":
@@ -264,7 +355,14 @@ with tab1:
                         selected_ratios = st.multiselect("Select Ratios:", options=available_ratios, default=available_ratios[:3] if len(available_ratios) >= 3 else available_ratios)
                         if selected_ratios:
                             fig = px.bar(ratios_df, x=ratios_df.index, y=selected_ratios, barmode='group')
-                            fig.update_layout(height=500)
+                            max_val = ratios_df[selected_ratios].max().max()
+                            fig.update_layout(
+                                height=500,
+                                yaxis=dict(range=[0, max_val * 1.15]),
+                                plot_bgcolor='rgba(0,0,0,0)',
+                                paper_bgcolor='rgba(0,0,0,0)',
+                                font_color='white'
+                            )
                             st.plotly_chart(fig, use_container_width=True)
                     else:
                         st.warning("Not enough data for ratios.")
@@ -272,14 +370,36 @@ with tab1:
                 elif view_mode == "Insights":
                     custom_metrics = calculate_custom_metrics(display_df)
                     if not custom_metrics.empty:
+                        st.subheader("💎 Key Investment Metrics")
                         available_custom = list(custom_metrics.columns)
-                        selected_custom = st.multiselect("Key Metrics:", options=available_custom, default=available_custom)
+                        selected_custom = st.multiselect("Critical Metrics:", options=available_custom, default=available_custom)
                         if selected_custom:
-                            fig = px.bar(custom_metrics, x=custom_metrics.index, y=selected_custom, barmode='group')
-                            fig.update_layout(height=500)
+                            fig = px.bar(custom_metrics, x=custom_metrics.index, y=selected_custom, barmode='group', color_discrete_sequence=['#00D9FF', '#FF6B9D', '#FFC837'])
+                            max_val = custom_metrics[selected_custom].max().max()
+                            fig.update_layout(
+                                height=500,
+                                yaxis=dict(range=[0, max_val * 1.15]),
+                                plot_bgcolor='rgba(0,0,0,0)',
+                                paper_bgcolor='rgba(0,0,0,0)',
+                                font_color='white'
+                            )
                             st.plotly_chart(fig, use_container_width=True)
+                            
+                            if 'FCF After SBC' in custom_metrics.columns:
+                                latest_fcf = custom_metrics['FCF After SBC'].iloc[-1]
+                                if len(custom_metrics) > 1:
+                                    prev_fcf = custom_metrics['FCF After SBC'].iloc[-2]
+                                    growth = ((latest_fcf - prev_fcf) / abs(prev_fcf) * 100) if prev_fcf != 0 else 0
+                                    
+                                    col1, col2 = st.columns(2)
+                                    col1.metric("Latest FCF After SBC", f"${latest_fcf/1e9:.2f}B", f"{growth:+.1f}%")
+                                    
+                                    if latest_fcf > 0:
+                                        col2.success("✅ Positive free cash flow after dilution!")
+                                    else:
+                                        col2.error("🚨 Negative free cash flow - burning cash!")
                     else:
-                        st.warning("Not enough cash flow data.")
+                        st.warning("Not enough cash flow data available.")
                 
                 elif view_mode == "News":
                     st.subheader(f"📰 Latest News for {ticker}")
