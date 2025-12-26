@@ -3,65 +3,102 @@ import yfinance as yf
 import pandas as pd
 import plotly.express as px
 
+# 1. Page Configuration
 st.set_page_config(page_title="TickerTotal", layout="wide")
-st.title("🔍 TickerTotal: The Pro Terminal")
+st.title("🔍 TickerTotal: The Complete Terminal")
 
-# Sidebar
+# --- SIDEBAR: CUSTOM STYLE ---
 with st.sidebar:
-    st.header("🎨 Dashboard Styles")
-    user_color = st.color_picker("Pick a Chart Color", "#00FFAA")
+    st.header("🎨 Appearance")
+    user_color = st.color_picker("Main Bar Color", "#00FFAA")
+    st.info("Bars are 'Grouped' for easy side-by-side comparison.")
 
-# Simplified Metric Names for 2025 Stability
+# Definitions for all your metrics
 metric_defs = {
-    "Total Revenue": "Total money coming in.",
-    "Net Income": "Final profit after all costs.",
-    "Free Cash Flow": "Cash left after expenses/equipment."
+    "Total Revenue": "Total money coming in from sales.",
+    "Cost Of Revenue": "Direct costs of making the products sold (COGS).",
+    "Gross Profit": "Revenue minus direct production costs.",
+    "Operating Income": "Profit from core business activities.",
+    "Net Income": "The 'Bottom Line' total profit.",
+    "Operating Cash Flow": "Actual cash generated from operations.",
+    "Free Cash Flow": "Cash left over after all expenses and equipment."
 }
 
-ticker = st.text_input("Enter Ticker:", "AAPL").upper()
+ticker_symbol = st.text_input("Enter Ticker:", "AAPL").upper()
 
-if ticker:
-    stock = yf.Ticker(ticker)
+if ticker_symbol:
+    stock = yf.Ticker(ticker_symbol)
     
-    # 1. THE DATA FETCH (Simple & Safe)
+    # --- 1. DATA MERGE (Safe Combining) ---
     try:
-        # Merge financials and cashflow tables
-        df = pd.concat([stock.financials.T, stock.cashflow.T], axis=1)
-        df = df.loc[:,~df.columns.duplicated()] # Remove duplicates
-        df.index = pd.to_datetime(df.index).year # Use years only
+        # Merges Income Statement + Cash Flow so metrics like 'Free Cash Flow' work
+        all_data = pd.concat([stock.financials.T, stock.cashflow.T], axis=1)
+        all_data = all_data.loc[:, ~all_data.columns.duplicated()]
+        all_data.index = pd.to_datetime(all_data.index).year # Set index to Year only
     except:
-        st.error("Data fetch failed. Trying basic info...")
-        df = pd.DataFrame()
+        st.error("Data fetch failed. Try another ticker.")
+        all_data = pd.DataFrame()
 
-    # 2. MARKET SNAPSHOT
+    # --- 2. RESTORED: MARKET SNAPSHOT ---
     info = stock.info
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Price", f"${info.get('currentPrice', 'N/A')}")
-    c2.metric("Market Cap", f"{info.get('marketCap', 0):,}")
-    c3.metric("Risk", info.get('overallRisk', 'N/A'))
+    if 'currentPrice' in info:
+        st.subheader("Market Snapshot")
+        col1, col2, col3, col4 = st.columns(4)
+        div = info.get('dividendRate', 0)
+        yield_val = (div / info['currentPrice']) * 100 if div else 0
 
-    # 3. THE "SPACING FIX" CHART
-    st.subheader("📊 Financials Explorer")
-    selected = st.multiselect("Pick Metrics:", options=list(metric_defs.keys()), default=["Total Revenue", "Net Income"])
-    
-    if not df.empty and selected:
-        valid = [m for m in selected if m in df.columns]
-        if valid:
-            # PLOTLY GROUPED BARS (Side-by-Side)
-            fig = px.bar(df, x=df.index, y=valid, barmode='group',
-                         color_discrete_sequence=[user_color, "#FF4B4B", "#1C83E1"])
-            
-            # This 'bargap' ensures they aren't skinny and have no huge space
-            fig.update_layout(bargap=0.2, bargroupgap=0.05, xaxis_title="Year")
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # Explanation Tabs
-            tabs = st.tabs(valid)
-            for i, m in enumerate(valid):
-                with tabs[i]: st.info(f"**{m}**: {metric_defs[m]}")
+        col1.metric("Current Price", f"${info.get('currentPrice')}")
+        col2.metric("Market Cap", f"{info.get('marketCap', 0):,}")
+        col3.metric("Div. Yield", f"{yield_val:.2f}%")
+        col4.metric("Risk Score", info.get('overallRisk', 'N/A'))
 
-    # 4. NEWS (Simple list)
+    # --- 3. THE FINANCIALS EXPLORER (With Fixed Spacing) ---
     st.divider()
+    st.subheader("📊 Financials Explorer")
+    
+    # Multiselect now correctly filters the data
+    selected = st.multiselect(
+        "Select Financial Metrics:", 
+        options=list(metric_defs.keys()), 
+        default=["Total Revenue", "Net Income"]
+    )
+
+    if not all_data.empty and selected:
+        valid_selected = [m for m in selected if m in all_data.columns]
+        if valid_selected:
+            # PLOTLY: Forces side-by-side bars with 'barmode=group'
+            fig = px.bar(
+                all_data, 
+                x=all_data.index, 
+                y=valid_selected,
+                barmode='group', 
+                color_discrete_sequence=[user_color, "#FF4B4B", "#1C83E1", "#FACA2B", "#AB63FA"]
+            )
+            
+            # SPACING FIX: Tightens the bars so they fill the space properly
+            fig.update_layout(
+                bargap=0.15, 
+                bargroupgap=0.05,
+                xaxis=dict(type='category', title="Year"),
+                yaxis=dict(title="Amount ($)"),
+                margin=dict(l=0, r=0, t=20, b=0)
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+            # RESTORED: EXPLANATION TABS
+            st.write("#### 📖 Understand the Data")
+            tabs = st.tabs(valid_selected)
+            for i, m in enumerate(valid_selected):
+                with tabs[i]: st.info(f"**{m}**: {metric_defs.get(m)}")
+
+    # --- 4. RESTORED: ABOUT & NEWS ---
+    st.divider()
+    with st.expander("📝 About the Company"):
+        st.write(info.get('longBusinessSummary', "No description available."))
+
     st.subheader("Latest News")
-    for a in stock.news[:3]:
-        st.write(f"**[{a.get('title', 'News')}]({a.get('link', '#')})**")
+    for article in stock.news[:4]:
+        title = article.get('title', 'News Update')
+        link = article.get('link', '#')
+        st.markdown(f"**[{title}]({link})**")
+        st.divider()
