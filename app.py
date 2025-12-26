@@ -1,4 +1,3 @@
-st.write("VERSION 2.0 - Updated with stock price and news")
 import streamlit as st
 import pandas as pd
 import requests
@@ -6,6 +5,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 
+st.write("VERSION 2.0 - Updated with stock price and news")
 HEADERS = {'User-Agent': "pro_analyst_v6@outlook.com"}
 
 st.set_page_config(page_title="SEC Terminal Pro", layout="wide")
