@@ -11,12 +11,56 @@ HEADERS = {'User-Agent': "pro_analyst_v6@outlook.com"}
 st.set_page_config(page_title="SEC Terminal Pro", layout="wide", page_icon="🚀")
 
 QUIRKY_COMMENTS = {
-    "Total Revenue": ["💰 The big kahuna! This is how much money is flowing through the door before anyone takes their cut.", "🎰 Revenue baby! Like the casino's total handle before the house takes its share.", "📈 This is the top line - where dreams are made (or crushed)."],
-    "NetIncomeLoss": ["✅ The moment of truth - are we printing money or burning it?", "💸 Bottom line time! This is what's LEFT after everyone gets paid.", "🎯 Net income: Where the rubber meets the road and BS meets reality."],
-    "OperatingIncomeLoss": ["🏭 Core business profit - can they actually run a business or nah?", "⚙️ This shows if the business model actually works without accounting tricks.", "💼 Operating income: The 'can you walk the walk' metric."],
-    "Gross Margin %": ["📊 High margins = pricing power = they're not getting squeezed.", "💪 Gross margin: Can they charge premium or are they a commodity?", "🎨 The art of not being a commodity business, quantified."],
-    "Free Cash Flow": ["💵 This is ACTUAL cash the business generates after paying the bills and buying stuff.", "🔥 FCF = The cash left over for buybacks, dividends, or world domination.", "💎 If this is negative for years, they're burning through cash like a tech startup in 2021."],
-    "FCF After SBC": ["🚨 THE REAL DEAL - this is cash after the Silicon Valley special (stock comp).", "💎 No lies, no fluff, just COLD HARD CASH after diluting shareholders.", "🎯 This metric doesn't lie. It's cash generation on HARD MODE. If it's negative, RUN."]
+    "Total Revenue": [
+        "💰 The big kahuna! This is how much money is flowing through the door before anyone takes their cut.", 
+        "🎰 Revenue baby! Like the casino's total handle before the house takes its share.", 
+        "📈 This is the top line - where dreams are made (or crushed).",
+        "🚀 Top-line energy! If this ain't growing, nothing else matters.",
+        "💸 The money printer goes BRRRR! Or does it?"
+    ],
+    "NetIncomeLoss": [
+        "✅ The moment of truth - are we printing money or burning it?", 
+        "💸 Bottom line time! This is what's LEFT after everyone gets paid.", 
+        "🎯 Net income: Where the rubber meets the road and BS meets reality.",
+        "🔥 This is the 'show me the money' line. Everything above was just foreplay.",
+        "💎 If this is red year after year, they're cosplaying as a charity."
+    ],
+    "OperatingIncomeLoss": [
+        "🏭 Core business profit - can they actually run a business or nah?", 
+        "⚙️ This shows if the business model actually works without accounting tricks.", 
+        "💼 Operating income: The 'can you walk the walk' metric.",
+        "🎪 Strip away the financial circus and THIS is what the business actually makes.",
+        "💪 This is like asking: if you took away all the fancy stuff, does the core business slap?"
+    ],
+    "Gross Margin %": [
+        "📊 High margins = pricing power = they're not getting squeezed.", 
+        "💪 Gross margin: Can they charge premium or are they a commodity?", 
+        "🎨 The art of not being a commodity business, quantified.",
+        "👑 High margins? They're royalty. Low margins? They're fighting for scraps.",
+        "🔥 If this is >60%, they've got a moat. If it's <20%, they're McDonald's (no offense, Ronald)."
+    ],
+    "Free Cash Flow": [
+        "💵 This is ACTUAL cash the business generates after paying the bills and buying stuff.", 
+        "🔥 FCF = The cash left over for buybacks, dividends, or world domination.", 
+        "💎 If this is negative for years, they're burning through cash like a tech startup in 2021.",
+        "🎰 Free Cash Flow: The ONLY metric that doesn't lie. Cash is king, baby.",
+        "💰 This is 'can they actually fund themselves?' money. Everything else is accounting theater."
+    ],
+    "FCF After SBC": [
+        "🚨 THE REAL DEAL - this is cash after the Silicon Valley special (stock comp).", 
+        "💎 No lies, no fluff, just COLD HARD CASH after diluting shareholders.", 
+        "🎯 This metric doesn't lie. It's cash generation on HARD MODE. If it's negative, RUN.",
+        "⚡ The ultimate truth serum. This is what's left after paying employees in Monopoly money (shares).",
+        "🔥 If this number is trash, the CEO is basically paying employees with your equity. Not cool.",
+        "💀 Negative FCF after SBC = They're burning YOUR ownership to pay salaries. Red flag city."
+    ],
+    "ShareBasedCompensation": [
+        "🎭 Stock-based comp: AKA 'we're paying people by diluting YOU, the shareholder'",
+        "💸 The Silicon Valley special! Employees get rich, shareholders get diluted.",
+        "🚨 If this is >20% of revenue, they're basically printing shares like the Fed prints money.",
+        "⚠️ High SBC = Your slice of the pie gets smaller every quarter. Math doesn't lie.",
+        "🎪 When SBC is massive, the company is a cash piñata for employees, not investors."
+    ]
 }
 
 METRIC_DEFINITIONS = {
@@ -271,22 +315,25 @@ with tab1:
             col2.metric("Prev Close", f"${stock_data['previous_close']:.2f}")
             
             mc = stock_data.get('market_cap', 0)
-            mc_tooltip = "🏢 Market Cap = Total company value. Stock price × all shares. Tells you if you're buying a startup or an empire."
+            mc_tooltip = "🏢 Market Cap = Stock price × total shares. This is the company's total value. Think of it as the price tag to buy the entire company. Bigger number = bigger company (duh)."
             col3.metric("Market Cap", f"${mc/1e9:.1f}B" if mc > 1e6 else "Calculating...", help=mc_tooltip)
             
             pe = stock_data.get('pe_ratio', 0)
-            pe_tooltip = "💵 P/E Ratio = Price per $1 of earnings. If P/E is 30, you're paying $30 for every $1 the company makes. Lower = cheaper (usually)."
+            pe_tooltip = "💵 P/E Ratio = How much you're paying for every $1 of profit. If P/E is 30, you're paying $30 for every $1 the company earns. Lower = cheaper (usually). High P/E? People expect big growth. Low P/E? Either a bargain or trouble."
             col4.metric("P/E Ratio", f"{pe:.2f}" if pe > 0 else "N/A", help=pe_tooltip)
             
             fpe = stock_data.get('forward_pe', 0)
-            fpe_tooltip = "🔮 Forward P/E = Same as P/E but based on FUTURE earnings estimates. Shows if the stock is expensive relative to what they'll earn next year."
+            fpe_tooltip = "🔮 Forward P/E = Same as P/E but based on FUTURE earnings (next 12 months). It's like P/E but with a crystal ball. If Forward P/E < P/E, Wall Street thinks they'll make more money soon. If Forward P/E > P/E, uh oh... earnings might be slowing down."
             col5.metric("Forward P/E", f"{fpe:.2f}" if fpe > 0 else "N/A", help=fpe_tooltip)
             
             st.divider()
+            
+            # Historical return calculator
             col1, col2 = st.columns([1, 2])
             with col1:
                 investment_amount = st.number_input("💰 If I invested:", min_value=1, value=100, step=50)
                 time_period = st.selectbox("Time period:", ["1y", "2y", "5y", "10y"], index=2)
+            
             with col2:
                 historical_return = calculate_historical_return(ticker, time_period)
                 if historical_return is not None:
@@ -377,11 +424,11 @@ with tab1:
                     cashflow_metrics = [m for m in available if m in ['NetCashProvidedByUsedInOperatingActivities', 'NetCashProvidedByUsedInInvestingActivities', 'NetCashProvidedByUsedInFinancingActivities', 'ShareBasedCompensation', 'PaymentsToAcquirePropertyPlantAndEquipment']]
                     fcf_metrics = [m for m in available if m in ['Free Cash Flow', 'FCF After SBC']]
                     
+                    # === CASH FLOW FIRST (TOP) ===
                     col_left, col_right = st.columns([1, 3])
-                    
                     with col_left:
                         st.subheader("💧 Cash Flow & FCF")
-                        default_cf = [m for m in ['ShareBasedCompensation'] + fcf_metrics if m in cashflow_metrics or m in fcf_metrics]
+                        default_cf = [m for m in ['FCF After SBC', 'ShareBasedCompensation'] if m in cashflow_metrics or m in fcf_metrics]
                         cashflow_selected = st.multiselect("Select metrics:", options=cashflow_metrics + fcf_metrics, default=default_cf, key="cf")
                     
                     with col_right:
@@ -405,8 +452,8 @@ with tab1:
                     
                     st.divider()
                     
+                    # === INCOME STATEMENT SECOND (MIDDLE) ===
                     col_left, col_right = st.columns([1, 3])
-                    
                     with col_left:
                         st.subheader("💵 Income Statement")
                         default_income = [m for m in ['Total Revenue', 'OperatingIncomeLoss', 'NetIncomeLoss'] if m in income_metrics]
@@ -428,8 +475,8 @@ with tab1:
                     
                     st.divider()
                     
+                    # === BALANCE SHEET LAST (BOTTOM) ===
                     col_left, col_right = st.columns([1, 3])
-                    
                     with col_left:
                         st.subheader("🏦 Balance Sheet")
                         default_balance = [m for m in ['Assets', 'StockholdersEquity', 'Liabilities'] if m in balance_metrics]
@@ -489,55 +536,56 @@ with tab1:
                             available_fcf.append('OperatingIncomeLoss')
                         
                         selected_insights = st.multiselect("Critical Metrics:", options=available_fcf, default=available_fcf[:2] if len(available_fcf) >= 2 else available_fcf)
-            if selected_insights:
-                        plot_df = pd.DataFrame(index=display_df.index)
-                        for metric in selected_insights:
-                            if metric in fcf_df.columns:
-                                plot_df[metric] = fcf_df[metric]
-                            elif metric in display_df.columns:
-                                plot_df[metric] = display_df[metric]
                         
-                        fig = px.bar(plot_df, x=plot_df.index, y=selected_insights, barmode='group', color_discrete_sequence=['#00D9FF', '#FF6B9D', '#FFC837'])
-                        max_val = plot_df[selected_insights].max().max()
-                        min_val = plot_df[selected_insights].min().min()
-                        y_range = [min_val * 1.1 if min_val < 0 else 0, max_val * 1.15]
-                        
-                        fig.update_layout(height=500, yaxis=dict(range=y_range), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='white')
-                        st.plotly_chart(fig, use_container_width=True)
-                        
-                        if 'FCF After SBC' in fcf_df.columns:
-                            latest_fcf = fcf_df['FCF After SBC'].iloc[-1]
-                            if len(fcf_df) > 1:
-                                prev_fcf = fcf_df['FCF After SBC'].iloc[-2]
-                                growth = ((latest_fcf - prev_fcf) / abs(prev_fcf) * 100) if prev_fcf != 0 else 0
-                                
-                                col1, col2 = st.columns(2)
-                                col1.metric("Latest FCF After SBC", f"${latest_fcf/1e9:.2f}B", f"{growth:+.1f}%")
-                                
-                                if latest_fcf > 0:
-                                    col2.success("✅ Positive free cash flow!")
-                                else:
-                                    col2.error("🚨 Negative free cash flow!")
-                else:
-                    st.warning("Not enough cash flow data. Company must report Operating Cash Flow and CapEx.")
-            
-            elif view_mode == "News":
-                st.subheader(f"📰 Latest News for {ticker}")
-                news = get_company_news(ticker)
-                if news:
-                    for i, article in enumerate(news):
-                        with st.expander(f"{i+1}. {article.get('headline', 'No title')[:80]}..."):
-                            st.write(f"**Source:** {article.get('source', 'Unknown')}")
-                            st.write(f"**Date:** {datetime.fromtimestamp(article.get('datetime', 0)).strftime('%Y-%m-%d')}")
-                            st.write(article.get('summary', 'No summary')[:300])
-                            if article.get('url'):
-                                st.markdown(f"[Read more]({article['url']})")
-                else:
-                    st.info("No recent news available.")
-        else:
-            st.warning("No data for this timeframe.")
-    
-    except Exception as e:
-        st.error(f"Error: {str(e)}")
-else:
-    st.info("Enter a valid ticker!")
+                        if selected_insights:
+                            plot_df = pd.DataFrame(index=display_df.index)
+                            for metric in selected_insights:
+                                if metric in fcf_df.columns:
+                                    plot_df[metric] = fcf_df[metric]
+                                elif metric in display_df.columns:
+                                    plot_df[metric] = display_df[metric]
+                            
+                            fig = px.bar(plot_df, x=plot_df.index, y=selected_insights, barmode='group', color_discrete_sequence=['#00D9FF', '#FF6B9D', '#FFC837'])
+                            max_val = plot_df[selected_insights].max().max()
+                            min_val = plot_df[selected_insights].min().min()
+                            y_range = [min_val * 1.1 if min_val < 0 else 0, max_val * 1.15]
+                            
+                            fig.update_layout(height=500, yaxis=dict(range=y_range), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='white')
+                            st.plotly_chart(fig, use_container_width=True)
+                            
+                            if 'FCF After SBC' in fcf_df.columns:
+                                latest_fcf = fcf_df['FCF After SBC'].iloc[-1]
+                                if len(fcf_df) > 1:
+                                    prev_fcf = fcf_df['FCF After SBC'].iloc[-2]
+                                    growth = ((latest_fcf - prev_fcf) / abs(prev_fcf) * 100) if prev_fcf != 0 else 0
+                                    
+                                    col1, col2 = st.columns(2)
+                                    col1.metric("Latest FCF After SBC", f"${latest_fcf/1e9:.2f}B", f"{growth:+.1f}%")
+                                    
+                                    if latest_fcf > 0:
+                                        col2.success("✅ Positive free cash flow!")
+                                    else:
+                                        col2.error("🚨 Negative free cash flow!")
+                    else:
+                        st.warning("Not enough cash flow data. Company must report Operating Cash Flow and CapEx.")
+                
+                elif view_mode == "News":
+                    st.subheader(f"📰 Latest News for {ticker}")
+                    news = get_company_news(ticker)
+                    if news:
+                        for i, article in enumerate(news):
+                            with st.expander(f"{i+1}. {article.get('headline', 'No title')[:80]}..."):
+                                st.write(f"**Source:** {article.get('source', 'Unknown')}")
+                                st.write(f"**Date:** {datetime.fromtimestamp(article.get('datetime', 0)).strftime('%Y-%m-%d')}")
+                                st.write(article.get('summary', 'No summary')[:300])
+                                if article.get('url'):
+                                    st.markdown(f"[Read more]({article['url']})")
+                    else:
+                        st.info("No recent news available.")
+            else:
+                st.warning("No data for this timeframe.")
+        
+        except Exception as e:
+            st.error(f"Error: {str(e)}")
+    else:
+        st.info("Enter a valid ticker!")
