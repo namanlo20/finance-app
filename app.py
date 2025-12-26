@@ -7,15 +7,16 @@ from datetime import datetime, timedelta
 import random
 
 HEADERS = {'User-Agent': "pro_analyst_v6@outlook.com"}
+
 st.set_page_config(page_title="SEC Terminal Pro", layout="wide", page_icon="🚀")
+
 QUIRKY_COMMENTS = {
     "Total Revenue": ["💰 The big kahuna! This is how much money is flowing through the door before anyone takes their cut.", "🎰 Revenue baby! Like the casino's total handle before the house takes its share.", "📈 This is the top line - where dreams are made (or crushed)."],
     "NetIncomeLoss": ["✅ The moment of truth - are we printing money or burning it?", "💸 Bottom line time! This is what's LEFT after everyone gets paid.", "🎯 Net income: Where the rubber meets the road and BS meets reality."],
     "OperatingIncomeLoss": ["🏭 Core business profit - can they actually run a business or nah?", "⚙️ This shows if the business model actually works without accounting tricks.", "💼 Operating income: The 'can you walk the walk' metric."],
     "Gross Margin %": ["📊 High margins = pricing power = they're not getting squeezed.", "💪 Gross margin: Can they charge premium or are they a commodity?", "🎨 The art of not being a commodity business, quantified."],
     "Free Cash Flow": ["💵 This is ACTUAL cash the business generates after paying the bills and buying stuff.", "🔥 FCF = The cash left over for buybacks, dividends, or world domination.", "💎 If this is negative for years, they're burning through cash like a tech startup in 2021."],
-    "FCF After SBC": ["🚨 THE REAL DEAL - this is cash after the Silicon Valley special (stock comp).", "💎 No lies, no fluff, just COLD HARD CASH after diluting shareholders.", "🎯 This metric doesn't lie. It's cash generation on HARD MODE. If it's negative, RUN."],
-    "ShareBasedCompensation": ["🎁 Free stock for employees! Sounds nice until you realize YOUR shares just got diluted.", "📉 Stock-based comp = the sneaky way companies pay employees without touching cash. You're the one paying!", "💸 They're printing shares like the Fed prints dollars. Hope you like owning less of the company!"]
+    "FCF After SBC": ["🚨 THE REAL DEAL - this is cash after the Silicon Valley special (stock comp).", "💎 No lies, no fluff, just COLD HARD CASH after diluting shareholders.", "🎯 This metric doesn't lie. It's cash generation on HARD MODE. If it's negative, RUN."]
 }
 
 METRIC_DEFINITIONS = {
@@ -45,6 +46,7 @@ SECTOR_STOCKS = {
     "Energy": ["XOM", "CVX", "COP", "SLB", "EOG", "MPC", "PSX", "VLO"],
     "Industrial": ["BA", "CAT", "GE", "HON", "UNP", "UPS", "LMT", "RTX"],
 }
+
 def calculate_ratios(df):
     ratios = pd.DataFrame(index=df.index)
     if 'GrossProfit' in df.columns and 'Total Revenue' in df.columns:
@@ -60,10 +62,12 @@ def calculate_fcf_metrics(df):
     ocf = df.get('NetCashProvidedByUsedInOperatingActivities', pd.Series(dtype=float))
     sbc = df.get('ShareBasedCompensation', pd.Series(dtype=float))
     capex = df.get('PaymentsToAcquirePropertyPlantAndEquipment', pd.Series(dtype=float))
+    
     if not ocf.empty and not capex.empty:
         fcf_metrics['Free Cash Flow'] = ocf - capex.abs()
         if not sbc.empty:
             fcf_metrics['FCF After SBC'] = ocf - sbc - capex.abs()
+    
     return fcf_metrics
 
 @st.cache_data(ttl=300)
@@ -72,19 +76,38 @@ def get_stock_data_yfinance(ticker):
         import yfinance as yf
         stock = yf.Ticker(ticker)
         info = stock.info
+        
         if info:
-            return {'price': info.get('currentPrice', info.get('regularMarketPrice', 0)), 'change': info.get('regularMarketChange', 0), 'change_percent': info.get('regularMarketChangePercent', 0), 'previous_close': info.get('previousClose', info.get('regularMarketPreviousClose', 0)), 'market_cap': info.get('marketCap', 0), 'pe_ratio': info.get('trailingPE', info.get('forwardPE', 0)), 'forward_pe': info.get('forwardPE', 0)}
+            return {
+                'price': info.get('currentPrice', info.get('regularMarketPrice', 0)),
+                'change': info.get('regularMarketChange', 0),
+                'change_percent': info.get('regularMarketChangePercent', 0),
+                'previous_close': info.get('previousClose', info.get('regularMarketPreviousClose', 0)),
+                'market_cap': info.get('marketCap', 0),
+                'pe_ratio': info.get('trailingPE', info.get('forwardPE', 0)),
+                'forward_pe': info.get('forwardPE', 0),
+            }
     except Exception as e:
         st.sidebar.warning(f"yfinance error: {str(e)}")
+    
     try:
         url = f"https://financialmodelingprep.com/api/v3/quote/{ticker}?apikey=demo"
         response = requests.get(url, timeout=5)
         data = response.json()
         if data and len(data) > 0:
             item = data[0]
-            return {'price': item.get('price', 0), 'change': item.get('change', 0), 'change_percent': item.get('changesPercentage', 0), 'previous_close': item.get('previousClose', 0), 'market_cap': item.get('marketCap', 0), 'pe_ratio': item.get('pe', 0), 'forward_pe': 0}
+            return {
+                'price': item.get('price', 0),
+                'change': item.get('change', 0),
+                'change_percent': item.get('changesPercentage', 0),
+                'previous_close': item.get('previousClose', 0),
+                'market_cap': item.get('marketCap', 0),
+                'pe_ratio': item.get('pe', 0),
+                'forward_pe': 0,
+            }
     except Exception as e:
         st.sidebar.error(f"API error: {str(e)}")
+    
     return None
 
 @st.cache_data(ttl=300)
@@ -142,7 +165,15 @@ def get_sec_map():
     return ticker_to_cik, name_to_ticker
 
 ticker_map, name_map = get_sec_map()
-st.markdown('<style>.main{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);}h1,h2,h3{color:white!important;}.stMetric{background:rgba(255,255,255,0.15);padding:15px;border-radius:10px;}.stTabs [data-baseweb="tab"]{color:white;font-weight:600;}</style>', unsafe_allow_html=True)
+
+st.markdown("""
+<style>
+.main { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+h1, h2, h3 { color: white !important; }
+.stMetric { background: rgba(255,255,255,0.15); padding: 15px; border-radius: 10px; }
+.stTabs [data-baseweb="tab"] { color: white; font-weight: 600; }
+</style>
+""", unsafe_allow_html=True)
 
 st.title("🚀 SEC Terminal Pro: Where Finance Meets Fun")
 st.caption("Your no-BS financial analysis platform")
@@ -156,7 +187,34 @@ with tab4:
 with tab3:
     st.header("💎 My Investment Checklist")
     st.subheader("🔥 The Metrics That Actually Matter")
-    st.markdown("### What I Look For When Investing:\n\n**1. Free Cash Flow After SBC**\n- Formula: Operating Cash Flow - Stock-Based Comp - CapEx\n- THE most honest metric showing real cash after dilution\n\n**2. Operating Income**\n- Core business profit before financial engineering\n- Look for consistent growth\n\n**3. Gross Margin %**\n- High margins (>60%) = pricing power\n- Low margins (<20%) = commodity business\n\n**4. Operating Margin %**\n- Target: >20% for software, >10% for others\n\n**5. Revenue Growth**\n- >20% YoY = exciting\n- <5% YoY = struggling\n\n### 🚨 Red Flags:\n- Declining gross margins\n- Negative FCF for multiple years\n- Stock comp >30% of revenue\n- Revenue growing but cash flow shrinking")
+    st.markdown("""
+    ### What I Look For When Investing:
+    
+    **1. Free Cash Flow After SBC**
+    - Formula: Operating Cash Flow - Stock-Based Comp - CapEx
+    - THE most honest metric showing real cash after dilution
+    
+    **2. Operating Income**
+    - Core business profit before financial engineering
+    - Look for consistent growth
+    
+    **3. Gross Margin %**
+    - High margins (>60%) = pricing power
+    - Low margins (<20%) = commodity business
+    
+    **4. Operating Margin %**
+    - Target: >20% for software, >10% for others
+    
+    **5. Revenue Growth**
+    - >20% YoY = exciting
+    - <5% YoY = struggling
+    
+    ### 🚨 Red Flags:
+    - Declining gross margins
+    - Negative FCF for multiple years
+    - Stock comp >30% of revenue
+    - Revenue growing but cash flow shrinking
+    """)
 
 with tab2:
     st.header("🎯 Sector Explorer")
@@ -165,16 +223,30 @@ with tab2:
         with st.spinner(f"Loading {selected_sector} sector data..."):
             sector_tickers = SECTOR_STOCKS[selected_sector]
             sector_data = get_multiple_stock_data(sector_tickers)
+            
             if sector_data:
-                sector_df = pd.DataFrame([{"Ticker": ticker, "Price": data['price'], "Change %": data['change_percent'], "Market Cap": data.get('market_cap', 0), "P/E Ratio": data.get('pe_ratio', 0), "Forward P/E": data.get('forward_pe', 0)} for ticker, data in sector_data.items()])
+                sector_df = pd.DataFrame([
+                    {
+                        "Ticker": ticker,
+                        "Price": data['price'],
+                        "Change %": data['change_percent'],
+                        "Market Cap": data.get('market_cap', 0),
+                        "P/E Ratio": data.get('pe_ratio', 0),
+                        "Forward P/E": data.get('forward_pe', 0),
+                    }
+                    for ticker, data in sector_data.items()
+                ])
+                
                 sort_by = st.radio("Sort by:", ["Market Cap", "Price", "Change %", "P/E Ratio"], horizontal=True)
                 sector_df = sector_df.sort_values(by=sort_by, ascending=False)
+                
                 display_df = sector_df.copy()
                 display_df['Price'] = display_df['Price'].apply(lambda x: f"${x:.2f}" if x > 0 else "N/A")
                 display_df['Change %'] = display_df['Change %'].apply(lambda x: f"{x:.2f}%" if pd.notnull(x) else "N/A")
                 display_df['Market Cap'] = display_df['Market Cap'].apply(lambda x: f"${x/1e9:.1f}B" if x > 1e6 else "N/A")
                 display_df['P/E Ratio'] = display_df['P/E Ratio'].apply(lambda x: f"{x:.2f}" if x > 0 else "N/A")
                 display_df['Forward P/E'] = display_df['Forward P/E'].apply(lambda x: f"{x:.2f}" if x > 0 else "N/A")
+                
                 st.dataframe(display_df, use_container_width=True, height=600)
             else:
                 st.warning("Could not load sector data. Try again in a moment.")
@@ -188,21 +260,24 @@ with tab1:
         ticker = search_input
     else:
         ticker = search_input
-    
+
     view_mode = st.radio("View:", ["Metrics", "Ratios", "Insights", "News"], horizontal=True)
-    
+
     if ticker in ticker_map:
         stock_data = get_stock_data_yfinance(ticker)
         if stock_data:
             col1, col2, col3, col4, col5 = st.columns(5)
             col1.metric("Price", f"${stock_data['price']:.2f}", f"{stock_data['change_percent']:.2f}%")
             col2.metric("Prev Close", f"${stock_data['previous_close']:.2f}")
+            
             mc = stock_data.get('market_cap', 0)
             mc_tooltip = "🏢 Market Cap = Total company value. Stock price × all shares. Tells you if you're buying a startup or an empire."
             col3.metric("Market Cap", f"${mc/1e9:.1f}B" if mc > 1e6 else "Calculating...", help=mc_tooltip)
+            
             pe = stock_data.get('pe_ratio', 0)
             pe_tooltip = "💵 P/E Ratio = Price per $1 of earnings. If P/E is 30, you're paying $30 for every $1 the company makes. Lower = cheaper (usually)."
             col4.metric("P/E Ratio", f"{pe:.2f}" if pe > 0 else "N/A", help=pe_tooltip)
+            
             fpe = stock_data.get('forward_pe', 0)
             fpe_tooltip = "🔮 Forward P/E = Same as P/E but based on FUTURE earnings estimates. Shows if the stock is expensive relative to what they'll earn next year."
             col5.metric("Forward P/E", f"{fpe:.2f}" if fpe > 0 else "N/A", help=fpe_tooltip)
@@ -221,16 +296,18 @@ with tab1:
                     st.info(f"🎯 Profit: **${profit:.2f}** ({historical_return*100:.1f}% return)")
                 else:
                     st.warning("Could not calculate historical returns.")
-    
+
     with st.sidebar:
         st.header("⚙️ Settings")
         freq = st.radio("Frequency:", ["Annual (10-K)", "Quarterly (10-Q)"])
         years_to_show = st.slider("History:", 1, 20, 10)
         target_form = "10-K" if "Annual" in freq else "10-Q"
+        
         st.divider()
         st.subheader("📈 Chart Settings")
         chart_timeframe = st.selectbox("Stock Chart Period:", ["1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "max"], index=3)
         sync_with_financials = st.checkbox("Sync chart with financial history", value=False)
+        
         if sync_with_financials:
             if years_to_show <= 1:
                 chart_timeframe = "1y"
@@ -240,17 +317,27 @@ with tab1:
                 chart_timeframe = "5y"
             else:
                 chart_timeframe = "10y"
+        
         st.divider()
         quirky_mode = st.toggle("🔥 Unhinged Mode", value=False)
+        
         st.divider()
         st.markdown("### 💡 Quick Tips")
         st.info("**FCF After SBC**: Most honest cash metric\n\n**Operating Margin**: Pricing power\n\n**Current Ratio**: Liquidity check")
-    
+
+    if ticker in ticker_map:
+        chart_data = get_stock_chart_data(ticker, chart_timeframe)
+        if chart_data is not None:
+            fig = px.area(chart_data, x='Date', y='Price', title=f'{ticker} Price Chart ({chart_timeframe})')
+            fig.update_layout(height=300, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='white')
+            st.plotly_chart(fig, use_container_width=True)
+
     if ticker in ticker_map:
         try:
             cik = ticker_map[ticker]
             url = f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json"
             raw_facts = requests.get(url, headers=HEADERS).json()['facts']['us-gaap']
+            
             master_dict = {}
             for tag, content in raw_facts.items():
                 if 'units' in content and 'USD' in content['units']:
@@ -260,90 +347,114 @@ with tab1:
                         df_pts['end'] = pd.to_datetime(df_pts['end'])
                         df_pts = df_pts.sort_values(['end', 'filed']).drop_duplicates('end', keep='last')
                         master_dict[tag] = df_pts.set_index('end')['val']
+            
             master_df = pd.DataFrame(master_dict).sort_index()
+            
             revenue_variants = ["Revenues", "RevenueFromContractWithCustomerExcludingAssessedTax", "SalesRevenueNet"]
             found_rev_tags = [t for t in revenue_variants if t in master_df.columns]
             if found_rev_tags:
                 master_df["Total Revenue"] = master_df[found_rev_tags].bfill(axis=1).iloc[:, 0]
+            
             if 'Total Revenue' in master_df.columns and 'CostOfRevenue' in master_df.columns:
                 master_df['GrossProfit'] = master_df['Total Revenue'] - master_df['CostOfRevenue']
+            
             fcf_df = calculate_fcf_metrics(master_df)
             for col in fcf_df.columns:
                 master_df[col] = fcf_df[col]
+            
             cutoff_date = datetime.now() - timedelta(days=years_to_show*365)
             display_df = master_df[master_df.index >= cutoff_date].copy()
             if display_df.empty:
                 display_df = master_df.tail(years_to_show if target_form == "10-K" else years_to_show * 4).copy()
+            
             if not display_df.empty:
                 display_df.index = display_df.index.strftime('%Y' if target_form == "10-K" else '%Y-Q%q')
-    if view_mode == "Metrics":
+                
+                if view_mode == "Metrics":
                     available = list(display_df.columns)
                     income_metrics = [m for m in available if m in ['Total Revenue', 'NetIncomeLoss', 'OperatingIncomeLoss', 'GrossProfit', 'CostOfRevenue', 'OperatingExpenses']]
                     balance_metrics = [m for m in available if m in ['Assets', 'Liabilities', 'StockholdersEquity', 'AssetsCurrent', 'LiabilitiesCurrent']]
                     cashflow_metrics = [m for m in available if m in ['NetCashProvidedByUsedInOperatingActivities', 'NetCashProvidedByUsedInInvestingActivities', 'NetCashProvidedByUsedInFinancingActivities', 'ShareBasedCompensation', 'PaymentsToAcquirePropertyPlantAndEquipment']]
                     fcf_metrics = [m for m in available if m in ['Free Cash Flow', 'FCF After SBC']]
+                    
                     col_left, col_right = st.columns([1, 3])
+                    
                     with col_left:
                         st.subheader("💧 Cash Flow & FCF")
                         default_cf = [m for m in ['ShareBasedCompensation'] + fcf_metrics if m in cashflow_metrics or m in fcf_metrics]
                         cashflow_selected = st.multiselect("Select metrics:", options=cashflow_metrics + fcf_metrics, default=default_cf, key="cf")
+                    
                     with col_right:
                         if cashflow_selected:
                             if quirky_mode:
                                 for metric in cashflow_selected:
                                     if metric in QUIRKY_COMMENTS:
                                         st.info(random.choice(QUIRKY_COMMENTS[metric]))
+                            
                             cf_df = pd.DataFrame(index=display_df.index)
                             for metric in cashflow_selected:
                                 if metric in display_df.columns:
                                     cf_df[metric] = display_df[metric]
+                            
                             fig = px.bar(cf_df, x=cf_df.index, y=cashflow_selected, barmode='group', color_discrete_sequence=px.colors.qualitative.Pastel)
                             max_val = cf_df[cashflow_selected].max().max()
                             min_val = cf_df[cashflow_selected].min().min()
                             y_range = [min_val * 1.1 if min_val < 0 else 0, max_val * 1.15]
                             fig.update_layout(height=400, yaxis=dict(range=y_range), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='white', showlegend=True)
                             st.plotly_chart(fig, use_container_width=True)
+                    
                     st.divider()
+                    
                     col_left, col_right = st.columns([1, 3])
+                    
                     with col_left:
                         st.subheader("💵 Income Statement")
                         default_income = [m for m in ['Total Revenue', 'OperatingIncomeLoss', 'NetIncomeLoss'] if m in income_metrics]
                         income_selected = st.multiselect("Select metrics:", options=income_metrics, default=default_income, key="income")
+                    
                     with col_right:
                         if income_selected:
                             if quirky_mode:
                                 for metric in income_selected:
                                     if metric in QUIRKY_COMMENTS:
                                         st.info(random.choice(QUIRKY_COMMENTS[metric]))
+                            
                             fig = px.bar(display_df, x=display_df.index, y=income_selected, barmode='group', color_discrete_sequence=px.colors.qualitative.Bold)
                             max_val = display_df[income_selected].max().max()
                             min_val = display_df[income_selected].min().min()
                             y_range = [min_val * 1.1 if min_val < 0 else 0, max_val * 1.15]
                             fig.update_layout(height=400, yaxis=dict(range=y_range), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='white', showlegend=True)
                             st.plotly_chart(fig, use_container_width=True)
+                    
                     st.divider()
+                    
                     col_left, col_right = st.columns([1, 3])
+                    
                     with col_left:
                         st.subheader("🏦 Balance Sheet")
                         default_balance = [m for m in ['Assets', 'StockholdersEquity', 'Liabilities'] if m in balance_metrics]
                         balance_selected = st.multiselect("Select metrics:", options=balance_metrics, default=default_balance, key="balance")
+                    
                     with col_right:
                         if balance_selected:
                             if quirky_mode:
                                 for metric in balance_selected:
                                     if metric in QUIRKY_COMMENTS:
                                         st.info(random.choice(QUIRKY_COMMENTS[metric]))
+                            
                             fig = px.bar(display_df, x=display_df.index, y=balance_selected, barmode='group', color_discrete_sequence=px.colors.qualitative.Set2)
                             max_val = display_df[balance_selected].max().max()
                             min_val = display_df[balance_selected].min().min()
                             y_range = [min_val * 1.1 if min_val < 0 else 0, max_val * 1.15]
                             fig.update_layout(height=400, yaxis=dict(range=y_range), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='white', showlegend=True)
                             st.plotly_chart(fig, use_container_width=True)
+                    
                     with st.expander("📖 Metric Definitions"):
                         all_metrics = income_selected + balance_selected + cashflow_selected
                         for metric in all_metrics:
                             if metric in METRIC_DEFINITIONS:
                                 st.write(f"**{metric}**: {METRIC_DEFINITIONS[metric]}")
+                    
                     with st.expander("📂 Raw Data"):
                         all_selected = income_selected + balance_selected + cashflow_selected
                         if all_selected:
@@ -351,6 +462,7 @@ with tab1:
                             for col in formatted.columns:
                                 formatted[col] = formatted[col].apply(lambda x: f"${x:,.0f}" if pd.notnull(x) else "N/A")
                             st.dataframe(formatted, use_container_width=True)
+                
                 elif view_mode == "Ratios":
                     ratios_df = calculate_ratios(display_df)
                     if not ratios_df.empty:
@@ -361,61 +473,71 @@ with tab1:
                             max_val = ratios_df[selected_ratios].max().max()
                             fig.update_layout(height=500, yaxis=dict(range=[0, max_val * 1.15]), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='white')
                             st.plotly_chart(fig, use_container_width=True)
+                            
                             with st.expander("📂 Data Table"):
                                 st.dataframe(ratios_df[selected_ratios], use_container_width=True)
                     else:
                         st.warning("Not enough data for ratios.")
+                
                 elif view_mode == "Insights":
                     fcf_df = calculate_fcf_metrics(display_df)
                     if not fcf_df.empty:
                         st.subheader("💎 Key Investment Metrics")
                         available_fcf = list(fcf_df.columns)
+                        
                         if 'OperatingIncomeLoss' in display_df.columns:
                             available_fcf.append('OperatingIncomeLoss')
+                        
                         selected_insights = st.multiselect("Critical Metrics:", options=available_fcf, default=available_fcf[:2] if len(available_fcf) >= 2 else available_fcf)
-                        if selected_insights:
-                            plot_df = pd.DataFrame(index=display_df.index)
-                            for metric in selected_insights:
-                                if metric in fcf_df.columns:
-                                    plot_df[metric] = fcf_df[metric]
-                                elif metric in display_df.columns:
-                                    plot_df[metric] = display_df[metric]
-                            fig = px.bar(plot_df, x=plot_df.index, y=selected_insights, barmode='group', color_discrete_sequence=['#00D9FF', '#FF6B9D', '#FFC837'])
-                            max_val = plot_df[selected_insights].max().max()
-                            min_val = plot_df[selected_insights].min().min()
-                            y_range = [min_val * 1.1 if min_val < 0 else 0, max_val * 1.15]
-                            fig.update_layout(height=500, yaxis=dict(range=y_range), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='white')
-                            st.plotly_chart(fig, use_container_width=True)
-                            if 'FCF After SBC' in fcf_df.columns:
-                                latest_fcf = fcf_df['FCF After SBC'].iloc[-1]
-                                if len(fcf_df) > 1:
-                                    prev_fcf = fcf_df['FCF After SBC'].iloc[-2]
-                                    growth = ((latest_fcf - prev_fcf) / abs(prev_fcf) * 100) if prev_fcf != 0 else 0
-                                    col1, col2 = st.columns(2)
-                                    col1.metric("Latest FCF After SBC", f"${latest_fcf/1e9:.2f}B", f"{growth:+.1f}%")
-                                    if latest_fcf > 0:
-                                        col2.success("✅ Positive free cash flow!")
-                                    else:
-                                        col2.error("🚨 Negative free cash flow!")
-                    else:
-                        st.warning("Not enough cash flow data. Company must report Operating Cash Flow and CapEx.")
-                elif view_mode == "News":
-                    st.subheader(f"📰 Latest News for {ticker}")
-                    news = get_company_news(ticker)
-                    if news:
-                        for i, article in enumerate(news):
-                            with st.expander(f"{i+1}. {article.get('headline', 'No title')[:80]}..."):
-                                st.write(f"**Source:** {article.get('source', 'Unknown')}")
-                                st.write(f"**Date:** {datetime.fromtimestamp(article.get('datetime', 0)).strftime('%Y-%m-%d')}")
-                                st.write(article.get('summary', 'No summary')[:300])
-                                if article.get('url'):
-                                    st.markdown(f"[Read more]({article['url']})")
-                    else:
-                        st.info("No recent news available.")
-            else:
-                st.warning("No data for this timeframe.")
-        except Exception as e:
-            st.error(f"Error: {str(e)}")
-    else:
-        st.info("Enter a valid ticker!")
+            if selected_insights:
+                        plot_df = pd.DataFrame(index=display_df.index)
+                        for metric in selected_insights:
+                            if metric in fcf_df.columns:
+                                plot_df[metric] = fcf_df[metric]
+                            elif metric in display_df.columns:
+                                plot_df[metric] = display_df[metric]
+                        
+                        fig = px.bar(plot_df, x=plot_df.index, y=selected_insights, barmode='group', color_discrete_sequence=['#00D9FF', '#FF6B9D', '#FFC837'])
+                        max_val = plot_df[selected_insights].max().max()
+                        min_val = plot_df[selected_insights].min().min()
+                        y_range = [min_val * 1.1 if min_val < 0 else 0, max_val * 1.15]
+                        
+                        fig.update_layout(height=500, yaxis=dict(range=y_range), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='white')
+                        st.plotly_chart(fig, use_container_width=True)
+                        
+                        if 'FCF After SBC' in fcf_df.columns:
+                            latest_fcf = fcf_df['FCF After SBC'].iloc[-1]
+                            if len(fcf_df) > 1:
+                                prev_fcf = fcf_df['FCF After SBC'].iloc[-2]
+                                growth = ((latest_fcf - prev_fcf) / abs(prev_fcf) * 100) if prev_fcf != 0 else 0
+                                
+                                col1, col2 = st.columns(2)
+                                col1.metric("Latest FCF After SBC", f"${latest_fcf/1e9:.2f}B", f"{growth:+.1f}%")
+                                
+                                if latest_fcf > 0:
+                                    col2.success("✅ Positive free cash flow!")
+                                else:
+                                    col2.error("🚨 Negative free cash flow!")
+                else:
+                    st.warning("Not enough cash flow data. Company must report Operating Cash Flow and CapEx.")
             
+            elif view_mode == "News":
+                st.subheader(f"📰 Latest News for {ticker}")
+                news = get_company_news(ticker)
+                if news:
+                    for i, article in enumerate(news):
+                        with st.expander(f"{i+1}. {article.get('headline', 'No title')[:80]}..."):
+                            st.write(f"**Source:** {article.get('source', 'Unknown')}")
+                            st.write(f"**Date:** {datetime.fromtimestamp(article.get('datetime', 0)).strftime('%Y-%m-%d')}")
+                            st.write(article.get('summary', 'No summary')[:300])
+                            if article.get('url'):
+                                st.markdown(f"[Read more]({article['url']})")
+                else:
+                    st.info("No recent news available.")
+        else:
+            st.warning("No data for this timeframe.")
+    
+    except Exception as e:
+        st.error(f"Error: {str(e)}")
+else:
+    st.info("Enter a valid ticker!")
