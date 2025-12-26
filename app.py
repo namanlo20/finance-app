@@ -6,134 +6,107 @@ import plotly.express as px
 st.set_page_config(page_title="TickerTotal", layout="wide")
 st.title("🔍 TickerTotal: Ultimate Pro Terminal")
 
+# --- SIDEBAR: DYNAMIC CONTROLS ---
 with st.sidebar:
-    st.header("🎨 Dashboard Styles")
-    user_color = st.color_picker("Primary Bar Color", "#00FFAA")
+    st.header("⚙️ Data Settings")
+    view_mode = st.radio("Frequency:", ["Annual", "Quarterly"])
+    
+    # 5 is default, but user can pick ANY year from 1 to 15
+    years_to_show = st.slider("Years of History:", min_value=1, max_value=15, value=5)
+    
     st.divider()
-    st.info("Top Metrics are prioritized. Statements & Ratios follow below.")
+    user_color = st.color_picker("Primary Chart Color", "#00FFAA")
+    st.info("Charts now read Left-to-Right (Oldest to Newest).")
 
-# 1. ORGANIZED METRICS & GLOSSARY
-# Your preferred metrics are at the top
 metric_defs = {
-    "Total Revenue": "Total money from sales (Top Line).",
-    "Net Income": "Final profit after all taxes and costs.",
+    "Total Revenue": "Total top-line money from sales.",
+    "Net Income": "Bottom-line profit after all expenses.",
     "Free Cash Flow": "Cash available for expansion or dividends.",
-    "Operating Cash Flow": "Cash flowing from core business operations.",
-    "Gross Profit": "Money left after manufacturing costs.",
-    # Ratios & Calculations
-    "Gross Margin %": "Profitability percentage after production costs.",
-    "Net Profit Margin %": "The percentage of revenue that is actual profit.",
-    "Debt to Equity": "Total Debt divided by Shareholders Equity (Risk measure).",
-    "FCF per Share": "Free Cash Flow available for every single share outstanding.",
-    "Current Ratio": "Ability to pay short-term debts with short-term assets.",
-    # Full Statement Categories
-    "Operating Expense": "Costs to run the business (Marketing, Rent, Salaries).",
-    "EBIT": "Earnings Before Interest and Taxes.",
-    "Total Assets": "Everything the company owns.",
-    "Total Liabilities": "Everything the company owes.",
-    "Total Debt": "Combined short and long-term borrowed money.",
-    "Cash & Equivalents": "Liquid money available in the bank.",
-    "Stockholders Equity": "The net value of the company owned by shareholders."
+    "Debt to Equity": "Total Debt / Shareholders Equity (Risk measure).",
+    "FCF per Share": "Free Cash Flow for every share outstanding.",
+    "Gross Margin %": "Profitability percentage after production costs."
 }
 
 ticker_symbol = st.text_input("Enter Ticker:", "AAPL").upper()
 
 if ticker_symbol:
     stock = yf.Ticker(ticker_symbol)
-    info = stock.info
     
-    # --- 2. MARKET SNAPSHOT ---
-    st.subheader("Market Snapshot")
-    c1, c2, c3, c4 = st.columns(4)
-    price = info.get('currentPrice', 1)
-    shares = info.get('sharesOutstanding', 1)
-    div = info.get('dividendRate', 0)
-    y_val = (div / price) * 100 if div else 0
-    
-    c1.metric("Current Price", f"${price}")
-    c2.metric("Market Cap", f"{info.get('marketCap', 0):,}")
-    c3.metric("Div. Yield", f"{y_val:.2f}%")
-    c4.metric("Risk Score", info.get('overallRisk', 'N/A'))
-
-    # --- 3. THE "STATEMENT RECONSTRUCTION" ENGINE ---
     try:
-        # Fetch all raw statements
-        fin = stock.financials.T
-        cf = stock.cashflow.T
-        bs = stock.balance_sheet.T
-        all_raw = pd.concat([fin, cf, bs], axis=1)
-        all_raw = all_raw.loc[:, ~all_raw.columns.duplicated()]
+        # 1. FETCH MAX HISTORY
+        if view_mode == "Annual":
+            fin, cf, bs = stock.get_financials(freq='yearly'), stock.get_cashflow(freq='yearly'), stock.get_balance_sheet(freq='yearly')
+        else:
+            fin, cf, bs = stock.get_financials(freq='quarterly'), stock.get_cashflow(freq='quarterly'), stock.get_balance_sheet(freq='quarterly')
 
-        # Helper to find columns safely
-        def find(names):
+        # Merge and remove duplicates
+        all_raw = pd.concat([fin, cf, bs], axis=0).T
+        all_raw = all_raw.loc[:, ~all_raw.columns.duplicated()]
+        
+        # 2. CALCULATE METRICS
+        shares = stock.info.get('sharesOutstanding', 1)
+        df = pd.DataFrame(index=all_raw.index)
+        
+        def safe_get(names):
             for n in names:
                 if n in all_raw.columns: return all_raw[n]
             return pd.Series(0, index=all_raw.index)
 
-        # Map Raw Data to our Clean Table
-        df = pd.DataFrame(index=all_raw.index)
-        df["Total Revenue"] = find(["Total Revenue", "Revenue"])
-        df["Net Income"] = find(["Net Income"])
-        df["Free Cash Flow"] = find(["Free Cash Flow"])
-        df["Operating Cash Flow"] = find(["Operating Cash Flow", "Total Cash From Operating Activities"])
-        df["Gross Profit"] = find(["Gross Profit"])
-        df["Operating Expense"] = find(["Operating Expenses"])
-        df["EBIT"] = find(["EBIT"])
-        df["Total Assets"] = find(["Total Assets"])
-        df["Total Liabilities"] = find(["Total Liabilities Net Minority Interest", "Total Liabilities"])
-        df["Total Debt"] = find(["Total Debt"])
-        df["Stockholders Equity"] = find(["Stockholders Equity"])
-        df["Cash & Equivalents"] = find(["Cash And Cash Equivalents", "Cash"])
-
-        # --- 4. MANUAL RATIO CALCULATIONS ---
-        df["Gross Margin %"] = (df["Gross Profit"] / df["Total Revenue"]) * 100
-        df["Net Profit Margin %"] = (df["Net Income"] / df["Total Revenue"]) * 100
-        df["Debt to Equity"] = df["Total Debt"] / df["Stockholders Equity"]
+        df["Total Revenue"] = safe_get(["Total Revenue", "Revenue"])
+        df["Net Income"] = safe_get(["Net Income"])
+        df["Free Cash Flow"] = safe_get(["Free Cash Flow"])
+        df["Gross Margin %"] = (safe_get(["Gross Profit"]) / df["Total Revenue"]) * 100
+        df["Debt to Equity"] = safe_get(["Total Debt"]) / safe_get(["Stockholders Equity"])
         df["FCF per Share"] = df["Free Cash Flow"] / shares
-        df["Current Ratio"] = find(["Current Assets"]) / find(["Current Liabilities"])
+
+        # 3. CHRONOLOGICAL FILTERING
+        # Slice based on slider
+        count = years_to_show if view_mode == "Annual" else (years_to_show * 4)
+        df = df.head(count)
         
-        df.index = pd.to_datetime(df.index).year
-    except:
+        # SORT: Oldest -> Newest (Fixes the 'backwards' issue)
+        df = df.sort_index(ascending=True) 
+        
+        # Format the dates for the chart labels
+        if view_mode == "Annual":
+            df.index = pd.to_datetime(df.index).year
+        else:
+            df.index = pd.to_datetime(df.index).strftime('%b %Y')
+
+    except Exception as e:
+        st.error(f"Waiting for data... ({e})")
         df = pd.DataFrame()
 
-    # --- 5. THE CHART & GLOSSARY ---
+    # --- 4. THE CHART ---
     st.divider()
-    st.subheader("📊 Advanced Financials Explorer")
-    selected = st.multiselect("Select Metrics to Compare:", options=list(metric_defs.keys()), default=["Total Revenue", "Net Income", "Free Cash Flow"])
+    selected = st.multiselect("Select Metrics:", options=list(metric_defs.keys()), default=["Total Revenue", "Net Income"])
 
     if not df.empty and selected:
-        valid_selected = [m for m in selected if m in df.columns]
-        plot_data = df[valid_selected]
-        
-        # Plotly Grouped Bar Chart
+        # Category axis forces thick bars even with 15 years of data
         fig = px.bar(
-            plot_data, x=plot_data.index, y=plot_data.columns,
+            df, x=df.index, y=selected,
             barmode='group',
-            color_discrete_sequence=[user_color, "#FF4B4B", "#1C83E1", "#FACA2B", "#AB63FA", "#00CC96"]
+            color_discrete_sequence=[user_color, "#FF4B4B", "#1C83E1", "#FACA2B", "#AB63FA"]
         )
         
         fig.update_layout(
-            bargap=0.15, bargroupgap=0.05,
-            xaxis=dict(type='category', title="Year"),
-            yaxis=dict(title="Value ($ or Ratio)"),
-            margin=dict(l=0, r=0, t=20, b=0)
+            bargap=0.15, 
+            bargroupgap=0.05,
+            xaxis=dict(type='category', title="Time Period (Oldest to Newest)"),
+            yaxis=dict(title="Financial Value"),
+            margin=dict(l=0, r=0, t=10, b=0)
         )
         st.plotly_chart(fig, use_container_width=True)
 
-        # Auto-Glossary Tabs
-        st.write("#### 📖 Metric Dictionary")
-        tabs = st.tabs(valid_selected)
-        for i, m in enumerate(valid_selected):
+        # 5. DYNAMIC GLOSSARY TABS
+        tabs = st.tabs(selected)
+        for i, m in enumerate(selected):
             with tabs[i]: st.info(f"**{m}**: {metric_defs.get(m)}")
 
-    # --- 6. ABOUT & NEWS ---
+    # 6. NEWS
     st.divider()
-    with st.expander("📝 About the Company"):
-        st.write(info.get('longBusinessSummary', "N/A"))
-
-    st.subheader("Latest News Headlines")
+    st.subheader("Latest Headlines")
     for article in stock.news[:5]:
-        title = article.get('title') or article.get('content', {}).get('title', "Latest Update")
-        link = article.get('link') or article.get('content', {}).get('canonicalUrl', {}).get('url', "#")
+        title = article.get('title') or "Latest Market News"
+        link = article.get('link') or "#"
         st.write(f"**[{title}]({link})**")
-        st.divider()
