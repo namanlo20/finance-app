@@ -343,7 +343,7 @@ with tab1:
                     cashflow_metrics = [m for m in available if m in ['NetCashProvidedByUsedInOperatingActivities', 'NetCashProvidedByUsedInInvestingActivities', 'NetCashProvidedByUsedInFinancingActivities', 'ShareBasedCompensation', 'PaymentsToAcquirePropertyPlantAndEquipment']]
                     fcf_metrics = [m for m in available if m in ['Free Cash Flow', 'FCF After SBC']]
                     
-                    col1, col2, col3, col4 = st.columns(4)
+                    col1, col2, col3 = st.columns(3)
                     with col1:
                         default_income = [m for m in ['Total Revenue', 'OperatingIncomeLoss', 'NetIncomeLoss'] if m in income_metrics]
                         income_selected = st.multiselect("💵 Income Statement:", options=income_metrics, default=default_income)
@@ -351,34 +351,55 @@ with tab1:
                         default_balance = [m for m in ['Assets', 'StockholdersEquity', 'Liabilities'] if m in balance_metrics]
                         balance_selected = st.multiselect("🏦 Balance Sheet:", options=balance_metrics, default=default_balance)
                     with col3:
-                        default_cf = [m for m in ['NetCashProvidedByUsedInOperatingActivities', 'NetCashProvidedByUsedInInvestingActivities', 'NetCashProvidedByUsedInFinancingActivities'] if m in cashflow_metrics]
-                        cashflow_selected = st.multiselect("💧 Cash Flow:", options=cashflow_metrics, default=default_cf)
-                    with col4:
-                        fcf_selected = st.multiselect("🔥 Free Cash Flow:", options=fcf_metrics, default=fcf_metrics if fcf_metrics else [])
+                        default_cf = [m for m in ['NetCashProvidedByUsedInOperatingActivities', 'ShareBasedCompensation'] + fcf_metrics if m in cashflow_metrics or m in fcf_metrics]
+                        cashflow_selected = st.multiselect("💧 Cash Flow & FCF:", options=cashflow_metrics + fcf_metrics, default=default_cf)
                     
-                    selected = income_selected + balance_selected + cashflow_selected + fcf_selected
+                    if quirky_mode:
+                        for metric in income_selected + balance_selected + cashflow_selected:
+                            if metric in QUIRKY_COMMENTS:
+                                st.info(random.choice(QUIRKY_COMMENTS[metric]))
                     
-                    if selected:
-                        if quirky_mode:
-                            for metric in selected:
-                                if metric in QUIRKY_COMMENTS:
-                                    st.info(random.choice(QUIRKY_COMMENTS[metric]))
-                        
-                        with st.expander("📖 Definitions"):
-                            for metric in selected:
-                                if metric in METRIC_DEFINITIONS:
-                                    st.write(f"**{metric}**: {METRIC_DEFINITIONS[metric]}")
-                        
-                        fig = px.bar(display_df, x=display_df.index, y=selected, barmode='group', color_discrete_sequence=px.colors.qualitative.Bold)
-                        max_val = display_df[selected].max().max()
-                        min_val = display_df[selected].min().min()
+                    with st.expander("📖 Definitions"):
+                        for metric in income_selected + balance_selected + cashflow_selected:
+                            if metric in METRIC_DEFINITIONS:
+                                st.write(f"**{metric}**: {METRIC_DEFINITIONS[metric]}")
+                    
+                    if income_selected:
+                        st.subheader("💵 Income Statement")
+                        fig1 = px.bar(display_df, x=display_df.index, y=income_selected, barmode='group', color_discrete_sequence=px.colors.qualitative.Bold)
+                        max_val = display_df[income_selected].max().max()
+                        min_val = display_df[income_selected].min().min()
                         y_range = [min_val * 1.1 if min_val < 0 else 0, max_val * 1.15]
+                        fig1.update_layout(height=400, yaxis=dict(range=y_range), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='white')
+                        st.plotly_chart(fig1, use_container_width=True)
+                    
+                    if balance_selected:
+                        st.subheader("🏦 Balance Sheet")
+                        fig2 = px.bar(display_df, x=display_df.index, y=balance_selected, barmode='group', color_discrete_sequence=px.colors.qualitative.Set2)
+                        max_val = display_df[balance_selected].max().max()
+                        min_val = display_df[balance_selected].min().min()
+                        y_range = [min_val * 1.1 if min_val < 0 else 0, max_val * 1.15]
+                        fig2.update_layout(height=400, yaxis=dict(range=y_range), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='white')
+                        st.plotly_chart(fig2, use_container_width=True)
+                    
+                    if cashflow_selected:
+                        st.subheader("💧 Cash Flow & Free Cash Flow")
+                        cf_df = pd.DataFrame(index=display_df.index)
+                        for metric in cashflow_selected:
+                            if metric in display_df.columns:
+                                cf_df[metric] = display_df[metric]
                         
-                        fig.update_layout(height=500, yaxis=dict(range=y_range), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='white')
-                        st.plotly_chart(fig, use_container_width=True)
-                        
-                        with st.expander("📂 Raw Data"):
-                            formatted = display_df[selected].copy()
+                        fig3 = px.bar(cf_df, x=cf_df.index, y=cashflow_selected, barmode='group', color_discrete_sequence=px.colors.qualitative.Pastel)
+                        max_val = cf_df[cashflow_selected].max().max()
+                        min_val = cf_df[cashflow_selected].min().min()
+                        y_range = [min_val * 1.1 if min_val < 0 else 0, max_val * 1.15]
+                        fig3.update_layout(height=400, yaxis=dict(range=y_range), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='white')
+                        st.plotly_chart(fig3, use_container_width=True)
+                    
+                    with st.expander("📂 Raw Data"):
+                        all_selected = income_selected + balance_selected + cashflow_selected
+                        if all_selected:
+                            formatted = display_df[[m for m in all_selected if m in display_df.columns]].copy()
                             for col in formatted.columns:
                                 formatted[col] = formatted[col].apply(lambda x: f"${x:,.0f}" if pd.notnull(x) else "N/A")
                             st.dataframe(formatted, use_container_width=True)
