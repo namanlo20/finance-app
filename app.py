@@ -208,7 +208,8 @@ if ticker in ticker_map:
                             formatted[col] = formatted[col].apply(lambda x: f"${x:,.0f}" if pd.notnull(x) else "N/A")
                         st.dataframe(formatted, use_container_width=True)
             
-            else:  # Ratios view
+            else:
+                # Ratios view
                 ratios_df = calculate_ratios(display_df)
                 
                 if not ratios_df.empty:
@@ -256,7 +257,6 @@ if ticker in ticker_map:
 else:
     st.info("👆 Enter a valid ticker or company name to start exploring financial data!")
     with st.expander("🔍 How to search"):
-        st.markdown("""
-        - **By Ticker**: Enter stock symbols like `AAPL`, `MSFT`, `TSLA`
-        - **By Name**: Enter company names like `APPLE INC`, `MICROSOFT CORP`
-        - The tool will try to find matches automatically!""")
+        st.write("**By Ticker**: Enter stock symbols like AAPL, MSFT, TSLA")
+        st.write("**By Name**: Enter company names like APPLE INC, MICROSOFT CORP")
+        st.write("The tool will try to find matches automatically!")
