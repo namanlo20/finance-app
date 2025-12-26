@@ -31,6 +31,9 @@ METRIC_DEFINITIONS = {
     "PaymentsToAcquirePropertyPlantAndEquipment": "Capital expenditures (CapEx) - money spent on assets.",
     "Free Cash Flow": "Operating Cash Flow minus CapEx - cash available for growth or returns.",
     "FCF After SBC": "FCF minus stock comp - the MOST honest cash metric. No BS, just real cash.",
+    "Assets": "Total assets - everything the company owns.",
+    "Liabilities": "Total liabilities - everything the company owes.",
+    "StockholdersEquity": "Shareholders' equity - the net worth owned by shareholders.",
 }
 
 SECTOR_STOCKS = {
@@ -259,25 +262,41 @@ with tab1:
             col4.metric("P/E Ratio", f"{pe:.2f}" if pe > 0 else "N/A")
             fpe = stock_data.get('forward_pe', 0)
             col5.metric("Forward P/E", f"{fpe:.2f}" if fpe > 0 else "N/A")
-            
-            chart_data = get_stock_chart_data(ticker, '1y')
-            if chart_data is not None:
-                fig = px.area(chart_data, x='Date', y='Price', title=f'{ticker} Price Chart (1 Year)')
-                fig.update_layout(height=300, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='white')
-                st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.warning("Could not fetch live stock data. Showing SEC data only.")
 
     with st.sidebar:
         st.header("⚙️ Settings")
         freq = st.radio("Frequency:", ["Annual (10-K)", "Quarterly (10-Q)"])
         years_to_show = st.slider("History:", 1, 20, 10)
         target_form = "10-K" if "Annual" in freq else "10-Q"
+        
+        st.divider()
+        st.subheader("📈 Chart Settings")
+        chart_timeframe = st.selectbox("Stock Chart Period:", ["1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "max"], index=3)
+        sync_with_financials = st.checkbox("Sync chart with financial history", value=False)
+        
+        if sync_with_financials:
+            if years_to_show <= 1:
+                chart_timeframe = "1y"
+            elif years_to_show <= 2:
+                chart_timeframe = "2y"
+            elif years_to_show <= 5:
+                chart_timeframe = "5y"
+            else:
+                chart_timeframe = "10y"
+        
+        st.divider()
         quirky_mode = st.toggle("🔥 Unhinged Mode", value=False)
         
         st.divider()
         st.markdown("### 💡 Quick Tips")
         st.info("**FCF After SBC**: Most honest cash metric\n\n**Operating Margin**: Pricing power\n\n**Current Ratio**: Liquidity check")
+
+    if ticker in ticker_map:
+        chart_data = get_stock_chart_data(ticker, chart_timeframe)
+        if chart_data is not None:
+            fig = px.area(chart_data, x='Date', y='Price', title=f'{ticker} Price Chart ({chart_timeframe})')
+            fig.update_layout(height=300, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='white')
+            st.plotly_chart(fig, use_container_width=True)
 
     if ticker in ticker_map:
         try:
@@ -320,18 +339,24 @@ with tab1:
                 if view_mode == "Metrics":
                     available = list(display_df.columns)
                     income_metrics = [m for m in available if m in ['Total Revenue', 'NetIncomeLoss', 'OperatingIncomeLoss', 'GrossProfit', 'CostOfRevenue', 'OperatingExpenses']]
+                    balance_metrics = [m for m in available if m in ['Assets', 'Liabilities', 'StockholdersEquity', 'AssetsCurrent', 'LiabilitiesCurrent']]
                     cashflow_metrics = [m for m in available if m in ['NetCashProvidedByUsedInOperatingActivities', 'NetCashProvidedByUsedInInvestingActivities', 'NetCashProvidedByUsedInFinancingActivities', 'ShareBasedCompensation', 'PaymentsToAcquirePropertyPlantAndEquipment']]
                     fcf_metrics = [m for m in available if m in ['Free Cash Flow', 'FCF After SBC']]
                     
-                    col1, col2, col3 = st.columns(3)
+                    col1, col2, col3, col4 = st.columns(4)
                     with col1:
-                        income_selected = st.multiselect("💵 Income Statement:", options=income_metrics, default=income_metrics[:3] if len(income_metrics) >= 3 else income_metrics)
+                        default_income = [m for m in ['Total Revenue', 'OperatingIncomeLoss', 'NetIncomeLoss'] if m in income_metrics]
+                        income_selected = st.multiselect("💵 Income Statement:", options=income_metrics, default=default_income)
                     with col2:
-                        cashflow_selected = st.multiselect("💧 Cash Flow:", options=cashflow_metrics, default=[])
+                        default_balance = [m for m in ['Assets', 'StockholdersEquity', 'Liabilities'] if m in balance_metrics]
+                        balance_selected = st.multiselect("🏦 Balance Sheet:", options=balance_metrics, default=default_balance)
                     with col3:
+                        default_cf = [m for m in ['NetCashProvidedByUsedInOperatingActivities', 'NetCashProvidedByUsedInInvestingActivities', 'NetCashProvidedByUsedInFinancingActivities'] if m in cashflow_metrics]
+                        cashflow_selected = st.multiselect("💧 Cash Flow:", options=cashflow_metrics, default=default_cf)
+                    with col4:
                         fcf_selected = st.multiselect("🔥 Free Cash Flow:", options=fcf_metrics, default=fcf_metrics if fcf_metrics else [])
                     
-                    selected = income_selected + cashflow_selected + fcf_selected
+                    selected = income_selected + balance_selected + cashflow_selected + fcf_selected
                     
                     if selected:
                         if quirky_mode:
