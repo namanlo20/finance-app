@@ -171,52 +171,33 @@ with tab4:
 with tab3:
     st.header("💎 My Investment Checklist")
     st.subheader("🔥 The Metrics That Actually Matter")
-    
     st.markdown("""
     ### What I Look For When Investing:
     
-    **1. Free Cash Flow After SBC (Stock-Based Compensation)**
-    - This is THE most honest metric. It shows real cash generation after accounting for dilution.
+    **1. Free Cash Flow After SBC**
     - Formula: Operating Cash Flow - Stock-Based Comp - CapEx
-    - Why: Tech companies love to hide dilution. This metric doesn't let them.
+    - THE most honest metric showing real cash after dilution
     
     **2. Operating Income**
-    - Shows if the core business actually makes money.
-    - Strips out financial engineering and one-time items.
-    - Look for consistent growth, not volatility.
+    - Core business profit before financial engineering
+    - Look for consistent growth
     
     **3. Gross Margin %**
-    - High margins (>60%) = pricing power and moat
-    - Low margins (<20%) = commodity business getting squeezed
-    - Expanding margins = getting better with scale
+    - High margins (>60%) = pricing power
+    - Low margins (<20%) = commodity business
     
     **4. Operating Margin %**
-    - After all operating expenses, what's left?
-    - Target: >20% for software, >10% for most others
-    - Trend matters more than absolute number
+    - Target: >20% for software, >10% for others
     
-    **5. Revenue Growth Rate**
-    - Growing >20% YoY = exciting
-    - Growing <5% YoY = mature/struggling
-    - Decelerating growth = red flag
+    **5. Revenue Growth**
+    - >20% YoY = exciting
+    - <5% YoY = struggling
     
-    **6. Current Ratio**
-    - Can they pay bills? Above 1.5 is healthy.
-    - Below 1.0 = potential liquidity crisis
-    
-    **7. Debt-to-Equity**
-    - Lower is safer (generally <0.5 for tech)
-    - High debt in downturns = danger zone
-    
-    ### 🚨 Red Flags I Always Check:
-    - Declining gross margins (losing pricing power)
-    - Negative free cash flow for multiple years
-    - Stock-based comp >30% of revenue (massive dilution)
-    - Revenue growing but cash flow shrinking (fake growth)
-    - High debt + low margins (death spiral potential)
-    
-    ### 💡 Pro Tip:
-    Use the "Insights" tab to quickly see FCF After SBC trends. If it's consistently negative or declining while revenue grows, that's a major red flag! 🚩
+    ### 🚨 Red Flags:
+    - Declining gross margins
+    - Negative FCF for multiple years
+    - Stock comp >30% of revenue
+    - Revenue growing but cash flow shrinking
     """)
 
 with tab2:
@@ -296,7 +277,7 @@ with tab1:
         
         st.divider()
         st.markdown("### 💡 Quick Tips")
-        st.info("**FCF After SBC**: Most honest cash metric\n\n**Operating Margin**: Pricing power indicator\n\n**Current Ratio**: Liquidity health check")
+        st.info("**FCF After SBC**: Most honest cash metric\n\n**Operating Margin**: Pricing power\n\n**Current Ratio**: Liquidity check")
 
     if ticker in ticker_map:
         try:
@@ -368,13 +349,7 @@ with tab1:
                         min_val = display_df[selected].min().min()
                         y_range = [min_val * 1.1 if min_val < 0 else 0, max_val * 1.15]
                         
-                        fig.update_layout(
-                            height=500,
-                            yaxis=dict(range=y_range),
-                            plot_bgcolor='rgba(0,0,0,0)',
-                            paper_bgcolor='rgba(0,0,0,0)',
-                            font_color='white'
-                        )
+                        fig.update_layout(height=500, yaxis=dict(range=y_range), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='white')
                         st.plotly_chart(fig, use_container_width=True)
                         
                         with st.expander("📂 Raw Data"):
@@ -391,13 +366,7 @@ with tab1:
                         if selected_ratios:
                             fig = px.bar(ratios_df, x=ratios_df.index, y=selected_ratios, barmode='group', color_discrete_sequence=px.colors.qualitative.Pastel)
                             max_val = ratios_df[selected_ratios].max().max()
-                            fig.update_layout(
-                                height=500,
-                                yaxis=dict(range=[0, max_val * 1.15]),
-                                plot_bgcolor='rgba(0,0,0,0)',
-                                paper_bgcolor='rgba(0,0,0,0)',
-                                font_color='white'
-                            )
+                            fig.update_layout(height=500, yaxis=dict(range=[0, max_val * 1.15]), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='white')
                             st.plotly_chart(fig, use_container_width=True)
                             
                             with st.expander("📂 Data Table"):
@@ -424,4 +393,47 @@ with tab1:
                                 elif metric in display_df.columns:
                                     plot_df[metric] = display_df[metric]
                             
-                            fig = px.bar
+                            fig = px.bar(plot_df, x=plot_df.index, y=selected_insights, barmode='group', color_discrete_sequence=['#00D9FF', '#FF6B9D', '#FFC837'])
+                            max_val = plot_df[selected_insights].max().max()
+                            min_val = plot_df[selected_insights].min().min()
+                            y_range = [min_val * 1.1 if min_val < 0 else 0, max_val * 1.15]
+                            
+                            fig.update_layout(height=500, yaxis=dict(range=y_range), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='white')
+                            st.plotly_chart(fig, use_container_width=True)
+                            
+                            if 'FCF After SBC' in fcf_df.columns:
+                                latest_fcf = fcf_df['FCF After SBC'].iloc[-1]
+                                if len(fcf_df) > 1:
+                                    prev_fcf = fcf_df['FCF After SBC'].iloc[-2]
+                                    growth = ((latest_fcf - prev_fcf) / abs(prev_fcf) * 100) if prev_fcf != 0 else 0
+                                    
+                                    col1, col2 = st.columns(2)
+                                    col1.metric("Latest FCF After SBC", f"${latest_fcf/1e9:.2f}B", f"{growth:+.1f}%")
+                                    
+                                    if latest_fcf > 0:
+                                        col2.success("✅ Positive free cash flow!")
+                                    else:
+                                        col2.error("🚨 Negative free cash flow!")
+                    else:
+                        st.warning("Not enough cash flow data. Company must report Operating Cash Flow and CapEx.")
+                
+                elif view_mode == "News":
+                    st.subheader(f"📰 Latest News for {ticker}")
+                    news = get_company_news(ticker)
+                    if news:
+                        for i, article in enumerate(news):
+                            with st.expander(f"{i+1}. {article.get('headline', 'No title')[:80]}..."):
+                                st.write(f"**Source:** {article.get('source', 'Unknown')}")
+                                st.write(f"**Date:** {datetime.fromtimestamp(article.get('datetime', 0)).strftime('%Y-%m-%d')}")
+                                st.write(article.get('summary', 'No summary')[:300])
+                                if article.get('url'):
+                                    st.markdown(f"[Read more]({article['url']})")
+                    else:
+                        st.info("No recent news available.")
+            else:
+                st.warning("No data for this timeframe.")
+        
+        except Exception as e:
+            st.error(f"Error: {str(e)}")
+    else:
+        st.info("Enter a valid ticker!")
