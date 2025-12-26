@@ -3,68 +3,63 @@ import yfinance as yf
 import pandas as pd
 
 st.set_page_config(page_title="TickerTotal", layout="wide")
+st.title("🔍 TickerTotal: Pro Beginner Terminal")
 
-st.title("🔍 TickerTotal: The Simple Stock Explainer")
+ticker_symbol = st.text_input("Enter Ticker:", "AAPL").upper()
 
-ticker_symbol = st.text_input("Enter a Stock Ticker:", "AAPL").upper()
+# --- DEFINITION DICTIONARY ---
+metric_explanations = {
+    "Total Revenue": "Total money a company brings in from sales before any expenses.",
+    "Cost Of Revenue": "The direct costs of producing the goods or services sold (COGS).",
+    "Gross Profit": "Revenue minus COGS. It shows how much profit is made on the products themselves.",
+    "Operating Expense": "Costs to run the business (Rent, Salaries, Marketing).",
+    "Operating Income": "Profit after taking out operating expenses. Shows core business health.",
+    "Net Income": "The 'Bottom Line'. Total profit after ALL expenses and taxes are paid.",
+    "Basic EPS": "Earnings Per Share. The portion of profit allocated to each share of stock.",
+    "Operating Cash Flow": "Actual cash generated from business activities (often more reliable than Net Income).",
+    "Free Cash Flow": "Cash left over after the company pays for its operations and equipment."
+}
 
 if ticker_symbol:
     stock = yf.Ticker(ticker_symbol)
     info = stock.info
     
-    # --- FIXED DIVIDEND MATH ---
+    # 1. FIXED DIVIDEND YIELD
     div_rate = info.get('dividendRate', 0)
-    curr_price = info.get('currentPrice', 1) # Avoid division by zero
-    # Logic: If div_rate exists, calculate yield manually to avoid the 38% bug
+    curr_price = info.get('currentPrice', 1)
     real_yield = (div_rate / curr_price) * 100 if div_rate else 0
     
-    # --- SECTION 1: MARKET SNAPSHOT ---
-    st.subheader("Market Snapshot")
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Current Price", f"${info.get('currentPrice', 'N/A')}")
-    col2.metric("Market Cap", f"{info.get('marketCap', 0):,}")
-    # Display the fixed yield
-    col3.metric("Div. Yield", f"{real_yield:.2f}%", help="Calculated as (Annual Dividend / Stock Price)")
-    col4.metric("Risk Score", info.get('overallRisk', 'N/A'))
+    # 2. SNAPSHOT METRICS
+    cols = st.columns(4)
+    cols[0].metric("Price", f"${info.get('currentPrice', 'N/A')}")
+    cols[1].metric("Market Cap", f"{info.get('marketCap', 0):,}")
+    cols[2].metric("Div. Yield", f"{real_yield:.2f}%") # Manual fix applied
+    cols[3].metric("Risk Score", info.get('overallRisk', 'N/A'))
 
-    # --- SECTION 2: FINANCIALS WITH CHART TOGGLE ---
+    # 3. ORDERED FINANCIALS EXPLORER
     st.divider()
-    st.subheader("📊 Financials Explorer")
+    st.subheader("📊 Advanced Financials Explorer")
     
-    # 1. Added the Chart Type Option
-    chart_type = st.radio("Choose Chart Style:", ["Line Chart", "Bar Chart"], horizontal=True)
+    # Selection in your specific order
+    ordered_metrics = list(metric_explanations.keys())
+    selected = st.multiselect("Pick Metrics to Compare:", options=ordered_metrics, default=["Total Revenue", "Net Income"])
     
+    chart_style = st.radio("Chart Style:", ["Line", "Bar"], horizontal=True)
+
     financials = stock.financials.T
-    
-    if not financials.empty:
-        available_metrics = financials.columns.tolist()
-        selected_metrics = st.multiselect(
-            "Select Metrics:", 
-            options=available_metrics, 
-            default=["Total Revenue", "Cost Of Revenue"] if "Total Revenue" in available_metrics else available_metrics[:2]
-        )
+    if not financials.empty and selected:
+        # Filter data based on selection
+        plot_data = financials[selected]
+        
+        # 4. CHART SPACING FIX
+        if chart_style == "Line":
+            st.line_chart(plot_data, width="stretch")
+        else:
+            st.bar_chart(plot_data, width="stretch") # Stretches to prevent ugly gaps
 
-        if selected_metrics:
-            chart_data = financials[selected_metrics]
-            
-            # 2. Toggle Logic
-            if chart_type == "Line Chart":
-                st.line_chart(chart_data)
-            else:
-                st.bar_chart(chart_data)
-    else:
-        st.warning("Financial data not available.")
-
-    # --- SECTION 3: DESCRIPTION & NEWS ---
-    st.divider()
-    with st.expander("📝 What does this company actually do?"):
-        st.write(info.get('longBusinessSummary', "No description available."))
-
-    st.subheader("Price History")
-    st.area_chart(stock.history(period="1y")['Close'])
-
-    st.subheader("Latest News")
-    for article in stock.news[:5]:
-        content = article.get('content', article)
-        st.write(f"**[{content.get('title', 'No Title')}]({content.get('canonicalUrl', {}).get('url') or article.get('link', '#')})**")
-        st.divider()
+        # 5. DYNAMIC EXPLANATION TABS
+        st.write("### 📖 Understand the Data")
+        tabs = st.tabs(selected) # Creates a tab for every selected metric
+        for i, metric in enumerate(selected):
+            with tabs[i]:
+                st.info(f"**{metric}**: {metric_explanations.get(metric, 'Definition coming soon!')}")
