@@ -397,16 +397,20 @@ with tab1:
             if 'Total Revenue' in master_df.columns and 'CostOfRevenue' in master_df.columns:
                 master_df['GrossProfit'] = master_df['Total Revenue'] - master_df['CostOfRevenue']
             
-            fcf_df = calculate_fcf_metrics(master_df)
-            for col in fcf_df.columns:
-                master_df[col] = fcf_df[col]
-            
             cutoff_date = datetime.now() - timedelta(days=years_to_show*365)
             display_df = master_df[master_df.index >= cutoff_date].copy()
             if display_df.empty:
                 display_df = master_df.tail(years_to_show if target_form == "10-K" else years_to_show * 4).copy()
             
             if not display_df.empty:
+                # Calculate FCF before converting index to strings
+                ocf = display_df.get('NetCashProvidedByUsedInOperatingActivities', pd.Series(dtype=float))
+                capex = display_df.get('PaymentsToAcquirePropertyPlantAndEquipment', pd.Series(dtype=float))
+                
+                if not ocf.empty and not capex.empty:
+                    display_df['Free Cash Flow'] = ocf - capex.abs()
+                
+                # NOW convert index to strings for display
                 display_df.index = display_df.index.strftime('%Y' if target_form == "10-K" else '%Y-Q%q')
                 
                 if view_mode == "Metrics":
@@ -419,12 +423,12 @@ with tab1:
                     # === CASH FLOW FIRST (TOP) ===
                     col_left, col_right = st.columns([1, 3])
                     with col_left:
-                        st.subheader("💧 Cash Flow")
+                        st.subheader("💧 Statement of Cash Flows")
                         default_cf = [m for m in ['Free Cash Flow', 'ShareBasedCompensation'] if m in cashflow_metrics or m in fcf_metrics]
                         cashflow_selected = st.multiselect("Select metrics:", options=cashflow_metrics + fcf_metrics, default=default_cf, key="cf")
                     
                     with col_right:
-                        st.markdown("### 💧 Cash Flow Statement")
+                        st.markdown("### 💧 Statement of Cash Flows")
                         if cashflow_selected:
                             if quirky_mode:
                                 for metric in cashflow_selected:
@@ -462,7 +466,7 @@ with tab1:
                     # === INCOME STATEMENT SECOND (MIDDLE) ===
                     col_left, col_right = st.columns([1, 3])
                     with col_left:
-                        st.subheader("💵 Income")
+                        st.subheader("💵 Income Statement")
                         default_income = [m for m in ['Total Revenue', 'OperatingIncomeLoss', 'NetIncomeLoss'] if m in income_metrics]
                         income_selected = st.multiselect("Select metrics:", options=income_metrics, default=default_income, key="income")
                     
