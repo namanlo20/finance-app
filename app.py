@@ -1,110 +1,109 @@
 import streamlit as st
-import yfinance as yf
 import pandas as pd
+import requests
 import plotly.express as px
+import yfinance as yf
 
-st.set_page_config(page_title="TickerTotal", layout="wide")
-st.title("🔍 TickerTotal: 10-Year Pro Terminal")
+# SEC REQUIREMENT: Identify yourself
+HEADERS = {'User-Agent': "pro_analyst_tool@yourdomain.com"} 
 
-# --- SIDEBAR: DYNAMIC CONTROLS ---
+st.set_page_config(page_title="TickerTotal: SEC Deep Dive", layout="wide")
+st.title("🏛️ TickerTotal: 100% Disclosure Terminal")
+
+# --- SIDEBAR: GLOBAL SETTINGS ---
 with st.sidebar:
-    st.header("⚙️ Data Settings")
-    view_mode = st.radio("Frequency:", ["Annual", "Quarterly"])
-    years_to_show = st.slider("Years of History:", min_value=1, max_value=15, value=5)
-    st.divider()
-    user_color = st.color_picker("Primary Chart Color", "#00FFAA")
+    st.header("⚙️ Terminal Controls")
+    view_mode = st.radio("Filing Type:", ["Annual (10-K)", "Quarterly (10-Q)"])
+    # This slider now filters the data AFTER pulling everything
+    years_to_show = st.slider("Max Years to Display:", 1, 20, 10)
+    user_color = st.color_picker("Chart Primary Color", "#00FFAA")
+    st.info("Pulling every recorded US-GAAP tag from SEC EDGAR.")
 
-# Updated Dictionary for the Glossary
-metric_defs = {
-    "Total Revenue": "Total top-line money from sales.",
-    "Net Income": "Bottom-line profit after all expenses.",
-    "Free Cash Flow": "Cash available for expansion or dividends.",
-    "Debt to Equity": "Total Debt / Shareholders Equity.",
-    "FCF per Share": "Free Cash Flow for every share outstanding.",
-    "Gross Margin %": "Profitability percentage after production costs."
-}
+@st.cache_data
+def get_sec_map():
+    res = requests.get("https://www.sec.gov/files/company_tickers.json", headers=HEADERS)
+    return {v['ticker']: str(v['cik_str']).zfill(10) for k, v in res.json().items()}
 
-ticker_symbol = st.text_input("Enter Ticker:", "AAPL").upper()
+ticker_symbol = st.text_input("Enter Ticker:", "TSLA").upper()
+cik_map = get_sec_map()
 
-if ticker_symbol:
+if ticker_symbol in cik_map:
+    # 1. REAL-TIME SNAPSHOT
     stock = yf.Ticker(ticker_symbol)
-    
+    price = stock.info.get('currentPrice', 'N/A')
+    st.subheader(f"⚡ {ticker_symbol} Live: ${price}")
+
+    # 2. THE RECURSIVE SEC ENGINE
     try:
-        # 1. FETCH DATA
-        if view_mode == "Annual":
-            fin, cf, bs = stock.financials, stock.cashflow, stock.balance_sheet
-        else:
-            fin, cf, bs = stock.quarterly_financials, stock.quarterly_cashflow, stock.quarterly_balance_sheet
+        cik = cik_map[ticker_symbol]
+        facts_url = f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json"
+        raw_data = requests.get(facts_url, headers=HEADERS).json()
+        all_facts = raw_data['facts']['us-gaap']
 
-        # Merge all into one Master Table
-        all_raw = pd.concat([fin, cf, bs], axis=0).T
-        all_raw = all_raw.loc[:, ~all_raw.columns.duplicated()]
-        
-        # 2. BULLETPROOF DATA EXTRACTION
-        def find_metric(possible_names):
-            for name in possible_names:
-                if name in all_raw.columns: return all_raw[name]
-            return pd.Series(0.0, index=all_raw.index) # Return 0s if not found
+        # This list will hold every valid metric we find
+        full_dataset = {}
+        form_filter = "10-K" if "Annual" in view_mode else "10-Q"
 
-        df = pd.DataFrame(index=all_raw.index)
-        df["Total Revenue"] = find_metric(["Total Revenue", "Revenue", "TotalRevenue"])
-        df["Net Income"] = find_metric(["Net Income", "NetIncome"])
-        df["Free Cash Flow"] = find_metric(["Free Cash Flow", "FreeCashFlow"])
-        
-        # Manual Math for Ratios
-        gross_profit = find_metric(["Gross Profit", "GrossProfit"])
-        df["Gross Margin %"] = (gross_profit / df["Total Revenue"].replace(0, 1)) * 100
-        
-        total_debt = find_metric(["Total Debt", "TotalDebt"])
-        equity = find_metric(["Stockholders Equity", "StockholdersEquity"])
-        df["Debt to Equity"] = total_debt / equity.replace(0, 1)
+        # LOOP THROUGH EVERY TAG IN THE SEC DATABASE FOR THIS COMPANY
+        for tag, content in all_facts.items():
+            if 'units' in content and 'USD' in content['units']:
+                data_points = content['units']['USD']
+                # Convert to DataFrame and filter by form
+                temp_df = pd.DataFrame(data_points)
+                temp_df = temp_df[temp_df['form'] == form_filter]
+                
+                if not temp_df.empty:
+                    # Create a unique label for time (Year + Quarter)
+                    temp_df['label'] = temp_df['fy'].astype(str) + " " + temp_df['fp']
+                    # Keep only the most recent value for each period
+                    clean_series = temp_df.drop_duplicates('label', keep='last').set_index('label')['val']
+                    full_dataset[tag] = clean_series
 
-        shares = stock.info.get('sharesOutstanding', 1)
-        df["FCF per Share"] = df["Free Cash Flow"] / shares
+        # Combine into one massive Master Table
+        master_df = pd.DataFrame(full_dataset)
+        master_df = master_df.sort_index(ascending=True) # Oldest to Newest
+        master_df = master_df.tail(years_to_show if "Annual" in view_mode else years_to_show * 4)
 
-        # 3. CHRONOLOGICAL FILTERING (Fix for "Backwards" & "Empty" charts)
-        count = years_to_show if view_mode == "Annual" else (years_to_show * 4)
-        df = df.iloc[:count] # Take most recent X periods
-        df = df.sort_index(ascending=True) # Flip to Oldest -> Newest (Left to Right)
+        # 3. DYNAMIC SEARCH & CHARTING
+        st.divider()
+        st.write("### 🔍 Search & Visualize Every SEC Metric")
         
-        if view_mode == "Annual":
-            df.index = pd.to_datetime(df.index).year
-        else:
-            df.index = pd.to_datetime(df.index).strftime('%b %Y')
+        # All available US-GAAP tags found for this company
+        available_tags = sorted(list(master_df.columns))
+        
+        # Searchable multiselect
+        selected_metrics = st.multiselect(
+            "Select any accounting tag (e.g., 'IncomeTax', 'Inventory', 'ResearchAndDevelopment'):",
+            options=available_tags,
+            default=[t for t in ["Revenues", "NetIncomeLoss"] if t in available_tags]
+        )
+
+        if selected_metrics:
+            fig = px.bar(
+                master_df, 
+                x=master_df.index, 
+                y=selected_metrics, 
+                barmode='group',
+                color_discrete_sequence=[user_color, "#FF4B4B", "#1C83E1", "#FACA2B", "#AB63FA"]
+            )
+            fig.update_layout(
+                xaxis=dict(type='category', title="Fiscal Period"),
+                yaxis=dict(title="Value (USD)"),
+                hovermode="x unified"
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+        # 4. DATA TABLE PREVIEW
+        with st.expander("📂 View Raw Data Table"):
+            st.dataframe(master_df[selected_metrics])
 
     except Exception as e:
-        st.error(f"Data Fetching Issue: Yahoo Finance might be down or rate-limiting. Try again in 1 minute. Error: {e}")
-        df = pd.DataFrame()
+        st.error(f"Could not pull deep data: {e}")
 
-    # --- 4. THE CHART ---
+    # 5. REAL-TIME NEWS
     st.divider()
-    selected = st.multiselect("Select Metrics:", options=list(metric_defs.keys()), default=["Total Revenue", "Net Income"])
-
-    if not df.empty and selected:
-        # Force categorical axis to fix "skinny bars"
-        fig = px.bar(
-            df, x=df.index, y=selected,
-            barmode='group',
-            color_discrete_sequence=[user_color, "#FF4B4B", "#1C83E1", "#FACA2B", "#AB63FA"]
-        )
-        
-        fig.update_layout(
-            bargap=0.15, bargroupgap=0.05,
-            xaxis=dict(type='category', title="Time Period (Oldest → Newest)"),
-            yaxis=dict(title="Value"),
-            margin=dict(l=0, r=0, t=10, b=0)
-        )
-        st.plotly_chart(fig, use_container_width=True)
-
-        # 5. DYNAMIC GLOSSARY TABS
-        tabs = st.tabs(selected)
-        for i, m in enumerate(selected):
-            with tabs[i]: st.info(f"**{m}**: {metric_defs.get(m)}")
-
-    # 6. NEWS
-    st.divider()
-    st.subheader("Latest Headlines")
-    for article in stock.news[:5]:
-        title = article.get('title') or "Latest Market News"
-        link = article.get('link') or "#"
-        st.write(f"**[{title}]({link})**")
+    st.subheader(f"📰 Latest {ticker_symbol} Headlines")
+    for art in stock.news[:5]:
+        st.markdown(f"**[{art.get('title')}]({art.get('link')})**")
+        st.caption(f"Source: {art.get('publisher')}")
+        st.divider()
