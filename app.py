@@ -403,13 +403,6 @@ with tab1:
                 display_df = master_df.tail(years_to_show if target_form == "10-K" else years_to_show * 4).copy()
             
             if not display_df.empty:
-                # Calculate FCF before converting index to strings
-                ocf = display_df.get('NetCashProvidedByUsedInOperatingActivities', pd.Series(dtype=float))
-                capex = display_df.get('PaymentsToAcquirePropertyPlantAndEquipment', pd.Series(dtype=float))
-                
-                if not ocf.empty and not capex.empty:
-                    display_df['Free Cash Flow'] = ocf - capex.abs()
-                
                 # NOW convert index to strings for display
                 display_df.index = display_df.index.strftime('%Y' if target_form == "10-K" else '%Y-Q%q')
                 
@@ -418,7 +411,9 @@ with tab1:
                     income_metrics = [m for m in available if m in ['Total Revenue', 'NetIncomeLoss', 'OperatingIncomeLoss', 'GrossProfit', 'CostOfRevenue', 'OperatingExpenses']]
                     balance_metrics = [m for m in available if m in ['Assets', 'Liabilities', 'StockholdersEquity', 'AssetsCurrent', 'LiabilitiesCurrent']]
                     cashflow_metrics = [m for m in available if m in ['NetCashProvidedByUsedInOperatingActivities', 'NetCashProvidedByUsedInInvestingActivities', 'NetCashProvidedByUsedInFinancingActivities', 'ShareBasedCompensation', 'PaymentsToAcquirePropertyPlantAndEquipment']]
-                    fcf_metrics = [m for m in available if m in ['Free Cash Flow']]
+                    
+                    # Always include Free Cash Flow as an option (we calculate it on the fly)
+                    fcf_metrics = ['Free Cash Flow']
                     
                     # === CASH FLOW FIRST (TOP) ===
                     col_left, col_right = st.columns([1, 3])
@@ -435,17 +430,32 @@ with tab1:
                                     if metric in QUIRKY_COMMENTS:
                                         st.info(random.choice(QUIRKY_COMMENTS[metric]))
                             
+                            # Build cf_df with selected metrics
                             cf_df = pd.DataFrame(index=display_df.index)
+                            
                             for metric in cashflow_selected:
-                                if metric in display_df.columns:
+                                if metric == 'Free Cash Flow':
+                                    # Calculate FCF on the fly: OCF - CapEx
+                                    if 'NetCashProvidedByUsedInOperatingActivities' in display_df.columns and 'PaymentsToAcquirePropertyPlantAndEquipment' in display_df.columns:
+                                        ocf = display_df['NetCashProvidedByUsedInOperatingActivities']
+                                        capex = display_df['PaymentsToAcquirePropertyPlantAndEquipment']
+                                        cf_df['Free Cash Flow'] = ocf - capex.abs()
+                                elif metric in display_df.columns:
                                     cf_df[metric] = display_df[metric]
                             
                             # Only plot metrics that have data
-                            metrics_with_data = [m for m in cashflow_selected if m in cf_df.columns and not cf_df[m].isna().all()]
+                            metrics_with_data = [m for m in cf_df.columns if not cf_df[m].isna().all()]
                             
                             if metrics_with_data:
-                                fig = px.bar(cf_df, x=cf_df.index, y=metrics_with_data, barmode='group', 
-                                           color_discrete_sequence=px.colors.qualitative.Pastel)
+                                # Use distinct colors for FCF vs SBC
+                                color_map = {
+                                    'Free Cash Flow': '#00D9FF',  # Bright cyan
+                                    'ShareBasedCompensation': '#FF6B9D',  # Pink
+                                }
+                                colors = [color_map.get(m, '#FFC837') for m in metrics_with_data]
+                                
+                                fig = px.bar(cf_df[metrics_with_data], x=cf_df.index, y=metrics_with_data, barmode='group', 
+                                           color_discrete_sequence=colors)
                                 max_val = cf_df[metrics_with_data].max().max()
                                 min_val = cf_df[metrics_with_data].min().min()
                                 y_range = [min_val * 1.1 if min_val < 0 else 0, max_val * 1.15]
