@@ -1,3 +1,4 @@
+st.write("VERSION 2.0 - Updated with stock price and news")
 import streamlit as st
 import pandas as pd
 import requests
