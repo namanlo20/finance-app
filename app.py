@@ -430,6 +430,18 @@ with tab1:
                         st.subheader("💧 Cash Flow & FCF")
                         default_cf = [m for m in ['FCF After SBC', 'ShareBasedCompensation'] if m in cashflow_metrics or m in fcf_metrics]
                         cashflow_selected = st.multiselect("Select metrics:", options=cashflow_metrics + fcf_metrics, default=default_cf, key="cf")
+                        
+                        # Debug toggle
+                        show_debug = st.checkbox("🔍 Debug: Show available data", value=False, key="debug_cf")
+                        if show_debug:
+                            st.caption(f"Available CF metrics: {cashflow_metrics}")
+                            st.caption(f"Available FCF metrics: {fcf_metrics}")
+                            st.caption(f"Selected: {cashflow_selected}")
+                            for m in cashflow_selected:
+                                if m in display_df.columns:
+                                    st.caption(f"✅ {m}: Has data")
+                                else:
+                                    st.caption(f"❌ {m}: Missing")
                     
                     with col_right:
                         if cashflow_selected:
@@ -443,12 +455,26 @@ with tab1:
                                 if metric in display_df.columns:
                                     cf_df[metric] = display_df[metric]
                             
-                            fig = px.bar(cf_df, x=cf_df.index, y=cashflow_selected, barmode='group', color_discrete_sequence=px.colors.qualitative.Pastel)
-                            max_val = cf_df[cashflow_selected].max().max()
-                            min_val = cf_df[cashflow_selected].min().min()
-                            y_range = [min_val * 1.1 if min_val < 0 else 0, max_val * 1.15]
-                            fig.update_layout(height=400, yaxis=dict(range=y_range), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='white', showlegend=True)
-                            st.plotly_chart(fig, use_container_width=True)
+                            # Only plot metrics that have data
+                            metrics_with_data = [m for m in cashflow_selected if m in cf_df.columns and not cf_df[m].isna().all()]
+                            
+                            if metrics_with_data:
+                                fig = px.bar(cf_df, x=cf_df.index, y=metrics_with_data, barmode='group', 
+                                           color_discrete_sequence=px.colors.qualitative.Pastel)
+                                max_val = cf_df[metrics_with_data].max().max()
+                                min_val = cf_df[metrics_with_data].min().min()
+                                y_range = [min_val * 1.1 if min_val < 0 else 0, max_val * 1.15]
+                                fig.update_layout(height=400, yaxis=dict(range=y_range), plot_bgcolor='rgba(0,0,0,0)', 
+                                                paper_bgcolor='rgba(0,0,0,0)', font_color='white', showlegend=True)
+                                st.plotly_chart(fig, use_container_width=True)
+                                
+                                # Show definitions right below the chart
+                                st.markdown("**📖 Definitions:**")
+                                for metric in metrics_with_data:
+                                    if metric in METRIC_DEFINITIONS:
+                                        st.caption(f"**{metric}**: {METRIC_DEFINITIONS[metric]}")
+                            else:
+                                st.warning("No data available for selected metrics.")
                     
                     st.divider()
                     
@@ -472,6 +498,12 @@ with tab1:
                             y_range = [min_val * 1.1 if min_val < 0 else 0, max_val * 1.15]
                             fig.update_layout(height=400, yaxis=dict(range=y_range), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='white', showlegend=True)
                             st.plotly_chart(fig, use_container_width=True)
+                            
+                            # Show definitions right below the chart
+                            st.markdown("**📖 Definitions:**")
+                            for metric in income_selected:
+                                if metric in METRIC_DEFINITIONS:
+                                    st.caption(f"**{metric}**: {METRIC_DEFINITIONS[metric]}")
                     
                     st.divider()
                     
@@ -495,12 +527,12 @@ with tab1:
                             y_range = [min_val * 1.1 if min_val < 0 else 0, max_val * 1.15]
                             fig.update_layout(height=400, yaxis=dict(range=y_range), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='white', showlegend=True)
                             st.plotly_chart(fig, use_container_width=True)
-                    
-                    with st.expander("📖 Metric Definitions"):
-                        all_metrics = income_selected + balance_selected + cashflow_selected
-                        for metric in all_metrics:
-                            if metric in METRIC_DEFINITIONS:
-                                st.write(f"**{metric}**: {METRIC_DEFINITIONS[metric]}")
+                            
+                            # Show definitions right below the chart
+                            st.markdown("**📖 Definitions:**")
+                            for metric in balance_selected:
+                                if metric in METRIC_DEFINITIONS:
+                                    st.caption(f"**{metric}**: {METRIC_DEFINITIONS[metric]}")
                     
                     with st.expander("📂 Raw Data"):
                         all_selected = income_selected + balance_selected + cashflow_selected
