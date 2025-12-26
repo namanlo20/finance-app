@@ -314,26 +314,26 @@ if ticker in ticker_map:
                     
                     selected = income_selected + cashflow_selected
                     
-                    if selected:
-                        if quirky_mode:
-                            for metric in selected:
-                                if metric in QUIRKY_COMMENTS:
-                                    st.info(random.choice(QUIRKY_COMMENTS[metric]))
-                        
-                        with st.expander("📖 What these mean"):
-                            for metric in selected:
-                                if metric in METRIC_DEFINITIONS:
-                                    st.write(f"**{metric}**: {METRIC_DEFINITIONS[metric]}")
-                        
-                        fig = px.bar(display_df, x=display_df.index, y=selected, barmode='group')
-                        fig.update_layout(height=500)
-                        st.plotly_chart(fig, use_container_width=True)
-                        
-                        with st.expander("📂 Raw Data"):
-                            formatted = display_df[selected].copy()
-                            for col in formatted.columns:
-                                formatted[col] = formatted[col].apply(lambda x: f"${x:,.0f}" if pd.notnull(x) else "N/A")
-                            st.dataframe(formatted, use_container_width=True)
+                                    if selected:
+                                        if quirky_mode:
+                                            for metric in selected:
+                                                if metric in QUIRKY_COMMENTS:
+                                                    st.info(random.choice(QUIRKY_COMMENTS[metric]))
+                                        
+                                        with st.expander("📖 What these mean"):
+                                            for metric in selected:
+                                                if metric in METRIC_DEFINITIONS:
+                                                    st.write(f"**{metric}**: {METRIC_DEFINITIONS[metric]}")
+                                        
+                                        fig = px.bar(display_df, x=display_df.index, y=selected, barmode='group')
+                                        fig.update_layout(height=500)
+                                        st.plotly_chart(fig, use_container_width=True)
+                                        
+                                        with st.expander("📂 Raw Data"):
+                                            formatted = display_df[selected].copy()
+                                            for col in formatted.columns:
+                                                formatted[col] = formatted[col].apply(lambda x: f"${x:,.0f}" if pd.notnull(x) else "N/A")
+                                            st.dataframe(formatted, use_container_width=True)
                 
                 elif view_mode == "Ratios":
                     ratios_df = calculate_ratios(display_df)
