@@ -5,13 +5,12 @@ import plotly.express as px
 
 HEADERS = {'User-Agent': "pro_terminal_researcher@yourdomain.com"}
 
-st.set_page_config(page_title="SEC Time Machine", layout="wide")
-st.title("🏛️ SEC Historical Terminal (20-Year Focus)")
+st.set_page_config(page_title="SEC Deep History", layout="wide")
+st.title("🏛️ SEC Professional Financial Terminal")
 
 with st.sidebar:
     st.header("⚙️ Settings")
     view_mode = st.radio("Frequency:", ["Annual (10-K)", "Quarterly (10-Q)"])
-    # This slider now controls the graph accurately
     years_to_show = st.slider("Years of History:", 1, 20, 10)
     user_color = st.color_picker("Chart Primary Color", "#00FFAA")
 
@@ -29,58 +28,77 @@ if ticker in cik_map:
         url = f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json"
         all_facts = requests.get(url, headers=HEADERS).json()['facts']['us-gaap']
 
-        # THE "SMART TIMELINE" ENGINE: Uses end-dates, not labels
         def get_metric(tag_list, form_type):
             master_df = pd.DataFrame()
             for tag in tag_list:
                 if tag in all_facts:
                     units = all_facts[tag].get('units', {}).get('USD', [])
                     temp = pd.DataFrame(units)
-                    # FILTER: Keep only the official forms
                     temp = temp[temp['form'] == form_type]
                     if not temp.empty:
                         master_df = pd.concat([master_df, temp])
             
             if not master_df.empty:
-                # DEDUPLICATION: Take the most recent filing for each period end-date
+                # Deduplicate by the end-date of the period
                 master_df = master_df.sort_values('end').drop_duplicates('end', keep='last')
-                # Convert 'end' string to actual date for proper sorting
                 master_df['end'] = pd.to_datetime(master_df['end'])
                 return master_df.set_index('end')['val']
             return pd.Series()
 
         form = "10-K" if "Annual" in view_mode else "10-Q"
         
-        # Build Table
+        # --- 1. THE DATA ENGINE: EVERY METRIC ---
         df = pd.DataFrame()
-        df["Revenue"] = get_metric(["Revenues", "RevenueFromContractWithCustomerExcludingAssessedTax", "SalesRevenueNet"], form)
+        df["Revenue"] = get_metric(["Revenues", "RevenueFromContractWithCustomerExcludingAssessedTax"], form)
+        df["COGS"] = get_metric(["CostOfGoodsAndServicesSold", "CostOfRevenue"], form)
         df["Net Income"] = get_metric(["NetIncomeLoss"], form)
-        df["Income Tax"] = get_metric(["IncomeTaxExpenseBenefit"], form)
+        df["R&D"] = get_metric(["ResearchAndDevelopmentExpense"], form)
+        df["Operating Cash Flow"] = get_metric(["NetCashProvidedByUsedInOperatingActivities"], form)
+        df["CapEx"] = get_metric(["PaymentsToAcquirePropertyPlantAndEquipment"], form).abs()
+        
+        # CALCULATED METRICS
+        df["Gross Margin"] = df["Revenue"] - df["COGS"]
+        df["Free Cash Flow"] = df["Operating Cash Flow"] - df["CapEx"]
+        df["Gross Margin %"] = (df["Gross Margin"] / df["Revenue"].replace(0, 1)) * 100
 
-        # FINAL SORTING & SLICING: This makes the slider work!
-        df = df.sort_index(ascending=True) # Oldest -> Newest
+        # --- 2. THE FORMATTING ENGINE (Intuitive Axis) ---
+        df = df.sort_index(ascending=True)
         slice_count = years_to_show if form == "10-K" else years_to_show * 4
-        display_df = df.tail(slice_count)
+        display_df = df.tail(slice_count).copy()
 
-        # Convert index back to readable strings for Plotly
-        display_df.index = display_df.index.strftime('%Y-%m-%d')
+        # Switch label style based on view_mode
+        if "Annual" in view_mode:
+            display_df.index = display_df.index.strftime('%Y')
+        else:
+            display_df.index = display_df.index.strftime('%Y-Q%q')
 
-        # --- CHART ---
+        # --- 3. CHARTING ---
         st.divider()
-        selected = st.multiselect("Active Metrics:", df.columns.tolist(), default=["Revenue", "Net Income"])
+        st.subheader(f"{ticker} Historical Performance ({view_mode})")
+        
+        # User can now pick from the full list of metrics
+        metrics_options = [m for m in df.columns if not m.endswith('%')]
+        selected = st.multiselect("Select Metrics:", metrics_options, default=["Revenue", "Net Income", "Free Cash Flow"])
 
         if not display_df.empty and selected:
             fig = px.bar(display_df, x=display_df.index, y=selected, barmode='group',
-                         color_discrete_sequence=[user_color, "#FF4B4B", "#1C83E1"])
+                         color_discrete_sequence=[user_color, "#FF4B4B", "#1C83E1", "#FFD700", "#FF00FF"])
             
             fig.update_layout(
-                xaxis=dict(type='category', title="Reporting Period End-Date"),
+                xaxis=dict(type='category', title="Fiscal Period"),
                 yaxis=dict(title="Value (USD)"),
-                hovermode="x unified"
+                hovermode="x unified",
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
             )
             st.plotly_chart(fig, use_container_width=True)
 
+            # Show Margins on a separate line chart for clarity
+            if st.checkbox("Show Gross Margin % Trend"):
+                fig_m = px.line(display_df, x=display_df.index, y="Gross Margin %", markers=True)
+                fig_m.update_traces(line_color=user_color)
+                st.plotly_chart(fig_m, use_container_width=True)
+
     except Exception as e:
-        st.error(f"Waiting for SEC stream... ({e})")
+        st.error(f"Waiting for SEC data stream... ({e})")
 else:
-    st.warning("Ticker not found.")
+    st.warning("Please enter a valid ticker to pull historical SEC data.")
