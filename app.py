@@ -439,7 +439,7 @@ with tab1:
                             )
                             st.plotly_chart(fig, use_container_width=True)
                             with st.expander("📂 Data Table"):
-                            st.dataframe(ratios_df[selected_ratios], use_container_width=True)
+                                st.dataframe(ratios_df[selected_ratios], use_container_width=True)
                 else:
                     st.warning("Not enough data for ratios. Try longer timeframe.")
             
