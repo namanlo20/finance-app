@@ -3,89 +3,97 @@ import pandas as pd
 import requests
 import plotly.express as px
 
-# SEC REQUIREMENT: You must identify yourself or they will block the IP
-HEADERS = {'User-Agent': "independent_researcher_v1@yourdomain.com"}
+# SEC REQUIREMENT: Identify yourself to avoid 403 blocks
+HEADERS = {'User-Agent': "financial_research_terminal@outlook.com"}
 
-st.set_page_config(page_title="SEC Terminal", layout="wide")
-st.title("🏛️ SEC Historical Terminal")
+st.set_page_config(page_title="TickerTotal: SEC Disclosure", layout="wide")
+st.title("🏛️ TickerTotal: Full SEC Disclosure Terminal")
+
+# --- SIDEBAR: SYSTEM CONTROLS ---
+with st.sidebar:
+    st.header("⚙️ Terminal Settings")
+    view_mode = st.radio("Filing Frequency:", ["Annual (10-K)", "Quarterly (10-Q)"])
+    years_to_show = st.slider("History Length (Years):", 1, 20, 10)
+    st.divider()
+    user_color = st.color_picker("Primary Metric Color", "#00FFAA")
+    st.info("Direct data stream from SEC.gov EDGAR (XBRL).")
 
 @st.cache_data
-def get_tickers():
-    # Fetch the mapping of Tickers to CIK numbers
-    r = requests.get("https://www.sec.gov/files/company_tickers.json", headers=HEADERS)
-    return {v['ticker']: str(v['cik_str']).zfill(10) for k, v in r.json().items()}
+def get_sec_map():
+    res = requests.get("https://www.sec.gov/files/company_tickers.json", headers=HEADERS)
+    return {v['ticker']: str(v['cik_str']).zfill(10) for k, v in res.json().items()}
 
-# --- 1. SETUP ---
-ticker_map = get_tickers()
-ticker = st.text_input("Enter Ticker (e.g. NVDA, AAPL, MSFT):", "NVDA").upper()
+ticker_input = st.text_input("Enter US Ticker:", "AAPL").upper()
+cik_map = get_sec_map()
 
-with st.sidebar:
-    st.header("⚙️ Settings")
-    freq = st.radio("Frequency:", ["Annual (10-K)", "Quarterly (10-Q)"])
-    years = st.slider("History Length:", 1, 20, 10)
-    target_form = "10-K" if "Annual" in freq else "10-Q"
-
-if ticker in ticker_map:
+if ticker_input in cik_map:
     try:
-        cik = ticker_map[ticker]
+        cik = cik_map[ticker_input]
         url = f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json"
-        response = requests.get(url, headers=HEADERS)
+        raw_data = requests.get(url, headers=HEADERS).json()
+        all_gaap_facts = raw_data['facts']['us-gaap']
+
+        # --- 1. RECURSIVE DATA DISCOVERY ENGINE ---
+        master_data = {}
+        target_form = "10-K" if "Annual" in view_mode else "10-Q"
+
+        for tag, content in all_gaap_facts.items():
+            if 'units' in content and 'USD' in content['units']:
+                points = content['units']['USD']
+                df_temp = pd.DataFrame(points)
+                # Filter for the user's chosen frequency
+                df_temp = df_temp[df_temp['form'] == target_form]
+                
+                if not df_temp.empty:
+                    # Create a smart chronological index based on the end-date
+                    df_temp['end'] = pd.to_datetime(df_temp['end'])
+                    # Handle restatements by taking the most recent 'accn'
+                    df_temp = df_temp.sort_values(['end', 'filed'], ascending=[True, False])
+                    df_temp = df_temp.drop_duplicates('end', keep='first')
+                    
+                    master_data[tag] = df_temp.set_index('end')['val']
+
+        # Create one massive table of every GAAP tag found
+        master_df = pd.DataFrame(master_data).sort_index()
         
-        if response.status_code == 200:
-            raw_facts = response.json()['facts']['us-gaap']
-            master_df = pd.DataFrame()
+        # SLICE: Take exactly the history requested
+        slice_size = years_to_show if target_form == "10-K" else years_to_show * 4
+        display_df = master_df.tail(slice_size).copy()
 
-            # --- 2. DYNAMIC DATA HARVESTING ---
-            # We scan every tag available for this specific company
-            for tag, content in raw_facts.items():
-                if 'units' in content and 'USD' in content['units']:
-                    data_points = content['units']['USD']
-                    temp_df = pd.DataFrame(data_points)
-                    
-                    # Filter by form type (10-K or 10-Q)
-                    temp_df = temp_df[temp_df['form'] == target_form]
-                    
-                    if not temp_df.empty:
-                        # Clean up dates and keep the most recent filing for each period
-                        temp_df['end'] = pd.to_datetime(temp_df['end'])
-                        temp_df = temp_df.sort_values(['end', 'filed']).drop_duplicates('end', keep='last')
-                        # Add to our master collection
-                        master_df[tag] = temp_df.set_index('end')['val']
-
-            # --- 3. UI & VISUALIZATION ---
-            if not master_df.empty:
-                master_df = master_df.sort_index()
-                
-                # Format Axis Labels
-                display_df = master_df.tail(years if target_form == "10-K" else years * 4).copy()
-                if target_form == "10-K":
-                    display_df.index = display_df.index.strftime('%Y')
-                else:
-                    display_df.index = display_df.index.strftime('%Y-Q%q')
-
-                st.subheader(f"📊 {ticker} Historical Metrics")
-                
-                # The Glossary: Every tag found for this company is now searchable
-                all_tags = sorted(list(master_df.columns))
-                selected = st.multiselect(
-                    "Search Glossary (e.g. Revenues, CostOfGoods, OperatingIncome):",
-                    options=all_tags,
-                    default=[t for t in ["Revenues", "NetIncomeLoss", "OperatingIncomeLoss"] if t in all_tags]
-                )
-
-                if selected:
-                    fig = px.bar(display_df, x=display_df.index, y=selected, barmode='group')
-                    fig.update_layout(xaxis=dict(type='category', title="Fiscal Period"), hovermode="x unified")
-                    st.plotly_chart(fig, use_container_width=True)
-                    
-                    with st.expander("📂 View Raw Data"):
-                        st.table(display_df[selected].iloc[::-1]) # Show newest first in table
-            else:
-                st.warning(f"No {target_form} data found for this ticker.")
+        # --- 2. INTUITIVE AXIS FORMATTING ---
+        if target_form == "10-K":
+            display_df.index = display_df.index.strftime('%Y')
         else:
-            st.error(f"SEC API Error: {response.status_code}")
+            display_df.index = display_df.index.strftime('%Y-Q%q')
+
+        # --- 3. DYNAMIC SEARCHABLE GLOSSARY & CHART ---
+        st.divider()
+        all_found_metrics = sorted(list(master_df.columns))
+        
+        st.subheader("🔍 Metrics Discovery")
+        selected = st.multiselect(
+            "Search every metric in the SEC database (e.g., 'CostOfGoods', 'ResearchAndDevelopment', 'IncomeTax'):",
+            options=all_found_metrics,
+            default=[t for t in ["Revenues", "NetIncomeLoss", "Assets"] if t in all_found_metrics]
+        )
+
+        if not display_df.empty and selected:
+            fig = px.bar(display_df, x=display_df.index, y=selected, barmode='group',
+                         color_discrete_sequence=[user_color, "#FF4B4B", "#1C83E1", "#FACA2B", "#AB63FA"])
+            
+            fig.update_layout(
+                xaxis=dict(type='category', title="Fiscal Period (Oldest -> Newest)"),
+                yaxis=dict(title="Value (USD)"),
+                hovermode="x unified",
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+        # --- 4. DATA TABLE ---
+        with st.expander("📂 View Raw SEC Data Table"):
+            st.dataframe(display_df[selected])
 
     except Exception as e:
-        st.error(f"Critical System Error: {e}")
+        st.error(f"The SEC stream for {ticker_input} is currently unavailable or the ticker is invalid.")
 else:
-    st.info("Waiting for ticker...")
+    st.warning("Please enter a valid ticker (e.g., TSLA, NVDA, MSFT).")
