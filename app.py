@@ -1,34 +1,39 @@
 import streamlit as st
 import yfinance as yf
-import pandas as pd
 
-st.set_page_config(page_title="Pro Terminal", layout="wide")
+# 1. Branding & SEO
+st.set_page_config(page_title="TickerTotal", layout="wide")
+st.title("🔍 TickerTotal: The Simple Stock Explainer")
 
-# Sidebar for controls
-st.sidebar.header("Settings")
-ticker = st.sidebar.text_input("Enter Symbol", "AAPL").upper()
-time_period = st.sidebar.selectbox("Select Timeframe", ["1mo", "6mo", "1y", "5y"])
+# 2. Search Box
+ticker_symbol = st.text_input("Enter a Stock Ticker (e.g., TSLA, AAPL, BTC-USD):", "AAPL").upper()
 
-if ticker:
-    stock = yf.Ticker(ticker)
-    info = stock.info
+if ticker_symbol:
+    stock = yf.Ticker(ticker_symbol)
     
-    # 1. Elegant Header
-    st.title(f"📊 {info.get('longName', ticker)}")
-    
-    # 2. Metric Tiles (Elevates the look)
+    # 3. Key Metrics (The "At a Glance" Row)
+    st.subheader("Market Snapshot")
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Price", f"${info.get('currentPrice')}", f"{info.get('revenueGrowth')}%")
-    col2.metric("52W High", f"${info.get('fiftyTwoWeekHigh')}")
-    col3.metric("P/E Ratio", info.get('trailingPE'))
-    col4.metric("Analyst Target", f"${info.get('targetMeanPrice')}")
-
-    # 3. Interactive Chart
-    st.subheader("Price History")
-    data = stock.history(period=time_period)
-    st.area_chart(data['Close']) # Area charts look more modern than line charts
-
-    # 4. Adding "Meat": Major Holders or News
-    st.subheader("Major Institutional Holders")
-    st.write(stock.institutional_holders)
     
+    info = stock.info
+    col1.metric("Current Price", f"${info.get('currentPrice', 'N/A')}")
+    col2.metric("Market Cap", f"{info.get('marketCap', 0):,}")
+    col3.metric("Dividend Yield", f"{info.get('dividendYield', 0) * 100:.2f}%")
+    col4.metric("Analyst Target", f"${info.get('targetMeanPrice', 'N/A')}")
+
+    # 4. Simple Explainer (For Beginners)
+    with st.expander("📝 What does this company actually do?"):
+        st.write(info.get('longBusinessSummary', "No description available."))
+
+    # 5. Interactive Chart
+    st.subheader("Price History (Past Year)")
+    history = stock.history(period="1y")
+    st.area_chart(history['Close'])
+
+    # 6. Live News Feed
+    st.subheader(f"Latest News for {ticker_symbol}")
+    news = stock.news[:5] # Get the 5 most recent stories
+    for article in news:
+        st.write(f"**[{article['title']}]({article['link']})**")
+        st.caption(f"Source: {article['publisher']}")
+        st.divider()
