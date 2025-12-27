@@ -49,7 +49,7 @@ def get_stock_data(ticker):
         info = stock.info
         return {
             'price': info.get('currentPrice', info.get('regularMarketPrice', 0)),
-            'change_percent': info.get('regularMarketChangePercent', 0)),
+            'change_percent': info.get('regularMarketChangePercent', 0),
             'previous_close': info.get('previousClose', 0),
             'market_cap': info.get('marketCap', 0),
             'pe_ratio': info.get('trailingPE', 0),
