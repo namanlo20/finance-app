@@ -16,15 +16,6 @@ h1, h2, h3 { color: white !important; }
 </style>
 """, unsafe_allow_html=True)
 
-def format_large_number(num):
-    """Format with commas - FIX #1"""
-    if abs(num) >= 1e9:
-        return f"${num/1e9:,.1f}B"  # The :, adds commas!
-    elif abs(num) >= 1e6:
-        return f"${num/1e6:,.1f}M"
-    else:
-        return f"${num:,.0f}"
-
 QUIRKY_COMMENTS = {
     "Total Revenue": ["💰 Top line!", "🎰 Revenue baby!"],
     "NetIncomeLoss": ["✅ Bottom line!", "💸 Real profit!"],
@@ -45,7 +36,10 @@ METRIC_DEFINITIONS = {
 def get_sec_map():
     r = requests.get("https://www.sec.gov/files/company_tickers.json", headers=HEADERS)
     data = r.json()
-    return {v['ticker']: str(v['cik_str']).zfill(10) for k, v in data.items()}
+    ticker_to_cik = {v['ticker']: str(v['cik_str']).zfill(10) for k, v in data.items()}
+    ticker_to_name = {v['ticker']: v['title'] for k, v in data.items()}
+    name_to_ticker = {v['title'].upper(): v['ticker'] for k, v in data.items()}
+    return ticker_to_cik, ticker_to_name, name_to_ticker
 
 @st.cache_data(ttl=300)
 def get_stock_data(ticker):
@@ -55,7 +49,7 @@ def get_stock_data(ticker):
         info = stock.info
         return {
             'price': info.get('currentPrice', info.get('regularMarketPrice', 0)),
-            'change_percent': info.get('regularMarketChangePercent', 0),
+            'change_percent': info.get('regularMarketChangePercent', 0)),
             'previous_close': info.get('previousClose', 0),
             'market_cap': info.get('marketCap', 0),
             'pe_ratio': info.get('trailingPE', 0),
@@ -66,7 +60,6 @@ def get_stock_data(ticker):
 
 @st.cache_data(ttl=300)
 def get_fcf_from_yahoo(ticker, period="Annual"):
-    """FIX #2: Get FCF from Yahoo Finance since SEC is failing"""
     try:
         import yfinance as yf
         stock = yf.Ticker(ticker)
@@ -81,19 +74,18 @@ def get_fcf_from_yahoo(ticker, period="Annual"):
             fcf_data = pd.DataFrame(index=cf.index)
             
             if 'Operating Cash Flow' in cf.columns and 'Capital Expenditure' in cf.columns:
-                fcf_data['Free Cash Flow'] = cf['Operating Cash Flow'] + cf['Capital Expenditure']  # CapEx is negative
+                fcf_data['Free Cash Flow'] = cf['Operating Cash Flow'] + cf['Capital Expenditure']
             
             if 'Operating Cash Flow' in cf.columns:
                 fcf_data['Operating Cash Flow'] = cf['Operating Cash Flow']
             
-            # Format index
             fcf_data.index = fcf_data.index.strftime('%Y' if period == "Annual" else '%Y-Q%q')
             return fcf_data
     except:
         pass
     return pd.DataFrame()
 
-ticker_map = get_sec_map()
+ticker_map, ticker_names, name_to_ticker = get_sec_map()
 
 st.title("🚀 SEC Terminal Pro")
 
@@ -111,7 +103,24 @@ with tab2:
     """)
 
 with tab1:
-    ticker = st.text_input("🔍 Ticker:", "NVDA").upper()
+    # FIX #3: Search by ticker OR company name
+    search_input = st.text_input("🔍 Enter Ticker or Company Name:", "NVDA").upper()
+    
+    # Check if it's a company name first, then ticker
+    if search_input in name_to_ticker:
+        ticker = name_to_ticker[search_input]
+        company_name = search_input.title()
+    elif search_input in ticker_map:
+        ticker = search_input
+        company_name = ticker_names.get(ticker, ticker)
+    else:
+        ticker = search_input
+        company_name = search_input
+    
+    # Show company name
+    if ticker in ticker_map:
+        st.subheader(f"{company_name} ({ticker})")
+    
     view = st.radio("View:", ["Metrics", "Ratios", "Insights"], horizontal=True)
     
     with st.sidebar:
@@ -125,11 +134,28 @@ with tab1:
     if ticker in ticker_map:
         stock_data = get_stock_data(ticker)
         if stock_data:
+            # FIX #1 & #2: Format market cap with comma AND fun GDP comparison
+            mkt_cap = stock_data['market_cap']
+            us_gdp = 28e12  # ~$28 trillion US GDP
+            gdp_pct = (mkt_cap / us_gdp) * 100
+            
+            if mkt_cap >= 1e12:  # Trillions
+                mkt_cap_str = f"${mkt_cap/1e12:,.2f} Trillion"
+                snarky = f"Worth {gdp_pct:.1f}% of US GDP! 🇺🇸💰"
+            elif mkt_cap >= 1e9:  # Billions
+                mkt_cap_str = f"${mkt_cap/1e9:,.1f} Billion"
+                snarky = f"That's {gdp_pct:.3f}% of US GDP"
+            elif mkt_cap >= 1e6:  # Millions
+                mkt_cap_str = f"${mkt_cap/1e6:,.1f} Million"
+                snarky = f"Tiny compared to US GDP ({gdp_pct:.5f}%)"
+            else:
+                mkt_cap_str = f"${mkt_cap:,.0f}"
+                snarky = "Market cap data unavailable"
+            
             col1, col2, col3, col4, col5 = st.columns(5)
             col1.metric("Price", f"${stock_data['price']:.2f}", f"{stock_data['change_percent']:.2f}%")
             col2.metric("Prev Close", f"${stock_data['previous_close']:.2f}")
-            # FIX #1: Market cap with COMMAS
-            col3.metric("Market Cap", format_large_number(stock_data['market_cap']))
+            col3.metric("Market Cap", mkt_cap_str, help=snarky)
             col4.metric("P/E Ratio", f"{stock_data['pe_ratio']:.2f}" if stock_data['pe_ratio'] > 0 else "N/A")
             col5.metric("Forward P/E", f"{stock_data['forward_pe']:.2f}" if stock_data['forward_pe'] > 0 else "N/A")
         
@@ -150,38 +176,31 @@ with tab1:
             
             df = pd.DataFrame(dfs).sort_index()
             
-            # Add revenue
             for rev_tag in ["Revenues", "RevenueFromContractWithCustomerExcludingAssessedTax", "SalesRevenueNet"]:
                 if rev_tag in df.columns:
                     df["Total Revenue"] = df[rev_tag]
                     break
             
-            # Gross Profit
             if 'Total Revenue' in df.columns and 'CostOfRevenue' in df.columns:
                 df['GrossProfit'] = df['Total Revenue'] - df['CostOfRevenue']
             
-            # Filter years
             df = df.tail(years if target_form == "10-K" else years*4)
             df.index = df.index.strftime('%Y' if target_form == "10-K" else '%Y-Q%q')
             
-            # FIX #2: Get FCF from Yahoo Finance
             fcf_df = get_fcf_from_yahoo(ticker, period_yahoo)
             if not fcf_df.empty:
                 fcf_df = fcf_df.tail(years if period_yahoo == "Annual" else years*4)
             
             if view == "Metrics":
-                # FIX #3: STATEMENT NAMES NEXT TO CHARTS (NOT JUST SYMBOLS!)
-                col1, col2 = st.columns([1, 3])
-                with col1:
-                    st.subheader("Statement of Cash Flows")  # THE NAME!
-                with col2:
-                    st.markdown("### 💧 Statement of Cash Flows")  # THE NAME AGAIN!
+                # FIX #4: FULL STATEMENT NAMES (not symbols!)
+                st.markdown("### 💧 Statement of Cash Flows")
                 
                 col1, col2 = st.columns([1, 3])
                 with col1:
+                    st.write("**Statement of Cash Flows**")
                     if not fcf_df.empty:
                         cf_cols = list(fcf_df.columns)
-                        cf_sel = st.multiselect("Select:", cf_cols, default=cf_cols[:2], key="cf")
+                        cf_sel = st.multiselect("Select metrics:", cf_cols, default=cf_cols[:2], key="cf")
                     else:
                         st.warning("No cash flow data")
                         cf_sel = []
@@ -207,16 +226,13 @@ with tab1:
                 
                 st.divider()
                 
-                col1, col2 = st.columns([1, 3])
-                with col1:
-                    st.subheader("Income Statement")  # THE NAME!
-                with col2:
-                    st.markdown("### 💵 Income Statement")  # THE NAME AGAIN!
+                st.markdown("### 💵 Income Statement")
                 
                 col1, col2 = st.columns([1, 3])
                 with col1:
+                    st.write("**Income Statement**")
                     inc_cols = [c for c in ['Total Revenue', 'OperatingIncomeLoss', 'NetIncomeLoss'] if c in df.columns]
-                    inc_sel = st.multiselect("Select:", inc_cols, default=inc_cols, key="inc")
+                    inc_sel = st.multiselect("Select metrics:", inc_cols, default=inc_cols, key="inc")
                 
                 with col2:
                     if inc_sel:
@@ -236,16 +252,13 @@ with tab1:
                 
                 st.divider()
                 
-                col1, col2 = st.columns([1, 3])
-                with col1:
-                    st.subheader("Balance Sheet")  # THE NAME!
-                with col2:
-                    st.markdown("### 🏦 Balance Sheet")  # THE NAME AGAIN!
+                st.markdown("### 🏦 Balance Sheet")
                 
                 col1, col2 = st.columns([1, 3])
                 with col1:
+                    st.write("**Balance Sheet**")
                     bal_cols = [c for c in ['Assets', 'Liabilities', 'StockholdersEquity'] if c in df.columns]
-                    bal_sel = st.multiselect("Select:", bal_cols, default=bal_cols, key="bal")
+                    bal_sel = st.multiselect("Select metrics:", bal_cols, default=bal_cols, key="bal")
                 
                 with col2:
                     if bal_sel:
@@ -255,7 +268,6 @@ with tab1:
                         st.plotly_chart(fig, use_container_width=True)
             
             elif view == "Ratios":
-                # FIX #5: MARGIN GUIDANCE ON SIDE
                 col1, col2 = st.columns([1, 3])
                 
                 with col1:
@@ -291,7 +303,6 @@ with tab1:
                         ratios['Net Margin %'] = (df['NetIncomeLoss'] / df['Total Revenue'] * 100).round(2)
                     
                     if not ratios.empty:
-                        # FIX #4: PROPER Y-AXIS
                         max_val = ratios.max().max()
                         min_val = ratios.min().min()
                         y_min = min(0, min_val - 5)
@@ -305,7 +316,6 @@ with tab1:
             elif view == "Insights":
                 st.markdown("### 💎 Key Investment Metrics")
                 
-                # FIX #6: INSIGHTS WITH FCF FROM YAHOO
                 if not fcf_df.empty and 'Free Cash Flow' in fcf_df.columns:
                     fig = px.bar(fcf_df, x=fcf_df.index, y=['Free Cash Flow'], barmode='group',
                                color_discrete_sequence=['#00D9FF'])
@@ -314,8 +324,17 @@ with tab1:
                     st.plotly_chart(fig, use_container_width=True)
                     
                     latest = fcf_df['Free Cash Flow'].iloc[-1]
+                    
+                    # Format FCF value
+                    if abs(latest) >= 1e9:
+                        fcf_str = f"${latest/1e9:,.1f} Billion"
+                    elif abs(latest) >= 1e6:
+                        fcf_str = f"${latest/1e6:,.1f} Million"
+                    else:
+                        fcf_str = f"${latest:,.0f}"
+                    
                     col1, col2 = st.columns(2)
-                    col1.metric("Latest Free Cash Flow", format_large_number(latest))
+                    col1.metric("Latest Free Cash Flow", fcf_str)
                     
                     if latest > 0:
                         col2.success("✅ Positive FCF!")
@@ -326,3 +345,5 @@ with tab1:
         
         except Exception as e:
             st.error(f"Error: {e}")
+    else:
+        st.error(f"Ticker '{ticker}' not found. Try searching by company name (e.g., 'NVIDIA' or 'NVDA')")
