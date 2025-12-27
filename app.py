@@ -87,9 +87,9 @@ SECTOR_STOCKS = {
 
 def format_large_number(num):
     """Format large numbers with commas and B/M suffix"""
-    if num >= 1e9:
+    if abs(num) >= 1e9:
         return f"${num/1e9:,.1f}B"
-    elif num >= 1e6:
+    elif abs(num) >= 1e6:
         return f"${num/1e6:,.1f}M"
     else:
         return f"${num:,.0f}"
@@ -103,17 +103,6 @@ def calculate_ratios(df):
     if 'NetIncomeLoss' in df.columns and 'Total Revenue' in df.columns:
         ratios['Net Profit Margin %'] = (df['NetIncomeLoss'] / df['Total Revenue'] * 100).round(2)
     return ratios
-
-def calculate_fcf_metrics(df):
-    fcf_metrics = pd.DataFrame(index=df.index)
-    ocf = df.get('NetCashProvidedByUsedInOperatingActivities', pd.Series(dtype=float))
-    capex = df.get('PaymentsToAcquirePropertyPlantAndEquipment', pd.Series(dtype=float))
-    
-    # Simple FCF calculation: Operating Cash Flow - CapEx
-    if not ocf.empty and not capex.empty:
-        fcf_metrics['Free Cash Flow'] = ocf - capex.abs()
-    
-    return fcf_metrics
 
 @st.cache_data(ttl=300)
 def get_stock_data_yfinance(ticker):
@@ -285,14 +274,14 @@ with tab2:
                 sort_by = st.radio("Sort by:", ["Market Cap", "Price", "Change %", "P/E Ratio"], horizontal=True)
                 sector_df = sector_df.sort_values(by=sort_by, ascending=False)
                 
-                display_df = sector_df.copy()
-                display_df['Price'] = display_df['Price'].apply(lambda x: f"${x:.2f}" if x > 0 else "N/A")
-                display_df['Change %'] = display_df['Change %'].apply(lambda x: f"{x:.2f}%" if pd.notnull(x) else "N/A")
-                display_df['Market Cap'] = display_df['Market Cap'].apply(lambda x: format_large_number(x) if x > 1e6 else "N/A")
-                display_df['P/E Ratio'] = display_df['P/E Ratio'].apply(lambda x: f"{x:.2f}" if x > 0 else "N/A")
-                display_df['Forward P/E'] = display_df['Forward P/E'].apply(lambda x: f"{x:.2f}" if x > 0 else "N/A")
+                display_df_sector = sector_df.copy()
+                display_df_sector['Price'] = display_df_sector['Price'].apply(lambda x: f"${x:.2f}" if x > 0 else "N/A")
+                display_df_sector['Change %'] = display_df_sector['Change %'].apply(lambda x: f"{x:.2f}%" if pd.notnull(x) else "N/A")
+                display_df_sector['Market Cap'] = display_df_sector['Market Cap'].apply(lambda x: format_large_number(x) if x > 1e6 else "N/A")
+                display_df_sector['P/E Ratio'] = display_df_sector['P/E Ratio'].apply(lambda x: f"{x:.2f}" if x > 0 else "N/A")
+                display_df_sector['Forward P/E'] = display_df_sector['Forward P/E'].apply(lambda x: f"{x:.2f}" if x > 0 else "N/A")
                 
-                st.dataframe(display_df, use_container_width=True, height=600)
+                st.dataframe(display_df_sector, use_container_width=True, height=600)
             else:
                 st.warning("Could not load sector data. Try again in a moment.")
 
@@ -406,30 +395,31 @@ with tab1:
             if 'Total Revenue' in master_df.columns and 'CostOfRevenue' in master_df.columns:
                 master_df['GrossProfit'] = master_df['Total Revenue'] - master_df['CostOfRevenue']
             
+            # CALCULATE FCF HERE BEFORE FILTERING
+            if 'NetCashProvidedByUsedInOperatingActivities' in master_df.columns and 'PaymentsToAcquirePropertyPlantAndEquipment' in master_df.columns:
+                master_df['Free Cash Flow'] = master_df['NetCashProvidedByUsedInOperatingActivities'] - master_df['PaymentsToAcquirePropertyPlantAndEquipment'].abs()
+            
             cutoff_date = datetime.now() - timedelta(days=years_to_show*365)
             display_df = master_df[master_df.index >= cutoff_date].copy()
             if display_df.empty:
                 display_df = master_df.tail(years_to_show if target_form == "10-K" else years_to_show * 4).copy()
             
             if not display_df.empty:
-                # NOW convert index to strings for display
+                # Convert index to strings for display
                 display_df.index = display_df.index.strftime('%Y' if target_form == "10-K" else '%Y-Q%q')
                 
                 if view_mode == "Metrics":
                     available = list(display_df.columns)
                     income_metrics = [m for m in available if m in ['Total Revenue', 'NetIncomeLoss', 'OperatingIncomeLoss', 'GrossProfit', 'CostOfRevenue', 'OperatingExpenses']]
                     balance_metrics = [m for m in available if m in ['Assets', 'Liabilities', 'StockholdersEquity', 'AssetsCurrent', 'LiabilitiesCurrent']]
-                    cashflow_metrics = [m for m in available if m in ['NetCashProvidedByUsedInOperatingActivities', 'NetCashProvidedByUsedInInvestingActivities', 'NetCashProvidedByUsedInFinancingActivities', 'ShareBasedCompensation', 'PaymentsToAcquirePropertyPlantAndEquipment']]
-                    
-                    # Always include Free Cash Flow as an option (we calculate it on the fly)
-                    fcf_metrics = ['Free Cash Flow']
+                    cashflow_metrics = [m for m in available if m in ['NetCashProvidedByUsedInOperatingActivities', 'NetCashProvidedByUsedInInvestingActivities', 'NetCashProvidedByUsedInFinancingActivities', 'ShareBasedCompensation', 'PaymentsToAcquirePropertyPlantAndEquipment', 'Free Cash Flow']]
                     
                     # === CASH FLOW FIRST (TOP) ===
                     col_left, col_right = st.columns([1, 3])
                     with col_left:
                         st.subheader("Statement of Cash Flows")
-                        default_cf = ['Free Cash Flow', 'ShareBasedCompensation']
-                        cashflow_selected = st.multiselect("Select metrics:", options=cashflow_metrics + fcf_metrics, default=default_cf, key="cf")
+                        default_cf = [m for m in ['Free Cash Flow', 'ShareBasedCompensation'] if m in cashflow_metrics]
+                        cashflow_selected = st.multiselect("Select metrics:", options=cashflow_metrics, default=default_cf, key="cf")
                     
                     with col_right:
                         st.markdown("### 💧 Statement of Cash Flows")
@@ -439,79 +429,24 @@ with tab1:
                                     if metric in QUIRKY_COMMENTS:
                                         st.info(random.choice(QUIRKY_COMMENTS[metric]))
                             
-                            # Build cf_df with selected metrics
-                            cf_df = pd.DataFrame(index=display_df.index)
-                            
-                            # DEBUG: Show what columns we actually have
-                            st.write("**🔍 DEBUG - Available columns in data:**")
-                            all_cols = list(display_df.columns)
-                            cash_flow_cols = [c for c in all_cols if 'Cash' in c or 'cash' in c]
-                            capex_cols = [c for c in all_cols if 'Property' in c or 'CapEx' in c or 'Acquire' in c]
-                            st.write(f"Cash Flow columns: {cash_flow_cols}")
-                            st.write(f"CapEx columns: {capex_cols}")
-                            
-                            for metric in cashflow_selected:
-                                if metric == 'Free Cash Flow':
-                                    # Try to find OCF with multiple possible names
-                                    ocf = None
-                                    ocf_names = [
-                                        'NetCashProvidedByUsedInOperatingActivities',
-                                        'NetCashProvidedByOperatingActivities', 
-                                        'CashFromOperatingActivities',
-                                        'OperatingCashFlow'
-                                    ]
-                                    for name in ocf_names:
-                                        if name in display_df.columns:
-                                            ocf = display_df[name]
-                                            st.write(f"✅ Found OCF as: {name}")
-                                            break
-                                    
-                                    # Try to find CapEx with multiple possible names  
-                                    capex = None
-                                    capex_names = [
-                                        'PaymentsToAcquirePropertyPlantAndEquipment',
-                                        'CapitalExpenditures',
-                                        'PropertyPlantAndEquipmentAdditions',
-                                        'PurchaseOfPropertyPlantAndEquipment'
-                                    ]
-                                    for name in capex_names:
-                                        if name in display_df.columns:
-                                            capex = display_df[name]
-                                            st.write(f"✅ Found CapEx as: {name}")
-                                            break
-                                    
-                                    if ocf is not None and capex is not None:
-                                        cf_df['Free Cash Flow'] = ocf - capex.abs()
-                                        st.write(f"✅ FCF Calculated! Sample values: {cf_df['Free Cash Flow'].iloc[-3:].tolist()}")
-                                    else:
-                                        if ocf is None:
-                                            st.error("❌ Could not find Operating Cash Flow column")
-                                        if capex is None:
-                                            st.error("❌ Could not find CapEx column")
-                                elif metric in display_df.columns:
-                                    cf_df[metric] = display_df[metric]
-                            
-                            # Only plot metrics that have data
-                            metrics_with_data = [m for m in cf_df.columns if not cf_df[m].isna().all()]
+                            metrics_with_data = [m for m in cashflow_selected if m in display_df.columns and not display_df[m].isna().all()]
                             
                             if metrics_with_data:
-                                # Use distinct colors for FCF vs SBC
                                 color_map = {
-                                    'Free Cash Flow': '#00D9FF',  # Bright cyan
-                                    'ShareBasedCompensation': '#FF6B9D',  # Pink
+                                    'Free Cash Flow': '#00D9FF',
+                                    'ShareBasedCompensation': '#FF6B9D',
                                 }
                                 colors = [color_map.get(m, '#FFC837') for m in metrics_with_data]
                                 
-                                fig = px.bar(cf_df[metrics_with_data], x=cf_df.index, y=metrics_with_data, barmode='group', 
+                                fig = px.bar(display_df, x=display_df.index, y=metrics_with_data, barmode='group', 
                                            color_discrete_sequence=colors)
-                                max_val = cf_df[metrics_with_data].max().max()
-                                min_val = cf_df[metrics_with_data].min().min()
+                                max_val = display_df[metrics_with_data].max().max()
+                                min_val = display_df[metrics_with_data].min().min()
                                 y_range = [min_val * 1.1 if min_val < 0 else 0, max_val * 1.15]
                                 fig.update_layout(height=400, yaxis=dict(range=y_range), plot_bgcolor='rgba(0,0,0,0)', 
                                                 paper_bgcolor='rgba(0,0,0,0)', font_color='white', showlegend=True)
                                 st.plotly_chart(fig, use_container_width=True)
                                 
-                                # Show definitions right below the chart
                                 with st.expander("📖 Metric Definitions"):
                                     for metric in metrics_with_data:
                                         if metric in METRIC_DEFINITIONS:
@@ -543,7 +478,6 @@ with tab1:
                             fig.update_layout(height=400, yaxis=dict(range=y_range), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='white', showlegend=True)
                             st.plotly_chart(fig, use_container_width=True)
                             
-                            # Show definitions in expander below the chart
                             with st.expander("📖 Metric Definitions"):
                                 for metric in income_selected:
                                     if metric in METRIC_DEFINITIONS:
@@ -573,7 +507,6 @@ with tab1:
                             fig.update_layout(height=400, yaxis=dict(range=y_range), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='white', showlegend=True)
                             st.plotly_chart(fig, use_container_width=True)
                             
-                            # Show definitions in expander below the chart
                             with st.expander("📖 Metric Definitions"):
                                 for metric in balance_selected:
                                     if metric in METRIC_DEFINITIONS:
@@ -621,11 +554,9 @@ with tab1:
                         with col_right:
                             st.markdown("### 📊 Financial Ratios")
                             if selected_ratios:
-                                # Calculate proper y-axis range
                                 max_val = ratios_df[selected_ratios].max().max()
                                 min_val = ratios_df[selected_ratios].min().min()
                                 
-                                # Set y-axis to start at 0 or slightly below minimum
                                 y_min = min(0, min_val * 1.1)
                                 y_max = max_val * 1.15
                                 
@@ -646,20 +577,13 @@ with tab1:
                         st.warning("Not enough data for ratios.")
                 
                 elif view_mode == "Insights":
-                    # Calculate FCF directly here
-                    insights_df = pd.DataFrame(index=display_df.index)
-                    
-                    # Calculate FCF
-                    if 'NetCashProvidedByUsedInOperatingActivities' in display_df.columns and 'PaymentsToAcquirePropertyPlantAndEquipment' in display_df.columns:
-                        ocf = display_df['NetCashProvidedByUsedInOperatingActivities']
-                        capex = display_df['PaymentsToAcquirePropertyPlantAndEquipment']
-                        insights_df['Free Cash Flow'] = ocf - capex.abs()
-                    
-                    # Add Operating Income if available
-                    if 'OperatingIncomeLoss' in display_df.columns:
-                        insights_df['OperatingIncomeLoss'] = display_df['OperatingIncomeLoss']
-                    
-                    if not insights_df.empty and len(insights_df.columns) > 0:
+                    if 'Free Cash Flow' in display_df.columns:
+                        insights_df = pd.DataFrame(index=display_df.index)
+                        insights_df['Free Cash Flow'] = display_df['Free Cash Flow']
+                        
+                        if 'OperatingIncomeLoss' in display_df.columns:
+                            insights_df['OperatingIncomeLoss'] = display_df['OperatingIncomeLoss']
+                        
                         st.subheader("💎 Key Investment Metrics")
                         available_fcf = list(insights_df.columns)
                         
@@ -678,19 +602,18 @@ with tab1:
                                             paper_bgcolor='rgba(0,0,0,0)', font_color='white')
                             st.plotly_chart(fig, use_container_width=True)
                             
-                            if 'Free Cash Flow' in insights_df.columns:
-                                latest_fcf = insights_df['Free Cash Flow'].iloc[-1]
-                                if len(insights_df) > 1:
-                                    prev_fcf = insights_df['Free Cash Flow'].iloc[-2]
-                                    growth = ((latest_fcf - prev_fcf) / abs(prev_fcf) * 100) if prev_fcf != 0 else 0
-                                    
-                                    col1, col2 = st.columns(2)
-                                    col1.metric("Latest Free Cash Flow", format_large_number(latest_fcf), f"{growth:+.1f}%")
-                                    
-                                    if latest_fcf > 0:
-                                        col2.success("✅ Positive free cash flow!")
-                                    else:
-                                        col2.error("🚨 Negative free cash flow!")
+                            latest_fcf = insights_df['Free Cash Flow'].iloc[-1]
+                            if len(insights_df) > 1:
+                                prev_fcf = insights_df['Free Cash Flow'].iloc[-2]
+                                growth = ((latest_fcf - prev_fcf) / abs(prev_fcf) * 100) if prev_fcf != 0 else 0
+                                
+                                col1, col2 = st.columns(2)
+                                col1.metric("Latest Free Cash Flow", format_large_number(latest_fcf), f"{growth:+.1f}%")
+                                
+                                if latest_fcf > 0:
+                                    col2.success("✅ Positive free cash flow!")
+                                else:
+                                    col2.error("🚨 Negative free cash flow!")
                     else:
                         st.warning("Not enough cash flow data. Company must report Operating Cash Flow and CapEx.")
                 
