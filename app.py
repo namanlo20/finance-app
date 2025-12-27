@@ -47,13 +47,21 @@ def get_stock_data(ticker):
         import yfinance as yf
         stock = yf.Ticker(ticker)
         info = stock.info
+        
+        price = info.get('currentPrice', info.get('regularMarketPrice', 0))
+        change_pct = info.get('regularMarketChangePercent', 0)
+        prev_close = info.get('previousClose', 0)
+        mkt_cap = info.get('marketCap', 0)
+        pe = info.get('trailingPE', 0)
+        fwd_pe = info.get('forwardPE', 0)
+        
         return {
-            'price': info.get('currentPrice', info.get('regularMarketPrice', 0)),
-            'change_percent': info.get('regularMarketChangePercent', 0),
-            'previous_close': info.get('previousClose', 0),
-            'market_cap': info.get('marketCap', 0),
-            'pe_ratio': info.get('trailingPE', 0),
-            'forward_pe': info.get('forwardPE', 0),
+            'price': price,
+            'change_percent': change_pct,
+            'previous_close': prev_close,
+            'market_cap': mkt_cap,
+            'pe_ratio': pe,
+            'forward_pe': fwd_pe
         }
     except:
         return None
@@ -103,10 +111,8 @@ with tab2:
     """)
 
 with tab1:
-    # FIX #3: Search by ticker OR company name
     search_input = st.text_input("🔍 Enter Ticker or Company Name:", "NVDA").upper()
     
-    # Check if it's a company name first, then ticker
     if search_input in name_to_ticker:
         ticker = name_to_ticker[search_input]
         company_name = search_input.title()
@@ -117,7 +123,6 @@ with tab1:
         ticker = search_input
         company_name = search_input
     
-    # Show company name
     if ticker in ticker_map:
         st.subheader(f"{company_name} ({ticker})")
     
@@ -134,20 +139,19 @@ with tab1:
     if ticker in ticker_map:
         stock_data = get_stock_data(ticker)
         if stock_data:
-            # FIX #1 & #2: Format market cap with comma AND fun GDP comparison
             mkt_cap = stock_data['market_cap']
-            us_gdp = 28e12  # ~$28 trillion US GDP
+            us_gdp = 28e12
             gdp_pct = (mkt_cap / us_gdp) * 100
             
-            if mkt_cap >= 1e12:  # Trillions
+            if mkt_cap >= 1e12:
                 mkt_cap_str = f"${mkt_cap/1e12:,.2f} Trillion"
                 snarky = f"Worth {gdp_pct:.1f}% of US GDP! 🇺🇸💰"
-            elif mkt_cap >= 1e9:  # Billions
+            elif mkt_cap >= 1e9:
                 mkt_cap_str = f"${mkt_cap/1e9:,.1f} Billion"
                 snarky = f"That's {gdp_pct:.3f}% of US GDP"
-            elif mkt_cap >= 1e6:  # Millions
+            elif mkt_cap >= 1e6:
                 mkt_cap_str = f"${mkt_cap/1e6:,.1f} Million"
-                snarky = f"Tiny compared to US GDP ({gdp_pct:.5f}%)"
+                snarky = f"Tiny compared to US GDP"
             else:
                 mkt_cap_str = f"${mkt_cap:,.0f}"
                 snarky = "Market cap data unavailable"
@@ -192,7 +196,6 @@ with tab1:
                 fcf_df = fcf_df.tail(years if period_yahoo == "Annual" else years*4)
             
             if view == "Metrics":
-                # FIX #4: FULL STATEMENT NAMES (not symbols!)
                 st.markdown("### 💧 Statement of Cash Flows")
                 
                 col1, col2 = st.columns([1, 3])
@@ -325,7 +328,6 @@ with tab1:
                     
                     latest = fcf_df['Free Cash Flow'].iloc[-1]
                     
-                    # Format FCF value
                     if abs(latest) >= 1e9:
                         fcf_str = f"${latest/1e9:,.1f} Billion"
                     elif abs(latest) >= 1e6:
@@ -346,4 +348,4 @@ with tab1:
         except Exception as e:
             st.error(f"Error: {e}")
     else:
-        st.error(f"Ticker '{ticker}' not found. Try searching by company name (e.g., 'NVIDIA' or 'NVDA')")
+        st.error(f"Ticker '{ticker}' not found. Try searching by company name!")
