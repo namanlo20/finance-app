@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import requests
 import plotly.express as px
+from datetime import datetime, timedelta
 import random
 
 HEADERS = {'User-Agent': "pro_analyst_v6@outlook.com"}
@@ -16,15 +17,21 @@ h1, h2, h3 { color: white !important; }
 """, unsafe_allow_html=True)
 
 QUIRKY = {
-    "Total Revenue": ["💰 Top line!"],
-    "NetIncomeLoss": ["✅ Bottom line!"],
-    "Free Cash Flow": ["💵 REAL CASH!"]
+    "Total Revenue": ["💰 Top line!", "🎰 Money flowing in!"],
+    "NetIncomeLoss": ["✅ Bottom line!", "💸 Real profit!"],
+    "Free Cash Flow": ["💵 REAL CASH!", "🔥 Money they can use!"],
+    "FCF After SBC": ["💎 Cash after dilution!", "⚡ The honest metric!"],
+    "ShareBasedCompensation": ["🎭 Dilution alert!", "💸 Paying in stock!"]
 }
 
 DEFINITIONS = {
-    "Total Revenue": "Total sales",
-    "NetIncomeLoss": "Bottom line profit",
-    "Free Cash Flow": "Op CF - CapEx"
+    "Total Revenue": "Total sales before expenses",
+    "NetIncomeLoss": "Bottom line profit after all expenses",
+    "Free Cash Flow": "Operating Cash Flow minus CapEx - real cash generated",
+    "FCF After SBC": "Free Cash Flow minus Stock-Based Comp - the MOST honest metric",
+    "ShareBasedCompensation": "Stock-based compensation - dilutes shareholders",
+    "Operating Cash Flow": "Cash from business operations",
+    "OperatingIncomeLoss": "Profit from core operations"
 }
 
 @st.cache_data
@@ -43,13 +50,39 @@ def get_stock_info(ticker):
     info = stock.info
     
     return {
-        'price': info.get('currentPrice', 0),
+        'price': info.get('currentPrice', info.get('regularMarketPrice', 0)),
         'change': info.get('regularMarketChangePercent', 0),
         'prev': info.get('previousClose', 0),
         'cap': info.get('marketCap', 0),
         'pe': info.get('trailingPE', 0),
         'fpe': info.get('forwardPE', 0)
     }
+
+@st.cache_data(ttl=300)
+def get_stock_chart(ticker, period='1y'):
+    try:
+        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}?range={period}&interval=1d"
+        response = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'})
+        data = response.json()
+        result = data['chart']['result'][0]
+        timestamps = result['timestamp']
+        prices = result['indicators']['quote'][0]['close']
+        dates = [datetime.fromtimestamp(ts).strftime('%Y-%m-%d') for ts in timestamps]
+        return pd.DataFrame({'Date': dates, 'Price': prices})
+    except:
+        return None
+
+@st.cache_data(ttl=1800)
+def get_news(ticker):
+    try:
+        url = f"https://finnhub.io/api/v1/company-news?symbol={ticker}&from={(datetime.now()-timedelta(days=30)).strftime('%Y-%m-%d')}&to={datetime.now().strftime('%Y-%m-%d')}&token=demo"
+        response = requests.get(url, timeout=5)
+        if response.status_code == 200:
+            news_list = response.json()
+            news_list = sorted(news_list, key=lambda x: x.get('datetime', 0), reverse=True)
+            return news_list[:10] if news_list else []
+    except:
+        return []
 
 @st.cache_data(ttl=300)
 def get_fcf(ticker, period):
@@ -62,11 +95,15 @@ def get_fcf(ticker, period):
         cf = cf.T.sort_index()
         result = pd.DataFrame(index=cf.index)
         
-        if 'Operating Cash Flow' in cf.columns and 'Capital Expenditure' in cf.columns:
-            result['Free Cash Flow'] = cf['Operating Cash Flow'] + cf['Capital Expenditure']
-        
         if 'Operating Cash Flow' in cf.columns:
             result['Operating Cash Flow'] = cf['Operating Cash Flow']
+        
+        if 'Operating Cash Flow' in cf.columns and 'Capital Expenditure' in cf.columns:
+            result['Free Cash Flow'] = cf['Operating Cash Flow'] + cf['Capital Expenditure']
+            
+            # Add FCF After SBC if we have SBC data
+            if 'Stock Based Compensation' in cf.columns:
+                result['FCF After SBC'] = result['Free Cash Flow'] - cf['Stock Based Compensation']
         
         result.index = result.index.strftime('%Y' if period == "Annual" else '%Y-Q%q')
         return result
@@ -84,22 +121,25 @@ with tab2:
     st.markdown("1. Free Cash Flow\n2. Operating Income\n3. Margins >60%")
 
 with tab1:
-    search = st.text_input("🔍 Ticker or Company:", "NVDA").upper()
+    search = st.text_input("🔍 Ticker or Company:", "NVDA")
+    search_upper = search.upper()
     
-    if search in name_to_ticker:
-        ticker = name_to_ticker[search]
+    # Try to find ticker - search by name first, then ticker
+    if search_upper in name_to_ticker:
+        ticker = name_to_ticker[search_upper]
         name = search.title()
-    elif search in ticker_map:
-        ticker = search
+    elif search_upper in ticker_map:
+        ticker = search_upper
         name = ticker_names.get(ticker, ticker)
     else:
-        ticker = search
+        # Try "AAPL" format
+        ticker = search_upper
         name = search
     
     if ticker in ticker_map:
         st.subheader(f"{name} ({ticker})")
     
-    view = st.radio("View:", ["Metrics", "Ratios", "Insights"], horizontal=True)
+    view = st.radio("View:", ["Metrics", "Ratios", "Insights", "News"], horizontal=True)
     
     with st.sidebar:
         st.header("⚙️ Settings")
@@ -107,10 +147,35 @@ with tab1:
         years = st.slider("Years:", 1, 10, 5)
         form = "10-K" if "Annual" in freq else "10-Q"
         period = "Annual" if "Annual" in freq else "Quarterly"
+        
+        st.divider()
+        st.subheader("📈 Stock Chart")
+        chart_period = st.selectbox("Period:", ["1mo", "3mo", "6mo", "1y", "2y", "5y"], index=3)
+        
+        st.divider()
         quirky = st.toggle("🔥 Unhinged Mode", False)
+        
+        st.divider()
+        st.markdown("### 💡 Quick Glossary")
+        st.info("""
+        **FCF After SBC**: Most honest cash metric (Op CF - CapEx - SBC)
+        
+        **Free Cash Flow**: Op CF - CapEx
+        
+        **Operating Margin**: Pricing power indicator
+        
+        **SBC**: Stock-based comp (dilution)
+        """)
     
     if ticker in ticker_map:
         info = get_stock_info(ticker)
+        
+        # FIX #5: Stock price chart
+        chart_data = get_stock_chart(ticker, chart_period)
+        if chart_data is not None:
+            fig = px.area(chart_data, x='Date', y='Price', title=f'{ticker} Price Chart ({chart_period})')
+            fig.update_layout(height=300, plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='white')
+            st.plotly_chart(fig, use_container_width=True)
         
         cap = info['cap']
         gdp = 28e12
@@ -173,7 +238,8 @@ with tab1:
                     st.write("**Statement of Cash Flows**")
                     if not fcf.empty:
                         opts = list(fcf.columns)
-                        sel = st.multiselect("Select:", opts, default=opts[:2], key="cf")
+                        default_opts = [o for o in ['FCF After SBC', 'Free Cash Flow', 'Operating Cash Flow'] if o in opts]
+                        sel = st.multiselect("Select:", opts, default=default_opts[:2] if default_opts else opts[:2], key="cf")
                     else:
                         st.warning("No data")
                         sel = []
@@ -185,14 +251,31 @@ with tab1:
                                 if m in QUIRKY:
                                     st.info(random.choice(QUIRKY[m]))
                         
-                        colors = {'Free Cash Flow': '#00D9FF', 'Operating Cash Flow': '#FF6B9D'}
+                        colors = {
+                            'Free Cash Flow': '#00D9FF',
+                            'FCF After SBC': '#9D4EDD',
+                            'Operating Cash Flow': '#FF6B9D'
+                        }
                         fig = px.bar(fcf, x=fcf.index, y=sel, barmode='group',
                                    color_discrete_sequence=[colors.get(m, '#FFC837') for m in sel])
-                        fig.update_layout(height=400, plot_bgcolor='rgba(0,0,0,0)', 
-                                        paper_bgcolor='rgba(0,0,0,0)', font_color='white')
+                        
+                        # FIX #2: Y-axis starts at proper value (not below bars)
+                        max_val = fcf[sel].max().max()
+                        min_val = fcf[sel].min().min()
+                        y_min = min_val * 1.2 if min_val < 0 else 0
+                        y_max = max_val * 1.15
+                        
+                        fig.update_layout(
+                            height=400,
+                            yaxis=dict(range=[y_min, y_max]),
+                            plot_bgcolor='rgba(0,0,0,0)',
+                            paper_bgcolor='rgba(0,0,0,0)',
+                            font_color='white'
+                        )
                         st.plotly_chart(fig, use_container_width=True)
                         
-                        with st.expander("📖 Definitions"):
+                        # FIX #4: Definitions below chart
+                        with st.expander("📖 Metric Definitions"):
                             for m in sel:
                                 if m in DEFINITIONS:
                                     st.write(f"**{m}**: {DEFINITIONS[m]}")
@@ -214,9 +297,25 @@ with tab1:
                                 if m in QUIRKY:
                                     st.info(random.choice(QUIRKY[m]))
                         fig = px.bar(df, x=df.index, y=sel, barmode='group')
-                        fig.update_layout(height=400, plot_bgcolor='rgba(0,0,0,0)', 
-                                        paper_bgcolor='rgba(0,0,0,0)', font_color='white')
+                        
+                        max_val = df[sel].max().max()
+                        min_val = df[sel].min().min()
+                        y_min = min_val * 1.2 if min_val < 0 else 0
+                        y_max = max_val * 1.15
+                        
+                        fig.update_layout(
+                            height=400,
+                            yaxis=dict(range=[y_min, y_max]),
+                            plot_bgcolor='rgba(0,0,0,0)',
+                            paper_bgcolor='rgba(0,0,0,0)',
+                            font_color='white'
+                        )
                         st.plotly_chart(fig, use_container_width=True)
+                        
+                        with st.expander("📖 Metric Definitions"):
+                            for m in sel:
+                                if m in DEFINITIONS:
+                                    st.write(f"**{m}**: {DEFINITIONS[m]}")
                 
                 st.divider()
                 
@@ -231,8 +330,19 @@ with tab1:
                 with c2:
                     if sel:
                         fig = px.bar(df, x=df.index, y=sel, barmode='group')
-                        fig.update_layout(height=400, plot_bgcolor='rgba(0,0,0,0)', 
-                                        paper_bgcolor='rgba(0,0,0,0)', font_color='white')
+                        
+                        max_val = df[sel].max().max()
+                        min_val = df[sel].min().min()
+                        y_min = min_val * 1.2 if min_val < 0 else 0
+                        y_max = max_val * 1.15
+                        
+                        fig.update_layout(
+                            height=400,
+                            yaxis=dict(range=[y_min, y_max]),
+                            plot_bgcolor='rgba(0,0,0,0)',
+                            paper_bgcolor='rgba(0,0,0,0)',
+                            font_color='white'
+                        )
                         st.plotly_chart(fig, use_container_width=True)
             
             elif view == "Ratios":
@@ -272,18 +382,38 @@ with tab1:
                         y_max = mx + 10
                         
                         fig = px.bar(ratios, x=ratios.index, y=list(ratios.columns), barmode='group')
-                        fig.update_layout(height=500, yaxis=dict(range=[y_min, y_max]),
-                                        plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='white')
+                        fig.update_layout(
+                            height=500,
+                            yaxis=dict(range=[y_min, y_max]),
+                            plot_bgcolor='rgba(0,0,0,0)',
+                            paper_bgcolor='rgba(0,0,0,0)',
+                            font_color='white'
+                        )
                         st.plotly_chart(fig, use_container_width=True)
             
             elif view == "Insights":
                 st.markdown("### 💎 Key Metrics")
                 
                 if not fcf.empty and 'Free Cash Flow' in fcf.columns:
-                    fig = px.bar(fcf, x=fcf.index, y=['Free Cash Flow'], barmode='group',
-                               color_discrete_sequence=['#00D9FF'])
-                    fig.update_layout(height=400, plot_bgcolor='rgba(0,0,0,0)', 
-                                    paper_bgcolor='rgba(0,0,0,0)', font_color='white')
+                    metrics_to_show = ['Free Cash Flow']
+                    if 'FCF After SBC' in fcf.columns:
+                        metrics_to_show.insert(0, 'FCF After SBC')
+                    
+                    fig = px.bar(fcf, x=fcf.index, y=metrics_to_show, barmode='group',
+                               color_discrete_sequence=['#9D4EDD', '#00D9FF'])
+                    
+                    max_val = fcf[metrics_to_show].max().max()
+                    min_val = fcf[metrics_to_show].min().min()
+                    y_min = min_val * 1.2 if min_val < 0 else 0
+                    y_max = max_val * 1.15
+                    
+                    fig.update_layout(
+                        height=400,
+                        yaxis=dict(range=[y_min, y_max]),
+                        plot_bgcolor='rgba(0,0,0,0)',
+                        paper_bgcolor='rgba(0,0,0,0)',
+                        font_color='white'
+                    )
                     st.plotly_chart(fig, use_container_width=True)
                     
                     latest = fcf['Free Cash Flow'].iloc[-1]
@@ -304,8 +434,23 @@ with tab1:
                         c2.error("🚨 Negative!")
                 else:
                     st.error("No FCF data")
+            
+            # FIX #1: News section
+            elif view == "News":
+                st.markdown(f"### 📰 Latest News for {ticker}")
+                news = get_news(ticker)
+                if news:
+                    for i, article in enumerate(news):
+                        with st.expander(f"{i+1}. {article.get('headline', 'No title')[:80]}..."):
+                            st.write(f"**Source:** {article.get('source', 'Unknown')}")
+                            st.write(f"**Date:** {datetime.fromtimestamp(article.get('datetime', 0)).strftime('%Y-%m-%d')}")
+                            st.write(article.get('summary', 'No summary')[:300])
+                            if article.get('url'):
+                                st.markdown(f"[Read more]({article['url']})")
+                else:
+                    st.info("No recent news available.")
         
         except Exception as e:
             st.error(f"Error: {e}")
     else:
-        st.error("Ticker not found")
+        st.error(f"Ticker '{ticker}' not found. Try 'AAPL' or 'Apple'")
