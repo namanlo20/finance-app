@@ -442,13 +442,52 @@ with tab1:
                             # Build cf_df with selected metrics
                             cf_df = pd.DataFrame(index=display_df.index)
                             
+                            # DEBUG: Show what columns we actually have
+                            st.write("**🔍 DEBUG - Available columns in data:**")
+                            all_cols = list(display_df.columns)
+                            cash_flow_cols = [c for c in all_cols if 'Cash' in c or 'cash' in c]
+                            capex_cols = [c for c in all_cols if 'Property' in c or 'CapEx' in c or 'Acquire' in c]
+                            st.write(f"Cash Flow columns: {cash_flow_cols}")
+                            st.write(f"CapEx columns: {capex_cols}")
+                            
                             for metric in cashflow_selected:
                                 if metric == 'Free Cash Flow':
-                                    # Calculate FCF on the fly: OCF - CapEx
-                                    if 'NetCashProvidedByUsedInOperatingActivities' in display_df.columns and 'PaymentsToAcquirePropertyPlantAndEquipment' in display_df.columns:
-                                        ocf = display_df['NetCashProvidedByUsedInOperatingActivities']
-                                        capex = display_df['PaymentsToAcquirePropertyPlantAndEquipment']
+                                    # Try to find OCF with multiple possible names
+                                    ocf = None
+                                    ocf_names = [
+                                        'NetCashProvidedByUsedInOperatingActivities',
+                                        'NetCashProvidedByOperatingActivities', 
+                                        'CashFromOperatingActivities',
+                                        'OperatingCashFlow'
+                                    ]
+                                    for name in ocf_names:
+                                        if name in display_df.columns:
+                                            ocf = display_df[name]
+                                            st.write(f"✅ Found OCF as: {name}")
+                                            break
+                                    
+                                    # Try to find CapEx with multiple possible names  
+                                    capex = None
+                                    capex_names = [
+                                        'PaymentsToAcquirePropertyPlantAndEquipment',
+                                        'CapitalExpenditures',
+                                        'PropertyPlantAndEquipmentAdditions',
+                                        'PurchaseOfPropertyPlantAndEquipment'
+                                    ]
+                                    for name in capex_names:
+                                        if name in display_df.columns:
+                                            capex = display_df[name]
+                                            st.write(f"✅ Found CapEx as: {name}")
+                                            break
+                                    
+                                    if ocf is not None and capex is not None:
                                         cf_df['Free Cash Flow'] = ocf - capex.abs()
+                                        st.write(f"✅ FCF Calculated! Sample values: {cf_df['Free Cash Flow'].iloc[-3:].tolist()}")
+                                    else:
+                                        if ocf is None:
+                                            st.error("❌ Could not find Operating Cash Flow column")
+                                        if capex is None:
+                                            st.error("❌ Could not find CapEx column")
                                 elif metric in display_df.columns:
                                     cf_df[metric] = display_df[metric]
                             
