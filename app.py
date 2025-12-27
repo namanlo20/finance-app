@@ -85,6 +85,15 @@ SECTOR_STOCKS = {
     "Industrial": ["BA", "CAT", "GE", "HON", "UNP", "UPS", "LMT", "RTX"],
 }
 
+def format_large_number(num):
+    """Format large numbers with commas and B/M suffix"""
+    if num >= 1e9:
+        return f"${num/1e9:,.1f}B"
+    elif num >= 1e6:
+        return f"${num/1e6:,.1f}M"
+    else:
+        return f"${num:,.0f}"
+
 def calculate_ratios(df):
     ratios = pd.DataFrame(index=df.index)
     if 'GrossProfit' in df.columns and 'Total Revenue' in df.columns:
@@ -279,7 +288,7 @@ with tab2:
                 display_df = sector_df.copy()
                 display_df['Price'] = display_df['Price'].apply(lambda x: f"${x:.2f}" if x > 0 else "N/A")
                 display_df['Change %'] = display_df['Change %'].apply(lambda x: f"{x:.2f}%" if pd.notnull(x) else "N/A")
-                display_df['Market Cap'] = display_df['Market Cap'].apply(lambda x: f"${x/1e9:.1f}B" if x > 1e6 else "N/A")
+                display_df['Market Cap'] = display_df['Market Cap'].apply(lambda x: format_large_number(x) if x > 1e6 else "N/A")
                 display_df['P/E Ratio'] = display_df['P/E Ratio'].apply(lambda x: f"{x:.2f}" if x > 0 else "N/A")
                 display_df['Forward P/E'] = display_df['Forward P/E'].apply(lambda x: f"{x:.2f}" if x > 0 else "N/A")
                 
@@ -308,7 +317,7 @@ with tab1:
             
             mc = stock_data.get('market_cap', 0)
             mc_tooltip = "🏢 Market Cap = Stock price × total shares. This is the company's total value. Think of it as the price tag to buy the entire company. Bigger number = bigger company (duh)."
-            col3.metric("Market Cap", f"${mc/1e9:.1f}B" if mc > 1e6 else "Calculating...", help=mc_tooltip)
+            col3.metric("Market Cap", format_large_number(mc) if mc > 1e6 else "Calculating...", help=mc_tooltip)
             
             pe = stock_data.get('pe_ratio', 0)
             pe_tooltip = "💵 P/E Ratio = How much you're paying for every $1 of profit. If P/E is 30, you're paying $30 for every $1 the company earns. Lower = cheaper (usually). High P/E? People expect big growth. Low P/E? Either a bargain or trouble."
@@ -418,8 +427,8 @@ with tab1:
                     # === CASH FLOW FIRST (TOP) ===
                     col_left, col_right = st.columns([1, 3])
                     with col_left:
-                        st.subheader("💧 Statement of Cash Flows")
-                        default_cf = [m for m in ['Free Cash Flow', 'ShareBasedCompensation'] if m in cashflow_metrics or m in fcf_metrics]
+                        st.subheader("Statement of Cash Flows")
+                        default_cf = ['Free Cash Flow', 'ShareBasedCompensation']
                         cashflow_selected = st.multiselect("Select metrics:", options=cashflow_metrics + fcf_metrics, default=default_cf, key="cf")
                     
                     with col_right:
@@ -476,7 +485,7 @@ with tab1:
                     # === INCOME STATEMENT SECOND (MIDDLE) ===
                     col_left, col_right = st.columns([1, 3])
                     with col_left:
-                        st.subheader("💵 Income Statement")
+                        st.subheader("Income Statement")
                         default_income = [m for m in ['Total Revenue', 'OperatingIncomeLoss', 'NetIncomeLoss'] if m in income_metrics]
                         income_selected = st.multiselect("Select metrics:", options=income_metrics, default=default_income, key="income")
                     
@@ -506,7 +515,7 @@ with tab1:
                     # === BALANCE SHEET LAST (BOTTOM) ===
                     col_left, col_right = st.columns([1, 3])
                     with col_left:
-                        st.subheader("🏦 Balance Sheet")
+                        st.subheader("Balance Sheet")
                         default_balance = [m for m in ['Assets', 'StockholdersEquity', 'Liabilities'] if m in balance_metrics]
                         balance_selected = st.multiselect("Select metrics:", options=balance_metrics, default=default_balance, key="balance")
                     
@@ -542,54 +551,102 @@ with tab1:
                 elif view_mode == "Ratios":
                     ratios_df = calculate_ratios(display_df)
                     if not ratios_df.empty:
-                        available_ratios = list(ratios_df.columns)
-                        selected_ratios = st.multiselect("Select Ratios:", options=available_ratios, default=available_ratios[:3] if len(available_ratios) >= 3 else available_ratios)
-                        if selected_ratios:
-                            fig = px.bar(ratios_df, x=ratios_df.index, y=selected_ratios, barmode='group', color_discrete_sequence=px.colors.qualitative.Pastel)
-                            max_val = ratios_df[selected_ratios].max().max()
-                            fig.update_layout(height=500, yaxis=dict(range=[0, max_val * 1.15]), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='white')
-                            st.plotly_chart(fig, use_container_width=True)
+                        col_left, col_right = st.columns([1, 3])
+                        
+                        with col_left:
+                            st.subheader("Financial Ratios")
+                            available_ratios = list(ratios_df.columns)
+                            selected_ratios = st.multiselect("Select Ratios:", options=available_ratios, default=available_ratios[:3] if len(available_ratios) >= 3 else available_ratios)
                             
-                            with st.expander("📂 Data Table"):
-                                st.dataframe(ratios_df[selected_ratios], use_container_width=True)
+                            st.markdown("---")
+                            st.markdown("### 📊 What to Look For:")
+                            st.markdown("""
+                            **Gross Margin:**
+                            - Software/Tech: 70-90% = Excellent
+                            - Retail: 20-40% = Normal
+                            - Example: Apple ~43%, Walmart ~25%
+                            
+                            **Operating Margin:**
+                            - Software: >20% = Strong
+                            - Manufacturing: >10% = Good
+                            - Example: Microsoft ~42%, Ford ~5%
+                            
+                            **Net Profit Margin:**
+                            - Tech: 15-25% = Healthy
+                            - Retail: 2-5% = Normal
+                            - Example: Google ~21%, Target ~4%
+                            
+                            💡 **Higher = Better pricing power**
+                            """)
+                        
+                        with col_right:
+                            st.markdown("### 📊 Financial Ratios")
+                            if selected_ratios:
+                                # Calculate proper y-axis range
+                                max_val = ratios_df[selected_ratios].max().max()
+                                min_val = ratios_df[selected_ratios].min().min()
+                                
+                                # Set y-axis to start at 0 or slightly below minimum
+                                y_min = min(0, min_val * 1.1)
+                                y_max = max_val * 1.15
+                                
+                                fig = px.bar(ratios_df, x=ratios_df.index, y=selected_ratios, barmode='group', 
+                                           color_discrete_sequence=px.colors.qualitative.Pastel)
+                                fig.update_layout(
+                                    height=500, 
+                                    yaxis=dict(range=[y_min, y_max]),
+                                    plot_bgcolor='rgba(0,0,0,0)', 
+                                    paper_bgcolor='rgba(0,0,0,0)', 
+                                    font_color='white'
+                                )
+                                st.plotly_chart(fig, use_container_width=True)
+                                
+                                with st.expander("📂 Data Table"):
+                                    st.dataframe(ratios_df[selected_ratios], use_container_width=True)
                     else:
                         st.warning("Not enough data for ratios.")
                 
                 elif view_mode == "Insights":
-                    fcf_df = calculate_fcf_metrics(display_df)
-                    if not fcf_df.empty:
+                    # Calculate FCF directly here
+                    insights_df = pd.DataFrame(index=display_df.index)
+                    
+                    # Calculate FCF
+                    if 'NetCashProvidedByUsedInOperatingActivities' in display_df.columns and 'PaymentsToAcquirePropertyPlantAndEquipment' in display_df.columns:
+                        ocf = display_df['NetCashProvidedByUsedInOperatingActivities']
+                        capex = display_df['PaymentsToAcquirePropertyPlantAndEquipment']
+                        insights_df['Free Cash Flow'] = ocf - capex.abs()
+                    
+                    # Add Operating Income if available
+                    if 'OperatingIncomeLoss' in display_df.columns:
+                        insights_df['OperatingIncomeLoss'] = display_df['OperatingIncomeLoss']
+                    
+                    if not insights_df.empty and len(insights_df.columns) > 0:
                         st.subheader("💎 Key Investment Metrics")
-                        available_fcf = list(fcf_df.columns)
-                        
-                        if 'OperatingIncomeLoss' in display_df.columns:
-                            available_fcf.append('OperatingIncomeLoss')
+                        available_fcf = list(insights_df.columns)
                         
                         selected_insights = st.multiselect("Critical Metrics:", options=available_fcf, default=available_fcf[:2] if len(available_fcf) >= 2 else available_fcf)
                         
                         if selected_insights:
-                            plot_df = pd.DataFrame(index=display_df.index)
-                            for metric in selected_insights:
-                                if metric in fcf_df.columns:
-                                    plot_df[metric] = fcf_df[metric]
-                                elif metric in display_df.columns:
-                                    plot_df[metric] = display_df[metric]
+                            plot_df = insights_df[selected_insights]
                             
-                            fig = px.bar(plot_df, x=plot_df.index, y=selected_insights, barmode='group', color_discrete_sequence=['#00D9FF', '#FF6B9D', '#FFC837'])
+                            fig = px.bar(plot_df, x=plot_df.index, y=selected_insights, barmode='group', 
+                                       color_discrete_sequence=['#00D9FF', '#FF6B9D', '#FFC837'])
                             max_val = plot_df[selected_insights].max().max()
                             min_val = plot_df[selected_insights].min().min()
                             y_range = [min_val * 1.1 if min_val < 0 else 0, max_val * 1.15]
                             
-                            fig.update_layout(height=500, yaxis=dict(range=y_range), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font_color='white')
+                            fig.update_layout(height=500, yaxis=dict(range=y_range), plot_bgcolor='rgba(0,0,0,0)', 
+                                            paper_bgcolor='rgba(0,0,0,0)', font_color='white')
                             st.plotly_chart(fig, use_container_width=True)
                             
-                            if 'Free Cash Flow' in fcf_df.columns:
-                                latest_fcf = fcf_df['Free Cash Flow'].iloc[-1]
-                                if len(fcf_df) > 1:
-                                    prev_fcf = fcf_df['Free Cash Flow'].iloc[-2]
+                            if 'Free Cash Flow' in insights_df.columns:
+                                latest_fcf = insights_df['Free Cash Flow'].iloc[-1]
+                                if len(insights_df) > 1:
+                                    prev_fcf = insights_df['Free Cash Flow'].iloc[-2]
                                     growth = ((latest_fcf - prev_fcf) / abs(prev_fcf) * 100) if prev_fcf != 0 else 0
                                     
                                     col1, col2 = st.columns(2)
-                                    col1.metric("Latest Free Cash Flow", f"${latest_fcf/1e9:.2f}B", f"{growth:+.1f}%")
+                                    col1.metric("Latest Free Cash Flow", format_large_number(latest_fcf), f"{growth:+.1f}%")
                                     
                                     if latest_fcf > 0:
                                         col2.success("✅ Positive free cash flow!")
