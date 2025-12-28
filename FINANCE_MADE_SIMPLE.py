@@ -185,7 +185,6 @@ def show_why_it_matters(metric_key):
                 </div>
                 """, unsafe_allow_html=True)
 
-
 # ============= FMP API FUNCTIONS =============
 
 @st.cache_data(ttl=3600)
@@ -240,9 +239,9 @@ def smart_search_ticker(search_term):
     return search_term, search_term
 
 @st.cache_data(ttl=3600)
-def get_key_metrics(ticker, period='annual', limit=1):
-    """Get key metrics including P/E, Forward P/E, etc."""
-    url = f"{BASE_URL}/key-metrics?symbol={ticker}&period={period}&limit={limit}&apikey={FMP_API_KEY}"
+def get_ratios_ttm(ticker):
+    """Get TTM ratios including P/E, P/S - MOST RELIABLE"""
+    url = f"{BASE_URL}/ratios-ttm/{ticker}?apikey={FMP_API_KEY}"
     try:
         response = requests.get(url, timeout=10)
         data = response.json()
@@ -381,7 +380,6 @@ def get_price_target(ticker):
     except:
         return None
 
-
 # ============= SECTOR DEFINITIONS =============
 SECTORS = {
     "🏦 Financial Services": {
@@ -444,15 +442,15 @@ with tab2:
         rows = []
         for ticker in sector_info['tickers']:
             quote = get_quote(ticker)
-            key_metrics = get_key_metrics(ticker)
+            ratios_ttm = get_ratios_ttm(ticker)
             
             if quote:
                 pe = 0
                 ps = 0
                 
-                if key_metrics:
-                    pe = key_metrics.get('peRatio', 0)
-                    ps = key_metrics.get('priceToSalesRatio', 0)
+                if ratios_ttm:
+                    pe = ratios_ttm.get('peRatioTTM', 0)
+                    ps = ratios_ttm.get('priceToSalesRatioTTM', 0)
                 
                 if not pe or pe == 0:
                     pe = quote.get('pe', 0)
@@ -503,6 +501,7 @@ with tab2:
                 if st.button("Analyze →", type="primary", use_container_width=True):
                     st.session_state.selected_ticker = selected
                     st.switch_page("pages/company.py") if hasattr(st, 'switch_page') else st.rerun()
+
 
 # ============= TAB 3: PORTFOLIO RISK ANALYZER =============
 with tab3:
@@ -654,6 +653,7 @@ with tab1:
         industry = profile.get('industry', 'N/A')
         st.caption(f"**Sector:** {sector} | **Industry:** {industry}")
     else:
+        company_name = ticker
         st.subheader(f"{ticker}")
     
     view = st.radio("Choose View:", [
@@ -713,7 +713,7 @@ with tab1:
         """)
     
     quote = get_quote(ticker)
-    key_metrics = get_key_metrics(ticker)
+    ratios_ttm = get_ratios_ttm(ticker)
     balance_df = get_balance_sheet(ticker, period, years*4 if period == 'quarter' else years)
     ratios_df = get_financial_ratios(ticker, period, years*4 if period == 'quarter' else years)
     
@@ -724,11 +724,10 @@ with tab1:
         
         pe = None
         ps = None
-        forward_pe = None
-        if key_metrics:
-            pe = key_metrics.get('peRatio', 0)
-            ps = key_metrics.get('priceToSalesRatio', 0)
-            forward_pe = key_metrics.get('forwardPeRatio', 0)
+        
+        if ratios_ttm:
+            pe = ratios_ttm.get('peRatioTTM', 0)
+            ps = ratios_ttm.get('priceToSalesRatioTTM', 0)
         
         if not pe or pe == 0:
             pe = quote.get('pe', 0)
@@ -743,28 +742,24 @@ with tab1:
         col4.metric("P/S Ratio", f"{ps:.2f}" if ps and ps > 0 else "N/A",
                    help="Price-to-Sales ratio. Shows how much you pay for $1 of revenue. Lower = better value. Tech: 5-10 | Retail: 0.5-2")
         
-        if forward_pe and forward_pe > 0:
-            col5.metric("Forward P/E", f"{forward_pe:.2f}",
-                       help="Expected P/E based on next year's earnings estimates")
-        else:
-            price_target = get_price_target(ticker)
-            if price_target:
-                avg_target = price_target.get('targetConsensus', 0)
-                if avg_target > 0:
-                    upside = ((avg_target - price) / price) * 100
-                    col5.metric("Analyst Target", f"${avg_target:.2f}", f"{upside:+.1f}% upside",
-                               help="Average Wall Street analyst 12-month price target")
+        price_target = get_price_target(ticker)
+        if price_target:
+            avg_target = price_target.get('targetConsensus', 0)
+            if avg_target > 0:
+                upside = ((avg_target - price) / price) * 100
+                col5.metric("Analyst Target", f"${avg_target:.2f}", f"{upside:+.1f}% upside",
+                           help="Average Wall Street analyst 12-month price target")
         
         st.divider()
     
     if view == "📊 Key Metrics":
         
-        st.markdown("### 📈 Stock Price History")
+        st.markdown(f"### 📈 {company_name} - Stock Price History")
         price_data = get_historical_price(ticker, years)
         if not price_data.empty:
             y_column = 'price'
             
-            chart_title = f'{company_name if profile else ticker} - Stock Price ({years} Years)'
+            chart_title = f'{company_name} - Stock Price ({years} Years)'
             
             fig = px.area(price_data, x='date', y=y_column, title=chart_title)
             fig.update_layout(
@@ -775,7 +770,7 @@ with tab1:
                 xaxis_title="",
                 yaxis_title="Price ($)",
                 showlegend=False,
-                yaxis=dict(autorange=True),
+                yaxis=dict(rangemode='tozero'),
                 margin=dict(l=20, r=20, t=60, b=20),
                 hoverlabel=dict(bgcolor="white", font_size=12, font_color="black")
             )
@@ -786,7 +781,7 @@ with tab1:
         
         st.divider()
         
-        st.markdown("### 💵 Cash Flow Statement")
+        st.markdown(f"### 💵 {company_name} - Cash Flow Statement")
         show_why_it_matters('fcfAfterSBC')
         
         if not cash_df.empty:
@@ -829,7 +824,7 @@ with tab1:
                     font_color='white',
                     xaxis_title="Period",
                     yaxis_title="Amount ($)",
-                    yaxis=dict(autorange=True),
+                    yaxis=dict(rangemode='tozero'),
                     margin=dict(l=20, r=20, t=60, b=20),
                     hoverlabel=dict(bgcolor="white", font_size=12, font_color="black"),
                     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
@@ -844,7 +839,7 @@ with tab1:
         
         st.divider()
         
-        st.markdown("### 💰 Income Statement")
+        st.markdown(f"### 💰 {company_name} - Income Statement")
         show_why_it_matters('revenue')
         
         if not income_df.empty:
@@ -884,7 +879,7 @@ with tab1:
                     font_color='white',
                     xaxis_title="Period",
                     yaxis_title="Amount ($)",
-                    yaxis=dict(autorange=True),
+                    yaxis=dict(rangemode='tozero'),
                     margin=dict(l=20, r=20, t=60, b=20),
                     hoverlabel=dict(bgcolor="white", font_size=12, font_color="black"),
                     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
@@ -903,7 +898,7 @@ with tab1:
         
         st.divider()
         
-        st.markdown("### 🏦 Balance Sheet")
+        st.markdown(f"### 🏦 {company_name} - Balance Sheet")
         
         if not balance_df.empty:
             metrics_to_plot = []
@@ -942,7 +937,7 @@ with tab1:
                     font_color='white',
                     xaxis_title="Period",
                     yaxis_title="Amount ($)",
-                    yaxis=dict(autorange=True),
+                    yaxis=dict(rangemode='tozero'),
                     margin=dict(l=20, r=20, t=60, b=20),
                     hoverlabel=dict(bgcolor="white", font_size=12, font_color="black"),
                     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
@@ -980,8 +975,8 @@ with tab1:
             quote2 = get_quote(ticker2)
             
             if quote1 and quote2:
-                key_metrics1 = get_key_metrics(ticker1)
-                key_metrics2 = get_key_metrics(ticker2)
+                ratios_ttm1 = get_ratios_ttm(ticker1)
+                ratios_ttm2 = get_ratios_ttm(ticker2)
                 ratios1 = get_financial_ratios(ticker1, 'annual', 1)
                 ratios2 = get_financial_ratios(ticker2, 'annual', 1)
                 cash1 = get_cash_flow(ticker1, 'annual', 1)
@@ -990,17 +985,17 @@ with tab1:
                 st.divider()
                 st.markdown("### 📊 Comprehensive Metrics Comparison")
                 
-                def get_metric_value(quote, key_metrics, ratios, cash, metric_name):
+                def get_metric_value(quote, ratios_ttm, ratios, cash, metric_name):
                     if metric_name == "P/E":
-                        if key_metrics:
-                            pe = key_metrics.get('peRatio', 0)
+                        if ratios_ttm:
+                            pe = ratios_ttm.get('peRatioTTM', 0)
                             if pe and pe > 0:
                                 return f"{pe:.2f}"
                         return "N/A"
                     
                     elif metric_name == "P/S":
-                        if key_metrics:
-                            ps = key_metrics.get('priceToSalesRatio', 0)
+                        if ratios_ttm:
+                            ps = ratios_ttm.get('priceToSalesRatioTTM', 0)
                             if ps and ps > 0:
                                 return f"{ps:.2f}"
                         return "N/A"
@@ -1056,26 +1051,26 @@ with tab1:
                     ticker1: [
                         f"${quote1.get('price', 0):.2f}",
                         format_number(quote1.get('marketCap', 0)),
-                        get_metric_value(quote1, key_metrics1, ratios1, cash1, "P/E"),
-                        get_metric_value(quote1, key_metrics1, ratios1, cash1, "P/S"),
+                        get_metric_value(quote1, ratios_ttm1, ratios1, cash1, "P/E"),
+                        get_metric_value(quote1, ratios_ttm1, ratios1, cash1, "P/S"),
                         f"{quote1.get('changesPercentage', 0):+.2f}%",
-                        get_metric_value(quote1, key_metrics1, ratios1, cash1, "Gross Margin"),
-                        get_metric_value(quote1, key_metrics1, ratios1, cash1, "Operating Margin"),
-                        get_metric_value(quote1, key_metrics1, ratios1, cash1, "Net Margin"),
-                        get_metric_value(quote1, key_metrics1, ratios1, cash1, "FCF"),
-                        get_metric_value(quote1, key_metrics1, ratios1, cash1, "FCF per Share")
+                        get_metric_value(quote1, ratios_ttm1, ratios1, cash1, "Gross Margin"),
+                        get_metric_value(quote1, ratios_ttm1, ratios1, cash1, "Operating Margin"),
+                        get_metric_value(quote1, ratios_ttm1, ratios1, cash1, "Net Margin"),
+                        get_metric_value(quote1, ratios_ttm1, ratios1, cash1, "FCF"),
+                        get_metric_value(quote1, ratios_ttm1, ratios1, cash1, "FCF per Share")
                     ],
                     ticker2: [
                         f"${quote2.get('price', 0):.2f}",
                         format_number(quote2.get('marketCap', 0)),
-                        get_metric_value(quote2, key_metrics2, ratios2, cash2, "P/E"),
-                        get_metric_value(quote2, key_metrics2, ratios2, cash2, "P/S"),
+                        get_metric_value(quote2, ratios_ttm2, ratios2, cash2, "P/E"),
+                        get_metric_value(quote2, ratios_ttm2, ratios2, cash2, "P/S"),
                         f"{quote2.get('changesPercentage', 0):+.2f}%",
-                        get_metric_value(quote2, key_metrics2, ratios2, cash2, "Gross Margin"),
-                        get_metric_value(quote2, key_metrics2, ratios2, cash2, "Operating Margin"),
-                        get_metric_value(quote2, key_metrics2, ratios2, cash2, "Net Margin"),
-                        get_metric_value(quote2, key_metrics2, ratios2, cash2, "FCF"),
-                        get_metric_value(quote2, key_metrics2, ratios2, cash2, "FCF per Share")
+                        get_metric_value(quote2, ratios_ttm2, ratios2, cash2, "Gross Margin"),
+                        get_metric_value(quote2, ratios_ttm2, ratios2, cash2, "Operating Margin"),
+                        get_metric_value(quote2, ratios_ttm2, ratios2, cash2, "Net Margin"),
+                        get_metric_value(quote2, ratios_ttm2, ratios2, cash2, "FCF"),
+                        get_metric_value(quote2, ratios_ttm2, ratios2, cash2, "FCF per Share")
                     ]
                 }
                 
@@ -1099,7 +1094,7 @@ with tab1:
                             paper_bgcolor='rgba(0,0,0,0)',
                             font_color='white',
                             showlegend=False,
-                            yaxis=dict(autorange=True),
+                            yaxis=dict(rangemode='tozero'),
                             margin=dict(l=20, r=20, t=20, b=20),
                             hoverlabel=dict(bgcolor="white", font_size=12, font_color="black")
                         )
@@ -1119,7 +1114,7 @@ with tab1:
                             paper_bgcolor='rgba(0,0,0,0)',
                             font_color='white',
                             showlegend=False,
-                            yaxis=dict(autorange=True),
+                            yaxis=dict(rangemode='tozero'),
                             margin=dict(l=20, r=20, t=20, b=20),
                             hoverlabel=dict(bgcolor="white", font_size=12, font_color="black")
                         )
@@ -1153,7 +1148,7 @@ with tab1:
                         plot_bgcolor='rgba(0,0,0,0)',
                         paper_bgcolor='rgba(0,0,0,0)',
                         font_color='white',
-                        yaxis=dict(autorange=True),
+                        yaxis=dict(rangemode='tozero'),
                         margin=dict(l=20, r=20, t=40, b=20),
                         hoverlabel=dict(bgcolor="white", font_size=12, font_color="black")
                     )
@@ -1164,20 +1159,19 @@ with tab1:
                 st.divider()
                 st.markdown("### 🏆 Quick Comparison")
                 
-                pe1 = quote1.get('pe', 0)
-                pe2 = quote2.get('pe', 0)
-                
                 col1, col2, col3 = st.columns(3)
                 
                 with col1:
                     st.markdown("**💰 Valuation (Lower P/E = Better)**")
-                    if pe1 > 0 and pe2 > 0:
-                        if pe1 < pe2:
-                            st.success(f"🏆 {ticker1} ({pe1:.2f})")
-                            st.info(f"{ticker2} ({pe2:.2f})")
+                    pe1_val = ratios_ttm1.get('peRatioTTM', 0) if ratios_ttm1 else 0
+                    pe2_val = ratios_ttm2.get('peRatioTTM', 0) if ratios_ttm2 else 0
+                    if pe1_val > 0 and pe2_val > 0:
+                        if pe1_val < pe2_val:
+                            st.success(f"🏆 {ticker1} ({pe1_val:.2f})")
+                            st.info(f"{ticker2} ({pe2_val:.2f})")
                         else:
-                            st.info(f"{ticker1} ({pe1:.2f})")
-                            st.success(f"🏆 {ticker2} ({pe2:.2f})")
+                            st.info(f"{ticker1} ({pe1_val:.2f})")
+                            st.success(f"🏆 {ticker2} ({pe2_val:.2f})")
                     else:
                         st.info("P/E comparison not available")
                 
@@ -1320,15 +1314,15 @@ with tab4:
     st.header("✅ Investment Checklist")
     st.write("Quick check before investing")
     
-    ticker = st.text_input("Enter ticker:", value=st.session_state.selected_ticker)
+    ticker_check = st.text_input("Enter ticker:", value=st.session_state.selected_ticker)
     
     if st.button("Analyze"):
-        quote = get_quote(ticker)
-        ratios = get_financial_ratios(ticker, 'annual', 1)
-        cash = get_cash_flow(ticker, 'annual', 1)
+        quote = get_quote(ticker_check)
+        ratios = get_financial_ratios(ticker_check, 'annual', 1)
+        cash = get_cash_flow(ticker_check, 'annual', 1)
         
         if quote and not ratios.empty:
-            st.subheader(f"📊 {quote.get('name', ticker)} ({ticker})")
+            st.subheader(f"📊 {quote.get('name', ticker_check)} ({ticker_check})")
             
             checks = []
             
