@@ -11,7 +11,7 @@ import numpy as np
 
 # ============= CONFIGURATION =============
 FMP_API_KEY = "9rZXN8pHaPyiCjFHWCVBxQmyzftJbRrj"
-BASE_URL = "https://financialmodelingprep.com/stable"
+BASE_URL = "https://financialmodelingprep.com/api/v3"
 
 st.set_page_config(page_title="Finance Made Simple", layout="wide", page_icon="💰")
 
@@ -123,6 +123,105 @@ GLOSSARY = {
     "FCF per Share": "Free Cash Flow divided by shares outstanding. Shows cash generation per share you own"
 }
 
+# ============= METRIC DISPLAY NAMES =============
+METRIC_DISPLAY_NAMES = {
+    # Cash Flow
+    'freeCashFlow': 'Free Cash Flow',
+    'operatingCashFlow': 'Operating Cash Flow',
+    'investingCashFlow': 'Investing Cash Flow',
+    'financingCashFlow': 'Financing Cash Flow',
+    'capitalExpenditure': 'Capital Expenditures (CapEx)',
+    'stockBasedCompensation': 'Stock-Based Compensation',
+    'dividendsPaid': 'Dividends Paid',
+    'commonStockRepurchased': 'Stock Buybacks',
+    'debtRepayment': 'Debt Repayment',
+    'commonStockIssued': 'Stock Issued',
+    'debtIssuance': 'Debt Issued',
+    'changeInWorkingCapital': 'Change in Working Capital',
+    'depreciationAndAmortization': 'Depreciation & Amortization',
+    'deferredIncomeTax': 'Deferred Income Tax',
+    'accountsReceivables': 'Change in Accounts Receivable',
+    'inventory': 'Change in Inventory',
+    'accountsPayables': 'Change in Accounts Payable',
+    'otherWorkingCapital': 'Other Working Capital',
+    'otherNonCashItems': 'Other Non-Cash Items',
+    'acquisitionsNet': 'Acquisitions (Net)',
+    'purchasesOfInvestments': 'Purchase of Investments',
+    'salesMaturitiesOfInvestments': 'Sale of Investments',
+    
+    # Income Statement
+    'revenue': 'Revenue',
+    'costOfRevenue': 'Cost of Revenue (COGS)',
+    'grossProfit': 'Gross Profit',
+    'researchAndDevelopmentExpenses': 'R&D Expenses',
+    'generalAndAdministrativeExpenses': 'G&A Expenses',
+    'sellingAndMarketingExpenses': 'Selling & Marketing',
+    'sellingGeneralAndAdministrativeExpenses': 'SG&A Expenses',
+    'otherExpenses': 'Other Expenses',
+    'operatingExpenses': 'Operating Expenses',
+    'costAndExpenses': 'Total Costs & Expenses',
+    'interestIncome': 'Interest Income',
+    'interestExpense': 'Interest Expense',
+    'depreciationAndAmortization': 'Depreciation & Amortization',
+    'ebitda': 'EBITDA',
+    'operatingIncome': 'Operating Income',
+    'totalOtherIncomeExpensesNet': 'Other Income/Expenses',
+    'incomeBeforeTax': 'Income Before Tax',
+    'incomeTaxExpense': 'Income Tax Expense',
+    'netIncome': 'Net Income',
+    'eps': 'Earnings Per Share (EPS)',
+    'epsdiluted': 'EPS Diluted',
+    'weightedAverageShsOut': 'Shares Outstanding',
+    'weightedAverageShsOutDil': 'Shares Outstanding (Diluted)',
+    
+    # Balance Sheet
+    'totalAssets': 'Total Assets',
+    'totalCurrentAssets': 'Total Current Assets',
+    'cashAndCashEquivalents': 'Cash & Cash Equivalents',
+    'shortTermInvestments': 'Short-Term Investments',
+    'cashAndShortTermInvestments': 'Cash + Short-Term Investments',
+    'netReceivables': 'Accounts Receivable (Net)',
+    'inventory': 'Inventory',
+    'otherCurrentAssets': 'Other Current Assets',
+    'totalNonCurrentAssets': 'Total Non-Current Assets',
+    'propertyPlantEquipmentNet': 'Property, Plant & Equipment',
+    'goodwill': 'Goodwill',
+    'intangibleAssets': 'Intangible Assets',
+    'goodwillAndIntangibleAssets': 'Goodwill + Intangibles',
+    'longTermInvestments': 'Long-Term Investments',
+    'taxAssets': 'Tax Assets',
+    'otherNonCurrentAssets': 'Other Non-Current Assets',
+    'totalLiabilities': 'Total Liabilities',
+    'totalCurrentLiabilities': 'Total Current Liabilities',
+    'accountPayables': 'Accounts Payable',
+    'shortTermDebt': 'Short-Term Debt',
+    'taxPayables': 'Tax Payables',
+    'deferredRevenue': 'Deferred Revenue',
+    'otherCurrentLiabilities': 'Other Current Liabilities',
+    'totalNonCurrentLiabilities': 'Total Non-Current Liabilities',
+    'longTermDebt': 'Long-Term Debt',
+    'deferredRevenueNonCurrent': 'Deferred Revenue (Non-Current)',
+    'deferredTaxLiabilitiesNonCurrent': 'Deferred Tax Liabilities',
+    'otherNonCurrentLiabilities': 'Other Non-Current Liabilities',
+    'totalDebt': 'Total Debt',
+    'netDebt': 'Net Debt',
+    'totalStockholdersEquity': 'Total Shareholders Equity',
+    'commonStock': 'Common Stock',
+    'retainedEarnings': 'Retained Earnings',
+    'accumulatedOtherComprehensiveIncomeLoss': 'Accumulated Other Comprehensive Income',
+    'othertotalStockholdersEquity': 'Other Equity',
+    'totalEquity': 'Total Equity',
+    'totalLiabilitiesAndStockholdersEquity': 'Total Liabilities + Equity',
+    'minorityInterest': 'Minority Interest',
+    'totalLiabilitiesAndTotalEquity': 'Total Liabilities + Equity',
+    'totalInvestments': 'Total Investments',
+    'totalLiabilitiesNetMinorityInterest': 'Total Liabilities (Net Minority)',
+    'capitalLeaseObligations': 'Capital Lease Obligations',
+    
+    # Computed
+    'fcfAfterSBC': 'FCF After Stock Compensation'
+}
+
 def format_number(num):
     """Format large numbers"""
     if pd.isna(num) or num == 0:
@@ -164,6 +263,17 @@ def calculate_growth_rate(df, column, years=None):
     
     return calculate_cagr(start_val, end_val, years)
 
+def get_available_metrics(df, exclude_cols=['date', 'symbol', 'reportedCurrency', 'cik', 'fillingDate', 'acceptedDate', 'calendarYear', 'period', 'link', 'finalLink']):
+    """Get all numeric columns from dataframe for dropdown"""
+    if df.empty:
+        return []
+    
+    numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+    available = [col for col in numeric_cols if col not in exclude_cols]
+    
+    # Return as list of (display_name, column_name) tuples
+    return [(METRIC_DISPLAY_NAMES.get(col, col.replace('_', ' ').title()), col) for col in available]
+
 def show_why_it_matters(metric_key):
     """Show explanation for a metric"""
     if metric_key in SIMPLE_EXPLANATIONS:
@@ -191,7 +301,7 @@ def show_why_it_matters(metric_key):
 def get_all_stocks():
     """Get list of stocks with fallback"""
     try:
-        url = f"{BASE_URL}/search-name?query=&limit=5000&apikey={FMP_API_KEY}"
+        url = f"{BASE_URL}/search?query=&limit=5000&apikey={FMP_API_KEY}"
         response = requests.get(url, timeout=15)
         data = response.json()
         stocks = {}
@@ -254,7 +364,7 @@ def get_ratios_ttm(ticker):
 @st.cache_data(ttl=300)
 def get_quote(ticker):
     """Get quote"""
-    url = f"{BASE_URL}/quote?symbol={ticker}&apikey={FMP_API_KEY}"
+    url = f"{BASE_URL}/quote/{ticker}?apikey={FMP_API_KEY}"
     try:
         response = requests.get(url, timeout=10)
         data = response.json()
@@ -265,7 +375,7 @@ def get_quote(ticker):
 @st.cache_data(ttl=1800)
 def get_profile(ticker):
     """Get company profile"""
-    url = f"{BASE_URL}/profile?symbol={ticker}&apikey={FMP_API_KEY}"
+    url = f"{BASE_URL}/profile/{ticker}?apikey={FMP_API_KEY}"
     try:
         response = requests.get(url, timeout=10)
         data = response.json()
@@ -276,7 +386,7 @@ def get_profile(ticker):
 @st.cache_data(ttl=3600)
 def get_income_statement(ticker, period='annual', limit=5):
     """Get income statement"""
-    url = f"{BASE_URL}/income-statement?symbol={ticker}&period={period}&limit={limit}&apikey={FMP_API_KEY}"
+    url = f"{BASE_URL}/income-statement/{ticker}?period={period}&limit={limit}&apikey={FMP_API_KEY}"
     try:
         response = requests.get(url, timeout=10)
         data = response.json()
@@ -293,7 +403,7 @@ def get_income_statement(ticker, period='annual', limit=5):
 @st.cache_data(ttl=3600)
 def get_balance_sheet(ticker, period='annual', limit=5):
     """Get balance sheet"""
-    url = f"{BASE_URL}/balance-sheet-statement?symbol={ticker}&period={period}&limit={limit}&apikey={FMP_API_KEY}"
+    url = f"{BASE_URL}/balance-sheet-statement/{ticker}?period={period}&limit={limit}&apikey={FMP_API_KEY}"
     try:
         response = requests.get(url, timeout=10)
         data = response.json()
@@ -310,7 +420,7 @@ def get_balance_sheet(ticker, period='annual', limit=5):
 @st.cache_data(ttl=3600)
 def get_cash_flow(ticker, period='annual', limit=5):
     """Get cash flow"""
-    url = f"{BASE_URL}/cash-flow-statement?symbol={ticker}&period={period}&limit={limit}&apikey={FMP_API_KEY}"
+    url = f"{BASE_URL}/cash-flow-statement/{ticker}?period={period}&limit={limit}&apikey={FMP_API_KEY}"
     try:
         response = requests.get(url, timeout=10)
         data = response.json()
@@ -327,7 +437,7 @@ def get_cash_flow(ticker, period='annual', limit=5):
 @st.cache_data(ttl=3600)
 def get_financial_ratios(ticker, period='annual', limit=5):
     """Get financial ratios"""
-    url = f"{BASE_URL}/ratios?symbol={ticker}&period={period}&limit={limit}&apikey={FMP_API_KEY}"
+    url = f"{BASE_URL}/ratios/{ticker}?period={period}&limit={limit}&apikey={FMP_API_KEY}"
     try:
         response = requests.get(url, timeout=10)
         data = response.json()
@@ -343,17 +453,18 @@ def get_financial_ratios(ticker, period='annual', limit=5):
 
 @st.cache_data(ttl=3600)
 def get_historical_price(ticker, years=5):
-    """Get historical prices using correct endpoint"""
-    url = f"{BASE_URL}/historical-price-eod/light?symbol={ticker}&apikey={FMP_API_KEY}"
+    """Get historical prices"""
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=years*365)
+    
+    url = f"{BASE_URL}/historical-price-full/{ticker}?from={start_date.strftime('%Y-%m-%d')}&to={end_date.strftime('%Y-%m-%d')}&apikey={FMP_API_KEY}"
     try:
         response = requests.get(url, timeout=15)
         data = response.json()
-        if data and isinstance(data, list):
-            df = pd.DataFrame(data)
+        if data and 'historical' in data:
+            df = pd.DataFrame(data['historical'])
             df['date'] = pd.to_datetime(df['date'])
             df = df.sort_values('date')
-            cutoff = datetime.now() - timedelta(days=years*365)
-            df = df[df['date'] >= cutoff]
             return df
     except Exception as e:
         pass
@@ -362,7 +473,7 @@ def get_historical_price(ticker, years=5):
 @st.cache_data(ttl=1800)
 def get_stock_news(ticker, limit=20):
     """Get stock news"""
-    url = f"{BASE_URL}/stock-news?symbol={ticker}&limit={limit}&apikey={FMP_API_KEY}"
+    url = f"{BASE_URL}/stock_news?tickers={ticker}&limit={limit}&apikey={FMP_API_KEY}"
     try:
         response = requests.get(url, timeout=10)
         return response.json() if response.status_code == 200 else []
@@ -500,8 +611,7 @@ with tab2:
             with col2:
                 if st.button("Analyze →", type="primary", use_container_width=True):
                     st.session_state.selected_ticker = selected
-                    st.switch_page("pages/company.py") if hasattr(st, 'switch_page') else st.rerun()
-
+                    st.rerun()
 
 # ============= TAB 3: PORTFOLIO RISK ANALYZER =============
 with tab3:
@@ -697,8 +807,8 @@ with tab1:
         
         price_data = get_historical_price(ticker, years)
         if not price_data.empty and len(price_data) > 1:
-            start_price = price_data['price'].iloc[0]
-            end_price = price_data['price'].iloc[-1]
+            start_price = price_data['close'].iloc[0]
+            end_price = price_data['close'].iloc[-1]
             price_growth = ((end_price - start_price) / start_price) * 100
             st.metric(f"Stock Price Growth ({years}Y)", f"{price_growth:+.1f}%",
                      help=f"Total return over {years} years")
@@ -757,11 +867,10 @@ with tab1:
         st.markdown(f"### 📈 {company_name} - Stock Price History")
         price_data = get_historical_price(ticker, years)
         if not price_data.empty:
-            y_column = 'price'
             
             chart_title = f'{company_name} - Stock Price ({years} Years)'
             
-            fig = px.area(price_data, x='date', y=y_column, title=chart_title)
+            fig = px.area(price_data, x='date', y='close', title=chart_title)
             fig.update_layout(
                 height=350,
                 plot_bgcolor='rgba(0,0,0,0)',
@@ -781,27 +890,56 @@ with tab1:
         
         st.divider()
         
+        # ========== CASH FLOW WITH DROPDOWN ==========
         st.markdown(f"### 💵 {company_name} - Cash Flow Statement")
         show_why_it_matters('fcfAfterSBC')
         
         if not cash_df.empty:
+            # Add computed metric
             if 'stockBasedCompensation' in cash_df.columns and 'freeCashFlow' in cash_df.columns:
                 cash_df['fcfAfterSBC'] = cash_df['freeCashFlow'] - abs(cash_df['stockBasedCompensation'])
             
-            metrics_to_plot = []
-            metric_names = []
+            # Get available metrics
+            available_metrics = get_available_metrics(cash_df)
             
-            if 'fcfAfterSBC' in cash_df.columns:
-                metrics_to_plot.append('fcfAfterSBC')
-                metric_names.append('FCF After SBC')
-            if 'freeCashFlow' in cash_df.columns:
-                metrics_to_plot.append('freeCashFlow')
-                metric_names.append('Free Cash Flow')
-            if 'operatingCashFlow' in cash_df.columns:
-                metrics_to_plot.append('operatingCashFlow')
-                metric_names.append('Operating Cash Flow')
-            
-            if metrics_to_plot:
+            if available_metrics:
+                # Default selections
+                default_metrics = ['fcfAfterSBC', 'freeCashFlow', 'operatingCashFlow']
+                default_display = [METRIC_DISPLAY_NAMES.get(m, m) for m in default_metrics if m in [col for _, col in available_metrics]]
+                
+                st.markdown("**📊 Select up to 3 metrics to display:**")
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    metric1_display = st.selectbox(
+                        "Metric 1:",
+                        options=[display for display, _ in available_metrics],
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == METRIC_DISPLAY_NAMES.get('fcfAfterSBC', 'FCF After Stock Compensation')), 0),
+                        key="cf_metric1"
+                    )
+                    metric1 = next(col for display, col in available_metrics if display == metric1_display)
+                
+                with col2:
+                    metric2_display = st.selectbox(
+                        "Metric 2:",
+                        options=[display for display, _ in available_metrics],
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == METRIC_DISPLAY_NAMES.get('freeCashFlow', 'Free Cash Flow')), min(1, len(available_metrics)-1)),
+                        key="cf_metric2"
+                    )
+                    metric2 = next(col for display, col in available_metrics if display == metric2_display)
+                
+                with col3:
+                    metric3_display = st.selectbox(
+                        "Metric 3:",
+                        options=[display for display, _ in available_metrics],
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == METRIC_DISPLAY_NAMES.get('operatingCashFlow', 'Operating Cash Flow')), min(2, len(available_metrics)-1)),
+                        key="cf_metric3"
+                    )
+                    metric3 = next(col for display, col in available_metrics if display == metric3_display)
+                
+                metrics_to_plot = [metric1, metric2, metric3]
+                metric_names = [metric1_display, metric2_display, metric3_display]
+                
                 plot_df = cash_df[['date'] + metrics_to_plot].copy()
                 plot_df['date'] = plot_df['date'].dt.strftime('%Y-%m' if period == 'quarter' else '%Y')
                 
@@ -839,24 +977,49 @@ with tab1:
         
         st.divider()
         
+        # ========== INCOME STATEMENT WITH DROPDOWN ==========
         st.markdown(f"### 💰 {company_name} - Income Statement")
         show_why_it_matters('revenue')
         
         if not income_df.empty:
-            metrics_to_plot = []
-            metric_names = []
+            available_metrics = get_available_metrics(income_df)
             
-            if 'revenue' in income_df.columns:
-                metrics_to_plot.append('revenue')
-                metric_names.append('Revenue')
-            if 'operatingIncome' in income_df.columns:
-                metrics_to_plot.append('operatingIncome')
-                metric_names.append('Operating Income')
-            if 'netIncome' in income_df.columns:
-                metrics_to_plot.append('netIncome')
-                metric_names.append('Net Income')
-            
-            if metrics_to_plot:
+            if available_metrics:
+                default_metrics = ['revenue', 'operatingIncome', 'netIncome']
+                
+                st.markdown("**📊 Select up to 3 metrics to display:**")
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    metric1_display = st.selectbox(
+                        "Metric 1:",
+                        options=[display for display, _ in available_metrics],
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == METRIC_DISPLAY_NAMES.get('revenue', 'Revenue')), 0),
+                        key="income_metric1"
+                    )
+                    metric1 = next(col for display, col in available_metrics if display == metric1_display)
+                
+                with col2:
+                    metric2_display = st.selectbox(
+                        "Metric 2:",
+                        options=[display for display, _ in available_metrics],
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == METRIC_DISPLAY_NAMES.get('operatingIncome', 'Operating Income')), min(1, len(available_metrics)-1)),
+                        key="income_metric2"
+                    )
+                    metric2 = next(col for display, col in available_metrics if display == metric2_display)
+                
+                with col3:
+                    metric3_display = st.selectbox(
+                        "Metric 3:",
+                        options=[display for display, _ in available_metrics],
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == METRIC_DISPLAY_NAMES.get('netIncome', 'Net Income')), min(2, len(available_metrics)-1)),
+                        key="income_metric3"
+                    )
+                    metric3 = next(col for display, col in available_metrics if display == metric3_display)
+                
+                metrics_to_plot = [metric1, metric2, metric3]
+                metric_names = [metric1_display, metric2_display, metric3_display]
+                
                 plot_df = income_df[['date'] + metrics_to_plot].copy()
                 plot_df['date'] = plot_df['date'].dt.strftime('%Y-%m' if period == 'quarter' else '%Y')
                 
@@ -887,34 +1050,56 @@ with tab1:
                 st.plotly_chart(fig, use_container_width=True)
                 
                 col1, col2, col3 = st.columns(3)
-                if 'revenue' in income_df.columns:
-                    col1.metric("Latest Revenue", format_number(income_df['revenue'].iloc[-1]))
-                if 'operatingIncome' in income_df.columns:
-                    col2.metric("Latest Op Income", format_number(income_df['operatingIncome'].iloc[-1]))
-                if 'netIncome' in income_df.columns:
-                    col3.metric("Latest Net Income", format_number(income_df['netIncome'].iloc[-1]))
+                cols = [col1, col2, col3]
+                for i, (metric, name) in enumerate(zip(metrics_to_plot, metric_names)):
+                    cols[i].metric(f"Latest {name}", format_number(income_df[metric].iloc[-1]))
         else:
             st.warning("⚠️ Income statement data not available")
         
         st.divider()
         
+        # ========== BALANCE SHEET WITH DROPDOWN ==========
         st.markdown(f"### 🏦 {company_name} - Balance Sheet")
         
         if not balance_df.empty:
-            metrics_to_plot = []
-            metric_names = []
+            available_metrics = get_available_metrics(balance_df)
             
-            if 'totalAssets' in balance_df.columns:
-                metrics_to_plot.append('totalAssets')
-                metric_names.append('Total Assets')
-            if 'totalLiabilities' in balance_df.columns:
-                metrics_to_plot.append('totalLiabilities')
-                metric_names.append('Total Liabilities')
-            if 'totalStockholdersEquity' in balance_df.columns:
-                metrics_to_plot.append('totalStockholdersEquity')
-                metric_names.append('Shareholders Equity')
-            
-            if metrics_to_plot:
+            if available_metrics:
+                default_metrics = ['totalAssets', 'totalLiabilities', 'totalStockholdersEquity']
+                
+                st.markdown("**📊 Select up to 3 metrics to display:**")
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    metric1_display = st.selectbox(
+                        "Metric 1:",
+                        options=[display for display, _ in available_metrics],
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == METRIC_DISPLAY_NAMES.get('totalAssets', 'Total Assets')), 0),
+                        key="balance_metric1"
+                    )
+                    metric1 = next(col for display, col in available_metrics if display == metric1_display)
+                
+                with col2:
+                    metric2_display = st.selectbox(
+                        "Metric 2:",
+                        options=[display for display, _ in available_metrics],
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == METRIC_DISPLAY_NAMES.get('totalLiabilities', 'Total Liabilities')), min(1, len(available_metrics)-1)),
+                        key="balance_metric2"
+                    )
+                    metric2 = next(col for display, col in available_metrics if display == metric2_display)
+                
+                with col3:
+                    metric3_display = st.selectbox(
+                        "Metric 3:",
+                        options=[display for display, _ in available_metrics],
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == METRIC_DISPLAY_NAMES.get('totalStockholdersEquity', 'Total Shareholders Equity')), min(2, len(available_metrics)-1)),
+                        key="balance_metric3"
+                    )
+                    metric3 = next(col for display, col in available_metrics if display == metric3_display)
+                
+                metrics_to_plot = [metric1, metric2, metric3]
+                metric_names = [metric1_display, metric2_display, metric3_display]
+                
                 plot_df = balance_df[['date'] + metrics_to_plot].copy()
                 plot_df['date'] = plot_df['date'].dt.strftime('%Y-%m' if period == 'quarter' else '%Y')
                 
@@ -1087,7 +1272,7 @@ with tab1:
                     st.markdown(f"#### {ticker1}")
                     price_data1 = get_historical_price(ticker1, years)
                     if not price_data1.empty:
-                        fig1 = px.line(price_data1, x='date', y='price')
+                        fig1 = px.line(price_data1, x='date', y='close')
                         fig1.update_layout(
                             height=300,
                             plot_bgcolor='rgba(0,0,0,0)',
@@ -1107,7 +1292,7 @@ with tab1:
                     st.markdown(f"#### {ticker2}")
                     price_data2 = get_historical_price(ticker2, years)
                     if not price_data2.empty:
-                        fig2 = px.line(price_data2, x='date', y='price')
+                        fig2 = px.line(price_data2, x='date', y='close')
                         fig2.update_layout(
                             height=300,
                             plot_bgcolor='rgba(0,0,0,0)',
@@ -1302,7 +1487,10 @@ with tab1:
             for article in news[:10]:
                 with st.expander(f"📰 {article.get('title', 'No title')}"):
                     st.write(f"**Published:** {article.get('publishedDate', 'Unknown')}")
-                    st.write(article.get('text', 'No summary')[:300] + "...")
+                    summary = article.get('text', '')
+                    if not summary:
+                        summary = article.get('summary', 'No summary')
+                    st.write(summary[:300] + "...")
                     url = article.get('url', '')
                     if url:
                         st.markdown(f"[Read full article]({url})")
