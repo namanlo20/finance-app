@@ -8,7 +8,7 @@ import numpy as np
 
 # ============= CONFIGURATION =============
 FMP_API_KEY = "9rZXN8pHaPyiCjFHWCVBxQmyzftJbRrj"
-BASE_URL = "https://financialmodelingprep.com/api/v3"
+BASE_URL = "https://financialmodelingprep.com/stable"
 
 st.set_page_config(page_title="Finance Made Simple", layout="wide", page_icon="💰")
 
