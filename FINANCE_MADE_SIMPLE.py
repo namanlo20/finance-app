@@ -8,7 +8,7 @@ st.write("Testing ALL possible endpoint formats for your $69 premium account")
 
 ticker = "AAPL"
 
-# ============= TEST 1: /stable with /quote/{ticker} =============
+# ============= TEST 1: /stable/quote/{ticker} =============
 st.header("Test 1: /stable/quote/{ticker}")
 url1 = f"https://financialmodelingprep.com/stable/quote/{ticker}?apikey={FMP_API_KEY}"
 st.code(url1)
