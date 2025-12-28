@@ -136,87 +136,35 @@ METRIC_DISPLAY_NAMES = {
     'commonStockRepurchased': 'Stock Buybacks',
     'debtRepayment': 'Debt Repayment',
     'commonStockIssued': 'Stock Issued',
-    'debtIssuance': 'Debt Issued',
     'changeInWorkingCapital': 'Change in Working Capital',
     'depreciationAndAmortization': 'Depreciation & Amortization',
-    'deferredIncomeTax': 'Deferred Income Tax',
-    'accountsReceivables': 'Change in Accounts Receivable',
-    'inventory': 'Change in Inventory',
-    'accountsPayables': 'Change in Accounts Payable',
-    'otherWorkingCapital': 'Other Working Capital',
-    'otherNonCashItems': 'Other Non-Cash Items',
-    'acquisitionsNet': 'Acquisitions (Net)',
-    'purchasesOfInvestments': 'Purchase of Investments',
-    'salesMaturitiesOfInvestments': 'Sale of Investments',
     
     # Income Statement
     'revenue': 'Revenue',
     'costOfRevenue': 'Cost of Revenue (COGS)',
     'grossProfit': 'Gross Profit',
     'researchAndDevelopmentExpenses': 'R&D Expenses',
-    'generalAndAdministrativeExpenses': 'G&A Expenses',
-    'sellingAndMarketingExpenses': 'Selling & Marketing',
     'sellingGeneralAndAdministrativeExpenses': 'SG&A Expenses',
-    'otherExpenses': 'Other Expenses',
     'operatingExpenses': 'Operating Expenses',
-    'costAndExpenses': 'Total Costs & Expenses',
-    'interestIncome': 'Interest Income',
-    'interestExpense': 'Interest Expense',
-    'depreciationAndAmortization': 'Depreciation & Amortization',
-    'ebitda': 'EBITDA',
     'operatingIncome': 'Operating Income',
-    'totalOtherIncomeExpensesNet': 'Other Income/Expenses',
-    'incomeBeforeTax': 'Income Before Tax',
-    'incomeTaxExpense': 'Income Tax Expense',
     'netIncome': 'Net Income',
+    'ebitda': 'EBITDA',
+    'interestExpense': 'Interest Expense',
+    'incomeTaxExpense': 'Income Tax Expense',
     'eps': 'Earnings Per Share (EPS)',
-    'epsdiluted': 'EPS Diluted',
-    'weightedAverageShsOut': 'Shares Outstanding',
-    'weightedAverageShsOutDil': 'Shares Outstanding (Diluted)',
     
     # Balance Sheet
     'totalAssets': 'Total Assets',
-    'totalCurrentAssets': 'Total Current Assets',
     'cashAndCashEquivalents': 'Cash & Cash Equivalents',
-    'shortTermInvestments': 'Short-Term Investments',
-    'cashAndShortTermInvestments': 'Cash + Short-Term Investments',
-    'netReceivables': 'Accounts Receivable (Net)',
-    'inventory': 'Inventory',
-    'otherCurrentAssets': 'Other Current Assets',
-    'totalNonCurrentAssets': 'Total Non-Current Assets',
-    'propertyPlantEquipmentNet': 'Property, Plant & Equipment',
-    'goodwill': 'Goodwill',
-    'intangibleAssets': 'Intangible Assets',
-    'goodwillAndIntangibleAssets': 'Goodwill + Intangibles',
-    'longTermInvestments': 'Long-Term Investments',
-    'taxAssets': 'Tax Assets',
-    'otherNonCurrentAssets': 'Other Non-Current Assets',
+    'totalCurrentAssets': 'Current Assets',
     'totalLiabilities': 'Total Liabilities',
-    'totalCurrentLiabilities': 'Total Current Liabilities',
-    'accountPayables': 'Accounts Payable',
-    'shortTermDebt': 'Short-Term Debt',
-    'taxPayables': 'Tax Payables',
-    'deferredRevenue': 'Deferred Revenue',
-    'otherCurrentLiabilities': 'Other Current Liabilities',
-    'totalNonCurrentLiabilities': 'Total Non-Current Liabilities',
-    'longTermDebt': 'Long-Term Debt',
-    'deferredRevenueNonCurrent': 'Deferred Revenue (Non-Current)',
-    'deferredTaxLiabilitiesNonCurrent': 'Deferred Tax Liabilities',
-    'otherNonCurrentLiabilities': 'Other Non-Current Liabilities',
     'totalDebt': 'Total Debt',
-    'netDebt': 'Net Debt',
-    'totalStockholdersEquity': 'Total Shareholders Equity',
-    'commonStock': 'Common Stock',
+    'longTermDebt': 'Long-Term Debt',
+    'shortTermDebt': 'Short-Term Debt',
+    'totalStockholdersEquity': 'Shareholders Equity',
     'retainedEarnings': 'Retained Earnings',
-    'accumulatedOtherComprehensiveIncomeLoss': 'Accumulated Other Comprehensive Income',
-    'othertotalStockholdersEquity': 'Other Equity',
-    'totalEquity': 'Total Equity',
-    'totalLiabilitiesAndStockholdersEquity': 'Total Liabilities + Equity',
-    'minorityInterest': 'Minority Interest',
-    'totalLiabilitiesAndTotalEquity': 'Total Liabilities + Equity',
-    'totalInvestments': 'Total Investments',
-    'totalLiabilitiesNetMinorityInterest': 'Total Liabilities (Net Minority)',
-    'capitalLeaseObligations': 'Capital Lease Obligations',
+    'inventory': 'Inventory',
+    'netReceivables': 'Accounts Receivable',
     
     # Computed
     'fcfAfterSBC': 'FCF After Stock Compensation'
@@ -271,7 +219,6 @@ def get_available_metrics(df, exclude_cols=['date', 'symbol', 'reportedCurrency'
     numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
     available = [col for col in numeric_cols if col not in exclude_cols]
     
-    # Return as list of (display_name, column_name) tuples
     return [(METRIC_DISPLAY_NAMES.get(col, col.replace('_', ' ').title()), col) for col in available]
 
 def show_why_it_matters(metric_key):
@@ -301,11 +248,11 @@ def show_why_it_matters(metric_key):
 def get_all_stocks():
     """Get list of stocks with fallback"""
     try:
-        url = f"{BASE_URL}/search?query=&limit=5000&apikey={FMP_API_KEY}"
+        url = f"{BASE_URL}/stock/list?apikey={FMP_API_KEY}"
         response = requests.get(url, timeout=15)
         data = response.json()
         stocks = {}
-        for stock in data:
+        for stock in data[:1000]:  # Limit to first 1000
             if stock.get('symbol') and stock.get('name'):
                 symbol = stock['symbol'].upper()
                 name = stock['name'].upper()
@@ -348,22 +295,9 @@ def smart_search_ticker(search_term):
     
     return search_term, search_term
 
-@st.cache_data(ttl=3600)
-def get_ratios_ttm(ticker):
-    """Get TTM ratios including P/E, P/S - MOST RELIABLE"""
-    url = f"{BASE_URL}/ratios-ttm/{ticker}?apikey={FMP_API_KEY}"
-    try:
-        response = requests.get(url, timeout=10)
-        data = response.json()
-        if data and len(data) > 0:
-            return data[0]
-    except:
-        pass
-    return None
-
 @st.cache_data(ttl=300)
 def get_quote(ticker):
-    """Get quote"""
+    """Get real-time quote with P/E"""
     url = f"{BASE_URL}/quote/{ticker}?apikey={FMP_API_KEY}"
     try:
         response = requests.get(url, timeout=10)
@@ -371,6 +305,19 @@ def get_quote(ticker):
         return data[0] if data and len(data) > 0 else None
     except:
         return None
+
+@st.cache_data(ttl=3600)
+def get_ratios_ttm(ticker):
+    """Get TTM ratios - P/E and P/S"""
+    url = f"{BASE_URL}/ratios-ttm/{ticker}?apikey={FMP_API_KEY}"
+    try:
+        response = requests.get(url, timeout=10)
+        data = response.json()
+        if data and isinstance(data, list) and len(data) > 0:
+            return data[0]
+    except:
+        pass
+    return None
 
 @st.cache_data(ttl=1800)
 def get_profile(ticker):
@@ -453,19 +400,19 @@ def get_financial_ratios(ticker, period='annual', limit=5):
 
 @st.cache_data(ttl=3600)
 def get_historical_price(ticker, years=5):
-    """Get historical prices"""
-    end_date = datetime.now()
-    start_date = end_date - timedelta(days=years*365)
-    
-    url = f"{BASE_URL}/historical-price-full/{ticker}?from={start_date.strftime('%Y-%m-%d')}&to={end_date.strftime('%Y-%m-%d')}&apikey={FMP_API_KEY}"
+    """Get historical prices - FIXED VERSION"""
+    url = f"{BASE_URL}/historical-price-full/{ticker}?apikey={FMP_API_KEY}"
     try:
         response = requests.get(url, timeout=15)
         data = response.json()
         if data and 'historical' in data:
             df = pd.DataFrame(data['historical'])
-            df['date'] = pd.to_datetime(df['date'])
-            df = df.sort_values('date')
-            return df
+            if not df.empty and 'date' in df.columns:
+                df['date'] = pd.to_datetime(df['date'])
+                df = df.sort_values('date')
+                cutoff = datetime.now() - timedelta(days=years*365)
+                df = df[df['date'] >= cutoff]
+                return df
     except Exception as e:
         pass
     return pd.DataFrame()
@@ -551,9 +498,9 @@ with tab2:
     
     with st.spinner("Loading sector data..."):
         rows = []
-        for ticker in sector_info['tickers']:
-            quote = get_quote(ticker)
-            ratios_ttm = get_ratios_ttm(ticker)
+        for ticker_sym in sector_info['tickers']:
+            quote = get_quote(ticker_sym)
+            ratios_ttm = get_ratios_ttm(ticker_sym)
             
             if quote:
                 pe = 0
@@ -567,8 +514,8 @@ with tab2:
                     pe = quote.get('pe', 0)
                 
                 rows.append({
-                    "Ticker": ticker,
-                    "Company": quote.get('name', ticker),
+                    "Ticker": ticker_sym,
+                    "Company": quote.get('name', ticker_sym),
                     "Price": quote.get('price', 0),
                     "Change %": quote.get('changesPercentage', 0),
                     "Market Cap": quote.get('marketCap', 0),
@@ -625,14 +572,14 @@ with tab3:
     for i in range(num_stocks):
         col1, col2 = st.columns([2, 1])
         with col1:
-            ticker = st.text_input(f"Stock {i+1} Ticker:", key=f"ticker_{i}", 
+            ticker_input = st.text_input(f"Stock {i+1} Ticker:", key=f"ticker_{i}", 
                                   placeholder="e.g., AAPL")
         with col2:
             allocation = st.number_input(f"% of Portfolio:", 0, 100, 
                                         33 if i < 3 else 0, key=f"alloc_{i}")
         
-        if ticker and allocation > 0:
-            portfolio.append({"ticker": ticker.upper(), "allocation": allocation})
+        if ticker_input and allocation > 0:
+            portfolio.append({"ticker": ticker_input.upper(), "allocation": allocation})
     
     if st.button("🔍 Analyze Portfolio Risk", type="primary"):
         if not portfolio:
@@ -774,6 +721,12 @@ with tab1:
         "📰 Latest News"
     ], horizontal=True)
     
+    # Fetch all data once
+    income_df = get_income_statement(ticker, 'annual', 5)
+    cash_df = get_cash_flow(ticker, 'annual', 5)
+    balance_df = get_balance_sheet(ticker, 'annual', 5)
+    ratios_df = get_financial_ratios(ticker, 'annual', 5)
+    
     with st.sidebar:
         st.header("⚙️ Settings")
         period_type = st.radio("Time Period:", ["Annual", "Quarterly"])
@@ -783,9 +736,6 @@ with tab1:
         st.divider()
         
         st.markdown("### 📈 Growth Metrics")
-        
-        income_df = get_income_statement(ticker, period, years*4 if period == 'quarter' else years)
-        cash_df = get_cash_flow(ticker, period, years*4 if period == 'quarter' else years)
         
         if not income_df.empty:
             revenue_cagr = calculate_growth_rate(income_df, 'revenue', years)
@@ -806,7 +756,7 @@ with tab1:
                          help="Compound Annual Growth Rate for free cash flow")
         
         price_data = get_historical_price(ticker, years)
-        if not price_data.empty and len(price_data) > 1:
+        if not price_data.empty and len(price_data) > 1 and 'close' in price_data.columns:
             start_price = price_data['close'].iloc[0]
             end_price = price_data['close'].iloc[-1]
             price_growth = ((end_price - start_price) / start_price) * 100
@@ -824,33 +774,33 @@ with tab1:
     
     quote = get_quote(ticker)
     ratios_ttm = get_ratios_ttm(ticker)
-    balance_df = get_balance_sheet(ticker, period, years*4 if period == 'quarter' else years)
-    ratios_df = get_financial_ratios(ticker, period, years*4 if period == 'quarter' else years)
     
     if quote:
         price = quote.get('price', 0)
         change_pct = quote.get('changesPercentage', 0)
         market_cap = quote.get('marketCap', 0)
         
-        pe = None
-        ps = None
+        # Get P/E and P/S from ratios-ttm
+        pe = 0
+        ps = 0
         
         if ratios_ttm:
-            pe = ratios_ttm.get('peRatioTTM', 0)
-            ps = ratios_ttm.get('priceToSalesRatioTTM', 0)
+            pe = ratios_ttm.get('peRatioTTM', 0) or 0
+            ps = ratios_ttm.get('priceToSalesRatioTTM', 0) or 0
         
+        # Fallback to quote
         if not pe or pe == 0:
-            pe = quote.get('pe', 0)
+            pe = quote.get('pe', 0) or 0
         
         col1, col2, col3, col4, col5 = st.columns(5)
         col1.metric("Current Price", f"${price:.2f}", f"{change_pct:+.2f}%")
         col2.metric("Market Cap", format_number(market_cap))
         
-        col3.metric("P/E Ratio", f"{pe:.2f}" if pe and pe > 0 else "N/A",
-                   help="Price-to-Earnings ratio. How expensive is the stock? Lower = cheaper. Good range: 15-25")
+        col3.metric("P/E Ratio", f"{pe:.2f}" if pe > 0 else "N/A",
+                   help="Price-to-Earnings ratio. Lower = cheaper. Good range: 15-25")
         
-        col4.metric("P/S Ratio", f"{ps:.2f}" if ps and ps > 0 else "N/A",
-                   help="Price-to-Sales ratio. Shows how much you pay for $1 of revenue. Lower = better value. Tech: 5-10 | Retail: 0.5-2")
+        col4.metric("P/S Ratio", f"{ps:.2f}" if ps > 0 else "N/A",
+                   help="Price-to-Sales ratio. Lower = better value. Tech: 5-10 | Retail: 0.5-2")
         
         price_target = get_price_target(ticker)
         if price_target:
@@ -864,13 +814,17 @@ with tab1:
     
     if view == "📊 Key Metrics":
         
-        st.markdown(f"### 📈 {company_name} - Stock Price History")
+        # Reload data with correct period
+        income_df = get_income_statement(ticker, period, years*4 if period == 'quarter' else years)
+        cash_df = get_cash_flow(ticker, period, years*4 if period == 'quarter' else years)
+        balance_df = get_balance_sheet(ticker, period, years*4 if period == 'quarter' else years)
+        
+        st.markdown(f"### 📈 {company_name} - Stock Price ({years} Years)")
         price_data = get_historical_price(ticker, years)
-        if not price_data.empty:
+        if not price_data.empty and 'close' in price_data.columns:
             
-            chart_title = f'{company_name} - Stock Price ({years} Years)'
-            
-            fig = px.area(price_data, x='date', y='close', title=chart_title)
+            fig = px.area(price_data, x='date', y='close', 
+                         title=f'{company_name} Stock Price')
             fig.update_layout(
                 height=350,
                 plot_bgcolor='rgba(0,0,0,0)',
@@ -895,18 +849,12 @@ with tab1:
         show_why_it_matters('fcfAfterSBC')
         
         if not cash_df.empty:
-            # Add computed metric
             if 'stockBasedCompensation' in cash_df.columns and 'freeCashFlow' in cash_df.columns:
                 cash_df['fcfAfterSBC'] = cash_df['freeCashFlow'] - abs(cash_df['stockBasedCompensation'])
             
-            # Get available metrics
             available_metrics = get_available_metrics(cash_df)
             
             if available_metrics:
-                # Default selections
-                default_metrics = ['fcfAfterSBC', 'freeCashFlow', 'operatingCashFlow']
-                default_display = [METRIC_DISPLAY_NAMES.get(m, m) for m in default_metrics if m in [col for _, col in available_metrics]]
-                
                 st.markdown("**📊 Select up to 3 metrics to display:**")
                 col1, col2, col3 = st.columns(3)
                 
@@ -914,7 +862,7 @@ with tab1:
                     metric1_display = st.selectbox(
                         "Metric 1:",
                         options=[display for display, _ in available_metrics],
-                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == METRIC_DISPLAY_NAMES.get('fcfAfterSBC', 'FCF After Stock Compensation')), 0),
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'FCF After Stock Compensation'), 0),
                         key="cf_metric1"
                     )
                     metric1 = next(col for display, col in available_metrics if display == metric1_display)
@@ -923,7 +871,7 @@ with tab1:
                     metric2_display = st.selectbox(
                         "Metric 2:",
                         options=[display for display, _ in available_metrics],
-                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == METRIC_DISPLAY_NAMES.get('freeCashFlow', 'Free Cash Flow')), min(1, len(available_metrics)-1)),
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Free Cash Flow'), min(1, len(available_metrics)-1)),
                         key="cf_metric2"
                     )
                     metric2 = next(col for display, col in available_metrics if display == metric2_display)
@@ -932,7 +880,7 @@ with tab1:
                     metric3_display = st.selectbox(
                         "Metric 3:",
                         options=[display for display, _ in available_metrics],
-                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == METRIC_DISPLAY_NAMES.get('operatingCashFlow', 'Operating Cash Flow')), min(2, len(available_metrics)-1)),
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Operating Cash Flow'), min(2, len(available_metrics)-1)),
                         key="cf_metric3"
                     )
                     metric3 = next(col for display, col in available_metrics if display == metric3_display)
@@ -955,6 +903,7 @@ with tab1:
                     ))
                 
                 fig.update_layout(
+                    title=f"{company_name} - Cash Flow",
                     height=400,
                     barmode='group',
                     plot_bgcolor='rgba(0,0,0,0)',
@@ -985,8 +934,6 @@ with tab1:
             available_metrics = get_available_metrics(income_df)
             
             if available_metrics:
-                default_metrics = ['revenue', 'operatingIncome', 'netIncome']
-                
                 st.markdown("**📊 Select up to 3 metrics to display:**")
                 col1, col2, col3 = st.columns(3)
                 
@@ -994,7 +941,7 @@ with tab1:
                     metric1_display = st.selectbox(
                         "Metric 1:",
                         options=[display for display, _ in available_metrics],
-                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == METRIC_DISPLAY_NAMES.get('revenue', 'Revenue')), 0),
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Revenue'), 0),
                         key="income_metric1"
                     )
                     metric1 = next(col for display, col in available_metrics if display == metric1_display)
@@ -1003,7 +950,7 @@ with tab1:
                     metric2_display = st.selectbox(
                         "Metric 2:",
                         options=[display for display, _ in available_metrics],
-                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == METRIC_DISPLAY_NAMES.get('operatingIncome', 'Operating Income')), min(1, len(available_metrics)-1)),
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Operating Income'), min(1, len(available_metrics)-1)),
                         key="income_metric2"
                     )
                     metric2 = next(col for display, col in available_metrics if display == metric2_display)
@@ -1012,7 +959,7 @@ with tab1:
                     metric3_display = st.selectbox(
                         "Metric 3:",
                         options=[display for display, _ in available_metrics],
-                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == METRIC_DISPLAY_NAMES.get('netIncome', 'Net Income')), min(2, len(available_metrics)-1)),
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Net Income'), min(2, len(available_metrics)-1)),
                         key="income_metric3"
                     )
                     metric3 = next(col for display, col in available_metrics if display == metric3_display)
@@ -1035,6 +982,7 @@ with tab1:
                     ))
                 
                 fig.update_layout(
+                    title=f"{company_name} - Income Statement",
                     height=400,
                     barmode='group',
                     plot_bgcolor='rgba(0,0,0,0)',
@@ -1065,8 +1013,6 @@ with tab1:
             available_metrics = get_available_metrics(balance_df)
             
             if available_metrics:
-                default_metrics = ['totalAssets', 'totalLiabilities', 'totalStockholdersEquity']
-                
                 st.markdown("**📊 Select up to 3 metrics to display:**")
                 col1, col2, col3 = st.columns(3)
                 
@@ -1074,7 +1020,7 @@ with tab1:
                     metric1_display = st.selectbox(
                         "Metric 1:",
                         options=[display for display, _ in available_metrics],
-                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == METRIC_DISPLAY_NAMES.get('totalAssets', 'Total Assets')), 0),
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Total Assets'), 0),
                         key="balance_metric1"
                     )
                     metric1 = next(col for display, col in available_metrics if display == metric1_display)
@@ -1083,7 +1029,7 @@ with tab1:
                     metric2_display = st.selectbox(
                         "Metric 2:",
                         options=[display for display, _ in available_metrics],
-                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == METRIC_DISPLAY_NAMES.get('totalLiabilities', 'Total Liabilities')), min(1, len(available_metrics)-1)),
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Total Liabilities'), min(1, len(available_metrics)-1)),
                         key="balance_metric2"
                     )
                     metric2 = next(col for display, col in available_metrics if display == metric2_display)
@@ -1092,7 +1038,7 @@ with tab1:
                     metric3_display = st.selectbox(
                         "Metric 3:",
                         options=[display for display, _ in available_metrics],
-                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == METRIC_DISPLAY_NAMES.get('totalStockholdersEquity', 'Total Shareholders Equity')), min(2, len(available_metrics)-1)),
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Shareholders Equity'), min(2, len(available_metrics)-1)),
                         key="balance_metric3"
                     )
                     metric3 = next(col for display, col in available_metrics if display == metric3_display)
@@ -1115,6 +1061,7 @@ with tab1:
                     ))
                 
                 fig.update_layout(
+                    title=f"{company_name} - Balance Sheet",
                     height=400,
                     barmode='group',
                     plot_bgcolor='rgba(0,0,0,0)',
@@ -1136,271 +1083,61 @@ with tab1:
             st.warning("⚠️ Balance sheet data not available")
     
     elif view == "🔀 Compare 2 Stocks":
-        st.markdown("## 🔀 Side-by-Side Stock Comparison")
-        st.info("💡 Compare any two stocks across key metrics and charts")
+        st.markdown("## 🔀 Compare 2 Stocks")
+        st.info("💡 Enter two tickers to compare")
         
         col1, col2 = st.columns(2)
         
         with col1:
             stock1 = st.text_input("Stock 1:", value=ticker, key="compare_stock1")
-            if stock1:
-                ticker1, name1 = smart_search_ticker(stock1)
-                if ticker1 != stock1.upper():
-                    st.caption(f"✅ Found: {name1} ({ticker1})")
         
         with col2:
             stock2 = st.text_input("Stock 2:", placeholder="e.g., MSFT", key="compare_stock2")
-            if stock2:
-                ticker2, name2 = smart_search_ticker(stock2)
-                if ticker2 != stock2.upper():
-                    st.caption(f"✅ Found: {name2} ({ticker2})")
         
         if stock1 and stock2:
-            quote1 = get_quote(ticker1)
-            quote2 = get_quote(ticker2)
+            quote1 = get_quote(stock1)
+            quote2 = get_quote(stock2)
+            ratios_ttm1 = get_ratios_ttm(stock1)
+            ratios_ttm2 = get_ratios_ttm(stock2)
             
             if quote1 and quote2:
-                ratios_ttm1 = get_ratios_ttm(ticker1)
-                ratios_ttm2 = get_ratios_ttm(ticker2)
-                ratios1 = get_financial_ratios(ticker1, 'annual', 1)
-                ratios2 = get_financial_ratios(ticker2, 'annual', 1)
-                cash1 = get_cash_flow(ticker1, 'annual', 1)
-                cash2 = get_cash_flow(ticker2, 'annual', 1)
-                
                 st.divider()
-                st.markdown("### 📊 Comprehensive Metrics Comparison")
+                st.markdown("### 📊 Comparison")
                 
-                def get_metric_value(quote, ratios_ttm, ratios, cash, metric_name):
-                    if metric_name == "P/E":
-                        if ratios_ttm:
-                            pe = ratios_ttm.get('peRatioTTM', 0)
-                            if pe and pe > 0:
-                                return f"{pe:.2f}"
-                        return "N/A"
-                    
-                    elif metric_name == "P/S":
-                        if ratios_ttm:
-                            ps = ratios_ttm.get('priceToSalesRatioTTM', 0)
-                            if ps and ps > 0:
-                                return f"{ps:.2f}"
-                        return "N/A"
-                    
-                    elif metric_name == "Gross Margin":
-                        if not ratios.empty and 'grossProfitMargin' in ratios.columns:
-                            margin = ratios['grossProfitMargin'].iloc[-1] * 100
-                            return f"{margin:.1f}%"
-                        return "N/A"
-                    
-                    elif metric_name == "Operating Margin":
-                        if not ratios.empty and 'operatingProfitMargin' in ratios.columns:
-                            margin = ratios['operatingProfitMargin'].iloc[-1] * 100
-                            return f"{margin:.1f}%"
-                        return "N/A"
-                    
-                    elif metric_name == "Net Margin":
-                        if not ratios.empty and 'netProfitMargin' in ratios.columns:
-                            margin = ratios['netProfitMargin'].iloc[-1] * 100
-                            return f"{margin:.1f}%"
-                        return "N/A"
-                    
-                    elif metric_name == "FCF":
-                        if not cash.empty and 'freeCashFlow' in cash.columns:
-                            fcf = cash['freeCashFlow'].iloc[-1]
-                            return format_number(fcf)
-                        return "N/A"
-                    
-                    elif metric_name == "FCF per Share":
-                        if not cash.empty and 'freeCashFlow' in cash.columns:
-                            fcf = cash['freeCashFlow'].iloc[-1]
-                            shares = quote.get('sharesOutstanding', 0)
-                            if fcf and shares and shares > 0:
-                                fcf_per_share = fcf / shares
-                                return f"${fcf_per_share:.2f}"
-                        return "N/A"
-                    
-                    return "N/A"
+                pe1 = ratios_ttm1.get('peRatioTTM', 0) if ratios_ttm1 else 0
+                ps1 = ratios_ttm1.get('priceToSalesRatioTTM', 0) if ratios_ttm1 else 0
+                pe2 = ratios_ttm2.get('peRatioTTM', 0) if ratios_ttm2 else 0
+                ps2 = ratios_ttm2.get('priceToSalesRatioTTM', 0) if ratios_ttm2 else 0
                 
-                metrics_comparison = {
-                    "Metric": [
-                        "Price", 
-                        "Market Cap", 
-                        "P/E Ratio", 
-                        "P/S Ratio",
-                        "Change (Today)",
-                        "Gross Margin",
-                        "Operating Margin",
-                        "Net Margin",
-                        "FCF (TTM)",
-                        "FCF per Share"
-                    ],
-                    ticker1: [
+                comparison_data = {
+                    "Metric": ["Price", "Market Cap", "P/E Ratio", "P/S Ratio", "Change (Today)"],
+                    stock1: [
                         f"${quote1.get('price', 0):.2f}",
                         format_number(quote1.get('marketCap', 0)),
-                        get_metric_value(quote1, ratios_ttm1, ratios1, cash1, "P/E"),
-                        get_metric_value(quote1, ratios_ttm1, ratios1, cash1, "P/S"),
-                        f"{quote1.get('changesPercentage', 0):+.2f}%",
-                        get_metric_value(quote1, ratios_ttm1, ratios1, cash1, "Gross Margin"),
-                        get_metric_value(quote1, ratios_ttm1, ratios1, cash1, "Operating Margin"),
-                        get_metric_value(quote1, ratios_ttm1, ratios1, cash1, "Net Margin"),
-                        get_metric_value(quote1, ratios_ttm1, ratios1, cash1, "FCF"),
-                        get_metric_value(quote1, ratios_ttm1, ratios1, cash1, "FCF per Share")
+                        f"{pe1:.2f}" if pe1 > 0 else "N/A",
+                        f"{ps1:.2f}" if ps1 > 0 else "N/A",
+                        f"{quote1.get('changesPercentage', 0):+.2f}%"
                     ],
-                    ticker2: [
+                    stock2: [
                         f"${quote2.get('price', 0):.2f}",
                         format_number(quote2.get('marketCap', 0)),
-                        get_metric_value(quote2, ratios_ttm2, ratios2, cash2, "P/E"),
-                        get_metric_value(quote2, ratios_ttm2, ratios2, cash2, "P/S"),
-                        f"{quote2.get('changesPercentage', 0):+.2f}%",
-                        get_metric_value(quote2, ratios_ttm2, ratios2, cash2, "Gross Margin"),
-                        get_metric_value(quote2, ratios_ttm2, ratios2, cash2, "Operating Margin"),
-                        get_metric_value(quote2, ratios_ttm2, ratios2, cash2, "Net Margin"),
-                        get_metric_value(quote2, ratios_ttm2, ratios2, cash2, "FCF"),
-                        get_metric_value(quote2, ratios_ttm2, ratios2, cash2, "FCF per Share")
+                        f"{pe2:.2f}" if pe2 > 0 else "N/A",
+                        f"{ps2:.2f}" if ps2 > 0 else "N/A",
+                        f"{quote2.get('changesPercentage', 0):+.2f}%"
                     ]
                 }
                 
-                comparison_df = pd.DataFrame(metrics_comparison)
-                st.dataframe(comparison_df, use_container_width=True, hide_index=True)
-                
-                st.divider()
-                
-                st.markdown("### 📈 Stock Price Comparison")
-                
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    st.markdown(f"#### {ticker1}")
-                    price_data1 = get_historical_price(ticker1, years)
-                    if not price_data1.empty:
-                        fig1 = px.line(price_data1, x='date', y='close')
-                        fig1.update_layout(
-                            height=300,
-                            plot_bgcolor='rgba(0,0,0,0)',
-                            paper_bgcolor='rgba(0,0,0,0)',
-                            font_color='white',
-                            showlegend=False,
-                            yaxis=dict(rangemode='tozero'),
-                            margin=dict(l=20, r=20, t=20, b=20),
-                            hoverlabel=dict(bgcolor="white", font_size=12, font_color="black")
-                        )
-                        fig1.update_traces(line_color='#9D4EDD', line_width=2)
-                        st.plotly_chart(fig1, use_container_width=True)
-                    else:
-                        st.warning("Price data not available")
-                
-                with col2:
-                    st.markdown(f"#### {ticker2}")
-                    price_data2 = get_historical_price(ticker2, years)
-                    if not price_data2.empty:
-                        fig2 = px.line(price_data2, x='date', y='close')
-                        fig2.update_layout(
-                            height=300,
-                            plot_bgcolor='rgba(0,0,0,0)',
-                            paper_bgcolor='rgba(0,0,0,0)',
-                            font_color='white',
-                            showlegend=False,
-                            yaxis=dict(rangemode='tozero'),
-                            margin=dict(l=20, r=20, t=20, b=20),
-                            hoverlabel=dict(bgcolor="white", font_size=12, font_color="black")
-                        )
-                        fig2.update_traces(line_color='#00D9FF', line_width=2)
-                        st.plotly_chart(fig2, use_container_width=True)
-                    else:
-                        st.warning("Price data not available")
-                
-                st.divider()
-                
-                st.markdown("### 💰 Revenue Comparison")
-                
-                income1 = get_income_statement(ticker1, period, years*4 if period == 'quarter' else years)
-                income2 = get_income_statement(ticker2, period, years*4 if period == 'quarter' else years)
-                
-                if not income1.empty and not income2.empty and 'revenue' in income1.columns and 'revenue' in income2.columns:
-                    plot_df1 = income1[['date', 'revenue']].copy()
-                    plot_df1['date'] = plot_df1['date'].dt.strftime('%Y')
-                    plot_df1['company'] = ticker1
-                    
-                    plot_df2 = income2[['date', 'revenue']].copy()
-                    plot_df2['date'] = plot_df2['date'].dt.strftime('%Y')
-                    plot_df2['company'] = ticker2
-                    
-                    combined = pd.concat([plot_df1, plot_df2])
-                    
-                    fig = px.bar(combined, x='date', y='revenue', color='company', barmode='group',
-                                color_discrete_map={ticker1: '#9D4EDD', ticker2: '#00D9FF'})
-                    fig.update_layout(
-                        height=400,
-                        plot_bgcolor='rgba(0,0,0,0)',
-                        paper_bgcolor='rgba(0,0,0,0)',
-                        font_color='white',
-                        yaxis=dict(rangemode='tozero'),
-                        margin=dict(l=20, r=20, t=40, b=20),
-                        hoverlabel=dict(bgcolor="white", font_size=12, font_color="black")
-                    )
-                    st.plotly_chart(fig, use_container_width=True)
-                else:
-                    st.info("Revenue comparison not available for selected period")
-                
-                st.divider()
-                st.markdown("### 🏆 Quick Comparison")
-                
-                col1, col2, col3 = st.columns(3)
-                
-                with col1:
-                    st.markdown("**💰 Valuation (Lower P/E = Better)**")
-                    pe1_val = ratios_ttm1.get('peRatioTTM', 0) if ratios_ttm1 else 0
-                    pe2_val = ratios_ttm2.get('peRatioTTM', 0) if ratios_ttm2 else 0
-                    if pe1_val > 0 and pe2_val > 0:
-                        if pe1_val < pe2_val:
-                            st.success(f"🏆 {ticker1} ({pe1_val:.2f})")
-                            st.info(f"{ticker2} ({pe2_val:.2f})")
-                        else:
-                            st.info(f"{ticker1} ({pe1_val:.2f})")
-                            st.success(f"🏆 {ticker2} ({pe2_val:.2f})")
-                    else:
-                        st.info("P/E comparison not available")
-                
-                with col2:
-                    st.markdown("**📈 Today's Performance**")
-                    chg1 = quote1.get('changesPercentage', 0)
-                    chg2 = quote2.get('changesPercentage', 0)
-                    if chg1 > chg2:
-                        st.success(f"🏆 {ticker1} ({chg1:+.2f}%)")
-                        st.info(f"{ticker2} ({chg2:+.2f}%)")
-                    else:
-                        st.info(f"{ticker1} ({chg1:+.2f}%)")
-                        st.success(f"🏆 {ticker2} ({chg2:+.2f}%)")
-                
-                with col3:
-                    st.markdown("**🏢 Market Cap**")
-                    cap1 = quote1.get('marketCap', 0)
-                    cap2 = quote2.get('marketCap', 0)
-                    if cap1 > cap2:
-                        st.success(f"🏆 {ticker1} ({format_number(cap1)})")
-                        st.info(f"{ticker2} ({format_number(cap2)})")
-                    else:
-                        st.info(f"{ticker1} ({format_number(cap1)})")
-                        st.success(f"🏆 {ticker2} ({format_number(cap2)})")
+                st.dataframe(pd.DataFrame(comparison_data), use_container_width=True, hide_index=True)
             else:
                 st.warning("Could not fetch data for one or both stocks")
-        else:
-            st.info("👆 Enter two stock tickers above to compare")
     
     elif view == "📈 Financial Ratios":
-        st.markdown("## 📊 Profitability Ratios")
+        st.markdown("## 📊 Financial Ratios")
         
         if not ratios_df.empty:
-            col1, col2 = st.columns([1, 2])
+            col1, col2 = st.columns(2)
             
             with col1:
-                st.markdown("### 💡 What to Look For:")
-                for ratio_name, ratio_exp in RATIO_EXPLANATIONS.items():
-                    with st.expander(ratio_name):
-                        st.write(f"**{ratio_exp['what']}**")
-                        st.write(f"✅ {ratio_exp['good']}")
-                        st.write(f"🎯 {ratio_exp['targets']}")
-            
-            with col2:
                 if 'grossProfitMargin' in ratios_df.columns:
                     latest = ratios_df['grossProfitMargin'].iloc[-1] * 100
                     st.metric("Gross Margin", f"{latest:.1f}%")
@@ -1408,7 +1145,8 @@ with tab1:
                 if 'operatingProfitMargin' in ratios_df.columns:
                     latest = ratios_df['operatingProfitMargin'].iloc[-1] * 100
                     st.metric("Operating Margin", f"{latest:.1f}%")
-                
+            
+            with col2:
                 if 'netProfitMargin' in ratios_df.columns:
                     latest = ratios_df['netProfitMargin'].iloc[-1] * 100
                     st.metric("Net Margin", f"{latest:.1f}%")
@@ -1416,18 +1154,12 @@ with tab1:
                 if 'returnOnEquity' in ratios_df.columns:
                     latest = ratios_df['returnOnEquity'].iloc[-1] * 100
                     st.metric("ROE", f"{latest:.1f}%")
-                
-                if 'returnOnAssets' in ratios_df.columns:
-                    latest = ratios_df['returnOnAssets'].iloc[-1] * 100
-                    st.metric("ROA", f"{latest:.1f}%")
         else:
             st.warning("Ratio data not available")
     
     elif view == "💰 Valuation (DCF)":
         st.markdown("## 💰 DCF Valuation")
-        
-        with st.expander("📚 What is DCF?"):
-            st.markdown(DCF_EXPLANATION)
+        st.info("Simplified DCF model - adjust assumptions below")
         
         col1, col2 = st.columns(2)
         with col1:
@@ -1466,7 +1198,7 @@ with tab1:
                         
                         if current_price > 0:
                             upside = ((fair_value - current_price) / current_price) * 100
-                            col3.metric("Upside / Downside", f"{upside:+.1f}%")
+                            col3.metric("Upside/Downside", f"{upside:+.1f}%")
                             
                             if upside > 20:
                                 st.success("🚀 Potentially UNDERVALUED!")
@@ -1482,14 +1214,12 @@ with tab1:
     elif view == "📰 Latest News":
         st.markdown("## 📰 Latest News")
         
-        news = get_stock_news(ticker, 15)
+        news = get_stock_news(ticker, 10)
         if news:
             for article in news[:10]:
                 with st.expander(f"📰 {article.get('title', 'No title')}"):
                     st.write(f"**Published:** {article.get('publishedDate', 'Unknown')}")
-                    summary = article.get('text', '')
-                    if not summary:
-                        summary = article.get('summary', 'No summary')
+                    summary = article.get('text', article.get('summary', 'No summary'))
                     st.write(summary[:300] + "...")
                     url = article.get('url', '')
                     if url:
@@ -1502,14 +1232,14 @@ with tab4:
     st.header("✅ Investment Checklist")
     st.write("Quick check before investing")
     
-    ticker_check = st.text_input("Enter ticker:", value=st.session_state.selected_ticker)
+    ticker_check = st.text_input("Enter ticker:", value=st.session_state.selected_ticker, key="checklist_ticker")
     
-    if st.button("Analyze"):
+    if st.button("Analyze", key="checklist_analyze"):
         quote = get_quote(ticker_check)
         ratios = get_financial_ratios(ticker_check, 'annual', 1)
         cash = get_cash_flow(ticker_check, 'annual', 1)
         
-        if quote and not ratios.empty:
+        if quote:
             st.subheader(f"📊 {quote.get('name', ticker_check)} ({ticker_check})")
             
             checks = []
