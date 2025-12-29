@@ -152,6 +152,7 @@ METRIC_DISPLAY_NAMES = {
     'interestExpense': 'Interest Expense',
     'incomeTaxExpense': 'Income Tax Expense',
     'eps': 'Earnings Per Share (EPS)',
+    'epsdiluted': 'Diluted EPS',
     
     # Balance Sheet
     'totalAssets': 'Total Assets',
@@ -465,6 +466,41 @@ def get_price_target(ticker):
     except:
         return None
 
+def get_eps_ttm(ticker, income_df):
+    """Get TTM EPS (Trailing Twelve Months) from income statement"""
+    try:
+        # Get quarterly data for TTM calculation
+        quarterly_df = get_income_statement(ticker, 'quarter', 4)
+        
+        if not quarterly_df.empty:
+            # Check for epsdiluted first (more accurate), then eps
+            if 'epsdiluted' in quarterly_df.columns:
+                # Sum last 4 quarters for TTM
+                ttm_eps = quarterly_df['epsdiluted'].head(4).sum()
+                if ttm_eps and ttm_eps > 0:
+                    return ttm_eps
+            
+            if 'eps' in quarterly_df.columns:
+                ttm_eps = quarterly_df['eps'].head(4).sum()
+                if ttm_eps and ttm_eps > 0:
+                    return ttm_eps
+        
+        # Fallback: use annual data
+        if not income_df.empty:
+            if 'epsdiluted' in income_df.columns:
+                eps = income_df['epsdiluted'].iloc[-1]
+                if eps and eps > 0:
+                    return eps
+            
+            if 'eps' in income_df.columns:
+                eps = income_df['eps'].iloc[-1]
+                if eps and eps > 0:
+                    return eps
+        
+        return 0
+    except:
+        return 0
+
 def get_shares_outstanding(ticker, quote, shares_float_data):
     """Get shares outstanding with MULTIPLE FALLBACKS"""
     # Try 1: shares-float endpoint
@@ -512,15 +548,23 @@ def calculate_fcf_per_share(ticker, cash_df, quote):
     except Exception as e:
         return 0
 
-def get_pe_ratio(ticker, quote, ratios_ttm):
-    """Get P/E ratio with MULTIPLE FALLBACKS"""
-    # Try 1: ratios-ttm endpoint
+def get_pe_ratio(ticker, quote, ratios_ttm, income_df):
+    """Calculate P/E ratio - PRICE / EPS (TTM) with MULTIPLE FALLBACKS"""
+    # Try 1: Calculate ourselves using Price / EPS(TTM)
+    if quote:
+        price = quote.get('price', 0)
+        if price and price > 0:
+            eps_ttm = get_eps_ttm(ticker, income_df)
+            if eps_ttm and eps_ttm > 0:
+                return price / eps_ttm
+    
+    # Try 2: ratios-ttm endpoint
     if ratios_ttm and isinstance(ratios_ttm, dict):
         pe = ratios_ttm.get('peRatioTTM', 0)
         if pe and pe > 0:
             return pe
     
-    # Try 2: quote endpoint
+    # Try 3: quote endpoint
     if quote:
         pe = quote.get('pe', 0)
         if pe and pe > 0:
@@ -601,10 +645,11 @@ with tab2:
             quote = get_quote(ticker_sym)
             ratios_ttm = get_ratios_ttm(ticker_sym)
             cash_df = get_cash_flow(ticker_sym, 'annual', 1)
+            income_df = get_income_statement(ticker_sym, 'annual', 1)
             
             if quote:
-                # Get P/E, P/S, FCF per share with fallbacks
-                pe = get_pe_ratio(ticker_sym, quote, ratios_ttm)
+                # Get P/E (calculated), P/S, FCF per share with fallbacks
+                pe = get_pe_ratio(ticker_sym, quote, ratios_ttm, income_df)
                 ps = get_ps_ratio(ticker_sym, ratios_ttm)
                 fcf_per_share = calculate_fcf_per_share(ticker_sym, cash_df, quote)
                 
@@ -689,9 +734,10 @@ with tab3:
                 for item in portfolio:
                     quote = get_quote(item['ticker'])
                     ratios_ttm = get_ratios_ttm(item['ticker'])
+                    income_df = get_income_statement(item['ticker'], 'annual', 1)
                     
                     if quote:
-                        pe = get_pe_ratio(item['ticker'], quote, ratios_ttm)
+                        pe = get_pe_ratio(item['ticker'], quote, ratios_ttm, income_df)
                         ps = get_ps_ratio(item['ticker'], ratios_ttm)
                         
                         portfolio_data.append({
@@ -717,7 +763,8 @@ with tab3:
                     col1, col2, col3, col4 = st.columns(4)
                     col1.metric("Portfolio Beta", f"{weighted_beta:.2f}",
                                help="<1: Less volatile | >1: More volatile")
-                    col2.metric("Avg P/E Ratio", f"{avg_pe:.1f}" if avg_pe > 0 else "N/A")
+                    col2.metric("Avg P/E Ratio", f"{avg_pe:.1f}" if avg_pe > 0 else "N/A",
+                               help="P/E = Price / EPS (TTM)")
                     col3.metric("Avg P/S Ratio", f"{avg_ps:.1f}" if avg_ps > 0 else "N/A")
                     col4.metric("Weighted Market Cap", format_number(total_market_cap))
                     
@@ -797,6 +844,7 @@ with tab4:
         ratios = get_financial_ratios(ticker_check, 'annual', 1)
         cash = get_cash_flow(ticker_check, 'annual', 1)
         ratios_ttm = get_ratios_ttm(ticker_check)
+        income_df = get_income_statement(ticker_check, 'annual', 1)
         
         if quote:
             st.subheader(f"📊 {quote.get('name', ticker_check)} ({ticker_check})")
@@ -811,7 +859,7 @@ with tab4:
                 fcf = cash['freeCashFlow'].iloc[-1]
                 checks.append(("✅ Positive free cash flow" if fcf > 0 else "❌ Negative FCF", fcf > 0))
             
-            pe = get_pe_ratio(ticker_check, quote, ratios_ttm)
+            pe = get_pe_ratio(ticker_check, quote, ratios_ttm, income_df)
             if 0 < pe < 30:
                 checks.append(("✅ Reasonable P/E (<30)", True))
             elif pe > 30:
@@ -947,7 +995,7 @@ with tab1:
         **CAGR**: Average yearly growth
         **FCF After SBC**: #1 metric
         **P/S Ratio**: Valuation by revenue
-        **P/E Ratio**: Valuation by earnings
+        **P/E Ratio**: Price / EPS (TTM)
         """)
     
     quote = get_quote(ticker)
@@ -958,8 +1006,8 @@ with tab1:
         change_pct = quote.get('changesPercentage', 0)
         market_cap = quote.get('marketCap', 0)
         
-        # Get P/E, P/S, and FCF per share with MULTIPLE FALLBACKS
-        pe = get_pe_ratio(ticker, quote, ratios_ttm)
+        # Get P/E (CALCULATED), P/S, and FCF per share with MULTIPLE FALLBACKS
+        pe = get_pe_ratio(ticker, quote, ratios_ttm, income_df)
         ps = get_ps_ratio(ticker, ratios_ttm)
         fcf_per_share = calculate_fcf_per_share(ticker, cash_df, quote)
         
@@ -967,8 +1015,8 @@ with tab1:
         col1.metric("Current Price", f"${price:.2f}", f"{change_pct:+.2f}%")
         col2.metric("Market Cap", format_number(market_cap))
         
-        col3.metric("P/E Ratio", f"{pe:.2f}" if pe > 0 else "N/A",
-                   help="Price-to-Earnings ratio. Good: 15-25")
+        col3.metric("P/E Ratio (TTM)", f"{pe:.2f}" if pe > 0 else "N/A",
+                   help="Price / EPS (Trailing 12 Months). Good: 15-25")
         
         col4.metric("P/S Ratio", f"{ps:.2f}" if ps > 0 else "N/A",
                    help="Price-to-Sales ratio. Tech: 5-10 | Retail: 0.5-2")
@@ -1007,11 +1055,11 @@ with tab1:
                 xaxis_title="",
                 yaxis_title="Price ($)",
                 showlegend=False,
-                yaxis=dict(rangemode='tozero'),
                 margin=dict(l=20, r=20, t=60, b=20),
                 hoverlabel=dict(bgcolor="white", font_size=12, font_color="black")
             )
             fig.update_traces(fillcolor='rgba(157, 78, 221, 0.3)', line_color='#9D4EDD', line_width=2)
+            fig.update_yaxes(rangemode='tozero')
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.warning("⚠️ Stock price data not available")
@@ -1085,11 +1133,11 @@ with tab1:
                     font_color='white',
                     xaxis_title="Period",
                     yaxis_title="Amount ($)",
-                    yaxis=dict(rangemode='tozero'),
                     margin=dict(l=20, r=20, t=60, b=20),
                     hoverlabel=dict(bgcolor="white", font_size=12, font_color="black"),
                     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
                 )
+                fig.update_yaxes(rangemode='tozero')
                 st.plotly_chart(fig, use_container_width=True)
                 
                 cols = st.columns(len(metrics_to_plot))
@@ -1164,11 +1212,11 @@ with tab1:
                     font_color='white',
                     xaxis_title="Period",
                     yaxis_title="Amount ($)",
-                    yaxis=dict(rangemode='tozero'),
                     margin=dict(l=20, r=20, t=60, b=20),
                     hoverlabel=dict(bgcolor="white", font_size=12, font_color="black"),
                     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
                 )
+                fig.update_yaxes(rangemode='tozero')
                 st.plotly_chart(fig, use_container_width=True)
                 
                 col1, col2, col3 = st.columns(3)
@@ -1243,11 +1291,11 @@ with tab1:
                     font_color='white',
                     xaxis_title="Period",
                     yaxis_title="Amount ($)",
-                    yaxis=dict(rangemode='tozero'),
                     margin=dict(l=20, r=20, t=60, b=20),
                     hoverlabel=dict(bgcolor="white", font_size=12, font_color="black"),
                     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
                 )
+                fig.update_yaxes(rangemode='tozero')
                 st.plotly_chart(fig, use_container_width=True)
                 
                 cols = st.columns(len(metrics_to_plot))
@@ -1258,7 +1306,7 @@ with tab1:
     
     elif view == "🔀 Compare 2 Stocks":
         st.markdown("## 🔀 Compare 2 Stocks")
-        st.info("💡 Compare P/E, P/S, and FCF per Share")
+        st.info("💡 Compare P/E (TTM), P/S, and FCF per Share")
         
         col1, col2 = st.columns(2)
         
@@ -1275,21 +1323,23 @@ with tab1:
             ratios_ttm2 = get_ratios_ttm(stock2)
             cash1 = get_cash_flow(stock1, 'annual', 1)
             cash2 = get_cash_flow(stock2, 'annual', 1)
+            income1 = get_income_statement(stock1, 'annual', 1)
+            income2 = get_income_statement(stock2, 'annual', 1)
             
             if quote1 and quote2:
                 st.divider()
                 st.markdown("### 📊 Comparison")
                 
-                pe1 = get_pe_ratio(stock1, quote1, ratios_ttm1)
+                pe1 = get_pe_ratio(stock1, quote1, ratios_ttm1, income1)
                 ps1 = get_ps_ratio(stock1, ratios_ttm1)
                 fcf1 = calculate_fcf_per_share(stock1, cash1, quote1)
                 
-                pe2 = get_pe_ratio(stock2, quote2, ratios_ttm2)
+                pe2 = get_pe_ratio(stock2, quote2, ratios_ttm2, income2)
                 ps2 = get_ps_ratio(stock2, ratios_ttm2)
                 fcf2 = calculate_fcf_per_share(stock2, cash2, quote2)
                 
                 comparison_data = {
-                    "Metric": ["Price", "Market Cap", "P/E Ratio", "P/S Ratio", "FCF Per Share", "Change (Today)"],
+                    "Metric": ["Price", "Market Cap", "P/E Ratio (TTM)", "P/S Ratio", "FCF Per Share", "Change (Today)"],
                     stock1: [
                         f"${quote1.get('price', 0):.2f}",
                         format_number(quote1.get('marketCap', 0)),
