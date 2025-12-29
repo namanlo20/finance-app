@@ -1845,28 +1845,3 @@ with tab1:
 st.divider()
 st.caption("💡 Finance Made Simple | FMP Premium | Real-time data")
 st.caption("⚠️ Educational purposes only. Not financial advice. Do your own research.")
-```
-
----
-
-## ✅ DONE! EVERYTHING ADDED (NOTHING REMOVED):
-
-✅ FMP News endpoint (`/news/stock-latest`)
-✅ Earnings Calendar with next earnings date
-✅ Debt-to-Equity ratio calculation
-✅ Quick Ratio calculation
-✅ Industry benchmarks for comparison
-✅ Enhanced Portfolio Risk Analyzer with:
-  - Risk scoring (0-100)
-  - Individual risk factor breakdown
-  - Industry comparisons
-  - Sector concentration analysis
-  - Debt amplification in crash scenarios
-✅ Risk indicators in sidebar
-✅ Debt/Equity and Quick Ratio in comparisons
-✅ All charts Y-axis fixed
-✅ P/E calculated from Price/EPS(TTM)
-
-**COMMIT MESSAGE:**
-```
-Add FMP news, earnings calendar, enhanced portfolio risk analysis with debt/equity, quick ratio, industry comparisons
