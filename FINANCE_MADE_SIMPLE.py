@@ -295,19 +295,6 @@ def smart_search_ticker(search_term):
     
     return search_term, search_term
 
-@st.cache_data(ttl=3600)
-def get_key_metrics(ticker, period='annual', limit=1):
-    """Get key metrics including P/E, Forward P/E, etc."""
-    url = f"{BASE_URL}/key-metrics?symbol={ticker}&period={period}&limit={limit}&apikey={FMP_API_KEY}"
-    try:
-        response = requests.get(url, timeout=10)
-        data = response.json()
-        if data and len(data) > 0:
-            return data[0]
-    except:
-        pass
-    return None
-
 @st.cache_data(ttl=300)
 def get_quote(ticker):
     """Get quote"""
@@ -329,6 +316,20 @@ def get_profile(ticker):
         return data[0] if data and len(data) > 0 else None
     except:
         return None
+
+@st.cache_data(ttl=3600)
+def get_ratios_ttm(ticker):
+    """Get TTM ratios - P/E, P/S, and all other ratios"""
+    url = f"{BASE_URL}/ratios-ttm?symbol={ticker}&apikey={FMP_API_KEY}"
+    try:
+        response = requests.get(url, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            if data and len(data) > 0:
+                return data[0]
+    except:
+        pass
+    return {}
 
 @st.cache_data(ttl=3600)
 def get_income_statement(ticker, period='annual', limit=5):
@@ -437,6 +438,21 @@ def get_price_target(ticker):
     except:
         return None
 
+def calculate_fcf_per_share(cash_df, quote):
+    """Calculate FCF per share"""
+    if cash_df.empty or not quote:
+        return 0
+    
+    if 'freeCashFlow' not in cash_df.columns:
+        return 0
+    
+    latest_fcf = cash_df['freeCashFlow'].iloc[-1]
+    shares = quote.get('sharesOutstanding', 0)
+    
+    if shares > 0 and latest_fcf:
+        return latest_fcf / shares
+    
+    return 0
 
 # ============= SECTOR DEFINITIONS =============
 SECTORS = {
@@ -500,14 +516,16 @@ with tab2:
         rows = []
         for ticker_sym in sector_info['tickers']:
             quote = get_quote(ticker_sym)
-            key_metrics = get_key_metrics(ticker_sym)
+            ratios_ttm = get_ratios_ttm(ticker_sym)
+            cash_df = get_cash_flow(ticker_sym, 'annual', 1)
             
             if quote:
-                pe = quote.get('pe', 0)
-                ps = 0
+                # Get P/E and P/S from ratios-ttm
+                pe = ratios_ttm.get('peRatioTTM', 0) if ratios_ttm else 0
+                ps = ratios_ttm.get('priceToSalesRatioTTM', 0) if ratios_ttm else 0
                 
-                if key_metrics:
-                    ps = key_metrics.get('priceToSalesRatioTTM', 0)
+                # Calculate FCF per share
+                fcf_per_share = calculate_fcf_per_share(cash_df, quote)
                 
                 rows.append({
                     "Ticker": ticker_sym,
@@ -516,26 +534,27 @@ with tab2:
                     "Change %": quote.get('changesPercentage', 0),
                     "Market Cap": quote.get('marketCap', 0),
                     "P/E": pe,
-                    "P/S": ps
+                    "P/S": ps,
+                    "FCF/Share": fcf_per_share
                 })
         
         if rows:
             df = pd.DataFrame(rows)
             df = df.sort_values('Market Cap', ascending=False)
             
-            col1, col2 = st.columns(2)
+            col1, col2, col3 = st.columns(3)
             
             valid_pes = df[df['P/E'] > 0]['P/E']
             if len(valid_pes) > 0:
-                avg_pe = valid_pes.mean()
-                col1.metric("📊 Sector Avg P/E", f"{avg_pe:.2f}", 
-                         help="Compare individual P/Es to this average")
+                col1.metric("📊 Sector Avg P/E", f"{valid_pes.mean():.2f}")
             
             valid_ps = df[df['P/S'] > 0]['P/S']
             if len(valid_ps) > 0:
-                avg_ps = valid_ps.mean()
-                col2.metric("📊 Sector Avg P/S", f"{avg_ps:.2f}",
-                         help="Average Price-to-Sales for the sector")
+                col2.metric("📊 Sector Avg P/S", f"{valid_ps.mean():.2f}")
+            
+            valid_fcf = df[df['FCF/Share'] > 0]['FCF/Share']
+            if len(valid_fcf) > 0:
+                col3.metric("📊 Sector Avg FCF/Share", f"${valid_fcf.mean():.2f}")
             
             display_df = df.copy()
             display_df['Price'] = display_df['Price'].apply(lambda x: f"${x:.2f}")
@@ -543,6 +562,7 @@ with tab2:
             display_df['Market Cap'] = display_df['Market Cap'].apply(format_number)
             display_df['P/E'] = display_df['P/E'].apply(lambda x: f"{x:.2f}" if x > 0 else "N/A")
             display_df['P/S'] = display_df['P/S'].apply(lambda x: f"{x:.2f}" if x > 0 else "N/A")
+            display_df['FCF/Share'] = display_df['FCF/Share'].apply(lambda x: f"${x:.2f}" if x > 0 else "N/A")
             
             st.dataframe(display_df, use_container_width=True, height=400)
             
@@ -587,12 +607,18 @@ with tab3:
                 portfolio_data = []
                 for item in portfolio:
                     quote = get_quote(item['ticker'])
+                    ratios_ttm = get_ratios_ttm(item['ticker'])
+                    
                     if quote:
+                        pe = ratios_ttm.get('peRatioTTM', 0) if ratios_ttm else 0
+                        ps = ratios_ttm.get('priceToSalesRatioTTM', 0) if ratios_ttm else 0
+                        
                         portfolio_data.append({
                             "ticker": item['ticker'],
                             "allocation": item['allocation'],
                             "beta": quote.get('beta', 1.0),
-                            "pe": quote.get('pe', 0),
+                            "pe": pe,
+                            "ps": ps,
                             "marketCap": quote.get('marketCap', 0),
                             "name": quote.get('name', item['ticker'])
                         })
@@ -602,15 +628,17 @@ with tab3:
                     
                     weighted_beta = sum(row['beta'] * row['allocation']/100 for _, row in df.iterrows())
                     avg_pe = df[df['pe'] > 0]['pe'].mean() if len(df[df['pe'] > 0]) > 0 else 0
+                    avg_ps = df[df['ps'] > 0]['ps'].mean() if len(df[df['ps'] > 0]) > 0 else 0
                     total_market_cap = sum(row['marketCap'] * row['allocation']/100 for _, row in df.iterrows())
                     
                     st.markdown("### 📊 Portfolio Risk Profile")
                     
-                    col1, col2, col3 = st.columns(3)
+                    col1, col2, col3, col4 = st.columns(4)
                     col1.metric("Portfolio Beta", f"{weighted_beta:.2f}",
-                               help="<1: Less volatile than market | >1: More volatile")
+                               help="<1: Less volatile | >1: More volatile")
                     col2.metric("Avg P/E Ratio", f"{avg_pe:.1f}" if avg_pe > 0 else "N/A")
-                    col3.metric("Weighted Market Cap", format_number(total_market_cap))
+                    col3.metric("Avg P/S Ratio", f"{avg_ps:.1f}" if avg_ps > 0 else "N/A")
+                    col4.metric("Weighted Market Cap", format_number(total_market_cap))
                     
                     st.divider()
                     
@@ -666,7 +694,7 @@ with tab3:
                         st.success(f"✅ Largest position is {max_allocation}% - good balance")
                     
                     st.markdown("### 📊 Portfolio Breakdown")
-                    st.dataframe(df[['ticker', 'name', 'allocation', 'beta', 'pe']], use_container_width=True)
+                    st.dataframe(df[['ticker', 'name', 'allocation', 'beta', 'pe', 'ps']], use_container_width=True)
                     
                     st.markdown("### 💡 Recommendations")
                     if weighted_beta > 1.3:
@@ -701,7 +729,8 @@ with tab4:
                 fcf = cash['freeCashFlow'].iloc[-1]
                 checks.append(("✅ Positive free cash flow" if fcf > 0 else "❌ Negative FCF", fcf > 0))
             
-            pe = quote.get('pe', 0)
+            ratios_ttm = get_ratios_ttm(ticker_check)
+            pe = ratios_ttm.get('peRatioTTM', 0) if ratios_ttm else 0
             if 0 < pe < 30:
                 checks.append(("✅ Reasonable P/E (<30)", True))
             elif pe > 30:
@@ -841,37 +870,38 @@ with tab1:
         """)
     
     quote = get_quote(ticker)
-    key_metrics = get_key_metrics(ticker)
+    ratios_ttm = get_ratios_ttm(ticker)
     
     if quote:
         price = quote.get('price', 0)
         change_pct = quote.get('changesPercentage', 0)
         market_cap = quote.get('marketCap', 0)
         
-        # Get P/E and P/S
-        pe = quote.get('pe', 0)
-        ps = 0
-        
-        if key_metrics:
-            ps = key_metrics.get('priceToSalesRatioTTM', 0)
+        # Get P/E, P/S, and FCF per share
+        pe = ratios_ttm.get('peRatioTTM', 0) if ratios_ttm else 0
+        ps = ratios_ttm.get('priceToSalesRatioTTM', 0) if ratios_ttm else 0
+        fcf_per_share = calculate_fcf_per_share(cash_df, quote)
         
         col1, col2, col3, col4, col5 = st.columns(5)
         col1.metric("Current Price", f"${price:.2f}", f"{change_pct:+.2f}%")
         col2.metric("Market Cap", format_number(market_cap))
         
         col3.metric("P/E Ratio", f"{pe:.2f}" if pe > 0 else "N/A",
-                   help="Price-to-Earnings ratio. Lower = cheaper. Good range: 15-25")
+                   help="Price-to-Earnings ratio. Good: 15-25")
         
         col4.metric("P/S Ratio", f"{ps:.2f}" if ps > 0 else "N/A",
-                   help="Price-to-Sales ratio. Lower = better value. Tech: 5-10 | Retail: 0.5-2")
+                   help="Price-to-Sales ratio. Tech: 5-10 | Retail: 0.5-2")
+        
+        col5.metric("FCF Per Share", f"${fcf_per_share:.2f}" if fcf_per_share > 0 else "N/A",
+                   help="Free Cash Flow divided by shares outstanding")
         
         price_target = get_price_target(ticker)
         if price_target:
             avg_target = price_target.get('targetConsensus', 0)
             if avg_target > 0:
                 upside = ((avg_target - price) / price) * 100
-                col5.metric("Analyst Target", f"${avg_target:.2f}", f"{upside:+.1f}% upside",
-                           help="Average Wall Street analyst 12-month price target")
+                st.metric("Analyst Target", f"${avg_target:.2f}", f"{upside:+.1f}% upside",
+                         help="Average Wall Street 12-month price target")
         
         st.divider()
     
@@ -1147,7 +1177,7 @@ with tab1:
     
     elif view == "🔀 Compare 2 Stocks":
         st.markdown("## 🔀 Compare 2 Stocks")
-        st.info("💡 Enter two tickers to compare")
+        st.info("💡 Enter two tickers to compare P/E, P/S, and FCF per Share")
         
         col1, col2 = st.columns(2)
         
@@ -1160,25 +1190,31 @@ with tab1:
         if stock1 and stock2:
             quote1 = get_quote(stock1)
             quote2 = get_quote(stock2)
-            km1 = get_key_metrics(stock1)
-            km2 = get_key_metrics(stock2)
+            ratios_ttm1 = get_ratios_ttm(stock1)
+            ratios_ttm2 = get_ratios_ttm(stock2)
+            cash1 = get_cash_flow(stock1, 'annual', 1)
+            cash2 = get_cash_flow(stock2, 'annual', 1)
             
             if quote1 and quote2:
                 st.divider()
                 st.markdown("### 📊 Comparison")
                 
-                pe1 = quote1.get('pe', 0)
-                ps1 = km1.get('priceToSalesRatioTTM', 0) if km1 else 0
-                pe2 = quote2.get('pe', 0)
-                ps2 = km2.get('priceToSalesRatioTTM', 0) if km2 else 0
+                pe1 = ratios_ttm1.get('peRatioTTM', 0) if ratios_ttm1 else 0
+                ps1 = ratios_ttm1.get('priceToSalesRatioTTM', 0) if ratios_ttm1 else 0
+                fcf1 = calculate_fcf_per_share(cash1, quote1)
+                
+                pe2 = ratios_ttm2.get('peRatioTTM', 0) if ratios_ttm2 else 0
+                ps2 = ratios_ttm2.get('priceToSalesRatioTTM', 0) if ratios_ttm2 else 0
+                fcf2 = calculate_fcf_per_share(cash2, quote2)
                 
                 comparison_data = {
-                    "Metric": ["Price", "Market Cap", "P/E Ratio", "P/S Ratio", "Change (Today)"],
+                    "Metric": ["Price", "Market Cap", "P/E Ratio", "P/S Ratio", "FCF Per Share", "Change (Today)"],
                     stock1: [
                         f"${quote1.get('price', 0):.2f}",
                         format_number(quote1.get('marketCap', 0)),
                         f"{pe1:.2f}" if pe1 > 0 else "N/A",
                         f"{ps1:.2f}" if ps1 > 0 else "N/A",
+                        f"${fcf1:.2f}" if fcf1 > 0 else "N/A",
                         f"{quote1.get('changesPercentage', 0):+.2f}%"
                     ],
                     stock2: [
@@ -1186,6 +1222,7 @@ with tab1:
                         format_number(quote2.get('marketCap', 0)),
                         f"{pe2:.2f}" if pe2 > 0 else "N/A",
                         f"{ps2:.2f}" if ps2 > 0 else "N/A",
+                        f"${fcf2:.2f}" if fcf2 > 0 else "N/A",
                         f"{quote2.get('changesPercentage', 0):+.2f}%"
                     ]
                 }
