@@ -318,8 +318,23 @@ def get_profile(ticker):
         return None
 
 @st.cache_data(ttl=3600)
+def get_shares_float(ticker):
+    """Get shares float and outstanding shares - NEW ENDPOINT"""
+    url = f"{BASE_URL}/shares-float?symbol={ticker}&apikey={FMP_API_KEY}"
+    try:
+        response = requests.get(url, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            if data and len(data) > 0:
+                return data[0]
+    except:
+        pass
+    return {}
+
+@st.cache_data(ttl=3600)
 def get_ratios_ttm(ticker):
-    """Get TTM ratios - P/E, P/S, and all other ratios"""
+    """Get TTM ratios - P/E, P/S, and all other ratios - MULTI-FALLBACK"""
+    # Try format 1: /ratios-ttm?symbol=TICKER
     url = f"{BASE_URL}/ratios-ttm?symbol={ticker}&apikey={FMP_API_KEY}"
     try:
         response = requests.get(url, timeout=10)
@@ -329,6 +344,18 @@ def get_ratios_ttm(ticker):
                 return data[0]
     except:
         pass
+    
+    # Try format 2: /ratios-ttm/TICKER
+    url2 = f"{BASE_URL}/ratios-ttm/{ticker}?apikey={FMP_API_KEY}"
+    try:
+        response = requests.get(url2, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            if data and len(data) > 0:
+                return data[0]
+    except:
+        pass
+    
     return {}
 
 @st.cache_data(ttl=3600)
@@ -438,19 +465,75 @@ def get_price_target(ticker):
     except:
         return None
 
-def calculate_fcf_per_share(cash_df, quote):
-    """Calculate FCF per share"""
-    if cash_df.empty or not quote:
+def get_shares_outstanding(ticker, quote, shares_float_data):
+    """Get shares outstanding with MULTIPLE FALLBACKS"""
+    # Try 1: shares-float endpoint
+    if shares_float_data and isinstance(shares_float_data, dict):
+        shares = shares_float_data.get('outstandingShares', 0)
+        if shares and shares > 0:
+            return shares
+    
+    # Try 2: quote endpoint
+    if quote:
+        shares = quote.get('sharesOutstanding', 0)
+        if shares and shares > 0:
+            return shares
+    
+    # Try 3: marketCap / price (fallback calculation)
+    if quote:
+        market_cap = quote.get('marketCap', 0)
+        price = quote.get('price', 0)
+        if market_cap and price and price > 0:
+            return market_cap / price
+    
+    return 0
+
+def calculate_fcf_per_share(ticker, cash_df, quote):
+    """Calculate FCF per share with MULTIPLE FALLBACKS"""
+    try:
+        if cash_df.empty:
+            return 0
+        
+        if 'freeCashFlow' not in cash_df.columns:
+            return 0
+        
+        latest_fcf = cash_df['freeCashFlow'].iloc[-1]
+        if not latest_fcf or latest_fcf == 0:
+            return 0
+        
+        # Get shares outstanding with fallbacks
+        shares_float_data = get_shares_float(ticker)
+        shares = get_shares_outstanding(ticker, quote, shares_float_data)
+        
+        if shares and shares > 0:
+            return latest_fcf / shares
+        
         return 0
-    
-    if 'freeCashFlow' not in cash_df.columns:
+    except Exception as e:
         return 0
+
+def get_pe_ratio(ticker, quote, ratios_ttm):
+    """Get P/E ratio with MULTIPLE FALLBACKS"""
+    # Try 1: ratios-ttm endpoint
+    if ratios_ttm and isinstance(ratios_ttm, dict):
+        pe = ratios_ttm.get('peRatioTTM', 0)
+        if pe and pe > 0:
+            return pe
     
-    latest_fcf = cash_df['freeCashFlow'].iloc[-1]
-    shares = quote.get('sharesOutstanding', 0)
+    # Try 2: quote endpoint
+    if quote:
+        pe = quote.get('pe', 0)
+        if pe and pe > 0:
+            return pe
     
-    if shares > 0 and latest_fcf:
-        return latest_fcf / shares
+    return 0
+
+def get_ps_ratio(ticker, ratios_ttm):
+    """Get P/S ratio with FALLBACK"""
+    if ratios_ttm and isinstance(ratios_ttm, dict):
+        ps = ratios_ttm.get('priceToSalesRatioTTM', 0)
+        if ps and ps > 0:
+            return ps
     
     return 0
 
@@ -520,12 +603,10 @@ with tab2:
             cash_df = get_cash_flow(ticker_sym, 'annual', 1)
             
             if quote:
-                # Get P/E and P/S from ratios-ttm
-                pe = ratios_ttm.get('peRatioTTM', 0) if ratios_ttm else 0
-                ps = ratios_ttm.get('priceToSalesRatioTTM', 0) if ratios_ttm else 0
-                
-                # Calculate FCF per share
-                fcf_per_share = calculate_fcf_per_share(cash_df, quote)
+                # Get P/E, P/S, FCF per share with fallbacks
+                pe = get_pe_ratio(ticker_sym, quote, ratios_ttm)
+                ps = get_ps_ratio(ticker_sym, ratios_ttm)
+                fcf_per_share = calculate_fcf_per_share(ticker_sym, cash_df, quote)
                 
                 rows.append({
                     "Ticker": ticker_sym,
@@ -610,8 +691,8 @@ with tab3:
                     ratios_ttm = get_ratios_ttm(item['ticker'])
                     
                     if quote:
-                        pe = ratios_ttm.get('peRatioTTM', 0) if ratios_ttm else 0
-                        ps = ratios_ttm.get('priceToSalesRatioTTM', 0) if ratios_ttm else 0
+                        pe = get_pe_ratio(item['ticker'], quote, ratios_ttm)
+                        ps = get_ps_ratio(item['ticker'], ratios_ttm)
                         
                         portfolio_data.append({
                             "ticker": item['ticker'],
@@ -715,6 +796,7 @@ with tab4:
         quote = get_quote(ticker_check)
         ratios = get_financial_ratios(ticker_check, 'annual', 1)
         cash = get_cash_flow(ticker_check, 'annual', 1)
+        ratios_ttm = get_ratios_ttm(ticker_check)
         
         if quote:
             st.subheader(f"📊 {quote.get('name', ticker_check)} ({ticker_check})")
@@ -729,8 +811,7 @@ with tab4:
                 fcf = cash['freeCashFlow'].iloc[-1]
                 checks.append(("✅ Positive free cash flow" if fcf > 0 else "❌ Negative FCF", fcf > 0))
             
-            ratios_ttm = get_ratios_ttm(ticker_check)
-            pe = ratios_ttm.get('peRatioTTM', 0) if ratios_ttm else 0
+            pe = get_pe_ratio(ticker_check, quote, ratios_ttm)
             if 0 < pe < 30:
                 checks.append(("✅ Reasonable P/E (<30)", True))
             elif pe > 30:
@@ -877,10 +958,10 @@ with tab1:
         change_pct = quote.get('changesPercentage', 0)
         market_cap = quote.get('marketCap', 0)
         
-        # Get P/E, P/S, and FCF per share
-        pe = ratios_ttm.get('peRatioTTM', 0) if ratios_ttm else 0
-        ps = ratios_ttm.get('priceToSalesRatioTTM', 0) if ratios_ttm else 0
-        fcf_per_share = calculate_fcf_per_share(cash_df, quote)
+        # Get P/E, P/S, and FCF per share with MULTIPLE FALLBACKS
+        pe = get_pe_ratio(ticker, quote, ratios_ttm)
+        ps = get_ps_ratio(ticker, ratios_ttm)
+        fcf_per_share = calculate_fcf_per_share(ticker, cash_df, quote)
         
         col1, col2, col3, col4, col5 = st.columns(5)
         col1.metric("Current Price", f"${price:.2f}", f"{change_pct:+.2f}%")
@@ -1177,7 +1258,7 @@ with tab1:
     
     elif view == "🔀 Compare 2 Stocks":
         st.markdown("## 🔀 Compare 2 Stocks")
-        st.info("💡 Enter two tickers to compare P/E, P/S, and FCF per Share")
+        st.info("💡 Compare P/E, P/S, and FCF per Share")
         
         col1, col2 = st.columns(2)
         
@@ -1199,13 +1280,13 @@ with tab1:
                 st.divider()
                 st.markdown("### 📊 Comparison")
                 
-                pe1 = ratios_ttm1.get('peRatioTTM', 0) if ratios_ttm1 else 0
-                ps1 = ratios_ttm1.get('priceToSalesRatioTTM', 0) if ratios_ttm1 else 0
-                fcf1 = calculate_fcf_per_share(cash1, quote1)
+                pe1 = get_pe_ratio(stock1, quote1, ratios_ttm1)
+                ps1 = get_ps_ratio(stock1, ratios_ttm1)
+                fcf1 = calculate_fcf_per_share(stock1, cash1, quote1)
                 
-                pe2 = ratios_ttm2.get('peRatioTTM', 0) if ratios_ttm2 else 0
-                ps2 = ratios_ttm2.get('priceToSalesRatioTTM', 0) if ratios_ttm2 else 0
-                fcf2 = calculate_fcf_per_share(cash2, quote2)
+                pe2 = get_pe_ratio(stock2, quote2, ratios_ttm2)
+                ps2 = get_ps_ratio(stock2, ratios_ttm2)
+                fcf2 = calculate_fcf_per_share(stock2, cash2, quote2)
                 
                 comparison_data = {
                     "Metric": ["Price", "Market Cap", "P/E Ratio", "P/S Ratio", "FCF Per Share", "Change (Today)"],
@@ -1287,7 +1368,9 @@ with tab1:
                 enterprise_value = pv_fcf + pv_terminal
                 
                 if quote:
-                    shares = quote.get('sharesOutstanding', 0)
+                    shares_float_data = get_shares_float(ticker)
+                    shares = get_shares_outstanding(ticker, quote, shares_float_data)
+                    
                     if shares > 0:
                         fair_value = enterprise_value / shares
                         current_price = quote.get('price', 0)
