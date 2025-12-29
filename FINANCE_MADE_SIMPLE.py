@@ -203,6 +203,127 @@ METRIC_EXPLANATIONS = {
     }
 }
 
+
+
+# ============= COMPREHENSIVE METRIC EXPLANATIONS =============
+FINANCIAL_METRICS_EXPLAINED = {
+    # Income Statement Metrics
+    "revenue": {
+        "simple": "Total money coming in from sales",
+        "why": "Shows if the company is growing its business. More revenue = more customers or higher prices."
+    },
+    "grossProfit": {
+        "simple": "Revenue minus cost of making products",
+        "why": "Shows profit before expenses. High gross profit = good pricing power or efficient production."
+    },
+    "operatingIncome": {
+        "simple": "Profit from main business operations",
+        "why": "Shows if core business is profitable. Excludes one-time items and interest payments."
+    },
+    "netIncome": {
+        "simple": "Bottom line profit after everything",
+        "why": "The real profit shareholders get. This is what matters most for stock value."
+    },
+    "ebitda": {
+        "simple": "Earnings before interest, taxes, depreciation, amortization",
+        "why": "Shows operating performance without accounting tricks. Good for comparing companies."
+    },
+    "eps": {
+        "simple": "Earnings Per Share - profit divided by shares",
+        "why": "Shows profit per share you own. Growing EPS usually means growing stock price."
+    },
+    
+    # Cash Flow Metrics
+    "operatingCashFlow": {
+        "simple": "Cash generated from main business",
+        "why": "Real cash coming in. Unlike earnings, cash can't be faked with accounting."
+    },
+    "freeCashFlow": {
+        "simple": "Cash left after buying equipment and assets",
+        "why": "Money available for dividends, buybacks, or growth. This is the gold standard metric."
+    },
+    "capitalExpenditure": {
+        "simple": "Money spent on equipment and property",
+        "why": "Shows investment in future growth. High CapEx = company investing heavily."
+    },
+    "dividendsPaid": {
+        "simple": "Cash paid to shareholders",
+        "why": "Direct return to investors. Consistent dividends = stable, mature company."
+    },
+    
+    # Balance Sheet Metrics
+    "totalAssets": {
+        "simple": "Everything the company owns",
+        "why": "Shows company size and resources. Growing assets = expanding business."
+    },
+    "totalLiabilities": {
+        "simple": "Everything the company owes",
+        "why": "Company's debts and obligations. High liabilities = more risk."
+    },
+    "totalStockholdersEquity": {
+        "simple": "Company's net worth (Assets - Liabilities)",
+        "why": "What's left for shareholders if company sold everything and paid all debts."
+    },
+    "cashAndCashEquivalents": {
+        "simple": "Cash in the bank",
+        "why": "Safety cushion. More cash = can survive tough times and invest in opportunities."
+    },
+    "totalDebt": {
+        "simple": "All money borrowed",
+        "why": "Debt must be repaid with interest. Too much debt = risky during recessions."
+    },
+    
+    # Financial Ratios
+    "grossProfitMargin": {
+        "simple": "Gross Profit ÷ Revenue (as %)",
+        "why": "Shows pricing power. 40%+ is strong. Tech companies often have 70%+."
+    },
+    "operatingProfitMargin": {
+        "simple": "Operating Income ÷ Revenue (as %)",
+        "why": "Shows operational efficiency. Higher = better at controlling costs."
+    },
+    "netProfitMargin": {
+        "simple": "Net Income ÷ Revenue (as %)",
+        "why": "Bottom line profitability. 15%+ is solid. 25%+ is excellent."
+    },
+    "returnOnEquity": {
+        "simple": "Net Income ÷ Shareholder Equity (as %)",
+        "why": "Return on your investment. 15%+ is good. 20%+ is great. Warren Buffett loves this."
+    },
+    "returnOnAssets": {
+        "simple": "Net Income ÷ Total Assets (as %)",
+        "why": "How efficiently company uses assets to generate profit. Higher = better."
+    },
+    "returnOnCapitalEmployed": {
+        "simple": "Operating Profit ÷ Capital Employed (as %)",
+        "why": "Shows how well company uses invested capital. 15%+ is strong."
+    },
+    "currentRatio": {
+        "simple": "Current Assets ÷ Current Liabilities",
+        "why": "Can company pay short-term bills? Above 1.5 = safe. Below 1.0 = risky."
+    },
+    "quickRatio": {
+        "simple": "Quick Assets ÷ Current Liabilities",
+        "why": "Stricter than current ratio (excludes inventory). Above 1.0 = good liquidity."
+    },
+    "debtToEquity": {
+        "simple": "Total Debt ÷ Shareholder Equity",
+        "why": "Debt risk level. Below 1.0 = safe. Above 2.0 = risky. Banks naturally higher."
+    }
+}
+
+def get_metric_explanation(metric_key):
+    """Get simple explanation for any metric"""
+    # Normalize the key
+    key = metric_key.lower().replace(' ', '').replace('_', '')
+    
+    # Try to find match
+    for metric, details in FINANCIAL_METRICS_EXPLAINED.items():
+        if metric.lower().replace(' ', '') == key:
+            return details
+    
+    return None
+
 # ============= ROAST DATABASE =============
 ROASTS = {
     "meme_stocks": [
@@ -2050,37 +2171,46 @@ with tab1:
                     metric3 = next(col for display, col in available_metrics if display == metric3_display)
                 
                 metrics_to_plot = [metric1, metric2, metric3]
+                
+                # Show what these metrics mean
+                with st.expander("📚 What do these metrics mean?", expanded=False):
+                    for metric_display in [metric1_display, metric2_display, metric3_display]:
+                        metric_key = metric_display.lower().replace(" ", "").replace("_", "")
+                        explanation = get_metric_explanation(metric_key)
+                        if explanation:
+                            st.markdown(f"""**{metric_display}**  
+                📊 *What it is:* {explanation["simple"]}  
+                💡 *Why it matters:* {explanation["why"]}""")
+                            st.markdown("---")
+                
+                metric_names = [metric1_display, metric2_display, metric3_display]
                 metric_names = [metric1_display, metric2_display, metric3_display]
                 
-                plot_df = cash_df[['date'] + metrics_to_plot].copy()
-                plot_df['date'] = plot_df['date'].dt.strftime('%Y-%m' if period == 'quarter' else '%Y')
+                # Prepare data for chart
+                plot_df = cash_df[["date"] + metrics_to_plot].copy()
                 
-                fig = go.Figure()
-                colors = ['#9D4EDD', '#00D9FF', '#FF69B4']
-                
-                for i, (metric, name) in enumerate(zip(metrics_to_plot, metric_names)):
-                    fig.add_trace(go.Bar(
-                        x=plot_df['date'],
-                        y=plot_df[metric],
-                        name=name,
-                        marker_color=colors[i % len(colors)]
-                    ))
-                
-                fig.update_layout(
-                    title=f"{company_name} - Cash Flow",
-                    height=400,
-                    barmode='group',
-                    plot_bgcolor='rgba(0,0,0,0)',
-                    paper_bgcolor='rgba(0,0,0,0)',
-                    font_color='white',
-                    xaxis_title="Period",
-                    yaxis_title="Amount ($)",
-                    margin=dict(l=20, r=20, t=60, b=20),
-                    hoverlabel=dict(bgcolor="white", font_size=12, font_color="black"),
-                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+                # Create chart with y-axis padding and growth rates
+                fig, growth_rates = create_financial_chart_with_growth(
+                    plot_df,
+                    metrics_to_plot,
+                    f"{company_name} - Cash Flow",
+                    "Period",
+                    "Amount ($)"
                 )
-                fig.update_yaxes(rangemode='tozero')
-                st.plotly_chart(fig, use_container_width=True)
+                
+                if fig:
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    # Display growth rates
+                    if growth_rates:
+                        period_label = "annual" if period == "annual" else "quarterly"
+                        growth_text = f"**Growth over {years_back} {period_label} periods:**\n\n"
+                        for idx, (metric_col, growth_rate) in enumerate(growth_rates.items()):
+                            metric_name = metric_names[metrics_to_plot.index(metric_col)]
+                            emoji = "🚀" if growth_rate > 10 else "📈" if growth_rate > 0 else "📉"
+                            growth_text += f"{emoji} **{metric_name}:** {growth_rate:+.1f}%\n\n"
+                        
+                        st.markdown(f'<div class="growth-note">{growth_text}</div>', unsafe_allow_html=True)
                 
                 cols = st.columns(len(metrics_to_plot))
                 for i, (metric, name) in enumerate(zip(metrics_to_plot, metric_names)):
@@ -2128,37 +2258,43 @@ with tab1:
                     metric3 = next(col for display, col in available_metrics if display == metric3_display)
                 
                 metrics_to_plot = [metric1, metric2, metric3]
+                
+                # Show what these metrics mean
+                with st.expander("📚 What do these metrics mean?", expanded=False):
+                    for metric_display in [metric1_display, metric2_display, metric3_display]:
+                        metric_key = metric_display.lower().replace(" ", "").replace("_", "")
+                        explanation = get_metric_explanation(metric_key)
+                        if explanation:
+                            st.markdown(f"""**{metric_display}**  
+                📊 *What it is:* {explanation["simple"]}  
+                💡 *Why it matters:* {explanation["why"]}""")
+                            st.markdown("---")
+                
+                metric_names = [metric1_display, metric2_display, metric3_display]
                 metric_names = [metric1_display, metric2_display, metric3_display]
                 
-                plot_df = income_df[['date'] + metrics_to_plot].copy()
-                plot_df['date'] = plot_df['date'].dt.strftime('%Y-%m' if period == 'quarter' else '%Y')
+                plot_df = income_df[["date"] + metrics_to_plot].copy()
                 
-                fig = go.Figure()
-                colors = ['#00D9FF', '#FFD700', '#9D4EDD']
-                
-                for i, (metric, name) in enumerate(zip(metrics_to_plot, metric_names)):
-                    fig.add_trace(go.Bar(
-                        x=plot_df['date'],
-                        y=plot_df[metric],
-                        name=name,
-                        marker_color=colors[i % len(colors)]
-                    ))
-                
-                fig.update_layout(
-                    title=f"{company_name} - Income Statement",
-                    height=400,
-                    barmode='group',
-                    plot_bgcolor='rgba(0,0,0,0)',
-                    paper_bgcolor='rgba(0,0,0,0)',
-                    font_color='white',
-                    xaxis_title="Period",
-                    yaxis_title="Amount ($)",
-                    margin=dict(l=20, r=20, t=60, b=20),
-                    hoverlabel=dict(bgcolor="white", font_size=12, font_color="black"),
-                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+                fig, growth_rates = create_financial_chart_with_growth(
+                    plot_df,
+                    metrics_to_plot,
+                    f"{company_name} - Income Statement",
+                    "Period",
+                    "Amount ($)"
                 )
-                fig.update_yaxes(rangemode='tozero')
-                st.plotly_chart(fig, use_container_width=True)
+                
+                if fig:
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    if growth_rates:
+                        period_label = "annual" if period == "annual" else "quarterly"
+                        growth_text = f"**Growth over {years_back} {period_label} periods:**\n\n"
+                        for idx, (metric_col, growth_rate) in enumerate(growth_rates.items()):
+                            metric_name = metric_names[metrics_to_plot.index(metric_col)]
+                            emoji = "🚀" if growth_rate > 10 else "📈" if growth_rate > 0 else "📉"
+                            growth_text += f"{emoji} **{metric_name}:** {growth_rate:+.1f}%\n\n"
+                        
+                        st.markdown(f'<div class="growth-note">{growth_text}</div>', unsafe_allow_html=True)
                 
                 col1, col2, col3 = st.columns(3)
                 cols = [col1, col2, col3]
@@ -2206,37 +2342,43 @@ with tab1:
                     metric3 = next(col for display, col in available_metrics if display == metric3_display)
                 
                 metrics_to_plot = [metric1, metric2, metric3]
+                
+                # Show what these metrics mean
+                with st.expander("📚 What do these metrics mean?", expanded=False):
+                    for metric_display in [metric1_display, metric2_display, metric3_display]:
+                        metric_key = metric_display.lower().replace(" ", "").replace("_", "")
+                        explanation = get_metric_explanation(metric_key)
+                        if explanation:
+                            st.markdown(f"""**{metric_display}**  
+                📊 *What it is:* {explanation["simple"]}  
+                💡 *Why it matters:* {explanation["why"]}""")
+                            st.markdown("---")
+                
+                metric_names = [metric1_display, metric2_display, metric3_display]
                 metric_names = [metric1_display, metric2_display, metric3_display]
                 
-                plot_df = balance_df[['date'] + metrics_to_plot].copy()
-                plot_df['date'] = plot_df['date'].dt.strftime('%Y-%m' if period == 'quarter' else '%Y')
+                plot_df = balance_df[["date"] + metrics_to_plot].copy()
                 
-                fig = go.Figure()
-                colors = ['#00D9FF', '#FF6B6B', '#FFD700']
-                
-                for i, (metric, name) in enumerate(zip(metrics_to_plot, metric_names)):
-                    fig.add_trace(go.Bar(
-                        x=plot_df['date'],
-                        y=plot_df[metric],
-                        name=name,
-                        marker_color=colors[i % len(colors)]
-                    ))
-                
-                fig.update_layout(
-                    title=f"{company_name} - Balance Sheet",
-                    height=400,
-                    barmode='group',
-                    plot_bgcolor='rgba(0,0,0,0)',
-                    paper_bgcolor='rgba(0,0,0,0)',
-                    font_color='white',
-                    xaxis_title="Period",
-                    yaxis_title="Amount ($)",
-                    margin=dict(l=20, r=20, t=60, b=20),
-                    hoverlabel=dict(bgcolor="white", font_size=12, font_color="black"),
-                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+                fig, growth_rates = create_financial_chart_with_growth(
+                    plot_df,
+                    metrics_to_plot,
+                    f"{company_name} - Balance Sheet",
+                    "Period",
+                    "Amount ($)"
                 )
-                fig.update_yaxes(rangemode='tozero')
-                st.plotly_chart(fig, use_container_width=True)
+                
+                if fig:
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    if growth_rates:
+                        period_label = "annual" if period == "annual" else "quarterly"
+                        growth_text = f"**Growth over {years_back} {period_label} periods:**\n\n"
+                        for idx, (metric_col, growth_rate) in enumerate(growth_rates.items()):
+                            metric_name = metric_names[metrics_to_plot.index(metric_col)]
+                            emoji = "🚀" if growth_rate > 10 else "📈" if growth_rate > 0 else "📉"
+                            growth_text += f"{emoji} **{metric_name}:** {growth_rate:+.1f}%\n\n"
+                        
+                        st.markdown(f'<div class="growth-note">{growth_text}</div>', unsafe_allow_html=True)
                 
                 cols = st.columns(len(metrics_to_plot))
                 for i, (metric, name) in enumerate(zip(metrics_to_plot, metric_names)):
@@ -2591,6 +2733,9 @@ with tab1:
                 st.divider()
                 st.markdown("### 💰 Profitability Trends")
                 
+                st.info("**Profitability shows how much profit the company keeps from each dollar of sales. Higher margins = better pricing power and efficiency.**")
+                
+                
                 for metric_name, metric_col in [('Gross Profit Margin', 'grossProfitMargin'), 
                                                  ('Operating Profit Margin', 'operatingProfitMargin'),
                                                  ('Net Profit Margin', 'netProfitMargin')]:
@@ -2599,9 +2744,19 @@ with tab1:
                                                        f"{company_name} - {metric_name}")
                         if fig:
                             st.plotly_chart(fig, use_container_width=True)
+                            explanation = get_metric_explanation(metric_col)
+                            if explanation:
+                                st.markdown(f"""<div class="metric-explain">
+                            📊 **What it is:** {explanation["simple"]}  
+                            💡 **Why it matters:** {explanation["why"]}
+                            </div>""", unsafe_allow_html=True)
+                            
                 
                 st.divider()
                 st.markdown("### ⚡ Efficiency Trends")
+                
+                st.info("**Efficiency ratios show how well the company uses its money to generate profits. Higher returns = better management and stronger business.**")
+                
                 
                 for metric_name, metric_col in [('Return on Equity (ROE)', 'returnOnEquity'),
                                                  ('Return on Assets (ROA)', 'returnOnAssets'),
@@ -2611,9 +2766,19 @@ with tab1:
                                                        f"{company_name} - {metric_name}")
                         if fig:
                             st.plotly_chart(fig, use_container_width=True)
+                            explanation = get_metric_explanation(metric_col)
+                            if explanation:
+                                st.markdown(f"""<div class="metric-explain">
+                            📊 **What it is:** {explanation["simple"]}  
+                            💡 **Why it matters:** {explanation["why"]}
+                            </div>""", unsafe_allow_html=True)
+                            
                 
                 st.divider()
                 st.markdown("### 🏦 Liquidity & Leverage Trends")
+                
+                st.info("**Liquidity = Can the company pay its bills? Leverage = How much debt does it have? Good liquidity + low debt = safer company.**")
+                
                 
                 for metric_name, metric_col in [('Current Ratio', 'currentRatio'),
                                                  ('Quick Ratio', 'quickRatio'),
@@ -2623,6 +2788,13 @@ with tab1:
                                                        f"{company_name} - {metric_name}")
                         if fig:
                             st.plotly_chart(fig, use_container_width=True)
+                            explanation = get_metric_explanation(metric_col)
+                            if explanation:
+                                st.markdown(f"""<div class="metric-explain">
+                            📊 **What it is:** {explanation["simple"]}  
+                            💡 **Why it matters:** {explanation["why"]}
+                            </div>""", unsafe_allow_html=True)
+                            
             else:
                 st.warning("Ratio data not available for the selected period")
         except Exception as e:
