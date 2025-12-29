@@ -441,7 +441,6 @@ def explain_metric(metric_name, value, sector=None):
     exp = METRIC_EXPLANATIONS[metric_name]
     explanation = f"**{exp['short']}**\n\n{exp['explanation']}\n\n✅ {exp['good']}"
     
-    # Add sector comparison if available
     if sector and sector in INDUSTRY_BENCHMARKS:
         if metric_name == "P/E Ratio":
             sector_avg = INDUSTRY_BENCHMARKS[sector]['pe']
@@ -1070,23 +1069,20 @@ def calculate_fcf_per_share(ticker, cash_df, quote):
         if not shares or shares <= 0:
             return 0
         
-        # ATTEMPT 1: freeCashFlow from cash flow statement
         if not cash_df.empty and 'freeCashFlow' in cash_df.columns:
             latest_fcf = cash_df['freeCashFlow'].iloc[-1]
             if latest_fcf and latest_fcf != 0:
                 return latest_fcf / shares
         
-        # ATTEMPT 2: Operating cash flow - capex
         if not cash_df.empty:
             ocf = cash_df.get('operatingCashFlow', pd.Series([0])).iloc[-1] if 'operatingCashFlow' in cash_df.columns else 0
             capex = cash_df.get('capitalExpenditure', pd.Series([0])).iloc[-1] if 'capitalExpenditure' in cash_df.columns else 0
             
             if ocf and ocf != 0:
-                fcf = ocf + capex  # capex is negative
+                fcf = ocf + capex
                 if fcf != 0:
                     return fcf / shares
         
-        # ATTEMPT 3: netCashProvidedByOperatingActivities
         if not cash_df.empty and 'netCashProvidedByOperatingActivities' in cash_df.columns:
             net_cash = cash_df['netCashProvidedByOperatingActivities'].iloc[-1]
             capex = cash_df.get('capitalExpenditure', pd.Series([0])).iloc[-1] if 'capitalExpenditure' in cash_df.columns else 0
@@ -1096,14 +1092,12 @@ def calculate_fcf_per_share(ticker, cash_df, quote):
                 if fcf != 0:
                     return fcf / shares
         
-        # ATTEMPT 4: Quarterly TTM
         quarterly_cash = get_cash_flow(ticker, 'quarter', 4)
         if not quarterly_cash.empty and 'freeCashFlow' in quarterly_cash.columns:
             ttm_fcf = quarterly_cash['freeCashFlow'].head(4).sum()
             if ttm_fcf and ttm_fcf != 0:
                 return ttm_fcf / shares
         
-        # ATTEMPT 5: Key metrics endpoint (has fcfPerShare directly)
         try:
             url = f"{BASE_URL}/key-metrics-ttm?symbol={ticker}&apikey={FMP_API_KEY}"
             response = requests.get(url, timeout=10)
@@ -1205,7 +1199,6 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📚 Finance 101"
 ])
 
-
 # ============= TAB 2: SECTOR EXPLORER (WITH TOOLTIPS) =============
 with tab2:
     st.header("🎯 Sector Explorer")
@@ -1259,7 +1252,6 @@ with tab2:
                 col3.metric("📊 Sector Avg FCF/Share", f"${valid_fcf.mean():.2f}",
                            help="Average Free Cash Flow per share for this sector")
             
-            # Add tooltips for table headers
             st.markdown("**📊 Sector Companies** (hover over metrics for explanations)")
             
             display_df = df.copy()
@@ -1272,7 +1264,6 @@ with tab2:
             
             st.dataframe(display_df, use_container_width=True, height=400)
             
-            # Explanations below table
             with st.expander("💡 What do these metrics mean?"):
                 col1, col2 = st.columns(2)
                 with col1:
@@ -1654,7 +1645,7 @@ with tab5:
             with st.expander(term):
                 st.write(GLOSSARY[term])
 
-# ============= TAB 1: COMPANY ANALYSIS =============
+# ============= TAB 1: COMPANY ANALYSIS - PART 1 (HEADER + SIDEBAR) =============
 with tab1:
     search = st.text_input(
         "🔍 Search by Company Name or Ticker:",
@@ -1814,8 +1805,9 @@ with tab1:
             else:
                 st.success(f"Quick Ratio: {qr:.2f} 🟢")
                 st.caption("Good liquidity")
-    
-    quote = get_quote(ticker)
+
+
+quote = get_quote(ticker)
     ratios_ttm = get_ratios_ttm(ticker)
     
     if quote:
@@ -1866,7 +1858,275 @@ with tab1:
         
         st.divider()
     
-    if view == "🔀 Compare 2 Stocks":
+    # ============= TAB 1 VIEWS START HERE =============
+    
+    if view == "📊 Key Metrics":
+        
+        income_df = get_income_statement(ticker, period, years*4 if period == 'quarter' else years)
+        cash_df = get_cash_flow(ticker, period, years*4 if period == 'quarter' else years)
+        balance_df = get_balance_sheet(ticker, period, years*4 if period == 'quarter' else years)
+        
+        st.markdown(f"### 📈 {company_name} - Stock Price ({years} Years)")
+        price_data = get_historical_price(ticker, years)
+        if not price_data.empty and 'price' in price_data.columns:
+            
+            fig = px.area(price_data, x='date', y='price', 
+                         title=f'{company_name} Stock Price')
+            fig.update_layout(
+                height=350,
+                plot_bgcolor='rgba(0,0,0,0)',
+                paper_bgcolor='rgba(0,0,0,0)',
+                font_color='white',
+                xaxis_title="",
+                yaxis_title="Price ($)",
+                showlegend=False,
+                margin=dict(l=20, r=20, t=60, b=20),
+                hoverlabel=dict(bgcolor="white", font_size=12, font_color="black")
+            )
+            fig.update_traces(fillcolor='rgba(157, 78, 221, 0.3)', line_color='#9D4EDD', line_width=2)
+            fig.update_yaxes(rangemode='tozero')
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.warning("⚠️ Stock price data not available")
+        
+        st.divider()
+        
+        st.markdown(f"### 💵 {company_name} - Cash Flow Statement")
+        show_why_it_matters('fcfAfterSBC')
+        
+        if not cash_df.empty:
+            if 'stockBasedCompensation' in cash_df.columns and 'freeCashFlow' in cash_df.columns:
+                cash_df['fcfAfterSBC'] = cash_df['freeCashFlow'] - abs(cash_df['stockBasedCompensation'])
+            
+            available_metrics = get_available_metrics(cash_df)
+            
+            if available_metrics:
+                st.markdown("**📊 Select up to 3 metrics:**")
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    metric1_display = st.selectbox(
+                        "Metric 1:",
+                        options=[display for display, _ in available_metrics],
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'FCF After Stock Compensation'), 0),
+                        key="cf_metric1"
+                    )
+                    metric1 = next(col for display, col in available_metrics if display == metric1_display)
+                
+                with col2:
+                    metric2_display = st.selectbox(
+                        "Metric 2:",
+                        options=[display for display, _ in available_metrics],
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Free Cash Flow'), min(1, len(available_metrics)-1)),
+                        key="cf_metric2"
+                    )
+                    metric2 = next(col for display, col in available_metrics if display == metric2_display)
+                
+                with col3:
+                    metric3_display = st.selectbox(
+                        "Metric 3:",
+                        options=[display for display, _ in available_metrics],
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Operating Cash Flow'), min(2, len(available_metrics)-1)),
+                        key="cf_metric3"
+                    )
+                    metric3 = next(col for display, col in available_metrics if display == metric3_display)
+                
+                metrics_to_plot = [metric1, metric2, metric3]
+                metric_names = [metric1_display, metric2_display, metric3_display]
+                
+                plot_df = cash_df[['date'] + metrics_to_plot].copy()
+                plot_df['date'] = plot_df['date'].dt.strftime('%Y-%m' if period == 'quarter' else '%Y')
+                
+                fig = go.Figure()
+                colors = ['#9D4EDD', '#00D9FF', '#FF69B4']
+                
+                for i, (metric, name) in enumerate(zip(metrics_to_plot, metric_names)):
+                    fig.add_trace(go.Bar(
+                        x=plot_df['date'],
+                        y=plot_df[metric],
+                        name=name,
+                        marker_color=colors[i % len(colors)]
+                    ))
+                
+                fig.update_layout(
+                    title=f"{company_name} - Cash Flow",
+                    height=400,
+                    barmode='group',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    font_color='white',
+                    xaxis_title="Period",
+                    yaxis_title="Amount ($)",
+                    margin=dict(l=20, r=20, t=60, b=20),
+                    hoverlabel=dict(bgcolor="white", font_size=12, font_color="black"),
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+                )
+                fig.update_yaxes(rangemode='tozero')
+                st.plotly_chart(fig, use_container_width=True)
+                
+                cols = st.columns(len(metrics_to_plot))
+                for i, (metric, name) in enumerate(zip(metrics_to_plot, metric_names)):
+                    cols[i].metric(f"Latest {name}", format_number(cash_df[metric].iloc[-1]))
+        else:
+            st.warning("⚠️ Cash flow data not available")
+        
+        st.divider()
+        
+        st.markdown(f"### 💰 {company_name} - Income Statement")
+        show_why_it_matters('revenue')
+        
+        if not income_df.empty:
+            available_metrics = get_available_metrics(income_df)
+            
+            if available_metrics:
+                st.markdown("**📊 Select up to 3 metrics:**")
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    metric1_display = st.selectbox(
+                        "Metric 1:",
+                        options=[display for display, _ in available_metrics],
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Revenue'), 0),
+                        key="income_metric1"
+                    )
+                    metric1 = next(col for display, col in available_metrics if display == metric1_display)
+                
+                with col2:
+                    metric2_display = st.selectbox(
+                        "Metric 2:",
+                        options=[display for display, _ in available_metrics],
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Operating Income'), min(1, len(available_metrics)-1)),
+                        key="income_metric2"
+                    )
+                    metric2 = next(col for display, col in available_metrics if display == metric2_display)
+                
+                with col3:
+                    metric3_display = st.selectbox(
+                        "Metric 3:",
+                        options=[display for display, _ in available_metrics],
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Net Income'), min(2, len(available_metrics)-1)),
+                        key="income_metric3"
+                    )
+                    metric3 = next(col for display, col in available_metrics if display == metric3_display)
+                
+                metrics_to_plot = [metric1, metric2, metric3]
+                metric_names = [metric1_display, metric2_display, metric3_display]
+                
+                plot_df = income_df[['date'] + metrics_to_plot].copy()
+                plot_df['date'] = plot_df['date'].dt.strftime('%Y-%m' if period == 'quarter' else '%Y')
+                
+                fig = go.Figure()
+                colors = ['#00D9FF', '#FFD700', '#9D4EDD']
+                
+                for i, (metric, name) in enumerate(zip(metrics_to_plot, metric_names)):
+                    fig.add_trace(go.Bar(
+                        x=plot_df['date'],
+                        y=plot_df[metric],
+                        name=name,
+                        marker_color=colors[i % len(colors)]
+                    ))
+                
+                fig.update_layout(
+                    title=f"{company_name} - Income Statement",
+                    height=400,
+                    barmode='group',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    font_color='white',
+                    xaxis_title="Period",
+                    yaxis_title="Amount ($)",
+                    margin=dict(l=20, r=20, t=60, b=20),
+                    hoverlabel=dict(bgcolor="white", font_size=12, font_color="black"),
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+                )
+                fig.update_yaxes(rangemode='tozero')
+                st.plotly_chart(fig, use_container_width=True)
+                
+                col1, col2, col3 = st.columns(3)
+                cols = [col1, col2, col3]
+                for i, (metric, name) in enumerate(zip(metrics_to_plot, metric_names)):
+                    cols[i].metric(f"Latest {name}", format_number(income_df[metric].iloc[-1]))
+        else:
+            st.warning("⚠️ Income statement not available")
+        
+        st.divider()
+        
+        st.markdown(f"### 🏦 {company_name} - Balance Sheet")
+        
+        if not balance_df.empty:
+            available_metrics = get_available_metrics(balance_df)
+            
+            if available_metrics:
+                st.markdown("**📊 Select up to 3 metrics:**")
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    metric1_display = st.selectbox(
+                        "Metric 1:",
+                        options=[display for display, _ in available_metrics],
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Total Assets'), 0),
+                        key="balance_metric1"
+                    )
+                    metric1 = next(col for display, col in available_metrics if display == metric1_display)
+                
+                with col2:
+                    metric2_display = st.selectbox(
+                        "Metric 2:",
+                        options=[display for display, _ in available_metrics],
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Total Liabilities'), min(1, len(available_metrics)-1)),
+                        key="balance_metric2"
+                    )
+                    metric2 = next(col for display, col in available_metrics if display == metric2_display)
+                
+                with col3:
+                    metric3_display = st.selectbox(
+                        "Metric 3:",
+                        options=[display for display, _ in available_metrics],
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Shareholders Equity'), min(2, len(available_metrics)-1)),
+                        key="balance_metric3"
+                    )
+                    metric3 = next(col for display, col in available_metrics if display == metric3_display)
+                
+                metrics_to_plot = [metric1, metric2, metric3]
+                metric_names = [metric1_display, metric2_display, metric3_display]
+                
+                plot_df = balance_df[['date'] + metrics_to_plot].copy()
+                plot_df['date'] = plot_df['date'].dt.strftime('%Y-%m' if period == 'quarter' else '%Y')
+                
+                fig = go.Figure()
+                colors = ['#00D9FF', '#FF6B6B', '#FFD700']
+                
+                for i, (metric, name) in enumerate(zip(metrics_to_plot, metric_names)):
+                    fig.add_trace(go.Bar(
+                        x=plot_df['date'],
+                        y=plot_df[metric],
+                        name=name,
+                        marker_color=colors[i % len(colors)]
+                    ))
+                
+                fig.update_layout(
+                    title=f"{company_name} - Balance Sheet",
+                    height=400,
+                    barmode='group',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    font_color='white',
+                    xaxis_title="Period",
+                    yaxis_title="Amount ($)",
+                    margin=dict(l=20, r=20, t=60, b=20),
+                    hoverlabel=dict(bgcolor="white", font_size=12, font_color="black"),
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+                )
+                fig.update_yaxes(rangemode='tozero')
+                st.plotly_chart(fig, use_container_width=True)
+                
+                cols = st.columns(len(metrics_to_plot))
+                for i, (metric, name) in enumerate(zip(metrics_to_plot, metric_names)):
+                    cols[i].metric(f"Latest {name}", format_number(balance_df[metric].iloc[-1]))
+        else:
+            st.warning("⚠️ Balance sheet not available")
+    
+    elif view == "🔀 Compare 2 Stocks":
         st.markdown("## 🔀 Compare 2 Stocks")
         st.info("💡 Compare metrics side-by-side with sector averages and explanations")
         
@@ -1879,7 +2139,6 @@ with tab1:
             stock2 = st.text_input("Stock 2:", placeholder="e.g., MSFT", key="compare_stock2")
         
         if stock1 and stock2:
-            # Fetch data for both stocks
             quote1 = get_quote(stock1)
             quote2 = get_quote(stock2)
             profile1 = get_profile(stock1)
@@ -1900,7 +2159,6 @@ with tab1:
                 st.divider()
                 st.markdown("### 📊 Side-by-Side Comparison")
                 
-                # Calculate all metrics
                 pe1 = get_pe_ratio(stock1, quote1, ratios_ttm1, income1)
                 ps1 = get_ps_ratio(stock1, ratios_ttm1)
                 fcf1 = calculate_fcf_per_share(stock1, cash1, quote1)
@@ -1915,7 +2173,6 @@ with tab1:
                 qr2 = calculate_quick_ratio(balance2)
                 beta2 = quote2.get('beta', 0)
                 
-                # Get sector averages
                 sector1_pe = get_industry_benchmark(sector1, 'pe')
                 sector2_pe = get_industry_benchmark(sector2, 'pe')
                 sector1_de = get_industry_benchmark(sector1, 'debt_to_equity')
@@ -1923,7 +2180,6 @@ with tab1:
                 sector1_qr = get_industry_benchmark(sector1, 'quick_ratio')
                 sector2_qr = get_industry_benchmark(sector2, 'quick_ratio')
                 
-                # Display comparison table
                 comparison_data = {
                     "Metric": ["Sector", "Price", "Market Cap", "P/E (TTM)", "P/S", "FCF/Share", "Debt/Equity", "Quick Ratio", "Beta", "Change (Today)"],
                     stock1: [
@@ -1956,10 +2212,8 @@ with tab1:
                 
                 st.divider()
                 
-                # METRIC-BY-METRIC EXPLANATIONS WITH SECTOR AVERAGES
                 st.markdown("### 📊 Detailed Metric Analysis")
                 
-                # P/E Ratio
                 with st.expander("📈 P/E Ratio (Price-to-Earnings) - Click for explanation"):
                     st.markdown(f"**What it means:** {METRIC_EXPLANATIONS['P/E Ratio']['explanation']}")
                     st.markdown(f"**Good range:** {METRIC_EXPLANATIONS['P/E Ratio']['good']}")
@@ -1989,7 +2243,6 @@ with tab1:
                                 else:
                                     st.info("➡️ In line with sector average")
                 
-                # P/S Ratio
                 with st.expander("💰 P/S Ratio (Price-to-Sales) - Click for explanation"):
                     st.markdown(f"**What it means:** {METRIC_EXPLANATIONS['P/S Ratio']['explanation']}")
                     st.markdown(f"**Good range:** {METRIC_EXPLANATIONS['P/S Ratio']['good']}")
@@ -2000,7 +2253,6 @@ with tab1:
                     with col2:
                         st.markdown(f"**{stock2}: {ps2:.2f if ps2 > 0 else 'N/A'}**")
                 
-                # Debt-to-Equity
                 with st.expander("🏦 Debt-to-Equity Ratio - Click for explanation"):
                     st.markdown(f"**What it means:** {METRIC_EXPLANATIONS['Debt-to-Equity']['explanation']}")
                     st.markdown(f"**Good range:** {METRIC_EXPLANATIONS['Debt-to-Equity']['good']}")
@@ -2030,7 +2282,6 @@ with tab1:
                                 else:
                                     st.warning("⚠️ Higher debt than sector average")
                 
-                # Quick Ratio
                 with st.expander("💧 Quick Ratio (Liquidity) - Click for explanation"):
                     st.markdown(f"**What it means:** {METRIC_EXPLANATIONS['Quick Ratio']['explanation']}")
                     st.markdown(f"**Good range:** {METRIC_EXPLANATIONS['Quick Ratio']['good']}")
@@ -2060,7 +2311,6 @@ with tab1:
                                 else:
                                     st.warning("⚠️ Lower liquidity than sector average")
                 
-                # FCF per Share
                 with st.expander("💵 Free Cash Flow per Share - Click for explanation"):
                     st.markdown(f"**What it means:** {METRIC_EXPLANATIONS['FCF per Share']['explanation']}")
                     st.markdown(f"**Good range:** {METRIC_EXPLANATIONS['FCF per Share']['good']}")
@@ -2080,7 +2330,6 @@ with tab1:
                         else:
                             st.error("🚨 Burning cash (negative FCF)")
                 
-                # Beta
                 with st.expander("📊 Beta (Volatility) - Click for explanation"):
                     st.markdown(f"**What it means:** {METRIC_EXPLANATIONS['Beta']['explanation']}")
                     st.markdown(f"**Good range:** {METRIC_EXPLANATIONS['Beta']['good']}")
@@ -2106,11 +2355,10 @@ with tab1:
                         elif beta2 < 0.8:
                             st.success("✅ Defensive (less volatile than market)")
                         else:
-                            st.info("➡️ Moves with market)")
+                            st.info("➡️ Moves with market")
                 
                 st.divider()
                 
-                # Winner summary
                 st.markdown("### 🏆 Quick Verdict")
                 
                 scores = {stock1: 0, stock2: 0}
@@ -2151,10 +2399,6 @@ with tab1:
                 
             else:
                 st.warning("Could not fetch data for one or both stocks")
-    
-    elif view == "📊 Key Metrics":
-        st.markdown("*Other views code here - keeping existing code*")
-        st.info("Key Metrics, Financial Ratios, DCF, and News views remain unchanged from previous version")
     
     elif view == "📈 Financial Ratios":
         st.markdown("## 📊 Financial Ratios")
@@ -2272,7 +2516,7 @@ with tab1:
             st.info("No recent news for this ticker")
             st.caption("News available for major stocks like AAPL, TSLA, MSFT")
 
+# ============= FOOTER =============
 st.divider()
 st.caption("💡 Finance Made Simple | FMP Premium | Real-time data")
 st.caption("⚠️ Educational purposes only. Not financial advice.")
-
