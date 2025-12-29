@@ -79,6 +79,14 @@ if st.session_state.theme == 'dark':
         font-size: 0.85em;
         border-left: 3px solid #FFD700;
     }
+    .growth-note {
+        background: rgba(0,255,150,0.2);
+        padding: 15px;
+        border-radius: 10px;
+        border-left: 5px solid #00FF96;
+        margin: 10px 0;
+        font-size: 1em;
+    }
     </style>
     """, unsafe_allow_html=True)
 else:
@@ -142,6 +150,15 @@ else:
         font-size: 0.85em;
         border-left: 3px solid #FFD700;
         box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .growth-note {
+        background: rgba(200,255,220,0.95);
+        padding: 15px;
+        border-radius: 10px;
+        border-left: 5px solid #00DD88;
+        margin: 10px 0;
+        font-size: 1em;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
     p, div, span, li { color: #1e1e1e !important; }
     </style>
@@ -481,6 +498,140 @@ def calculate_growth_rate(df, column, years=None):
         years = len(valid_data)
     
     return calculate_cagr(start_val, end_val, years)
+
+
+def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_title="Amount ($)"):
+    """
+    Create a financial chart with proper y-axis padding and return growth rates for each metric
+    """
+    if df.empty:
+        return None, {}
+    
+    # Reverse dataframe to show oldest to newest (left to right)
+    df_reversed = df.iloc[::-1].reset_index(drop=True)
+    
+    # Create figure
+    fig = go.Figure()
+    
+    # Color scheme
+    colors = ['#00D9FF', '#FFD700', '#9D4EDD']
+    
+    growth_rates = {}
+    
+    # Add traces for each metric
+    for idx, metric in enumerate(metrics):
+        if metric in df_reversed.columns:
+            values = df_reversed[metric].values
+            
+            # Calculate growth rate
+            if len(values) >= 2 and values[0] != 0:
+                growth_rate = ((values[-1] - values[0]) / abs(values[0])) * 100
+                growth_rates[metric] = growth_rate
+            
+            fig.add_trace(go.Bar(
+                x=df_reversed['date'],
+                y=values,
+                name=metric.replace('_', ' ').title(),
+                marker_color=colors[idx % len(colors)],
+                text=[f'${val/1e9:.1f}B' if abs(val) >= 1e9 else f'${val/1e6:.1f}M' for val in values],
+                textposition='outside',
+                textfont=dict(size=10)
+            ))
+    
+    # Calculate y-axis range with 20% padding above the max value
+    all_values = []
+    for metric in metrics:
+        if metric in df_reversed.columns:
+            all_values.extend(df_reversed[metric].values)
+    
+    if all_values:
+        max_val = max(all_values)
+        min_val = min(all_values)
+        
+        # Add 20% padding above max value
+        y_range_max = max_val * 1.2 if max_val > 0 else max_val * 0.8
+        y_range_min = min_val * 0.9 if min_val < 0 else 0
+        
+        fig.update_layout(
+            yaxis=dict(range=[y_range_min, y_range_max])
+        )
+    
+    fig.update_layout(
+        title=title,
+        xaxis_title=period_label,
+        yaxis_title=yaxis_title,
+        barmode='group',
+        hovermode='x unified',
+        height=500,
+        showlegend=True,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        )
+    )
+    
+    return fig, growth_rates
+
+def create_ratio_trend_chart(df, metric_name, metric_column, title):
+    """
+    Create a line chart showing the trend of a financial ratio over time
+    """
+    if df.empty or metric_column not in df.columns:
+        return None
+    
+    # Reverse to show oldest to newest
+    df_reversed = df.iloc[::-1].reset_index(drop=True)
+    
+    # Convert ratio values to percentage if needed
+    values = df_reversed[metric_column].values
+    
+    # Determine if we should show as percentage
+    if 'margin' in metric_column.lower() or 'return' in metric_column.lower():
+        values = values * 100
+        y_suffix = '%'
+    else:
+        y_suffix = ''
+    
+    fig = go.Figure()
+    
+    fig.add_trace(go.Scatter(
+        x=df_reversed['date'],
+        y=values,
+        mode='lines+markers',
+        name=metric_name,
+        line=dict(color='#00D9FF', width=3),
+        marker=dict(size=8),
+        fill='tozeroy',
+        fillcolor='rgba(0, 217, 255, 0.2)'
+    ))
+    
+    # Calculate growth
+    if len(values) >= 2 and values[0] != 0:
+        growth = ((values[-1] - values[0]) / abs(values[0])) * 100
+        
+        # Add annotation showing growth
+        fig.add_annotation(
+            x=df_reversed['date'].iloc[-1],
+            y=values[-1],
+            text=f"Growth: {growth:+.1f}%",
+            showarrow=True,
+            arrowhead=2,
+            bgcolor='rgba(0, 217, 255, 0.8)',
+            font=dict(color='white')
+        )
+    
+    fig.update_layout(
+        title=title,
+        xaxis_title='Period',
+        yaxis_title=f'{metric_name} ({y_suffix})' if y_suffix else metric_name,
+        height=400,
+        hovermode='x unified'
+    )
+    
+    return fig
 
 def get_available_metrics(df, exclude_cols=['date', 'symbol', 'reportedCurrency', 'cik', 'fillingDate', 'acceptedDate', 'calendarYear', 'period', 'link', 'finalLink']):
     """Get all numeric columns from dataframe for dropdown"""
@@ -1714,7 +1865,7 @@ with tab1:
         st.header("⚙️ Settings")
         period_type = st.radio("Time Period:", ["Annual", "Quarterly"])
         period = 'annual' if period_type == "Annual" else 'quarter'
-        years = st.slider("Years of History:", 1, 10, 5)
+        years = st.slider("Years of History:", 1, 30, 5)
         
         st.divider()
         
@@ -2400,37 +2551,109 @@ with tab1:
             else:
                 st.warning("Could not fetch data for one or both stocks")
     
-    elif view == "📈 Financial Ratios":
-        st.markdown("## 📊 Financial Ratios")
-        
-        if not ratios_df.empty:
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                if 'grossProfitMargin' in ratios_df.columns:
-                    latest = ratios_df['grossProfitMargin'].iloc[-1] * 100
-                    st.metric("Gross Margin", f"{latest:.1f}%",
-                             help="Revenue minus cost of goods sold, divided by revenue")
-                
-                if 'operatingProfitMargin' in ratios_df.columns:
-                    latest = ratios_df['operatingProfitMargin'].iloc[-1] * 100
-                    st.metric("Operating Margin", f"{latest:.1f}%",
-                             help="Operating income divided by revenue - shows efficiency")
-            
-            with col2:
-                if 'netProfitMargin' in ratios_df.columns:
-                    latest = ratios_df['netProfitMargin'].iloc[-1] * 100
-                    st.metric("Net Margin", f"{latest:.1f}%",
-                             help="Net income divided by revenue - bottom line profitability")
-                
-                if 'returnOnEquity' in ratios_df.columns:
-                    latest = ratios_df['returnOnEquity'].iloc[-1] * 100
-                    st.metric("ROE", f"{latest:.1f}%",
-                             help="Return on Equity - how well company uses shareholder money")
-        else:
-            st.warning("Ratio data not available")
-    
-    elif view == "💰 Valuation (DCF)":
+                        elif view == "📈 Financial Ratios":
+                        st.markdown("## 📊 Financial Ratios Over Time")
+                        
+                        col1, col2 = st.columns(2)
+                        
+                        with col1:
+                            ratio_period = st.radio("Period", ["Annual", "Quarterly"], key="ratio_period_select")
+                        
+                        with col2:
+                            ratio_years = st.slider("Years of History", 1, 30, 5, key="ratio_years_select")
+                        
+                        # Fetch ratios data
+                        period_param = "annual" if ratio_period == "Annual" else "quarter"
+                        ratios_url = f"{BASE_URL}/ratios/{ticker}?period={period_param}&limit={ratio_years}&apikey={FMP_API_KEY}"
+                        
+                        try:
+                            response = requests.get(ratios_url, timeout=10)
+                            response.raise_for_status()
+                            ratios_data = response.json()
+                            ratios_df_fetched = pd.DataFrame(ratios_data)
+                            
+                            if not ratios_df_fetched.empty:
+                                st.markdown("### 📊 Current Ratios")
+                                
+                                col1, col2, col3 = st.columns(3)
+                                
+                                with col1:
+                                    if 'grossProfitMargin' in ratios_df_fetched.columns:
+                                        latest = ratios_df_fetched['grossProfitMargin'].iloc[0] * 100
+                                        st.metric("Gross Margin", f"{latest:.1f}%",
+                                                 help="Revenue minus cost of goods sold, divided by revenue")
+                                
+                                with col2:
+                                    if 'operatingProfitMargin' in ratios_df_fetched.columns:
+                                        latest = ratios_df_fetched['operatingProfitMargin'].iloc[0] * 100
+                                        st.metric("Operating Margin", f"{latest:.1f}%",
+                                                 help="Operating income divided by revenue - shows efficiency")
+                                
+                                with col3:
+                                    if 'netProfitMargin' in ratios_df_fetched.columns:
+                                        latest = ratios_df_fetched['netProfitMargin'].iloc[0] * 100
+                                        st.metric("Net Margin", f"{latest:.1f}%",
+                                                 help="Net income divided by revenue - bottom line profitability")
+                                
+                                st.divider()
+                                
+                                # Profitability Trends
+                                st.markdown("### 💰 Profitability Trends")
+                                
+                                profitability_metrics = [
+                                    ('Gross Profit Margin', 'grossProfitMargin'),
+                                    ('Operating Profit Margin', 'operatingProfitMargin'),
+                                    ('Net Profit Margin', 'netProfitMargin')
+                                ]
+                                
+                                for metric_name, metric_col in profitability_metrics:
+                                    if metric_col in ratios_df_fetched.columns:
+                                        fig = create_ratio_trend_chart(ratios_df_fetched, metric_name, metric_col, 
+                                                                       f"{company_name} - {metric_name}")
+                                        if fig:
+                                            st.plotly_chart(fig, use_container_width=True)
+                                
+                                st.divider()
+                                
+                                # Efficiency Trends
+                                st.markdown("### ⚡ Efficiency Trends")
+                                
+                                efficiency_metrics = [
+                                    ('Return on Equity (ROE)', 'returnOnEquity'),
+                                    ('Return on Assets (ROA)', 'returnOnAssets'),
+                                    ('Return on Capital Employed', 'returnOnCapitalEmployed')
+                                ]
+                                
+                                for metric_name, metric_col in efficiency_metrics:
+                                    if metric_col in ratios_df_fetched.columns:
+                                        fig = create_ratio_trend_chart(ratios_df_fetched, metric_name, metric_col,
+                                                                       f"{company_name} - {metric_name}")
+                                        if fig:
+                                            st.plotly_chart(fig, use_container_width=True)
+                                
+                                st.divider()
+                                
+                                # Liquidity & Leverage Trends
+                                st.markdown("### 🏦 Liquidity & Leverage Trends")
+                                
+                                financial_health_metrics = [
+                                    ('Current Ratio', 'currentRatio'),
+                                    ('Quick Ratio', 'quickRatio'),
+                                    ('Debt to Equity', 'debtToEquity')
+                                ]
+                                
+                                for metric_name, metric_col in financial_health_metrics:
+                                    if metric_col in ratios_df_fetched.columns:
+                                        fig = create_ratio_trend_chart(ratios_df_fetched, metric_name, metric_col,
+                                                                       f"{company_name} - {metric_name}")
+                                        if fig:
+                                            st.plotly_chart(fig, use_container_width=True)
+                            else:
+                                st.warning("Ratio data not available for the selected period")
+                        except Exception as e:
+                            st.error(f"Could not fetch ratio data: {str(e)}")
+                        
+                    elif view == "💰 Valuation (DCF)":
         st.markdown("## 💰 DCF Valuation")
         st.info("Simplified DCF model - adjust assumptions")
         
