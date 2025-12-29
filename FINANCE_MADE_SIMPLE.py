@@ -1807,7 +1807,7 @@ with tab1:
                 st.caption("Good liquidity")
 
 
-quote = get_quote(ticker)
+    quote = get_quote(ticker)
     ratios_ttm = get_ratios_ttm(ticker)
     
     if quote:
