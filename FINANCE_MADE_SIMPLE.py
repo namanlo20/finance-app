@@ -13,40 +13,192 @@ import numpy as np
 FMP_API_KEY = "9rZXN8pHaPyiCjFHWCVBxQmyzftJbRrj"
 BASE_URL = "https://financialmodelingprep.com/stable"
 
+# AI Configuration (set to True when you get Perplexity API key)
+USE_AI_ANALYSIS = False
+PERPLEXITY_API_KEY = ""  # Add your key here when ready
+
 st.set_page_config(page_title="Finance Made Simple", layout="wide", page_icon="💰")
 
-st.markdown("""
-<style>
-.main { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-h1, h2, h3 { color: white !important; }
-.stMetric { background: rgba(255,255,255,0.15); padding: 15px; border-radius: 10px; }
-.why-box { 
-    background: rgba(255,255,255,0.1); 
-    padding: 20px; 
-    border-radius: 10px; 
-    border-left: 5px solid #00D9FF;
-    margin: 10px 0;
+# ============= DARK/LIGHT MODE =============
+if 'theme' not in st.session_state:
+    st.session_state.theme = 'dark'
+
+# Theme toggle in sidebar (will add later in code)
+
+# ============= THEME STYLING =============
+if st.session_state.theme == 'dark':
+    st.markdown("""
+    <style>
+    .main { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    h1, h2, h3 { color: white !important; }
+    .stMetric { background: rgba(255,255,255,0.15); padding: 15px; border-radius: 10px; }
+    .why-box { 
+        background: rgba(255,255,255,0.1); 
+        padding: 20px; 
+        border-radius: 10px; 
+        border-left: 5px solid #00D9FF;
+        margin: 10px 0;
+    }
+    .personal-budget {
+        background: rgba(255,215,0,0.2);
+        padding: 15px;
+        border-radius: 10px;
+        border-left: 5px solid #FFD700;
+    }
+    .risk-warning {
+        background: rgba(255,0,0,0.2);
+        padding: 15px;
+        border-radius: 10px;
+        border-left: 5px solid #FF0000;
+    }
+    .risk-good {
+        background: rgba(0,255,0,0.2);
+        padding: 15px;
+        border-radius: 10px;
+        border-left: 5px solid #00FF00;
+    }
+    .roast-box {
+        background: rgba(255,100,100,0.2);
+        padding: 20px;
+        border-radius: 15px;
+        border: 2px solid #FF6B6B;
+        margin: 15px 0;
+        font-size: 1.1em;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+else:
+    st.markdown("""
+    <style>
+    .main { background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); }
+    h1, h2, h3 { color: #1e1e1e !important; }
+    .stMetric { background: rgba(255,255,255,0.9); padding: 15px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .why-box { 
+        background: rgba(255,255,255,0.9); 
+        padding: 20px; 
+        border-radius: 10px; 
+        border-left: 5px solid #00D9FF;
+        margin: 10px 0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .personal-budget {
+        background: rgba(255,235,180,0.9);
+        padding: 15px;
+        border-radius: 10px;
+        border-left: 5px solid #FFD700;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .risk-warning {
+        background: rgba(255,200,200,0.9);
+        padding: 15px;
+        border-radius: 10px;
+        border-left: 5px solid #FF0000;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .risk-good {
+        background: rgba(200,255,200,0.9);
+        padding: 15px;
+        border-radius: 10px;
+        border-left: 5px solid #00FF00;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .roast-box {
+        background: rgba(255,220,220,0.9);
+        padding: 20px;
+        border-radius: 15px;
+        border: 2px solid #FF6B6B;
+        margin: 15px 0;
+        font-size: 1.1em;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    p, div, span, li { color: #1e1e1e !important; }
+    </style>
+    """, unsafe_allow_html=True)
+
+# ============= ROAST DATABASE =============
+ROASTS = {
+    "meme_stocks": [
+        "🦍 Diamond hands meet paper portfolio. The squeeze was 3 years ago, chief.",
+        "💀 This portfolio is giving 'held through -90%' energy. You belong on r/wallstreetbets.",
+        "🎮 GameStop called, they want their 2021 energy back.",
+        "🍿 AMC? More like 'Already My Cash is gone'. This isn't a portfolio, it's a charity.",
+        "🚀 'To the moon!' Yeah, the moon of financial ruin. Houston, we have a problem.",
+        "🐶 Meme stocks in 2025? That's like bringing a Nokia to an iPhone fight.",
+        "🤡 Your portfolio looks like it was assembled by a drunk dartboard.",
+        "📉 Congrats! You've perfectly timed buying at the absolute top. That's almost impressive.",
+    ],
+    "high_debt": [
+        "🚨 Your stocks have more debt than a med student. D/E > 3.0. Godspeed.",
+        "💸 These companies are leveraged to the TITS. One rate hike away from bankruptcy.",
+        "⚰️ High debt + high rates = financial death sentence. RIP your gains.",
+        "💀 Your portfolio's debt-to-equity ratio is basically screaming for help.",
+        "🏦 Banks are more stable than these debt-loaded disasters you call 'investments'.",
+        "📊 Debt ratios this high? These companies are basically borrowing from tomorrow to survive today.",
+        "🔥 High leverage works great... until it doesn't. And then you're broke.",
+    ],
+    "low_liquidity": [
+        "💧 Quick ratio < 0.5? These companies can't even pay their bills. Financial anorexia.",
+        "🏃 If there's a crash, these stocks can't run - they have no cash.",
+        "💀 Low liquidity = high risk of bankruptcy. You're playing with fire.",
+        "🚨 These companies are one bad quarter away from insolvency.",
+        "💦 Cash is king. Your portfolio has none. Good luck!",
+    ],
+    "overvalued": [
+        "🫠 P/E ratio of 180? What is this, 1999? 'This time it's different' - famous last words.",
+        "📉 Paying 200x earnings for companies that don't make money. Peak euphoria energy.",
+        "💸 You're paying Lamborghini prices for Pinto performance.",
+        "🎈 These valuations are more inflated than my ego after 3 drinks.",
+        "🤯 A P/E this high means you're betting on perfection. Spoiler: companies aren't perfect.",
+        "📊 Overvalued stocks: because who needs profits when you have hype?",
+    ],
+    "concentrated": [
+        "🎰 50% in one stock? That's not investing, that's gambling.",
+        "🔥 All your eggs in one basket and the basket is on fire.",
+        "🎲 Concentration builds wealth... until it destroys it. Diversify, dumbass.",
+        "💣 One bad earnings report and your portfolio goes boom.",
+        "🏴‍☠️ You're not diversified, you're just hoping and praying.",
+    ],
+    "good_portfolio": [
+        "✅ Damn, actual due diligence? In THIS economy? Risk score: 18/100. Boring, stable, perfect.",
+        "💰 Blue chips, low debt, good liquidity. You're either a boomer or actually smart. Respect.",
+        "🎯 Solid fundamentals, reasonable valuations. You actually read a book, didn't you?",
+        "👑 A well-diversified, low-risk portfolio? You must be fun at parties. (But rich.)",
+        "🏆 This portfolio fucks. Low risk, high IQ. Chef's kiss.",
+        "💎 Finally, someone who doesn't get their investment advice from TikTok.",
+        "🧠 Big brain moves. This is what financial literacy looks like.",
+    ],
+    "moderate_risk": [
+        "🟡 Moderate risk. Not terrible, not great. You're the financial equivalent of 'meh'.",
+        "⚖️ Balanced portfolio with some red flags. You're playing both sides - might work out!",
+        "🤔 Some sketchy picks mixed with solid ones. Is this diversification or confusion?",
+        "📊 Not gonna lie, this could go either way. 50/50 shot.",
+        "🎪 A little circus, a little strategy. Interesting choices.",
+    ],
+    "high_beta": [
+        "🎢 Beta > 1.5? Your portfolio is a rollercoaster. Hope you don't get motion sickness.",
+        "📉 High volatility = high anxiety. Buckle up, it's gonna be a bumpy ride.",
+        "⚡ Your portfolio moves faster than my ex's mood swings.",
+        "🌊 Volatility this high? You're basically surfing tsunamis.",
+    ],
+    "negative_fcf": [
+        "💸 Negative free cash flow? These companies are bleeding money like a stuck pig.",
+        "🔥 Cash burn rate this high means they're one bad quarter from GameOver.",
+        "💀 No FCF? That's not a company, that's a money incinerator.",
+    ],
+    "small_cap_yolo": [
+        "🎰 Small caps with no profits? You're basically buying lottery tickets.",
+        "🚀 Penny stocks aren't investments, they're bets. And the house always wins.",
+        "💀 Micro-cap garbage? Say goodbye to your money.",
+    ]
 }
-.personal-budget {
-    background: rgba(255,215,0,0.2);
-    padding: 15px;
-    border-radius: 10px;
-    border-left: 5px solid #FFD700;
-}
-.risk-warning {
-    background: rgba(255,0,0,0.2);
-    padding: 15px;
-    border-radius: 10px;
-    border-left: 5px solid #FF0000;
-}
-.risk-good {
-    background: rgba(0,255,0,0.2);
-    padding: 15px;
-    border-radius: 10px;
-    border-left: 5px solid #00FF00;
-}
-</style>
-""", unsafe_allow_html=True)
+
+ENCOURAGEMENT = [
+    "💪 Strong picks! Keep doing your homework.",
+    "🎯 Solid fundamentals. You're on the right track.",
+    "✅ Low risk, high quality. This is the way.",
+    "💎 Blue chip excellence. Boring but beautiful.",
+    "🏆 Well done. Financial discipline is sexy.",
+]
 
 # ============= SIMPLE EXPLANATIONS =============
 SIMPLE_EXPLANATIONS = {
@@ -149,7 +301,6 @@ GLOSSARY = {
 
 # ============= METRIC DISPLAY NAMES =============
 METRIC_DISPLAY_NAMES = {
-    # Cash Flow
     'freeCashFlow': 'Free Cash Flow',
     'operatingCashFlow': 'Operating Cash Flow',
     'investingCashFlow': 'Investing Cash Flow',
@@ -162,8 +313,6 @@ METRIC_DISPLAY_NAMES = {
     'commonStockIssued': 'Stock Issued',
     'changeInWorkingCapital': 'Change in Working Capital',
     'depreciationAndAmortization': 'Depreciation & Amortization',
-    
-    # Income Statement
     'revenue': 'Revenue',
     'costOfRevenue': 'Cost of Revenue (COGS)',
     'grossProfit': 'Gross Profit',
@@ -177,8 +326,6 @@ METRIC_DISPLAY_NAMES = {
     'incomeTaxExpense': 'Income Tax Expense',
     'eps': 'Earnings Per Share (EPS)',
     'epsdiluted': 'Diluted EPS',
-    
-    # Balance Sheet
     'totalAssets': 'Total Assets',
     'cashAndCashEquivalents': 'Cash & Cash Equivalents',
     'totalCurrentAssets': 'Current Assets',
@@ -191,8 +338,6 @@ METRIC_DISPLAY_NAMES = {
     'inventory': 'Inventory',
     'netReceivables': 'Accounts Receivable',
     'totalCurrentLiabilities': 'Current Liabilities',
-    
-    # Computed
     'fcfAfterSBC': 'FCF After Stock Compensation'
 }
 
@@ -210,6 +355,9 @@ INDUSTRY_BENCHMARKS = {
     "Real Estate": {"pe": 30, "ps": 5, "debt_to_equity": 2.5, "quick_ratio": 1.0},
     "Basic Materials": {"pe": 15, "ps": 1.5, "debt_to_equity": 1.0, "quick_ratio": 1.2}
 }
+
+# Meme stocks list
+MEME_STOCKS = ["AMC", "GME", "BBBY", "WISH", "CLOV", "BB", "NOK", "SNDL", "NAKD", "WKHS"]
 
 def format_number(num):
     """Format large numbers"""
@@ -302,7 +450,7 @@ def calculate_debt_to_equity(balance_df):
         return 0
 
 def calculate_quick_ratio(balance_df):
-    """Calculate Quick Ratio = (Current Assets - Inventory) / Current Liabilities"""
+    """Calculate Quick Ratio"""
     try:
         if balance_df.empty:
             return 0
@@ -321,17 +469,70 @@ def calculate_quick_ratio(balance_df):
         return 0
 
 def get_industry_benchmark(sector, metric):
-    """Get industry benchmark for comparison"""
+    """Get industry benchmark"""
     if sector in INDUSTRY_BENCHMARKS:
         return INDUSTRY_BENCHMARKS[sector].get(metric, 0)
     return 0
 
+def get_roast_comment(portfolio_data, total_risk_score):
+    """Generate roast/comment based on portfolio - RANDOMIZED"""
+    comments = []
+    
+    # Check for meme stocks
+    meme_count = sum(1 for stock in portfolio_data if stock['ticker'] in MEME_STOCKS)
+    if meme_count > 0:
+        comments.append(random.choice(ROASTS['meme_stocks']))
+    
+    # Check debt levels
+    avg_de = sum(stock['de_ratio'] for stock in portfolio_data if stock['de_ratio'] > 0) / max(len([s for s in portfolio_data if s['de_ratio'] > 0]), 1)
+    if avg_de > 2.5:
+        comments.append(random.choice(ROASTS['high_debt']))
+    
+    # Check liquidity
+    avg_qr = sum(stock['quick_ratio'] for stock in portfolio_data if stock['quick_ratio'] > 0) / max(len([s for s in portfolio_data if s['quick_ratio'] > 0]), 1)
+    if avg_qr < 0.8:
+        comments.append(random.choice(ROASTS['low_liquidity']))
+    
+    # Check valuation
+    avg_pe = sum(stock['pe'] for stock in portfolio_data if stock['pe'] > 0) / max(len([s for s in portfolio_data if s['pe'] > 0]), 1)
+    if avg_pe > 50:
+        comments.append(random.choice(ROASTS['overvalued']))
+    
+    # Check concentration
+    max_allocation = max(stock['allocation'] for stock in portfolio_data)
+    if max_allocation > 40:
+        comments.append(random.choice(ROASTS['concentrated']))
+    
+    # Check beta
+    avg_beta = sum(stock['beta'] * stock['allocation']/100 for stock in portfolio_data)
+    if avg_beta > 1.5:
+        comments.append(random.choice(ROASTS['high_beta']))
+    
+    # Overall score
+    if total_risk_score > 70:
+        comments.insert(0, "🚨 **YIKES. Let's unpack this disaster:**")
+    elif total_risk_score > 40:
+        comments.insert(0, random.choice(ROASTS['moderate_risk']))
+    elif total_risk_score < 25:
+        comments.insert(0, random.choice(ROASTS['good_portfolio']))
+    
+    # Return randomized comments
+    if not comments:
+        return random.choice(ENCOURAGEMENT)
+    
+    return "\n\n".join(comments[:3])  # Max 3 comments to avoid wall of text
+
 def calculate_risk_score(ticker, quote, balance_df, cash_df, sector):
-    """Calculate comprehensive risk score (0-100, higher = riskier)"""
+    """Calculate comprehensive risk score"""
     risk_score = 0
     risk_factors = []
     
-    # Factor 1: Beta (30 points)
+    # Meme stock check
+    if ticker in MEME_STOCKS:
+        risk_score += 25
+        risk_factors.append(f"Meme stock detected ({ticker})")
+    
+    # Beta
     beta = quote.get('beta', 1.0) if quote else 1.0
     if beta > 1.5:
         risk_score += 30
@@ -343,7 +544,7 @@ def calculate_risk_score(ticker, quote, balance_df, cash_df, sector):
         risk_score += 10
         risk_factors.append("Moderate volatility (Beta > 1.0)")
     
-    # Factor 2: Debt-to-Equity (30 points)
+    # Debt
     de_ratio = calculate_debt_to_equity(balance_df)
     industry_de = get_industry_benchmark(sector, 'debt_to_equity')
     
@@ -357,7 +558,7 @@ def calculate_risk_score(ticker, quote, balance_df, cash_df, sector):
         risk_score += 15
         risk_factors.append(f"Above-industry debt (D/E: {de_ratio:.2f} vs industry {industry_de:.2f})")
     
-    # Factor 3: Quick Ratio (20 points)
+    # Liquidity
     quick_ratio = calculate_quick_ratio(balance_df)
     if quick_ratio < 0.5:
         risk_score += 20
@@ -366,7 +567,7 @@ def calculate_risk_score(ticker, quote, balance_df, cash_df, sector):
         risk_score += 10
         risk_factors.append(f"Low liquidity (Quick Ratio: {quick_ratio:.2f})")
     
-    # Factor 4: Cash Flow (20 points)
+    # Cash Flow
     if not cash_df.empty and 'freeCashFlow' in cash_df.columns:
         latest_fcf = cash_df['freeCashFlow'].iloc[-1]
         if latest_fcf < 0:
@@ -378,7 +579,7 @@ def calculate_risk_score(ticker, quote, balance_df, cash_df, sector):
     
     return min(risk_score, 100), risk_factors
 
-# ============= FMP API FUNCTIONS =============
+# ============= FMP API FUNCTIONS (OPTIMIZED WITH CACHING) =============
 
 @st.cache_data(ttl=3600)
 def get_all_stocks():
@@ -454,32 +655,38 @@ def get_profile(ticker):
         return None
 
 @st.cache_data(ttl=1800)
-def get_latest_news(ticker=None, limit=20):
-    """Get latest stock news from FMP - NEW ENDPOINT"""
-    if ticker:
-        url = f"{BASE_URL}/news/stock-latest?tickers={ticker}&page=0&limit={limit}&apikey={FMP_API_KEY}"
-    else:
-        url = f"{BASE_URL}/news/stock-latest?page=0&limit={limit}&apikey={FMP_API_KEY}"
-    
+def get_stock_specific_news(ticker, limit=10):
+    """Get STOCK-SPECIFIC news - FIXED ENDPOINT"""
+    url = f"{BASE_URL}/stock_news?tickers={ticker}&limit={limit}&apikey={FMP_API_KEY}"
     try:
         response = requests.get(url, timeout=10)
         if response.status_code == 200:
-            return response.json()
+            data = response.json()
+            # Filter to only include news that mentions the ticker
+            filtered = []
+            for article in data:
+                title = article.get('title', '').upper()
+                text = article.get('text', '').upper()
+                symbol = article.get('symbol', '').upper()
+                
+                # Only include if ticker is mentioned OR symbol matches
+                if ticker.upper() in title or ticker.upper() in text or symbol == ticker.upper():
+                    filtered.append(article)
+            
+            return filtered[:limit]
     except:
         pass
     return []
 
 @st.cache_data(ttl=3600)
 def get_earnings_calendar(ticker):
-    """Get next earnings date - NEW ENDPOINT"""
-    # Get upcoming earnings
+    """Get next earnings date"""
     url = f"{BASE_URL}/earnings-calendar?symbol={ticker}&apikey={FMP_API_KEY}"
     try:
         response = requests.get(url, timeout=10)
         if response.status_code == 200:
             data = response.json()
             if data and len(data) > 0:
-                # Find next earnings (future date)
                 today = datetime.now()
                 for earning in data:
                     earning_date = datetime.strptime(earning.get('date', ''), '%Y-%m-%d')
@@ -490,8 +697,86 @@ def get_earnings_calendar(ticker):
     return None
 
 @st.cache_data(ttl=3600)
+def get_treasury_rates():
+    """Get current treasury rates - NEW"""
+    rates = {}
+    
+    # 10-year
+    try:
+        url = f"{BASE_URL}/treasury?from=10Y&to=10Y&apikey={FMP_API_KEY}"
+        response = requests.get(url, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            if data and len(data) > 0:
+                rates['10Y'] = data[0].get('yield', 0)
+    except:
+        rates['10Y'] = 0
+    
+    # 2-year
+    try:
+        url = f"{BASE_URL}/treasury?from=2Y&to=2Y&apikey={FMP_API_KEY}"
+        response = requests.get(url, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            if data and len(data) > 0:
+                rates['2Y'] = data[0].get('yield', 0)
+    except:
+        rates['2Y'] = 0
+    
+    # 30-year
+    try:
+        url = f"{BASE_URL}/treasury?from=30Y&to=30Y&apikey={FMP_API_KEY}"
+        response = requests.get(url, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            if data and len(data) > 0:
+                rates['30Y'] = data[0].get('yield', 0)
+    except:
+        rates['30Y'] = 0
+    
+    return rates
+
+@st.cache_data(ttl=3600)
+def get_sp500_performance():
+    """Get S&P 500 YTD performance"""
+    try:
+        url = f"{BASE_URL}/historical-price-eod/light?symbol=SPY&apikey={FMP_API_KEY}"
+        response = requests.get(url, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            if data and len(data) > 0:
+                df = pd.DataFrame(data)
+                df['date'] = pd.to_datetime(df['date'])
+                
+                # Get YTD performance
+                current_year = datetime.now().year
+                ytd_data = df[df['date'].dt.year == current_year]
+                
+                if len(ytd_data) > 1:
+                    start_price = ytd_data['price'].iloc[0]
+                    latest_price = ytd_data['price'].iloc[-1]
+                    ytd_return = ((latest_price - start_price) / start_price) * 100
+                    return ytd_return
+    except:
+        pass
+    return 0
+
+@st.cache_data(ttl=3600)
+def get_price_target_summary(ticker):
+    """Get price target summary - NEW BETTER ENDPOINT"""
+    url = f"{BASE_URL}/price-target-summary?symbol={ticker}&apikey={FMP_API_KEY}"
+    try:
+        response = requests.get(url, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            return data[0] if data and len(data) > 0 else None
+    except:
+        pass
+    return None
+
+@st.cache_data(ttl=3600)
 def get_shares_float(ticker):
-    """Get shares float and outstanding shares"""
+    """Get shares float"""
     url = f"{BASE_URL}/shares-float?symbol={ticker}&apikey={FMP_API_KEY}"
     try:
         response = requests.get(url, timeout=10)
@@ -610,13 +895,13 @@ def get_historical_price(ticker, years=5):
             cutoff = datetime.now() - timedelta(days=years*365)
             df = df[df['date'] >= cutoff]
             return df
-    except Exception as e:
+    except:
         pass
     return pd.DataFrame()
 
 @st.cache_data(ttl=3600)
 def get_price_target(ticker):
-    """Get price target"""
+    """Get price target consensus"""
     url = f"{BASE_URL}/price-target-consensus?symbol={ticker}&apikey={FMP_API_KEY}"
     try:
         response = requests.get(url, timeout=10)
@@ -626,7 +911,7 @@ def get_price_target(ticker):
         return None
 
 def get_eps_ttm(ticker, income_df):
-    """Get TTM EPS (Trailing Twelve Months)"""
+    """Get TTM EPS"""
     try:
         quarterly_df = get_income_statement(ticker, 'quarter', 4)
         
@@ -657,7 +942,7 @@ def get_eps_ttm(ticker, income_df):
         return 0
 
 def get_shares_outstanding(ticker, quote, shares_float_data):
-    """Get shares outstanding with fallbacks"""
+    """Get shares outstanding"""
     if shares_float_data and isinstance(shares_float_data, dict):
         shares = shares_float_data.get('outstandingShares', 0)
         if shares and shares > 0:
@@ -696,7 +981,7 @@ def calculate_fcf_per_share(ticker, cash_df, quote):
             return latest_fcf / shares
         
         return 0
-    except Exception as e:
+    except:
         return 0
 
 def get_pe_ratio(ticker, quote, ratios_ttm, income_df):
@@ -762,13 +1047,18 @@ if 'selected_ticker' not in st.session_state:
     st.session_state.selected_ticker = "AAPL"
 
 # ============= HEADER =============
-col1, col2 = st.columns([4, 1])
+col1, col2, col3 = st.columns([4, 1, 1])
 with col1:
     st.title("💰 Finance Made Simple")
     st.caption("AI-Powered Stock Analysis for Everyone")
 with col2:
     st.markdown("### 🤖 AI-Ready")
     st.caption("FMP Premium")
+with col3:
+    # Theme toggle
+    if st.button("🌓 Toggle Theme"):
+        st.session_state.theme = 'light' if st.session_state.theme == 'dark' else 'dark'
+        st.rerun()
 
 # ============= TABS =============
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
@@ -849,10 +1139,10 @@ with tab2:
                     st.session_state.selected_ticker = selected
                     st.rerun()
 
-# ============= TAB 3: ENHANCED PORTFOLIO RISK ANALYZER =============
+# ============= TAB 3: ENHANCED PORTFOLIO RISK ANALYZER WITH ROASTS =============
 with tab3:
     st.header("📈 Portfolio Risk Analyzer")
-    st.write("Deep risk analysis with debt, liquidity, and industry comparisons")
+    st.write("Deep risk analysis with AI-powered roasts 😈")
     
     st.markdown("### 📝 Enter Your Holdings")
     num_stocks = st.number_input("How many stocks in your portfolio?", 1, 20, 3)
@@ -876,7 +1166,7 @@ with tab3:
         elif sum(p['allocation'] for p in portfolio) != 100:
             st.error(f"Allocations must sum to 100% (currently {sum(p['allocation'] for p in portfolio)}%)")
         else:
-            with st.spinner("Analyzing portfolio with industry comparisons..."):
+            with st.spinner("Analyzing portfolio... preparing roasts... 🔥"):
                 portfolio_data = []
                 total_risk_score = 0
                 all_risk_factors = []
@@ -897,12 +1187,10 @@ with tab3:
                         de_ratio = calculate_debt_to_equity(balance_df)
                         quick_ratio = calculate_quick_ratio(balance_df)
                         
-                        # Calculate risk score
                         risk_score, risk_factors = calculate_risk_score(
                             item['ticker'], quote, balance_df, cash_df, sector
                         )
                         
-                        # Weight by allocation
                         weighted_risk = risk_score * (item['allocation'] / 100)
                         total_risk_score += weighted_risk
                         
@@ -913,7 +1201,6 @@ with tab3:
                                 "factors": risk_factors
                             })
                         
-                        # Get industry benchmarks
                         industry_pe = get_industry_benchmark(sector, 'pe')
                         industry_de = get_industry_benchmark(sector, 'debt_to_equity')
                         industry_qr = get_industry_benchmark(sector, 'quick_ratio')
@@ -938,7 +1225,6 @@ with tab3:
                 if portfolio_data:
                     df = pd.DataFrame(portfolio_data)
                     
-                    # Calculate portfolio metrics
                     weighted_beta = sum(row['beta'] * row['allocation']/100 for _, row in df.iterrows())
                     avg_pe = df[df['pe'] > 0]['pe'].mean() if len(df[df['pe'] > 0]) > 0 else 0
                     avg_ps = df[df['ps'] > 0]['ps'].mean() if len(df[df['ps'] > 0]) > 0 else 0
@@ -947,6 +1233,16 @@ with tab3:
                     total_market_cap = sum(row['marketCap'] * row['allocation']/100 for _, row in df.iterrows())
                     
                     st.markdown("### 📊 Portfolio Risk Profile")
+                    
+                    # ROAST TIME! 😈
+                    roast = get_roast_comment(portfolio_data, total_risk_score)
+                    st.markdown(f"""
+                    <div class="roast-box">
+                    {roast}
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    st.divider()
                     
                     # Overall Risk Score
                     if total_risk_score > 70:
@@ -972,7 +1268,6 @@ with tab3:
                     
                     st.divider()
                     
-                    # Key Metrics
                     col1, col2, col3, col4, col5 = st.columns(5)
                     col1.metric("Portfolio Beta", f"{weighted_beta:.2f}",
                                help="<1: Less volatile | >1: More volatile vs S&P 500")
@@ -986,7 +1281,6 @@ with tab3:
                     
                     st.divider()
                     
-                    # Risk Factors Breakdown
                     if all_risk_factors:
                         st.markdown("### 🚨 Individual Stock Risk Factors")
                         for stock_risk in all_risk_factors:
@@ -1001,7 +1295,6 @@ with tab3:
                     
                     st.divider()
                     
-                    # Industry Comparison Table
                     st.markdown("### 📊 Industry Comparison")
                     
                     comparison_data = []
@@ -1022,7 +1315,6 @@ with tab3:
                     
                     st.divider()
                     
-                    # Market Crash Scenarios
                     st.markdown("### 📉 Market Crash Scenarios")
                     
                     scenarios = [
@@ -1035,9 +1327,8 @@ with tab3:
                     for scenario in scenarios:
                         expected_drop = scenario['drop'] * weighted_beta
                         
-                        # Adjust for debt levels
                         if avg_de > 2.0:
-                            expected_drop *= 1.3  # High debt amplifies losses
+                            expected_drop *= 1.3
                         elif avg_de > 1.5:
                             expected_drop *= 1.15
                         
@@ -1056,81 +1347,77 @@ with tab3:
                             st.metric("Your Expected Loss", f"{expected_drop:.1f}%")
                             
                             if avg_de > 2.0:
-                                st.warning("⚠️ High debt levels in portfolio may amplify losses during crashes")
+                                st.warning("⚠️ High debt levels may amplify losses during crashes")
                             
                             if color == "error":
-                                st.error(f"{risk_level} - Your portfolio would likely drop MORE than the market")
+                                st.error(f"{risk_level} - Portfolio would likely drop MORE than market")
                             elif color == "success":
-                                st.success(f"{risk_level} - Your portfolio would likely drop LESS than the market")
+                                st.success(f"{risk_level} - Portfolio would likely drop LESS than market")
                             else:
-                                st.info(f"{risk_level} - Your portfolio would track the market closely")
+                                st.info(f"{risk_level} - Portfolio would track market closely")
                     
                     st.divider()
                     
-                    # Diversification Analysis
                     st.markdown("### 🎯 Diversification Analysis")
                     
                     if len(portfolio_data) < 5:
-                        st.warning(f"⚠️ You have only {len(portfolio_data)} stocks. Consider adding more for better diversification!")
+                        st.warning(f"⚠️ Only {len(portfolio_data)} stocks. Add more for diversification!")
                     elif len(portfolio_data) < 10:
-                        st.info(f"✅ You have {len(portfolio_data)} stocks - decent diversification")
+                        st.info(f"✅ {len(portfolio_data)} stocks - decent diversification")
                     else:
-                        st.success(f"🎉 You have {len(portfolio_data)} stocks - well diversified!")
+                        st.success(f"🎉 {len(portfolio_data)} stocks - well diversified!")
                     
                     max_allocation = max(p['allocation'] for p in portfolio)
                     if max_allocation > 40:
-                        st.error(f"🚨 {max_allocation}% in one stock is too concentrated! Aim for <20% per stock")
+                        st.error(f"🚨 {max_allocation}% in one stock is too concentrated!")
                     elif max_allocation > 25:
                         st.warning(f"⚠️ {max_allocation}% in one stock is somewhat concentrated")
                     else:
-                        st.success(f"✅ Largest position is {max_allocation}% - good balance")
+                        st.success(f"✅ Largest position: {max_allocation}% - good balance")
                     
-                    # Sector concentration
                     sector_counts = df['sector'].value_counts()
                     if len(sector_counts) == 1:
-                        st.error(f"🚨 All stocks in one sector ({sector_counts.index[0]}) - High concentration risk!")
+                        st.error(f"🚨 All stocks in one sector - High concentration risk!")
                     elif len(sector_counts) < 3:
-                        st.warning(f"⚠️ Portfolio concentrated in {len(sector_counts)} sector(s) - Consider more diversification")
+                        st.warning(f"⚠️ Concentrated in {len(sector_counts)} sector(s)")
                     else:
-                        st.success(f"✅ Portfolio spread across {len(sector_counts)} sectors - Good diversification")
+                        st.success(f"✅ Spread across {len(sector_counts)} sectors")
                     
                     st.divider()
                     
-                    # Detailed Portfolio Breakdown
-                    st.markdown("### 📊 Detailed Portfolio Breakdown")
+                    st.markdown("### 📊 Detailed Breakdown")
                     detail_df = df[['ticker', 'name', 'allocation', 'sector', 'beta', 'pe', 'de_ratio', 'quick_ratio', 'risk_score']].copy()
                     detail_df.columns = ['Ticker', 'Company', 'Allocation %', 'Sector', 'Beta', 'P/E', 'Debt/Equity', 'Quick Ratio', 'Risk Score']
                     st.dataframe(detail_df, use_container_width=True)
                     
                     st.divider()
                     
-                    # Recommendations
                     st.markdown("### 💡 Recommendations")
                     
                     recommendations = []
                     
                     if weighted_beta > 1.3:
-                        recommendations.append("🎯 Your portfolio is HIGH BETA (volatile). Consider adding defensive stocks like utilities or consumer staples.")
+                        recommendations.append("🎯 HIGH BETA - Add defensive stocks (utilities, consumer staples)")
                     elif weighted_beta < 0.7:
-                        recommendations.append("🎯 Your portfolio is LOW BETA (stable). If you're young, you might want more growth stocks.")
+                        recommendations.append("🎯 LOW BETA - Consider growth stocks for higher returns")
                     
                     if avg_de > 2.0:
-                        recommendations.append("🚨 High average debt-to-equity ratio. Consider reducing exposure to highly leveraged companies.")
+                        recommendations.append("🚨 High debt-to-equity. Reduce leveraged companies")
                     
                     if avg_qr < 1.0:
-                        recommendations.append("⚠️ Low average quick ratio suggests liquidity concerns. Some companies may struggle to pay short-term debts.")
+                        recommendations.append("⚠️ Low liquidity. Some companies may struggle with debts")
                     
                     if total_risk_score > 60:
-                        recommendations.append("🚨 Overall risk score is HIGH. Consider rebalancing towards more stable companies.")
+                        recommendations.append("🚨 HIGH risk score. Rebalance towards stable companies")
                     
                     if len(sector_counts) < 3:
-                        recommendations.append("📊 Add more sector diversification to reduce concentration risk.")
+                        recommendations.append("📊 Add more sector diversification")
                     
                     if recommendations:
                         for rec in recommendations:
                             st.info(rec)
                     else:
-                        st.success("✅ Your portfolio looks well-balanced! No major concerns detected.")
+                        st.success("✅ Portfolio looks well-balanced!")
 
 # ============= TAB 4: INVESTMENT CHECKLIST =============
 with tab4:
@@ -1152,33 +1439,27 @@ with tab4:
             
             checks = []
             
-            # Profitability
             if not ratios.empty and 'netProfitMargin' in ratios.columns:
                 margin = ratios['netProfitMargin'].iloc[-1]
                 checks.append(("✅ Profitable (>10% margin)" if margin > 0.1 else "❌ Low profitability", margin > 0.1))
             
-            # Cash Flow
             if not cash.empty and 'freeCashFlow' in cash.columns:
                 fcf = cash['freeCashFlow'].iloc[-1]
                 checks.append(("✅ Positive free cash flow" if fcf > 0 else "❌ Negative FCF", fcf > 0))
             
-            # Valuation
             pe = get_pe_ratio(ticker_check, quote, ratios_ttm, income_df)
             if 0 < pe < 30:
                 checks.append(("✅ Reasonable P/E (<30)", True))
             elif pe > 30:
                 checks.append(("⚠️ High P/E (>30)", False))
             
-            # Size
             mcap = quote.get('marketCap', 0)
             checks.append(("✅ Large cap (>$10B)" if mcap > 10e9 else "⚠️ Small/mid cap", mcap > 10e9))
             
-            # Debt
             de_ratio = calculate_debt_to_equity(balance)
             if de_ratio > 0:
                 checks.append(("✅ Low debt (D/E < 1.0)" if de_ratio < 1.0 else "⚠️ High debt (D/E > 1.0)", de_ratio < 1.0))
             
-            # Liquidity
             qr = calculate_quick_ratio(balance)
             if qr > 0:
                 checks.append(("✅ Good liquidity (QR > 1.0)" if qr > 1.0 else "⚠️ Low liquidity (QR < 1.0)", qr > 1.0))
@@ -1221,8 +1502,7 @@ with tab5:
             with st.expander(term):
                 st.write(GLOSSARY[term])
 
-
-# ============= TAB 1: COMPANY ANALYSIS =============
+# ============= TAB 1: COMPANY ANALYSIS (WITH TREASURY RATES + FIXED NEWS) =============
 with tab1:
     search = st.text_input(
         "🔍 Search by Company Name or Ticker:",
@@ -1244,14 +1524,12 @@ with tab1:
         sector = profile.get('sector', 'N/A')
         industry = profile.get('industry', 'N/A')
         
-        # Header with earnings
         col1, col2 = st.columns([3, 1])
         with col1:
             st.subheader(f"📈 {company_name} ({ticker})")
             st.caption(f"**Sector:** {sector} | **Industry:** {industry}")
         
         with col2:
-            # Show next earnings date
             earnings = get_earnings_calendar(ticker)
             if earnings:
                 earnings_date = earnings.get('date', '')
@@ -1284,7 +1562,6 @@ with tab1:
         "📰 Latest News"
     ], horizontal=True)
     
-    # Fetch all data once
     income_df = get_income_statement(ticker, 'annual', 5)
     cash_df = get_cash_flow(ticker, 'annual', 5)
     balance_df = get_balance_sheet(ticker, 'annual', 5)
@@ -1298,37 +1575,59 @@ with tab1:
         
         st.divider()
         
+        # TREASURY RATES & BENCHMARKS
+        st.markdown("### 📊 Market Benchmarks")
+        
+        treasury_rates = get_treasury_rates()
+        sp500_ytd = get_sp500_performance()
+        
+        if treasury_rates.get('10Y', 0) > 0:
+            st.metric("🏦 10Y Treasury (Risk-Free)", f"{treasury_rates['10Y']:.2f}%")
+        
+        if sp500_ytd != 0:
+            st.metric("📈 S&P 500 YTD", f"{sp500_ytd:+.1f}%")
+        
+        # Calculate stock YTD
+        price_data_ytd = get_historical_price(ticker, 1)
+        if not price_data_ytd.empty and len(price_data_ytd) > 1:
+            current_year = datetime.now().year
+            price_data_ytd['year'] = pd.to_datetime(price_data_ytd['date']).dt.year
+            ytd_data = price_data_ytd[price_data_ytd['year'] == current_year]
+            
+            if len(ytd_data) > 1:
+                start_price = ytd_data['price'].iloc[0]
+                latest_price = ytd_data['price'].iloc[-1]
+                stock_ytd = ((latest_price - start_price) / start_price) * 100
+                st.metric(f"🎯 {ticker} YTD", f"{stock_ytd:+.1f}%")
+        
+        st.divider()
+        
         st.markdown("### 📈 Growth Metrics")
         
         if not income_df.empty:
             revenue_cagr = calculate_growth_rate(income_df, 'revenue', years)
             if revenue_cagr:
-                st.metric("Revenue CAGR", f"{revenue_cagr:+.1f}%", 
-                         help="Compound Annual Growth Rate for revenue")
+                st.metric("Revenue CAGR", f"{revenue_cagr:+.1f}%")
             
             if 'netIncome' in income_df.columns:
                 profit_cagr = calculate_growth_rate(income_df, 'netIncome', years)
                 if profit_cagr:
-                    st.metric("Profit CAGR", f"{profit_cagr:+.1f}%",
-                             help="Compound Annual Growth Rate for net income")
+                    st.metric("Profit CAGR", f"{profit_cagr:+.1f}%")
         
         if not cash_df.empty and 'freeCashFlow' in cash_df.columns:
             fcf_cagr = calculate_growth_rate(cash_df, 'freeCashFlow', years)
             if fcf_cagr:
-                st.metric("FCF CAGR", f"{fcf_cagr:+.1f}%",
-                         help="Compound Annual Growth Rate for free cash flow")
+                st.metric("FCF CAGR", f"{fcf_cagr:+.1f}%")
         
         price_data = get_historical_price(ticker, years)
         if not price_data.empty and len(price_data) > 1 and 'price' in price_data.columns:
             start_price = price_data['price'].iloc[0]
             end_price = price_data['price'].iloc[-1]
             price_growth = ((end_price - start_price) / start_price) * 100
-            st.metric(f"Stock Price Growth ({years}Y)", f"{price_growth:+.1f}%",
-                     help=f"Total return over {years} years")
+            st.metric(f"Stock Growth ({years}Y)", f"{price_growth:+.1f}%")
         
         st.divider()
         
-        # Risk indicators
         st.markdown("### ⚠️ Risk Indicators")
         
         de_ratio = calculate_debt_to_equity(balance_df)
@@ -1346,17 +1645,6 @@ with tab1:
                 st.warning(f"Quick Ratio: {qr:.2f} 🟡")
             else:
                 st.success(f"Quick Ratio: {qr:.2f} 🟢")
-        
-        st.divider()
-        st.markdown("### 📚 Quick Reference")
-        st.info("""
-        **CAGR**: Average yearly growth
-        **FCF After SBC**: #1 metric
-        **P/S Ratio**: Valuation by revenue
-        **P/E Ratio**: Price / EPS (TTM)
-        **D/E**: Debt-to-Equity ratio
-        **QR**: Quick Ratio (liquidity)
-        """)
     
     quote = get_quote(ticker)
     ratios_ttm = get_ratios_ttm(ticker)
@@ -1366,7 +1654,6 @@ with tab1:
         change_pct = quote.get('changesPercentage', 0)
         market_cap = quote.get('marketCap', 0)
         
-        # Get metrics
         pe = get_pe_ratio(ticker, quote, ratios_ttm, income_df)
         ps = get_ps_ratio(ticker, ratios_ttm)
         fcf_per_share = calculate_fcf_per_share(ticker, cash_df, quote)
@@ -1376,27 +1663,38 @@ with tab1:
         col2.metric("Market Cap", format_number(market_cap))
         
         col3.metric("P/E Ratio (TTM)", f"{pe:.2f}" if pe > 0 else "N/A",
-                   help="Price / EPS (Trailing 12 Months). Good: 15-25")
+                   help="Price / EPS (Trailing 12 Months)")
         
         col4.metric("P/S Ratio", f"{ps:.2f}" if ps > 0 else "N/A",
-                   help="Price-to-Sales ratio. Tech: 5-10 | Retail: 0.5-2")
+                   help="Price-to-Sales ratio")
         
         col5.metric("FCF Per Share", f"${fcf_per_share:.2f}" if fcf_per_share > 0 else "N/A",
-                   help="Free Cash Flow divided by shares outstanding")
+                   help="Free Cash Flow / shares")
         
-        price_target = get_price_target(ticker)
-        if price_target:
-            avg_target = price_target.get('targetConsensus', 0)
-            if avg_target > 0:
-                upside = ((avg_target - price) / price) * 100
-                st.metric("Analyst Target", f"${avg_target:.2f}", f"{upside:+.1f}% upside",
-                         help="Average Wall Street 12-month price target")
+        # PRICE TARGET SUMMARY (BETTER ENDPOINT)
+        price_target_summary = get_price_target_summary(ticker)
+        if price_target_summary:
+            target_high = price_target_summary.get('targetHigh', 0)
+            target_low = price_target_summary.get('targetLow', 0)
+            target_avg = price_target_summary.get('targetMean', 0) or price_target_summary.get('targetMedian', 0)
+            num_analysts = price_target_summary.get('numberOfAnalysts', 0)
+            
+            if target_avg and target_avg > 0:
+                upside = ((target_avg - price) / price) * 100
+                
+                col1, col2, col3 = st.columns(3)
+                col1.metric("Avg Target", f"${target_avg:.2f}", f"{upside:+.1f}% upside")
+                if target_high > 0:
+                    col2.metric("High Target", f"${target_high:.2f}")
+                if target_low > 0:
+                    col3.metric("Low Target", f"${target_low:.2f}")
+                
+                if num_analysts > 0:
+                    st.caption(f"Based on {num_analysts} analysts")
         
         st.divider()
     
     if view == "📊 Key Metrics":
-        
-        # Reload data with correct period
         income_df = get_income_statement(ticker, period, years*4 if period == 'quarter' else years)
         cash_df = get_cash_flow(ticker, period, years*4 if period == 'quarter' else years)
         balance_df = get_balance_sheet(ticker, period, years*4 if period == 'quarter' else years)
@@ -1404,7 +1702,6 @@ with tab1:
         st.markdown(f"### 📈 {company_name} - Stock Price ({years} Years)")
         price_data = get_historical_price(ticker, years)
         if not price_data.empty and 'price' in price_data.columns:
-            
             fig = px.area(price_data, x='date', y='price', 
                          title=f'{company_name} Stock Price')
             fig.update_layout(
@@ -1426,7 +1723,6 @@ with tab1:
         
         st.divider()
         
-        # ========== CASH FLOW WITH DROPDOWN ==========
         st.markdown(f"### 💵 {company_name} - Cash Flow Statement")
         show_why_it_matters('fcfAfterSBC')
         
@@ -1437,7 +1733,7 @@ with tab1:
             available_metrics = get_available_metrics(cash_df)
             
             if available_metrics:
-                st.markdown("**📊 Select up to 3 metrics to display:**")
+                st.markdown("**📊 Select up to 3 metrics:**")
                 col1, col2, col3 = st.columns(3)
                 
                 with col1:
@@ -1508,7 +1804,6 @@ with tab1:
         
         st.divider()
         
-        # ========== INCOME STATEMENT WITH DROPDOWN ==========
         st.markdown(f"### 💰 {company_name} - Income Statement")
         show_why_it_matters('revenue')
         
@@ -1516,7 +1811,7 @@ with tab1:
             available_metrics = get_available_metrics(income_df)
             
             if available_metrics:
-                st.markdown("**📊 Select up to 3 metrics to display:**")
+                st.markdown("**📊 Select up to 3 metrics:**")
                 col1, col2, col3 = st.columns(3)
                 
                 with col1:
@@ -1584,18 +1879,17 @@ with tab1:
                 for i, (metric, name) in enumerate(zip(metrics_to_plot, metric_names)):
                     cols[i].metric(f"Latest {name}", format_number(income_df[metric].iloc[-1]))
         else:
-            st.warning("⚠️ Income statement data not available")
+            st.warning("⚠️ Income statement not available")
         
         st.divider()
         
-        # ========== BALANCE SHEET WITH DROPDOWN ==========
         st.markdown(f"### 🏦 {company_name} - Balance Sheet")
         
         if not balance_df.empty:
             available_metrics = get_available_metrics(balance_df)
             
             if available_metrics:
-                st.markdown("**📊 Select up to 3 metrics to display:**")
+                st.markdown("**📊 Select up to 3 metrics:**")
                 col1, col2, col3 = st.columns(3)
                 
                 with col1:
@@ -1662,11 +1956,11 @@ with tab1:
                 for i, (metric, name) in enumerate(zip(metrics_to_plot, metric_names)):
                     cols[i].metric(f"Latest {name}", format_number(balance_df[metric].iloc[-1]))
         else:
-            st.warning("⚠️ Balance sheet data not available")
+            st.warning("⚠️ Balance sheet not available")
     
     elif view == "🔀 Compare 2 Stocks":
         st.markdown("## 🔀 Compare 2 Stocks")
-        st.info("💡 Compare P/E (TTM), P/S, and FCF per Share")
+        st.info("💡 Compare P/E, P/S, FCF/Share, Debt, Liquidity")
         
         col1, col2 = st.columns(2)
         
@@ -1705,7 +1999,7 @@ with tab1:
                 qr2 = calculate_quick_ratio(balance2)
                 
                 comparison_data = {
-                    "Metric": ["Price", "Market Cap", "P/E Ratio (TTM)", "P/S Ratio", "FCF Per Share", "Debt/Equity", "Quick Ratio", "Change (Today)"],
+                    "Metric": ["Price", "Market Cap", "P/E (TTM)", "P/S", "FCF/Share", "Debt/Equity", "Quick Ratio", "Change (Today)"],
                     stock1: [
                         f"${quote1.get('price', 0):.2f}",
                         format_number(quote1.get('marketCap', 0)),
@@ -1730,7 +2024,7 @@ with tab1:
                 
                 st.dataframe(pd.DataFrame(comparison_data), use_container_width=True, hide_index=True)
             else:
-                st.warning("Could not fetch data for one or both stocks")
+                st.warning("Could not fetch data")
     
     elif view == "📈 Financial Ratios":
         st.markdown("## 📊 Financial Ratios")
@@ -1760,7 +2054,7 @@ with tab1:
     
     elif view == "💰 Valuation (DCF)":
         st.markdown("## 💰 DCF Valuation")
-        st.info("Simplified DCF model - adjust assumptions below")
+        st.info("Simplified DCF model")
         
         col1, col2 = st.columns(2)
         with col1:
@@ -1817,14 +2111,16 @@ with tab1:
     elif view == "📰 Latest News":
         st.markdown(f"## 📰 Latest News for {company_name}")
         
-        news = get_latest_news(ticker, 15)
+        with st.spinner("Loading news..."):
+            news = get_stock_specific_news(ticker, 12)
+        
         if news:
-            for i, article in enumerate(news[:15]):
+            for article in news:
                 title = article.get('title', 'No title')
                 published_date = article.get('publishedDate', 'Unknown')
                 text = article.get('text', '')
                 url = article.get('url', '')
-                site = article.get('site', 'Unknown source')
+                site = article.get('site', 'Unknown')
                 
                 with st.expander(f"📰 {title}"):
                     col1, col2 = st.columns([3, 1])
@@ -1834,14 +2130,14 @@ with tab1:
                         st.caption(f"**Published:** {published_date[:10]}")
                     
                     if text:
-                        st.write(text[:400] + "..." if len(text) > 400 else text)
+                        st.write(text[:350] + "..." if len(text) > 350 else text)
                     
                     if url:
                         st.markdown(f"[Read full article →]({url})")
         else:
-            st.info("No recent news available for this ticker")
-            st.caption("Tip: News may not be available for all stocks. Try a major stock like AAPL, TSLA, or MSFT")
+            st.info("No recent news for this ticker")
+            st.caption("News available for major stocks like AAPL, TSLA, MSFT")
 
 st.divider()
 st.caption("💡 Finance Made Simple | FMP Premium | Real-time data")
-st.caption("⚠️ Educational purposes only. Not financial advice. Do your own research.")
+st.caption("⚠️ Educational purposes only. Not financial advice.")
