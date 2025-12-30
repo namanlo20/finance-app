@@ -555,6 +555,21 @@ INDUSTRY_BENCHMARKS = {
     "Basic Materials": {"pe": 15, "ps": 1.5, "debt_to_equity": 1.0, "quick_ratio": 1.2}
 }
 
+
+
+# ============= S&P 500 AVERAGE BENCHMARKS =============
+SP500_BENCHMARKS = {
+    'grossProfitMargin': 0.42,  # 42% average for S&P 500
+    'operatingProfitMargin': 0.15,  # 15% average
+    'netProfitMargin': 0.11,  # 11% average
+    'returnOnEquity': 0.18,  # 18% average ROE
+    'returnOnAssets': 0.07,  # 7% average ROA
+    'returnOnCapitalEmployed': 0.12,  # 12% average ROCE
+    'currentRatio': 1.5,  # 1.5x average
+    'quickRatio': 1.0,  # 1.0x average
+    'debtToEquity': 1.0  # 1.0x average D/E
+}
+
 # Meme stocks list
 MEME_STOCKS = ["AMC", "GME", "BBBY", "WISH", "CLOV", "BB", "NOK", "SNDL", "NAKD", "WKHS"]
 
@@ -673,8 +688,8 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
     
     return fig, growth_rates
 
-def create_ratio_trend_chart(df, metric_name, metric_column, title):
-    """Create line chart for financial ratio trends"""
+def create_ratio_trend_chart(df, metric_name, metric_column, title, sector=None):
+    """Create line chart for financial ratio trends with S&P 500 and industry benchmarks"""
     if df.empty or metric_column not in df.columns:
         return None
     
@@ -684,10 +699,14 @@ def create_ratio_trend_chart(df, metric_name, metric_column, title):
     if 'margin' in metric_column.lower() or 'return' in metric_column.lower():
         values = values * 100
         y_suffix = '%'
+        multiplier = 100
     else:
         y_suffix = ''
+        multiplier = 1
     
     fig = go.Figure()
+    
+    # Add company line
     fig.add_trace(go.Scatter(
         x=df_reversed['date'],
         y=values,
@@ -699,6 +718,48 @@ def create_ratio_trend_chart(df, metric_name, metric_column, title):
         fillcolor='rgba(0, 217, 255, 0.2)'
     ))
     
+    # Add S&P 500 benchmark line
+    if metric_column in SP500_BENCHMARKS:
+        sp500_value = SP500_BENCHMARKS[metric_column] * multiplier
+        fig.add_trace(go.Scatter(
+            x=df_reversed['date'],
+            y=[sp500_value] * len(df_reversed),
+            mode='lines',
+            name='S&P 500 Avg',
+            line=dict(color='#FFD700', width=2, dash='dash'),
+            hovertemplate=f'S&P 500: {sp500_value:.1f}{y_suffix}<extra></extra>'
+        ))
+    
+    # Add industry benchmark line if sector provided
+    if sector and sector in INDUSTRY_BENCHMARKS:
+        industry_data = INDUSTRY_BENCHMARKS[sector]
+        
+        # Map metric columns to industry benchmark keys
+        metric_map = {
+            'grossProfitMargin': None,  # Not in industry benchmarks
+            'operatingProfitMargin': None,
+            'netProfitMargin': None,
+            'returnOnEquity': None,
+            'returnOnAssets': None,
+            'returnOnCapitalEmployed': None,
+            'currentRatio': 'quick_ratio',  # Approximate
+            'quickRatio': 'quick_ratio',
+            'debtToEquity': 'debt_to_equity'
+        }
+        
+        if metric_column in metric_map and metric_map[metric_column] and metric_map[metric_column] in industry_data:
+            industry_value = industry_data[metric_map[metric_column]] * multiplier if multiplier == 100 else industry_data[metric_map[metric_column]]
+            
+            fig.add_trace(go.Scatter(
+                x=df_reversed['date'],
+                y=[industry_value] * len(df_reversed),
+                mode='lines',
+                name=f'{sector} Avg',
+                line=dict(color='#9D4EDD', width=2, dash='dot'),
+                hovertemplate=f'{sector}: {industry_value:.1f}{y_suffix}<extra></extra>'
+            ))
+    
+    # Add growth annotation
     if len(values) >= 2 and values[0] != 0:
         growth = ((values[-1] - values[0]) / abs(values[0])) * 100
         fig.add_annotation(
@@ -716,10 +777,64 @@ def create_ratio_trend_chart(df, metric_name, metric_column, title):
         xaxis_title='Period',
         yaxis_title=f'{metric_name} ({y_suffix})' if y_suffix else metric_name,
         height=400,
-        hovermode='x unified'
+        hovermode='x unified',
+        showlegend=True,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
     
     return fig
+
+
+
+# ============= MY FAVORITE METRICS & WHY =============
+MY_TOP_5_METRICS = {
+    'fcfAfterSBC': {
+        'name': 'FCF After Stock Compensation',
+        'why': "This is THE most important metric for me. It shows the true cash a company generates after accounting for stock-based compensation, which dilutes existing shareholders. Many companies hide dilution, but this reveals the real cash impact.",
+        'rank': 1
+    },
+    'operatingIncome': {
+        'name': 'Operating Income Growth',
+        'why': "Shows if the core business is actually improving. Revenue can grow while operations lose money, but rising operating income means the business model works and is getting more efficient.",
+        'rank': 2
+    },
+    'freeCashFlow': {
+        'name': 'Free Cash Flow Growth',
+        'why': "Cash is king. A company can manipulate earnings, but cash flow doesn't lie. Growing FCF means the company can fund growth, pay dividends, or buy back stock without taking on debt.",
+        'rank': 3
+    },
+    'revenue': {
+        'name': 'Revenue Growth',
+        'why': "The top line tells you if the company is winning in its market. Consistent revenue growth means customers want the product and the company is taking market share.",
+        'rank': 4
+    },
+    'quickRatio': {
+        'name': 'Quick Ratio Growth',
+        'why': "This tells me if the company can handle a crisis. A rising quick ratio means growing liquidity - they can pay bills even if revenue drops suddenly. It's the ultimate safety metric.",
+        'rank': 5
+    }
+}
+
+def show_why_these_metrics(metric_type="financial_statements"):
+    """Display why I focus on these specific metrics"""
+    if metric_type == "financial_statements":
+        st.sidebar.markdown("### 💡 Why These Metrics?")
+        st.sidebar.info("""
+**I focus on cash flow metrics because:**
+- Cash can't be manipulated like earnings
+- FCF after SBC shows TRUE shareholder value
+- Operating income reveals business quality
+- Revenue growth shows market demand
+- Quick ratio = safety cushion
+
+These tell the real story!
+        """)
+        
+        with st.sidebar.expander("🏆 My Top 5 Favorites"):
+            for key, info in sorted(MY_TOP_5_METRICS.items(), key=lambda x: x[1]['rank']):
+                st.markdown(f"**#{info['rank']}: {info['name']}**")
+                st.caption(info['why'])
+                st.markdown("---")
 
 def get_available_metrics(df, exclude_cols=['date', 'symbol', 'reportedCurrency', 'cik', 'fillingDate', 'acceptedDate', 'calendarYear', 'period', 'link', 'finalLink']):
     """Get all numeric columns from dataframe for dropdown"""
@@ -2132,6 +2247,7 @@ with tab1:
         
         st.markdown(f"### 💵 {company_name} - Cash Flow Statement")
         show_why_it_matters('fcfAfterSBC')
+        show_why_these_metrics("financial_statements")
         
         if not cash_df.empty:
             if 'stockBasedCompensation' in cash_df.columns and 'freeCashFlow' in cash_df.columns:
@@ -2663,6 +2779,9 @@ with tab1:
     elif view == "📈 Financial Ratios":
         st.markdown("## 📊 Financial Ratios Over Time")
         
+        st.info("💡 **Why I track these ratios:** They reveal profitability (margins), efficiency (ROE/ROA/ROCE), and safety (liquidity/leverage). Together they show if a company makes money efficiently and can survive tough times.")
+        
+        
         col1, col2 = st.columns(2)
         with col1:
             ratio_period = st.radio("Period", ["Annual", "Quarterly"], key="ratio_period_sel")
@@ -2711,7 +2830,7 @@ with tab1:
                                                  ('Net Profit Margin', 'netProfitMargin')]:
                     if metric_col in ratios_df_new.columns:
                         fig = create_ratio_trend_chart(ratios_df_new, metric_name, metric_col, 
-                                                       f"{company_name} - {metric_name}")
+                                                       f"{company_name} - {metric_name}", sector)
                         if fig:
                             st.plotly_chart(fig, use_container_width=True)
                             explanation = get_metric_explanation(metric_col)
@@ -2733,7 +2852,7 @@ with tab1:
                                                  ('Return on Capital Employed', 'returnOnCapitalEmployed')]:
                     if metric_col in ratios_df_new.columns:
                         fig = create_ratio_trend_chart(ratios_df_new, metric_name, metric_col,
-                                                       f"{company_name} - {metric_name}")
+                                                       f"{company_name} - {metric_name}", sector)
                         if fig:
                             st.plotly_chart(fig, use_container_width=True)
                             explanation = get_metric_explanation(metric_col)
@@ -2755,7 +2874,7 @@ with tab1:
                                                  ('Debt to Equity', 'debtToEquity')]:
                     if metric_col in ratios_df_new.columns:
                         fig = create_ratio_trend_chart(ratios_df_new, metric_name, metric_col,
-                                                       f"{company_name} - {metric_name}")
+                                                       f"{company_name} - {metric_name}", sector)
                         if fig:
                             st.plotly_chart(fig, use_container_width=True)
                             explanation = get_metric_explanation(metric_col)
@@ -2768,7 +2887,7 @@ with tab1:
             else:
                 st.warning("Ratio data not available for the selected period")
         except Exception as e:
-            st.warning(f"Could not fetch ratio data from API. Calculating from financial statements...")
+            # Fallback to manual calculation (silent)
             
             # Fallback: Calculate ratios manually from financial statements
             try:
@@ -2824,7 +2943,7 @@ with tab1:
                     ratios_df_new = pd.DataFrame(calculated_ratios)
                     
                     if not ratios_df_new.empty:
-                        st.success("✅ Calculated ratios from financial statements!")
+                        # Successfully calculated ratios
                         
                         # Show current ratios
                         st.markdown("### 📊 Current Ratios")
@@ -2911,6 +3030,7 @@ with tab1:
     
     elif view == "💰 Valuation (DCF)":
         st.markdown("## 💰 DCF Valuation")
+        st.caption("⚠️ Educational model only. Not a valuation recommendation.")
         st.info("Simplified DCF model - adjust assumptions")
         
         col1, col2 = st.columns(2)
@@ -2998,4 +3118,413 @@ with tab1:
 # ============= FOOTER =============
 st.divider()
 st.caption("💡 Finance Made Simple | FMP Premium | Real-time data")
+
+# ============= TAB 6: RISK ANALYSIS QUIZ =============
+with tab6:
+    st.header("🎯 Investment Risk Analysis Quiz")
+    st.markdown("**Discover your investor profile and get personalized stock suggestions!**")
+    
+    st.info("💡 Answer these questions to understand your risk tolerance and investment style. You'll get 1-2 FREE stock recommendations based on your profile!")
+    
+    # Initialize session state for quiz
+    if 'quiz_submitted' not in st.session_state:
+        st.session_state.quiz_submitted = False
+    
+    with st.form("risk_quiz_form"):
+        st.markdown("### 📊 Your Investment Profile")
+        
+        # Question 1: Investment Goal
+        q1 = st.radio(
+            "1. What's your primary investment goal?",
+            ["Preserve capital (safety first)", 
+             "Generate steady income (dividends/interest)",
+             "Balanced growth and income",
+             "Aggressive growth (maximize returns)",
+             "Speculative gains (high risk, high reward)"]
+        )
+        
+        # Question 2: Time Horizon
+        q2 = st.radio(
+            "2. How long do you plan to hold investments?",
+            ["Less than 1 year",
+             "1-3 years",
+             "3-5 years", 
+             "5-10 years",
+             "10+ years (long-term)"]
+        )
+        
+        # Question 3: Market Drop Reaction
+        q3 = st.radio(
+            "3. If your portfolio dropped 20% in a month, you would:",
+            ["Sell everything immediately (too stressful)",
+             "Sell some to reduce risk",
+             "Hold and wait for recovery",
+             "Buy more (it's on sale!)",
+             "Go all-in with more money"]
+        )
+        
+        # Question 4: Risk Comfort
+        q4 = st.radio(
+            "4. Maximum portfolio loss you can tolerate in a year:",
+            ["0-5% (very low risk)",
+             "5-10% (low risk)",
+             "10-20% (moderate risk)",
+             "20-30% (high risk)",
+             "30%+ (very high risk)"]
+        )
+        
+        # Question 5: Investment Knowledge
+        q5 = st.radio(
+            "5. Your investment knowledge level:",
+            ["Beginner (just starting)",
+             "Basic (understand stocks/bonds)",
+             "Intermediate (can read financial statements)",
+             "Advanced (active trader)",
+             "Expert (professional level)"]
+        )
+        
+        # Question 6: Income Stability
+        q6 = st.radio(
+            "6. Your income situation:",
+            ["Unstable or uncertain",
+             "Stable but limited",
+             "Stable with some savings",
+             "Very stable with good savings",
+             "Multiple income streams + significant savings"]
+        )
+        
+        submitted = st.form_submit_button("🎯 Get My Results & Stock Picks!", use_container_width=True)
+        
+        if submitted:
+            st.session_state.quiz_submitted = True
+            
+            # Calculate risk score
+            scores = {
+                q1: [0, 1, 2, 3, 4],
+                q2: [0, 1, 2, 3, 4],
+                q3: [0, 1, 2, 3, 4],
+                q4: [0, 1, 2, 3, 4],
+                q5: [0, 1, 2, 3, 4],
+                q6: [0, 1, 2, 3, 4]
+            }
+            
+            risk_score = sum([scores[q][i] for q, options in [(q1, q1), (q2, q2), (q3, q3), (q4, q4), (q5, q5), (q6, q6)] 
+                            for i, opt in enumerate([
+                                ["Preserve capital (safety first)", "Generate steady income (dividends/interest)", "Balanced growth and income", "Aggressive growth (maximize returns)", "Speculative gains (high risk, high reward)"],
+                                ["Less than 1 year", "1-3 years", "3-5 years", "5-10 years", "10+ years (long-term)"],
+                                ["Sell everything immediately (too stressful)", "Sell some to reduce risk", "Hold and wait for recovery", "Buy more (it's on sale!)", "Go all-in with more money"],
+                                ["0-5% (very low risk)", "5-10% (low risk)", "10-20% (moderate risk)", "20-30% (high risk)", "30%+ (very high risk)"],
+                                ["Beginner (just starting)", "Basic (understand stocks/bonds)", "Intermediate (can read financial statements)", "Advanced (active trader)", "Expert (professional level)"],
+                                ["Unstable or uncertain", "Stable but limited", "Stable with some savings", "Very stable with good savings", "Multiple income streams + significant savings"]
+                            ]) if options[i] == q])
+    
+    if st.session_state.quiz_submitted:
+        st.divider()
+        st.markdown("## 🎯 Your Results")
+        st.caption("⚠️ Educational purposes only. Not personalized financial advice.")
+        
+        # Determine risk profile
+        if risk_score <= 6:
+            profile = "Conservative"
+            color = "🟢"
+            description = "You prefer safety and stability. Focus on dividend stocks, bonds, and blue-chip companies."
+            stocks = [
+                ("JNJ", "Johnson & Johnson", "Healthcare giant with 60+ years of dividend growth"),
+                ("PG", "Procter & Gamble", "Consumer staples, recession-resistant")
+            ]
+        elif risk_score <= 12:
+            profile = "Moderate"
+            color = "🟡"
+            description = "You want balanced growth with manageable risk. Mix of stable companies and growth stocks."
+            stocks = [
+                ("MSFT", "Microsoft", "Tech leader with strong fundamentals and growing dividends"),
+                ("V", "Visa", "Payment processor with consistent growth")
+            ]
+        elif risk_score <= 18:
+            profile = "Growth-Oriented"
+            color = "🟠"
+            description = "You're comfortable with volatility for higher returns. Focus on growth stocks and emerging sectors."
+            stocks = [
+                ("NVDA", "NVIDIA", "AI and chip leader with explosive growth potential"),
+                ("GOOGL", "Alphabet", "Dominant in search, cloud, and AI")
+            ]
+        else:
+            profile = "Aggressive"
+            color = "🔴"
+            description = "You're seeking maximum returns and can handle high volatility. High-growth and speculative plays."
+            stocks = [
+                ("TSLA", "Tesla", "EV leader with high growth but volatile"),
+                ("COIN", "Coinbase", "Crypto exposure with high risk/reward")
+            ]
+        
+        # Display profile
+        col1, col2 = st.columns([1, 2])
+        with col1:
+            st.metric("Your Risk Profile", f"{color} {profile}", f"Score: {risk_score}/24")
+        with col2:
+            st.info(description)
+        
+        st.divider()
+        st.markdown("### 🎁 Your FREE Stock Recommendations")
+        st.warning("⚠️ These are educational examples based on your risk profile, NOT personalized investment recommendations. Always do your own research and consult a financial advisor.")
+        
+        for ticker, name, reason in stocks:
+            with st.expander(f"✨ {ticker} - {name}", expanded=True):
+                st.markdown(f"**Why this fits your profile:**  \n{reason}")
+                
+                # Quick stats
+                try:
+                    quote = get_quote(ticker)
+                    if quote:
+                        price = quote.get('price', 0)
+                        change_pct = quote.get('changesPercentage', 0)
+                        
+                        col1, col2, col3 = st.columns(3)
+                        col1.metric("Price", f"${price:.2f}")
+                        col2.metric("Change", f"{change_pct:+.2f}%")
+                        
+                        # Get PE ratio
+                        income_df = get_income_statement(ticker, 'annual', 1)
+                        if not income_df.empty and 'eps' in income_df.columns:
+                            eps = income_df['eps'].iloc[-1]
+                            if eps > 0:
+                                pe = price / eps
+                                col3.metric("P/E Ratio", f"{pe:.1f}")
+                        
+                        st.markdown(f"[📊 View Full Analysis](/?ticker={ticker})")
+                except:
+                    st.markdown(f"[📊 Analyze {ticker}](/?ticker={ticker})")
+        
+        st.divider()
+        st.markdown("### 🔒 Want More?")
+        st.warning("""
+**Upgrade to Premium for:**
+- 10+ personalized stock picks for your profile
+- AI-powered portfolio optimization
+- Real-time risk monitoring
+- Sector-specific recommendations
+- Rebalancing alerts
+        """)
+        
+        if st.button("🚀 Upgrade to Premium", use_container_width=True):
+            st.balloons()
+            st.success("Premium features coming soon! 🎉")
+
 st.caption("⚠️ Educational purposes only. Not financial advice.")
+
+
+# ============= TAB 7: PAPER PORTFOLIO TRACKER =============
+with tab7:
+    st.header("💼 Paper Portfolio Tracker")
+    st.markdown("**Practice trading with fake money! Track your performance without any risk.**")
+    st.caption("⚠️ Simulated trading for educational purposes only. Does not reflect real trading costs, slippage, or market conditions.")
+    
+    # Initialize session state for portfolio
+    if 'portfolio' not in st.session_state:
+        st.session_state.portfolio = []
+    if 'cash' not in st.session_state:
+        st.session_state.cash = 100000.0  # Start with $100k
+    if 'transactions' not in st.session_state:
+        st.session_state.transactions = []
+    
+    # Sidebar for adding positions
+    with st.sidebar:
+        st.markdown("### 📊 Portfolio Summary")
+        
+        # Calculate total value
+        total_value = st.session_state.cash
+        total_gain_loss = 0
+        
+        for position in st.session_state.portfolio:
+            quote = get_quote(position['ticker'])
+            if quote:
+                current_price = quote.get('price', 0)
+                position_value = position['shares'] * current_price
+                total_value += position_value
+                
+                cost_basis = position['shares'] * position['avg_price']
+                total_gain_loss += (position_value - cost_basis)
+        
+        st.metric("Portfolio Value", f"${total_value:,.2f}")
+        st.metric("Cash Available", f"${st.session_state.cash:,.2f}")
+        st.metric("Total Gain/Loss", f"${total_gain_loss:,.2f}", 
+                 f"{(total_gain_loss / 100000 * 100):+.2f}%")
+        
+        st.divider()
+        st.markdown("### 🆕 Add Position")
+    
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        # Main portfolio view
+        if not st.session_state.portfolio:
+            st.info("👋 Your portfolio is empty! Use the sidebar to add your first position.")
+        else:
+            st.markdown("### 📈 Your Positions")
+            
+            for i, position in enumerate(st.session_state.portfolio):
+                ticker = position['ticker']
+                shares = position['shares']
+                avg_price = position['avg_price']
+                
+                # Get current price
+                quote = get_quote(ticker)
+                if quote:
+                    current_price = quote.get('price', 0)
+                    change_pct = quote.get('changesPercentage', 0)
+                    
+                    current_value = shares * current_price
+                    cost_basis = shares * avg_price
+                    gain_loss = current_value - cost_basis
+                    gain_loss_pct = (gain_loss / cost_basis * 100) if cost_basis > 0 else 0
+                    
+                    with st.expander(f"**{ticker}** - {shares} shares", expanded=True):
+                        col_a, col_b, col_c, col_d = st.columns(4)
+                        
+                        col_a.metric("Current Price", f"${current_price:.2f}", f"{change_pct:+.2f}%")
+                        col_b.metric("Avg Cost", f"${avg_price:.2f}")
+                        col_c.metric("Value", f"${current_value:,.2f}")
+                        col_d.metric("Gain/Loss", f"${gain_loss:,.2f}", f"{gain_loss_pct:+.2f}%")
+                        
+                        col_x, col_y = st.columns(2)
+                        
+                        with col_x:
+                            if st.button(f"📊 Analyze {ticker}", key=f"analyze_{ticker}_{i}"):
+                                st.session_state.selected_ticker = ticker
+                                st.rerun()
+                        
+                        with col_y:
+                            if st.button(f"💰 Sell All", key=f"sell_{ticker}_{i}", type="secondary"):
+                                # Sell position
+                                sale_value = shares * current_price
+                                st.session_state.cash += sale_value
+                                
+                                # Add transaction
+                                st.session_state.transactions.append({
+                                    'date': datetime.now().strftime('%Y-%m-%d %H:%M'),
+                                    'type': 'SELL',
+                                    'ticker': ticker,
+                                    'shares': shares,
+                                    'price': current_price,
+                                    'total': sale_value,
+                                    'gain_loss': gain_loss
+                                })
+                                
+                                # Remove position
+                                st.session_state.portfolio.pop(i)
+                                st.success(f"✅ Sold {shares} shares of {ticker} for ${sale_value:,.2f}")
+                                st.rerun()
+    
+    with col2:
+        st.markdown("### 🛒 Buy Stock")
+        
+        buy_ticker = st.text_input("Ticker Symbol", placeholder="AAPL", key="buy_ticker_input").upper()
+        
+        if buy_ticker:
+            quote = get_quote(buy_ticker)
+            if quote:
+                current_price = quote.get('price', 0)
+                st.metric("Current Price", f"${current_price:.2f}")
+                
+                buy_shares = st.number_input("Shares to Buy", min_value=1, value=10, step=1)
+                total_cost = buy_shares * current_price
+                
+                st.info(f"**Total Cost:** ${total_cost:,.2f}")
+                
+                if total_cost > st.session_state.cash:
+                    st.error(f"❌ Insufficient funds! You need ${total_cost - st.session_state.cash:,.2f} more.")
+                else:
+                    if st.button("✅ Buy", use_container_width=True, type="primary"):
+                        # Check if we already own this stock
+                        existing = None
+                        for pos in st.session_state.portfolio:
+                            if pos['ticker'] == buy_ticker:
+                                existing = pos
+                                break
+                        
+                        if existing:
+                            # Update existing position (average down/up)
+                            total_shares = existing['shares'] + buy_shares
+                            total_cost_all = (existing['shares'] * existing['avg_price']) + total_cost
+                            new_avg = total_cost_all / total_shares
+                            
+                            existing['shares'] = total_shares
+                            existing['avg_price'] = new_avg
+                        else:
+                            # Add new position
+                            st.session_state.portfolio.append({
+                                'ticker': buy_ticker,
+                                'shares': buy_shares,
+                                'avg_price': current_price
+                            })
+                        
+                        # Deduct cash
+                        st.session_state.cash -= total_cost
+                        
+                        # Add transaction
+                        st.session_state.transactions.append({
+                            'date': datetime.now().strftime('%Y-%m-%d %H:%M'),
+                            'type': 'BUY',
+                            'ticker': buy_ticker,
+                            'shares': buy_shares,
+                            'price': current_price,
+                            'total': total_cost
+                        })
+                        
+                        st.success(f"✅ Bought {buy_shares} shares of {buy_ticker}!")
+                        st.rerun()
+            else:
+                st.error("❌ Invalid ticker symbol")
+    
+    # Transaction history
+    if st.session_state.transactions:
+        st.divider()
+        st.markdown("### 📜 Transaction History")
+        
+        with st.expander("View All Transactions", expanded=False):
+            for i, txn in enumerate(reversed(st.session_state.transactions[-20:])):  # Last 20
+                type_emoji = "🟢" if txn['type'] == 'BUY' else "🔴"
+                gain_loss_text = f" | Gain/Loss: ${txn['gain_loss']:,.2f}" if 'gain_loss' in txn else ""
+                
+                st.markdown(f"{type_emoji} **{txn['type']}** {txn['shares']} {txn['ticker']} @ ${txn['price']:.2f} = ${txn['total']:,.2f}{gain_loss_text}")
+                st.caption(f"{txn['date']}")
+                if i < len(st.session_state.transactions) - 1:
+                    st.markdown("---")
+    
+    # Performance chart
+    st.divider()
+    st.markdown("### 📊 Performance Tracking")
+    st.info("💡 **Coming Soon:** Interactive performance charts showing your portfolio value over time!")
+    
+    # Reset portfolio option
+    if st.button("🔄 Reset Portfolio (Start Over)", type="secondary"):
+        st.session_state.portfolio = []
+        st.session_state.cash = 100000.0
+        st.session_state.transactions = []
+        st.success("✅ Portfolio reset! You have $100,000 to start fresh.")
+        st.rerun()
+
+
+# ============= FOOTER DISCLAIMER =============
+st.divider()
+st.markdown("---")
+st.caption("""
+**Disclaimer:** Finance Made Simple | FMP Premium | Real-time data  
+
+⚠️ **IMPORTANT LEGAL DISCLAIMER:**  
+This application and all content provided herein are for **educational and informational purposes ONLY**. Nothing on this platform constitutes financial advice, investment advice, trading advice, legal advice, tax advice, or any other sort of advice. You should not treat any of the app's content as a recommendation to buy, sell, or hold any security or investment.
+
+**No Warranty:** The information is provided "as-is" without warranty of any kind. We do not guarantee the accuracy, completeness, or timeliness of any information presented.
+
+**Investment Risks:** All investments involve risk, including the potential loss of principal. Past performance does not guarantee future results. Securities trading and investing involve substantial risk of loss.
+
+**Not Professional Advice:** We are not registered financial advisors, brokers, or investment professionals. Always consult with qualified financial, legal, and tax professionals before making any investment decisions.
+
+**Data Sources:** Data is sourced from Financial Modeling Prep API. We are not responsible for data accuracy or API availability.
+
+**Paper Portfolio:** The paper portfolio feature is for educational simulation only. Results do not represent actual trading and do not reflect real market conditions, fees, or slippage.
+
+**Your Responsibility:** You are solely responsible for your own investment decisions and their outcomes. By using this app, you acknowledge and accept these terms.
+
+© 2024 Finance Made Simple. All rights reserved.
+""")
