@@ -1545,12 +1545,14 @@ with col3:
         st.rerun()
 
 # ============= TABS =============
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "📊 Company Analysis",
     "🎯 Sector Explorer",
     "📈 Portfolio Risk Analyzer",
     "✅ Investment Checklist",
-    "📚 Finance 101"
+    "📚 Finance 101",
+    "🎯 Risk Quiz",
+    "💼 Paper Portfolio"
 ])
 
 # ============= TAB 2: SECTOR EXPLORER (WITH TOOLTIPS) =============
@@ -2211,6 +2213,107 @@ with tab1:
                     st.caption(f"Based on {num_analysts} analysts")
         
         st.divider()
+
+        
+        # Investment Calculator Widget
+        st.divider()
+        st.markdown("### 💰 Investment Calculator")
+        
+        col_calc1, col_calc2 = st.columns(2)
+        
+        with col_calc1:
+            investment_amount = st.number_input("Initial Investment ($)", min_value=1, value=100, step=50)
+        
+        with col_calc2:
+            biweekly_amount = st.number_input("Bi-Weekly Investment ($)", min_value=0, value=100, step=25)
+        
+        # Get historical price data for the stock
+        price_data_calc = get_historical_price(ticker, years)
+        
+        if not price_data_calc.empty and len(price_data_calc) > 1 and 'price' in price_data_calc.columns:
+            start_price = price_data_calc['price'].iloc[0]
+            end_price = price_data_calc['price'].iloc[-1]
+            
+            if start_price > 0:
+                # Calculate lump sum return
+                shares_bought = investment_amount / start_price
+                current_value_lump = shares_bought * end_price
+                lump_return_pct = ((current_value_lump - investment_amount) / investment_amount) * 100
+                
+                # Calculate DCA (bi-weekly) return
+                # Approximate: assume bi-weekly investments over the period
+                weeks_in_period = years * 52
+                num_investments = weeks_in_period // 2  # Bi-weekly
+                
+                # Simple approximation: average price over period
+                avg_price = price_data_calc['price'].mean()
+                total_invested_dca = investment_amount + (biweekly_amount * num_investments)
+                shares_bought_dca = (investment_amount / start_price) + sum([biweekly_amount / avg_price for _ in range(int(num_investments))])
+                current_value_dca = shares_bought_dca * end_price
+                dca_return_pct = ((current_value_dca - total_invested_dca) / total_invested_dca) * 100 if total_invested_dca > 0 else 0
+                
+                # Display results in expandable sections
+                col_a, col_b = st.columns(2)
+                
+                with col_a:
+                    with st.expander(f"💵 Lump Sum: ${investment_amount:,.0f} → {ticker}", expanded=True):
+                        st.metric("Current Value", f"${current_value_lump:,.2f}", f"{lump_return_pct:+.1f}%")
+                        st.caption(f"Bought {shares_bought:.2f} shares @ ${start_price:.2f}")
+                
+                with col_b:
+                    with st.expander(f"📅 DCA: ${biweekly_amount} bi-weekly → {ticker}", expanded=True):
+                        st.metric("Current Value", f"${current_value_dca:,.2f}", f"{dca_return_pct:+.1f}%")
+                        st.caption(f"Total invested: ${total_invested_dca:,.2f} over {years} years")
+                
+                # S&P 500 comparison
+                st.markdown("#### 📊 vs S&P 500")
+                
+                # Get S&P 500 data (using SPY as proxy)
+                sp500_data = get_historical_price("SPY", years)
+                
+                if not sp500_data.empty and len(sp500_data) > 1:
+                    sp500_start = sp500_data['price'].iloc[0]
+                    sp500_end = sp500_data['price'].iloc[-1]
+                    
+                    if sp500_start > 0:
+                        # Lump sum S&P
+                        sp500_shares_lump = investment_amount / sp500_start
+                        sp500_value_lump = sp500_shares_lump * sp500_end
+                        sp500_lump_return = ((sp500_value_lump - investment_amount) / investment_amount) * 100
+                        
+                        # DCA S&P
+                        sp500_avg_price = sp500_data['price'].mean()
+                        sp500_shares_dca = (investment_amount / sp500_start) + sum([biweekly_amount / sp500_avg_price for _ in range(int(num_investments))])
+                        sp500_value_dca = sp500_shares_dca * sp500_end
+                        sp500_dca_return = ((sp500_value_dca - total_invested_dca) / total_invested_dca) * 100 if total_invested_dca > 0 else 0
+                        
+                        col_c, col_d = st.columns(2)
+                        
+                        with col_c:
+                            with st.expander(f"💵 Lump Sum: ${investment_amount:,.0f} → S&P 500", expanded=True):
+                                st.metric("Current Value", f"${sp500_value_lump:,.2f}", f"{sp500_lump_return:+.1f}%")
+                                st.caption(f"S&P 500 (SPY)")
+                        
+                        with col_d:
+                            with st.expander(f"📅 DCA: ${biweekly_amount} bi-weekly → S&P 500", expanded=True):
+                                st.metric("Current Value", f"${sp500_value_dca:,.2f}", f"{sp500_dca_return:+.1f}%")
+                                st.caption(f"Total invested: ${total_invested_dca:,.2f}")
+                        
+                        # Comparison summary
+                        st.divider()
+                        lump_diff = current_value_lump - sp500_value_lump
+                        dca_diff = current_value_dca - sp500_value_dca
+                        
+                        if lump_diff > 0:
+                            st.success(f"✅ Lump sum: {ticker} outperformed S&P 500 by ${lump_diff:,.2f} ({lump_return_pct - sp500_lump_return:+.1f}%)")
+                        else:
+                            st.warning(f"⚠️ Lump sum: S&P 500 outperformed {ticker} by ${abs(lump_diff):,.2f} ({sp500_lump_return - lump_return_pct:+.1f}%)")
+                        
+                        if dca_diff > 0:
+                            st.success(f"✅ DCA: {ticker} outperformed S&P 500 by ${dca_diff:,.2f} ({dca_return_pct - sp500_dca_return:+.1f}%)")
+                        else:
+                            st.warning(f"⚠️ DCA: S&P 500 outperformed {ticker} by ${abs(dca_diff):,.2f} ({sp500_dca_return - dca_return_pct:+.1f}%)")
+        
     
     # ============= TAB 1 VIEWS START HERE =============
     
