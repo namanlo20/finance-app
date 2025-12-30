@@ -2670,7 +2670,7 @@ with tab1:
             ratio_years = st.slider("Years of History", 1, 30, 5, key="ratio_years_sel")
         
         period_param = "annual" if ratio_period == "Annual" else "quarter"
-        ratios_url = f"{BASE_URL}/ratios/{ticker}?period={period_param}&limit={ratio_years}&apikey={FMP_API_KEY}"
+        ratios_url = f"https://financialmodelingprep.com/api/v3/ratios/{ticker}?period={period_param}&limit={ratio_years}&apikey={FMP_API_KEY}"
         
         try:
             response = requests.get(ratios_url, timeout=10)
@@ -2768,7 +2768,146 @@ with tab1:
             else:
                 st.warning("Ratio data not available for the selected period")
         except Exception as e:
-            st.error(f"Could not fetch ratio data: {str(e)}")
+            st.warning(f"Could not fetch ratio data from API. Calculating from financial statements...")
+            
+            # Fallback: Calculate ratios manually from financial statements
+            try:
+                # Get fresh data
+                income_data = get_income_statement(ticker, period_param, ratio_years)
+                balance_data = get_balance_sheet(ticker, period_param, ratio_years)
+                
+                if not income_data.empty and not balance_data.empty:
+                    # Calculate ratios manually
+                    calculated_ratios = []
+                    
+                    for i in range(min(len(income_data), len(balance_data))):
+                        ratio_row = {'date': income_data['date'].iloc[i]}
+                        
+                        # Get values
+                        revenue = income_data['revenue'].iloc[i] if 'revenue' in income_data.columns else 0
+                        gross_profit = income_data['grossProfit'].iloc[i] if 'grossProfit' in income_data.columns else 0
+                        operating_income = income_data['operatingIncome'].iloc[i] if 'operatingIncome' in income_data.columns else 0
+                        net_income = income_data['netIncome'].iloc[i] if 'netIncome' in income_data.columns else 0
+                        total_assets = balance_data['totalAssets'].iloc[i] if 'totalAssets' in balance_data.columns else 0
+                        total_equity = balance_data['totalStockholdersEquity'].iloc[i] if 'totalStockholdersEquity' in balance_data.columns else 0
+                        current_assets = balance_data['totalCurrentAssets'].iloc[i] if 'totalCurrentAssets' in balance_data.columns else 0
+                        current_liabilities = balance_data['totalCurrentLiabilities'].iloc[i] if 'totalCurrentLiabilities' in balance_data.columns else 0
+                        total_debt = balance_data['totalDebt'].iloc[i] if 'totalDebt' in balance_data.columns else 0
+                        cash = balance_data['cashAndCashEquivalents'].iloc[i] if 'cashAndCashEquivalents' in balance_data.columns else 0
+                        inventory = balance_data['inventory'].iloc[i] if 'inventory' in balance_data.columns else 0
+                        
+                        # Calculate ratios
+                        if revenue > 0:
+                            ratio_row['grossProfitMargin'] = gross_profit / revenue
+                            ratio_row['operatingProfitMargin'] = operating_income / revenue
+                            ratio_row['netProfitMargin'] = net_income / revenue
+                        
+                        if total_equity > 0:
+                            ratio_row['returnOnEquity'] = net_income / total_equity
+                            if total_debt > 0:
+                                ratio_row['debtToEquity'] = total_debt / total_equity
+                        
+                        if total_assets > 0:
+                            ratio_row['returnOnAssets'] = net_income / total_assets
+                            # ROCE = EBIT / (Total Assets - Current Liabilities)
+                            capital_employed = total_assets - current_liabilities
+                            if capital_employed > 0:
+                                ratio_row['returnOnCapitalEmployed'] = operating_income / capital_employed
+                        
+                        if current_liabilities > 0:
+                            ratio_row['currentRatio'] = current_assets / current_liabilities
+                            quick_assets = current_assets - inventory
+                            ratio_row['quickRatio'] = quick_assets / current_liabilities
+                        
+                        calculated_ratios.append(ratio_row)
+                    
+                    ratios_df_new = pd.DataFrame(calculated_ratios)
+                    
+                    if not ratios_df_new.empty:
+                        st.success("✅ Calculated ratios from financial statements!")
+                        
+                        # Show current ratios
+                        st.markdown("### 📊 Current Ratios")
+                        col1, col2, col3 = st.columns(3)
+                        
+                        with col1:
+                            if 'grossProfitMargin' in ratios_df_new.columns:
+                                latest = ratios_df_new['grossProfitMargin'].iloc[0] * 100
+                                st.metric("Gross Margin", f"{latest:.1f}%")
+                        
+                        with col2:
+                            if 'operatingProfitMargin' in ratios_df_new.columns:
+                                latest = ratios_df_new['operatingProfitMargin'].iloc[0] * 100
+                                st.metric("Operating Margin", f"{latest:.1f}%")
+                        
+                        with col3:
+                            if 'netProfitMargin' in ratios_df_new.columns:
+                                latest = ratios_df_new['netProfitMargin'].iloc[0] * 100
+                                st.metric("Net Margin", f"{latest:.1f}%")
+                        
+                        # Show all the trend charts
+                        st.divider()
+                        st.markdown("### 💰 Profitability Trends")
+                        st.info("**Profitability shows how much profit the company keeps from each dollar of sales. Higher margins = better pricing power and efficiency.**")
+                        
+                        for metric_name, metric_col in [('Gross Profit Margin', 'grossProfitMargin'), 
+                                                         ('Operating Profit Margin', 'operatingProfitMargin'),
+                                                         ('Net Profit Margin', 'netProfitMargin')]:
+                            if metric_col in ratios_df_new.columns:
+                                fig = create_ratio_trend_chart(ratios_df_new, metric_name, metric_col, 
+                                                               f"{company_name} - {metric_name}")
+                                if fig:
+                                    st.plotly_chart(fig, use_container_width=True)
+                                    explanation = get_metric_explanation(metric_col)
+                                    if explanation:
+                                        st.markdown(f"""<div class="metric-explain">
+                                    📊 **What it is:** {explanation["simple"]}  
+                                    💡 **Why it matters:** {explanation["why"]}
+                                    </div>""", unsafe_allow_html=True)
+                        
+                        st.divider()
+                        st.markdown("### ⚡ Efficiency Trends")
+                        st.info("**Efficiency ratios show how well the company uses its money to generate profits. Higher returns = better management and stronger business.**")
+                        
+                        for metric_name, metric_col in [('Return on Equity (ROE)', 'returnOnEquity'),
+                                                         ('Return on Assets (ROA)', 'returnOnAssets'),
+                                                         ('Return on Capital Employed', 'returnOnCapitalEmployed')]:
+                            if metric_col in ratios_df_new.columns:
+                                fig = create_ratio_trend_chart(ratios_df_new, metric_name, metric_col,
+                                                               f"{company_name} - {metric_name}")
+                                if fig:
+                                    st.plotly_chart(fig, use_container_width=True)
+                                    explanation = get_metric_explanation(metric_col)
+                                    if explanation:
+                                        st.markdown(f"""<div class="metric-explain">
+                                    📊 **What it is:** {explanation["simple"]}  
+                                    💡 **Why it matters:** {explanation["why"]}
+                                    </div>""", unsafe_allow_html=True)
+                        
+                        st.divider()
+                        st.markdown("### 🏦 Liquidity & Leverage Trends")
+                        st.info("**Liquidity = Can the company pay its bills? Leverage = How much debt does it have? Good liquidity + low debt = safer company.**")
+                        
+                        for metric_name, metric_col in [('Current Ratio', 'currentRatio'),
+                                                         ('Quick Ratio', 'quickRatio'),
+                                                         ('Debt to Equity', 'debtToEquity')]:
+                            if metric_col in ratios_df_new.columns:
+                                fig = create_ratio_trend_chart(ratios_df_new, metric_name, metric_col,
+                                                               f"{company_name} - {metric_name}")
+                                if fig:
+                                    st.plotly_chart(fig, use_container_width=True)
+                                    explanation = get_metric_explanation(metric_col)
+                                    if explanation:
+                                        st.markdown(f"""<div class="metric-explain">
+                                    📊 **What it is:** {explanation["simple"]}  
+                                    💡 **Why it matters:** {explanation["why"]}
+                                    </div>""", unsafe_allow_html=True)
+                    else:
+                        st.error("Could not calculate ratios from available data")
+                else:
+                    st.error("Financial statement data not available to calculate ratios")
+            except Exception as calc_error:
+                st.error(f"Could not calculate ratios: {str(calc_error)}")
     
     elif view == "💰 Valuation (DCF)":
         st.markdown("## 💰 DCF Valuation")
