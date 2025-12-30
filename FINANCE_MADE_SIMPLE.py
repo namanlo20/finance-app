@@ -2661,36 +2661,6 @@ with tab1:
                 st.warning("Could not fetch data for one or both stocks")
     
     elif view == "📈 Financial Ratios":
-        st.markdown("## 📊 Financial Ratios")
-        
-        if not ratios_df.empty:
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                if 'grossProfitMargin' in ratios_df.columns:
-                    latest = ratios_df['grossProfitMargin'].iloc[-1] * 100
-                    st.metric("Gross Margin", f"{latest:.1f}%",
-                             help="Revenue minus cost of goods sold, divided by revenue")
-                
-                if 'operatingProfitMargin' in ratios_df.columns:
-                    latest = ratios_df['operatingProfitMargin'].iloc[-1] * 100
-                    st.metric("Operating Margin", f"{latest:.1f}%",
-                             help="Operating income divided by revenue - shows efficiency")
-            
-            with col2:
-                if 'netProfitMargin' in ratios_df.columns:
-                    latest = ratios_df['netProfitMargin'].iloc[-1] * 100
-                    st.metric("Net Margin", f"{latest:.1f}%",
-                             help="Net income divided by revenue - bottom line profitability")
-                
-                if 'returnOnEquity' in ratios_df.columns:
-                    latest = ratios_df['returnOnEquity'].iloc[-1] * 100
-                    st.metric("ROE", f"{latest:.1f}%",
-                             help="Return on Equity - how well company uses shareholder money")
-        else:
-            st.warning("Ratio data not available")
-    
-    elif view == "📈 Financial Ratios":
         st.markdown("## 📊 Financial Ratios Over Time")
         
         col1, col2 = st.columns(2)
