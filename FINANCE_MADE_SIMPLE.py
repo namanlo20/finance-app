@@ -2203,8 +2203,8 @@ with tab1:
                     
                     # Display growth rates
                     if growth_rates:
-                        period_label = "annual" if period == "annual" else "quarterly"
-                        growth_text = f"**Growth over {years_back} {period_label} periods:**\n\n"
+                        period_label = period_type.lower()
+                        growth_text = f"**Growth over {years} {period_label} periods:**\n\n"
                         for idx, (metric_col, growth_rate) in enumerate(growth_rates.items()):
                             metric_name = metric_names[metrics_to_plot.index(metric_col)]
                             emoji = "🚀" if growth_rate > 10 else "📈" if growth_rate > 0 else "📉"
@@ -2287,8 +2287,8 @@ with tab1:
                     st.plotly_chart(fig, use_container_width=True)
                     
                     if growth_rates:
-                        period_label = "annual" if period == "annual" else "quarterly"
-                        growth_text = f"**Growth over {years_back} {period_label} periods:**\n\n"
+                        period_label = period_type.lower()
+                        growth_text = f"**Growth over {years} {period_label} periods:**\n\n"
                         for idx, (metric_col, growth_rate) in enumerate(growth_rates.items()):
                             metric_name = metric_names[metrics_to_plot.index(metric_col)]
                             emoji = "🚀" if growth_rate > 10 else "📈" if growth_rate > 0 else "📉"
@@ -2371,8 +2371,8 @@ with tab1:
                     st.plotly_chart(fig, use_container_width=True)
                     
                     if growth_rates:
-                        period_label = "annual" if period == "annual" else "quarterly"
-                        growth_text = f"**Growth over {years_back} {period_label} periods:**\n\n"
+                        period_label = period_type.lower()
+                        growth_text = f"**Growth over {years} {period_label} periods:**\n\n"
                         for idx, (metric_col, growth_rate) in enumerate(growth_rates.items()):
                             metric_name = metric_names[metrics_to_plot.index(metric_col)]
                             emoji = "🚀" if growth_rate > 10 else "📈" if growth_rate > 0 else "📉"
