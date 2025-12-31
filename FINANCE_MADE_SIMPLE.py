@@ -576,8 +576,72 @@ SP500_BENCHMARKS = {
     'debtToEquity': 1.0  # 1.0x average D/E
 }
 
+# Beginner-friendly ratio tooltips
+RATIO_TOOLTIPS = {
+    'grossProfitMargin': "The percentage of money left after paying for the direct costs of making a product. High margins mean the product is cheap to make but sells for a lot.",
+    'operatingProfitMargin': "Shows how much profit a company makes on a dollar of sales after paying for variable costs like wages and raw materials.",
+    'netProfitMargin': "The 'Bottom Line.' How much of every $1 in sales actually turns into profit after ALL expenses and taxes are paid.",
+    'returnOnEquity': "How efficiently the company is using the money shareholders invested to grow the business.",
+    'returnOnAssets': "How well the company uses everything it owns (buildings, equipment, cash) to generate profit.",
+    'currentRatio': "A safety metric. It shows if the company has enough cash and assets to pay off its bills for the next 12 months.",
+    'quickRatio': "Like Current Ratio, but stricter - only counts cash and things that can be quickly turned into cash.",
+    'debtToEquity': "How much the company has borrowed compared to what shareholders have invested. Lower is usually safer."
+}
+
 # Meme stocks list
 MEME_STOCKS = ["AMC", "GME", "BBBY", "WISH", "CLOV", "BB", "NOK", "SNDL", "NAKD", "WKHS"]
+
+def get_traffic_light_color(value, benchmark, metric_type='higher_is_better'):
+    """Return traffic light color based on comparison to benchmark.
+    metric_type: 'higher_is_better' (margins, ROE) or 'lower_is_better' (debt ratios, P/E)
+    """
+    if value is None or benchmark is None or value == 0:
+        return 'neutral'
+    
+    if metric_type == 'higher_is_better':
+        if value >= benchmark * 1.1:
+            return 'green'
+        elif value >= benchmark * 0.9:
+            return 'yellow'
+        else:
+            return 'red'
+    else:
+        if value <= benchmark * 0.9:
+            return 'green'
+        elif value <= benchmark * 1.1:
+            return 'yellow'
+        else:
+            return 'red'
+
+def render_metric_with_traffic_light(col, label, value, benchmark=None, metric_type='higher_is_better', help_text="", format_str=None):
+    """Render a metric with traffic light indicator border."""
+    if benchmark is not None and value is not None and value != 0:
+        color = get_traffic_light_color(value, benchmark, metric_type)
+        color_map = {'green': '#00C853', 'yellow': '#FFD600', 'red': '#FF5252', 'neutral': '#666666'}
+        border_color = color_map.get(color, '#666666')
+        
+        if format_str:
+            display_value = format_str.format(value)
+        else:
+            display_value = f"{value:.2f}" if isinstance(value, float) else str(value)
+        
+        comparison = ""
+        if color == 'green':
+            comparison = "Above average"
+        elif color == 'yellow':
+            comparison = "Near average"
+        elif color == 'red':
+            comparison = "Below average"
+        
+        col.markdown(f"""
+        <div style="border-left: 4px solid {border_color}; padding-left: 10px; margin-bottom: 10px;">
+            <p style="margin: 0; font-size: 0.8em; color: #888;">{label}</p>
+            <p style="margin: 0; font-size: 1.5em; font-weight: bold;">{display_value}</p>
+            <p style="margin: 0; font-size: 0.7em; color: {border_color};">{comparison}</p>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        col.metric(label, value if value else "N/A", help=help_text)
 
 def format_number(num):
     """Format large numbers"""
@@ -677,8 +741,8 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
     if all_values:
         max_val = max(all_values)
         min_val = min(all_values)
-        y_range_max = max_val * 1.2 if max_val > 0 else max_val * 0.8
-        y_range_min = min_val * 0.9 if min_val < 0 else 0
+        y_range_max = max_val * 1.1 if max_val > 0 else max_val * 0.9
+        y_range_min = min_val * 1.1 if min_val < 0 else 0
         fig.update_layout(yaxis=dict(range=[y_range_min, y_range_max]))
     
     fig.update_layout(
@@ -778,6 +842,19 @@ def create_ratio_trend_chart(df, metric_name, metric_column, title, sector=None)
             font=dict(color='white')
         )
     
+    all_y_values = list(values)
+    if metric_column in SP500_BENCHMARKS:
+        all_y_values.append(SP500_BENCHMARKS[metric_column] * multiplier)
+    
+    if all_y_values:
+        max_val = max(all_y_values)
+        min_val = min(all_y_values)
+        y_range_max = max_val * 1.1 if max_val > 0 else max_val * 0.9
+        y_range_min = min_val * 0.9 if min_val > 0 else min_val * 1.1 if min_val < 0 else 0
+    else:
+        y_range_max = None
+        y_range_min = None
+    
     fig.update_layout(
         title=title,
         xaxis_title='Period',
@@ -787,6 +864,9 @@ def create_ratio_trend_chart(df, metric_name, metric_column, title, sector=None)
         showlegend=True,
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
+    
+    if y_range_max is not None and y_range_min is not None:
+        fig.update_yaxes(range=[y_range_min, y_range_max])
     
     return fig
 
@@ -1799,6 +1879,124 @@ def get_beginner_tooltip(metric_name):
     """Get a beginner-friendly tooltip for a metric"""
     return BEGINNER_TOOLTIPS.get(metric_name, f"A financial metric that helps evaluate the company's {metric_name.lower()}.")
 
+def generate_ai_ratio_insight(ticker, company_name, ratios_df, sector):
+    """Generate a 1-sentence AI insight about the company's ratios compared to S&P 500."""
+    if ratios_df is None or ratios_df.empty:
+        return None
+    
+    strong_metrics = []
+    weak_metrics = []
+    
+    metric_names = {
+        'grossProfitMargin': 'gross margin',
+        'operatingProfitMargin': 'operating margin',
+        'netProfitMargin': 'net profit margin',
+        'returnOnEquity': 'return on equity',
+        'returnOnAssets': 'return on assets'
+    }
+    
+    for metric_col, benchmark in SP500_BENCHMARKS.items():
+        if metric_col in ratios_df.columns and metric_col in metric_names:
+            latest_value = ratios_df[metric_col].iloc[0] if len(ratios_df) > 0 else None
+            if latest_value is not None and not pd.isna(latest_value):
+                if latest_value > benchmark * 1.15:
+                    strong_metrics.append(metric_names[metric_col])
+                elif latest_value < benchmark * 0.85:
+                    weak_metrics.append(metric_names[metric_col])
+    
+    if len(strong_metrics) >= 2:
+        return f"{company_name}'s margins are consistently higher than the market average, indicating a strong competitive advantage."
+    elif len(weak_metrics) >= 2:
+        return f"{company_name}'s margins are below market averages, which may indicate competitive pressures or higher costs."
+    elif strong_metrics and weak_metrics:
+        return f"{company_name} shows mixed financial health - some metrics outperform while others lag behind the S&P 500 average."
+    elif strong_metrics:
+        return f"{company_name} demonstrates above-average {strong_metrics[0]} compared to the broader market."
+    elif weak_metrics:
+        return f"{company_name}'s {weak_metrics[0]} is below the S&P 500 average - worth investigating further."
+    
+    return f"{company_name}'s financial ratios are roughly in line with S&P 500 averages."
+
+def get_search_suggestions(search_term, max_results=10):
+    """Get search suggestions based on partial input."""
+    if not search_term or len(search_term) < 1:
+        return []
+    
+    all_stocks = get_all_stocks()
+    if not all_stocks:
+        return []
+    
+    search_lower = search_term.lower()
+    suggestions = []
+    
+    for symbol, name in all_stocks.items():
+        if search_lower in symbol.lower() or search_lower in name.lower():
+            suggestions.append(f"{symbol} - {name}")
+            if len(suggestions) >= max_results:
+                break
+    
+    return suggestions
+
+def get_how_they_make_money(sector, industry, company_name):
+    """Generate a simplified explanation of how the company makes money based on sector/industry."""
+    revenue_models = {
+        "Technology": {
+            "Software": f"{company_name} makes money by selling software licenses and subscriptions to businesses and consumers.",
+            "Semiconductors": f"{company_name} generates revenue by designing and selling computer chips used in phones, computers, and other devices.",
+            "Consumer Electronics": f"{company_name} earns money by selling electronic devices like phones, computers, and accessories to consumers.",
+            "default": f"{company_name} generates revenue through technology products and services."
+        },
+        "Financial Services": {
+            "Banks": f"{company_name} makes money by charging interest on loans and fees for banking services.",
+            "Insurance": f"{company_name} earns revenue by collecting insurance premiums and investing that money.",
+            "Asset Management": f"{company_name} generates fees by managing investments for individuals and institutions.",
+            "default": f"{company_name} earns money through financial products, fees, and interest income."
+        },
+        "Healthcare": {
+            "Pharmaceuticals": f"{company_name} makes money by developing and selling prescription drugs and medicines.",
+            "Medical Devices": f"{company_name} generates revenue by selling medical equipment to hospitals and clinics.",
+            "default": f"{company_name} earns revenue through healthcare products and services."
+        },
+        "Consumer Cyclical": {
+            "Retail": f"{company_name} makes money by selling products to consumers through stores and online.",
+            "Restaurants": f"{company_name} generates revenue by selling food and beverages to customers.",
+            "Auto Manufacturers": f"{company_name} earns money by manufacturing and selling vehicles.",
+            "default": f"{company_name} generates revenue by selling consumer goods and services."
+        },
+        "Consumer Defensive": {
+            "default": f"{company_name} makes money by selling everyday essentials like food, beverages, or household products."
+        },
+        "Energy": {
+            "default": f"{company_name} generates revenue by producing and selling oil, gas, or other energy products."
+        },
+        "Industrials": {
+            "default": f"{company_name} earns money by manufacturing industrial equipment or providing business services."
+        },
+        "Communication Services": {
+            "Telecom": f"{company_name} makes money by providing phone, internet, and TV services to customers.",
+            "Entertainment": f"{company_name} generates revenue through advertising, subscriptions, and content licensing.",
+            "default": f"{company_name} earns revenue through media, entertainment, or communication services."
+        },
+        "Utilities": {
+            "default": f"{company_name} makes money by providing essential services like electricity, water, or gas to homes and businesses."
+        },
+        "Real Estate": {
+            "default": f"{company_name} generates revenue by owning and renting out properties or managing real estate investments."
+        },
+        "Basic Materials": {
+            "default": f"{company_name} earns money by producing and selling raw materials like metals, chemicals, or paper."
+        }
+    }
+    
+    if sector in revenue_models:
+        sector_models = revenue_models[sector]
+        for key in sector_models:
+            if key != "default" and key.lower() in industry.lower():
+                return sector_models[key]
+        return sector_models.get("default", f"{company_name} generates revenue through its products and services.")
+    
+    return f"{company_name} generates revenue through its products and services in the {sector} sector."
+
 # ============= SECTOR DEFINITIONS =============
 SECTORS = {
     "🏦 Financial Services": {
@@ -2184,13 +2382,41 @@ elif selected_page == "🧠 Risk Quiz":
 
 
 elif selected_page == "📊 Company Analysis":
-    search = st.text_input(
-        "🔍 Search by Company Name or Ticker:",
-        st.session_state.selected_ticker,
-        help="Try: Apple, AAPL, Microsoft, TSLA, etc."
-    )
+    search_col1, search_col2 = st.columns([3, 1])
     
-    if search:
+    with search_col1:
+        search = st.text_input(
+            "🔍 Search by Company Name or Ticker:",
+            st.session_state.selected_ticker,
+            help="Try: Apple, AAPL, Microsoft, TSLA, etc.",
+            key="company_search_input"
+        )
+    
+    if search and len(search) >= 2:
+        suggestions = get_search_suggestions(search, max_results=5)
+        if suggestions:
+            with search_col2:
+                st.caption("Suggestions:")
+            selected_suggestion = st.selectbox(
+                "Quick select:",
+                options=[""] + suggestions,
+                key="search_suggestions",
+                label_visibility="collapsed"
+            )
+            if selected_suggestion:
+                ticker = selected_suggestion.split(" - ")[0]
+                st.session_state.selected_ticker = ticker
+            else:
+                ticker, company_name = smart_search_ticker(search)
+                st.session_state.selected_ticker = ticker
+                if ticker != search.upper():
+                    st.success(f"Found: {company_name} ({ticker})")
+        else:
+            ticker, company_name = smart_search_ticker(search)
+            st.session_state.selected_ticker = ticker
+            if ticker != search.upper():
+                st.success(f"Found: {company_name} ({ticker})")
+    elif search:
         ticker, company_name = smart_search_ticker(search)
         st.session_state.selected_ticker = ticker
         if ticker != search.upper():
@@ -2231,6 +2457,11 @@ elif selected_page == "📊 Company Analysis":
         if description:
             with st.expander("ℹ️ What does this company do?"):
                 st.write(description[:500] + "..." if len(description) > 500 else description)
+                
+                st.markdown("---")
+                st.markdown("**💰 How they make money:**")
+                how_they_make_money = get_how_they_make_money(sector, industry, company_name)
+                st.info(how_they_make_money)
     else:
         company_name = ticker
         sector = "Unknown"
@@ -2874,10 +3105,17 @@ elif selected_page == "📊 Company Analysis":
                         st.plotly_chart(fig, use_container_width=True)
                     
                     with st.expander(f"💡 What is {selected_ratio}?"):
-                        if selected_ratio in RATIO_EXPLANATIONS:
+                        if ratio_col in RATIO_TOOLTIPS:
+                            st.info(RATIO_TOOLTIPS[ratio_col])
+                        elif selected_ratio in RATIO_EXPLANATIONS:
                             exp = RATIO_EXPLANATIONS[selected_ratio]
                             st.markdown(f"**What it measures:** {exp.get('what', 'N/A')}")
                             st.markdown(f"**What's good:** {exp.get('good', 'N/A')}")
+                    
+                    ai_insight = generate_ai_ratio_insight(ticker, company_name, ratios_df_health, sector)
+                    if ai_insight:
+                        st.markdown("### 🤖 AI Insight")
+                        st.success(f"💡 {ai_insight}")
                 else:
                     st.warning("No ratio data available for this company")
             else:
