@@ -10,12 +10,18 @@ from difflib import get_close_matches
 import numpy as np
 
 # ============= CONFIGURATION =============
-FMP_API_KEY = "9rZXN8pHaPyiCjFHWCVBxQmyzftJbRrj"
+import os
+import json
+
+# API Keys - Use environment variables (set these in Render dashboard)
+# FMP_API_KEY: Your Financial Modeling Prep API key
+# PERPLEXITY_API_KEY: Your Perplexity API key for AI risk analysis
+FMP_API_KEY = os.environ.get("FMP_API_KEY", "")
 BASE_URL = "https://financialmodelingprep.com/stable"
 
-# AI Configuration (set to True when you get Perplexity API key)
-USE_AI_ANALYSIS = False
-PERPLEXITY_API_KEY = ""  # Add your key here when ready
+# AI Configuration - Perplexity API for risk analysis
+PERPLEXITY_API_KEY = os.environ.get("PERPLEXITY_API_KEY", "")
+USE_AI_ANALYSIS = bool(PERPLEXITY_API_KEY)
 
 st.set_page_config(page_title="Finance Made Simple", layout="wide", page_icon="💰")
 
@@ -1499,6 +1505,300 @@ def get_ps_ratio(ticker, ratios_ttm):
     
     return 0
 
+# ============= AI RISK ANALYSIS (PERPLEXITY API) =============
+@st.cache_data(ttl=3600)
+def get_ai_risk_analysis(ticker, company_name):
+    """Use Perplexity API to analyze recent news and identify red/green flags"""
+    if not USE_AI_ANALYSIS or not PERPLEXITY_API_KEY:
+        return None
+    
+    try:
+        url = "https://api.perplexity.ai/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        
+        prompt = f"""Analyze the stock {ticker} ({company_name}) based on news from the last 30 days.
+
+Provide your analysis in this EXACT format (use simple language a middle schooler would understand):
+
+RED FLAGS (3 concerns/risks):
+1. [First concern in 1-2 simple sentences]
+2. [Second concern in 1-2 simple sentences]  
+3. [Third concern in 1-2 simple sentences]
+
+GREEN FLAGS (3 positive signs):
+1. [First positive in 1-2 simple sentences]
+2. [Second positive in 1-2 simple sentences]
+3. [Third positive in 1-2 simple sentences]
+
+OVERALL: [One sentence summary - is this stock looking good or risky right now?]
+
+Remember: Use simple words like "the company is making less money" instead of "declining revenue margins"."""
+
+        payload = {
+            "model": "llama-3.1-sonar-small-128k-online",
+            "messages": [
+                {"role": "system", "content": "You are a helpful financial analyst who explains things simply for beginners. Always search for recent news about the company."},
+                {"role": "user", "content": prompt}
+            ],
+            "temperature": 0.3,
+            "max_tokens": 800
+        }
+        
+        response = requests.post(url, headers=headers, json=payload, timeout=30)
+        
+        if response.status_code == 200:
+            data = response.json()
+            content = data.get('choices', [{}])[0].get('message', {}).get('content', '')
+            return parse_ai_risk_response(content)
+        else:
+            return None
+    except Exception as e:
+        return None
+
+def parse_ai_risk_response(content):
+    """Parse the AI response into structured red/green flags"""
+    if not content:
+        return None
+    
+    result = {
+        "red_flags": [],
+        "green_flags": [],
+        "overall": ""
+    }
+    
+    lines = content.split('\n')
+    current_section = None
+    
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+            
+        if 'RED FLAG' in line.upper():
+            current_section = 'red'
+        elif 'GREEN FLAG' in line.upper():
+            current_section = 'green'
+        elif 'OVERALL' in line.upper():
+            current_section = 'overall'
+            if ':' in line:
+                result['overall'] = line.split(':', 1)[1].strip()
+        elif line and line[0].isdigit() and '.' in line[:3]:
+            flag_text = line.split('.', 1)[1].strip() if '.' in line else line
+            if current_section == 'red' and len(result['red_flags']) < 3:
+                result['red_flags'].append(flag_text)
+            elif current_section == 'green' and len(result['green_flags']) < 3:
+                result['green_flags'].append(flag_text)
+        elif current_section == 'overall' and not result['overall']:
+            result['overall'] = line
+    
+    if len(result['red_flags']) < 3:
+        result['red_flags'].extend(["No major concerns found in recent news"] * (3 - len(result['red_flags'])))
+    if len(result['green_flags']) < 3:
+        result['green_flags'].extend(["Stable performance reported"] * (3 - len(result['green_flags'])))
+    if not result['overall']:
+        result['overall'] = "Analysis based on recent news coverage."
+    
+    return result
+
+# ============= FOUR SCENARIOS INVESTMENT CALCULATOR =============
+@st.cache_data(ttl=3600)
+def get_historical_adjusted_prices(ticker, years=10):
+    """Get historical adjusted close prices for accurate return calculations including dividends"""
+    try:
+        url = f"https://financialmodelingprep.com/api/v3/historical-price-full/{ticker}?apikey={FMP_API_KEY}"
+        response = requests.get(url, timeout=15)
+        if response.status_code == 200:
+            data = response.json()
+            historical = data.get('historical', [])
+            if historical:
+                df = pd.DataFrame(historical)
+                df['date'] = pd.to_datetime(df['date'])
+                cutoff = datetime.now() - timedelta(days=years*365)
+                df = df[df['date'] >= cutoff]
+                df = df.sort_values('date').reset_index(drop=True)
+                if 'adjClose' in df.columns:
+                    df['price'] = df['adjClose']
+                elif 'close' in df.columns:
+                    df['price'] = df['close']
+                return df
+        return pd.DataFrame()
+    except:
+        return pd.DataFrame()
+
+def calculate_four_scenarios(ticker, years=5, base_amount=100):
+    """Calculate the four investment scenarios using adjusted close prices"""
+    stock_data = get_historical_adjusted_prices(ticker, years)
+    spy_data = get_historical_adjusted_prices("SPY", years)
+    
+    if stock_data.empty or spy_data.empty:
+        return None
+    
+    results = {
+        "timeline_years": years,
+        "base_amount": base_amount,
+        "scenarios": {}
+    }
+    
+    stock_start = stock_data['price'].iloc[0]
+    stock_end = stock_data['price'].iloc[-1]
+    spy_start = spy_data['price'].iloc[0]
+    spy_end = spy_data['price'].iloc[-1]
+    
+    if stock_start > 0:
+        shares = base_amount / stock_start
+        final_value = shares * stock_end
+        results["scenarios"]["lump_stock"] = {
+            "name": f"Lump Sum {ticker}",
+            "invested": base_amount,
+            "final_value": final_value,
+            "return_pct": ((final_value - base_amount) / base_amount) * 100,
+            "shares": shares
+        }
+    
+    if spy_start > 0:
+        shares = base_amount / spy_start
+        final_value = shares * spy_end
+        results["scenarios"]["lump_sp500"] = {
+            "name": "Lump Sum S&P 500",
+            "invested": base_amount,
+            "final_value": final_value,
+            "return_pct": ((final_value - base_amount) / base_amount) * 100,
+            "shares": shares
+        }
+    
+    biweekly_periods = years * 26
+    total_invested = base_amount * biweekly_periods
+    
+    stock_interval = max(1, len(stock_data) // biweekly_periods)
+    stock_shares = 0
+    stock_invested = 0
+    for i in range(0, min(len(stock_data), biweekly_periods * stock_interval), stock_interval):
+        if i < len(stock_data) and stock_data['price'].iloc[i] > 0:
+            stock_shares += base_amount / stock_data['price'].iloc[i]
+            stock_invested += base_amount
+    
+    if stock_shares > 0:
+        final_value = stock_shares * stock_end
+        results["scenarios"]["dca_stock"] = {
+            "name": f"Paycheck {ticker}",
+            "invested": stock_invested,
+            "final_value": final_value,
+            "return_pct": ((final_value - stock_invested) / stock_invested) * 100 if stock_invested > 0 else 0,
+            "shares": stock_shares,
+            "payments": biweekly_periods
+        }
+    
+    spy_interval = max(1, len(spy_data) // biweekly_periods)
+    spy_shares = 0
+    spy_invested = 0
+    for i in range(0, min(len(spy_data), biweekly_periods * spy_interval), spy_interval):
+        if i < len(spy_data) and spy_data['price'].iloc[i] > 0:
+            spy_shares += base_amount / spy_data['price'].iloc[i]
+            spy_invested += base_amount
+    
+    if spy_shares > 0:
+        final_value = spy_shares * spy_end
+        results["scenarios"]["dca_sp500"] = {
+            "name": "Paycheck S&P 500",
+            "invested": spy_invested,
+            "final_value": final_value,
+            "return_pct": ((final_value - spy_invested) / spy_invested) * 100 if spy_invested > 0 else 0,
+            "shares": spy_shares,
+            "payments": biweekly_periods
+        }
+    
+    return results
+
+def create_four_scenarios_chart(results, ticker):
+    """Create a comparison chart for the four investment scenarios"""
+    if not results or not results.get("scenarios"):
+        return None
+    
+    scenarios = results["scenarios"]
+    
+    names = []
+    invested = []
+    final_values = []
+    colors = []
+    
+    color_map = {
+        "lump_stock": "#9D4EDD",
+        "lump_sp500": "#FFD700",
+        "dca_stock": "#00D9FF",
+        "dca_sp500": "#00FF96"
+    }
+    
+    for key in ["lump_stock", "lump_sp500", "dca_stock", "dca_sp500"]:
+        if key in scenarios:
+            s = scenarios[key]
+            names.append(s["name"])
+            invested.append(s["invested"])
+            final_values.append(s["final_value"])
+            colors.append(color_map.get(key, "#888888"))
+    
+    fig = go.Figure()
+    
+    fig.add_trace(go.Bar(
+        name='Amount Invested',
+        x=names,
+        y=invested,
+        marker_color='rgba(150, 150, 150, 0.5)',
+        text=[f'${v:,.0f}' for v in invested],
+        textposition='inside'
+    ))
+    
+    fig.add_trace(go.Bar(
+        name='Final Value',
+        x=names,
+        y=final_values,
+        marker_color=colors,
+        text=[f'${v:,.0f}' for v in final_values],
+        textposition='outside'
+    ))
+    
+    fig.update_layout(
+        title=f"Four Scenarios: $100 Investment Comparison ({results['timeline_years']} Years)",
+        xaxis_title="Investment Strategy",
+        yaxis_title="Value ($)",
+        barmode='group',
+        height=450,
+        showlegend=True,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        hovermode='x unified'
+    )
+    
+    return fig
+
+# ============= BEGINNER TOOLTIPS =============
+BEGINNER_TOOLTIPS = {
+    "P/E Ratio": "Think of it like buying a lemonade stand. If it makes $10/year profit and costs $150, the P/E is 15. Lower usually means cheaper!",
+    "P/S Ratio": "How much you pay for each dollar the company earns in sales. Like paying $5 for a business that sells $1 of lemonade.",
+    "Market Cap": "The total price tag of the whole company. Like if you wanted to buy ALL the shares, this is what it would cost.",
+    "Debt-to-Equity": "How much the company borrowed vs what it actually owns. Like if you have a $200k house but owe $150k, your D/E is 0.75.",
+    "Quick Ratio": "Can the company pay its bills RIGHT NOW without selling stuff? Above 1.0 = yes, they have enough cash.",
+    "Free Cash Flow": "Money left over after paying all the bills. This is the real cash the company can use for anything.",
+    "Beta": "How wild the stock price swings. Beta of 1 = moves with the market. Beta of 2 = twice as crazy!",
+    "ROE": "Return on Equity - how good is the company at making money with what shareholders invested? 15%+ is solid.",
+    "Gross Margin": "For every $1 in sales, how much is left after making the product? Higher = better pricing power.",
+    "Net Margin": "For every $1 in sales, how much actual profit? 10%+ is good, 20%+ is excellent.",
+    "EPS": "Earnings Per Share - profit divided by number of shares. More EPS = more profit for each share you own.",
+    "Dividend Yield": "Free money! If you invest $100 and get $3/year in dividends, that's a 3% yield.",
+    "Revenue": "Total money coming in from selling stuff. The 'top line' - everything starts here.",
+    "Net Income": "The 'bottom line' profit after ALL expenses. This is what really matters for shareholders.",
+    "Operating Income": "Profit from the main business, before interest and taxes. Shows if the core business works.",
+    "EBITDA": "Earnings before some accounting stuff. Good for comparing companies in the same industry.",
+    "Current Ratio": "Can the company pay bills due this year? Above 1.5 = comfortable, below 1 = might struggle.",
+    "Interest Coverage": "Can the company afford its debt payments? Higher = safer. Below 2 = risky.",
+    "Negative P/E": "This company is currently losing money, so it doesn't have a P/E ratio yet. Not necessarily bad for growth companies!"
+}
+
+def get_beginner_tooltip(metric_name):
+    """Get a beginner-friendly tooltip for a metric"""
+    return BEGINNER_TOOLTIPS.get(metric_name, f"A financial metric that helps evaluate the company's {metric_name.lower()}.")
+
 # ============= SECTOR DEFINITIONS =============
 SECTORS = {
     "🏦 Financial Services": {
@@ -1856,7 +2156,7 @@ elif selected_page == "🧠 Risk Quiz":
         
         st.markdown("---")
         st.markdown("### 🎮 Want to Practice First?")
-        st.success("✨ **Try our Paper Portfolio!** Practice trading with $100,000 fake money before risking real capital. Build confidence, test strategies, track performance.")
+        st.success("✨ **Try our Paper Portfolio!** Practice trading with $10,000 fake money before risking real capital. Build confidence, test strategies, track performance.")
         
         if st.button("🚀 Start Paper Trading Now", use_container_width=True, type="primary"):
             st.info("👉 Click the **'💼 Paper Portfolio'** tab above to get started!")
@@ -1938,7 +2238,9 @@ elif selected_page == "📊 Company Analysis":
         "📈 Financial Ratios", 
         "💰 Valuation (DCF)", 
         "📉 Technical Analysis", 
-        "📰 Latest News"
+        "📰 Latest News",
+        "🤖 AI Risk Profile",
+        "📈 Investment Calculator"
     ], horizontal=True)
     
     income_df = get_income_statement(ticker, 'annual', 5)
@@ -2011,8 +2313,15 @@ elif selected_page == "📊 Company Analysis":
         col2.metric("Market Cap", format_number(market_cap),
                    help=explain_metric("Market Cap", market_cap, sector))
         
-        col3.metric("P/E Ratio (TTM)", f"{pe:.2f}" if pe > 0 else "N/A",
-                   help=explain_metric("P/E Ratio", pe, sector))
+        if pe < 0:
+            col3.metric("P/E Ratio (TTM)", "Negative",
+                       help="This company is currently losing money, so it doesn't have a P/E ratio yet. Not necessarily bad for growth companies!")
+        elif pe > 0:
+            col3.metric("P/E Ratio (TTM)", f"{pe:.2f}",
+                       help=explain_metric("P/E Ratio", pe, sector))
+        else:
+            col3.metric("P/E Ratio (TTM)", "N/A",
+                       help="P/E ratio not available. The company may not have reported earnings yet.")
         
         col4.metric("P/S Ratio", f"{ps:.2f}" if ps > 0 else "N/A",
                    help=explain_metric("P/S Ratio", ps, sector))
@@ -2986,6 +3295,107 @@ elif selected_page == "📊 Company Analysis":
         else:
             st.info("No recent news for this ticker")
             st.caption("News available for major stocks like AAPL, TSLA, MSFT")
+    
+    elif view == "🤖 AI Risk Profile":
+        st.markdown(f"## 🤖 AI Risk Profile for {company_name}")
+        st.info("💡 **What is this?** Our AI analyzes news from the last 30 days to identify potential risks and opportunities. Written in simple language anyone can understand!")
+        
+        with st.spinner("🔍 Analyzing recent news with AI..."):
+            risk_analysis = get_ai_risk_analysis(ticker, company_name)
+        
+        if risk_analysis:
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("### 🚩 Red Flags (Concerns)")
+                st.caption("Things to watch out for")
+                for i, flag in enumerate(risk_analysis.get('red_flags', []), 1):
+                    st.error(f"**{i}.** {flag}")
+            
+            with col2:
+                st.markdown("### 🟢 Green Flags (Positives)")
+                st.caption("Good signs for the company")
+                for i, flag in enumerate(risk_analysis.get('green_flags', []), 1):
+                    st.success(f"**{i}.** {flag}")
+            
+            st.markdown("---")
+            st.markdown("### 📊 Overall Assessment")
+            overall = risk_analysis.get('overall', 'Analysis complete.')
+            st.info(f"**Summary:** {overall}")
+            
+            with st.expander("💡 How to use this information"):
+                st.markdown("""
+**Remember:** This AI analysis is just ONE tool in your research toolkit!
+
+- **Red flags don't mean "don't buy"** - they're things to research more
+- **Green flags don't mean "definitely buy"** - always do more research
+- **News can be wrong or misleading** - verify important claims
+- **Past news doesn't predict the future** - markets change quickly
+
+**Best Practice:** Use this alongside financial ratios, company fundamentals, and your own research!
+                """)
+        else:
+            st.warning("⚠️ AI analysis is currently unavailable. This could be due to API limits or connectivity issues.")
+            st.info("💡 **Tip:** Try again in a few minutes, or check the Financial Ratios and Key Metrics tabs for data-driven insights!")
+    
+    elif view == "📈 Investment Calculator":
+        st.markdown(f"## 📈 Four Scenarios Investment Calculator")
+        st.info(f"💡 **What is this?** Compare 4 different ways to invest $100 in {ticker} vs the S&P 500. See how 'Paycheck Investing' (adding $100 every 2 weeks) compares to investing all at once!")
+        
+        col1, col2 = st.columns([1, 3])
+        with col1:
+            years = st.slider("Investment Timeline (Years):", 1, 10, 5, help="How many years to simulate")
+        
+        with st.spinner(f"📊 Calculating {years}-year scenarios..."):
+            results = calculate_four_scenarios(ticker, years, 100)
+        
+        if results and results.get("scenarios"):
+            scenarios = results["scenarios"]
+            
+            st.markdown("### 📊 Results Comparison")
+            
+            cols = st.columns(4)
+            scenario_keys = ["lump_stock", "lump_sp500", "dca_stock", "dca_sp500"]
+            colors = ["🟣", "🟡", "🔵", "🟢"]
+            
+            for i, (key, color) in enumerate(zip(scenario_keys, colors)):
+                if key in scenarios:
+                    s = scenarios[key]
+                    with cols[i]:
+                        st.markdown(f"#### {color} {s['name']}")
+                        st.metric("Final Value", f"${s['final_value']:,.0f}")
+                        st.metric("Total Invested", f"${s['invested']:,.0f}")
+                        return_pct = s.get('return_pct', 0)
+                        st.metric("Return", f"{return_pct:+.1f}%")
+            
+            fig = create_four_scenarios_chart(results, ticker)
+            if fig:
+                st.plotly_chart(fig, use_container_width=True)
+            
+            st.markdown("---")
+            
+            with st.expander("💡 Understanding the Results", expanded=True):
+                st.markdown(f"""
+**What do these scenarios mean?**
+
+- **Lump Sum {ticker}**: You invest $100 once at the start and let it grow
+- **Lump Sum S&P 500**: Same $100 invested in the whole market (SPY ETF)
+- **Paycheck {ticker}**: You invest $100 every 2 weeks (like from your paycheck!)
+- **Paycheck S&P 500**: $100 every 2 weeks into the market
+
+**Why Paycheck Investing often wins:**
+- You invest MORE total money over time (${100 * years * 26:,} over {years} years!)
+- You buy at different prices (some high, some low) - this is called "Dollar Cost Averaging"
+- It's easier to save $100 per paycheck than $1,000+ all at once
+
+**Important Notes:**
+- Uses "Adjusted Close" prices (includes dividends!)
+- Past performance doesn't guarantee future results
+- This is for education only, not financial advice
+                """)
+        else:
+            st.warning(f"⚠️ Could not calculate scenarios for {ticker}. Historical price data may not be available.")
+            st.info("💡 **Tip:** Try a major stock like AAPL, MSFT, or GOOGL")
 
 
 elif selected_page == "🌍 Sector Explorer":
@@ -3144,7 +3554,7 @@ elif selected_page == "💼 Paper Portfolio":
     if 'portfolio' not in st.session_state:
         st.session_state.portfolio = []
     if 'cash' not in st.session_state:
-        st.session_state.cash = 100000.0  # Start with $100k
+        st.session_state.cash = 10000.0  # Start with $10k
     if 'transactions' not in st.session_state:
         st.session_state.transactions = []
     
@@ -3169,7 +3579,7 @@ elif selected_page == "💼 Paper Portfolio":
         st.metric("Portfolio Value", f"${total_value:,.2f}")
         st.metric("Cash Available", f"${st.session_state.cash:,.2f}")
         st.metric("Total Gain/Loss", f"${total_gain_loss:,.2f}", 
-                 f"{(total_gain_loss / 100000 * 100):+.2f}%")
+                 f"{(total_gain_loss / 10000 * 100):+.2f}%")
         
         st.markdown("---")
         st.markdown("### 🆕 Add Position")
@@ -3320,9 +3730,9 @@ elif selected_page == "💼 Paper Portfolio":
     # Reset portfolio option
     if st.button("🔄 Reset Portfolio (Start Over)", type="secondary"):
         st.session_state.portfolio = []
-        st.session_state.cash = 100000.0
+        st.session_state.cash = 10000.0
         st.session_state.transactions = []
-        st.success("✅ Portfolio reset! You have $100,000 to start fresh.")
+        st.success("✅ Portfolio reset! You have $10,000 to start fresh.")
         st.rerun()
 
 
