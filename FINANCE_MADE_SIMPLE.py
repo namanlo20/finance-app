@@ -2248,6 +2248,17 @@ elif selected_page == "📊 Company Analysis":
     balance_df = get_balance_sheet(ticker, 'annual', 5)
     ratios_df = get_financial_ratios(ticker, 'annual', 5)
     
+    fcf_cagr = None
+    if cash_df is not None and not cash_df.empty and 'freeCashFlow' in cash_df.columns:
+        fcf_values = cash_df['freeCashFlow'].dropna()
+        if len(fcf_values) >= 2:
+            start_fcf = fcf_values.iloc[-1]
+            end_fcf = fcf_values.iloc[0]
+            if start_fcf > 0 and end_fcf > 0:
+                years_count = len(fcf_values) - 1
+                if years_count > 0:
+                    fcf_cagr = calculate_cagr(start_fcf, end_fcf, years_count)
+    
     with st.sidebar:
         st.header("⚙️ Settings")
         period_type = st.radio("Time Period:", ["Annual", "Quarterly"])
