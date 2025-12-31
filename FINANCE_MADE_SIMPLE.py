@@ -2399,7 +2399,10 @@ elif selected_page == "📊 Company Analysis":
         ps = get_ps_ratio(ticker, ratios_ttm)
         fcf_per_share = calculate_fcf_per_share(ticker, cash_df, quote)
         
-        col1, col2, col3, col4, col5 = st.columns(5)
+        # Get price target for estimate
+        price_target_data = get_price_target_summary(ticker)
+        
+        col1, col2, col3, col4, col5, col6 = st.columns(6)
         col1.metric("Current Price", f"${price:.2f}", f"{change_pct:+.2f}%")
         col2.metric("Market Cap", format_number(market_cap),
                    help=explain_metric("Market Cap", market_cap, sector))
@@ -2419,6 +2422,18 @@ elif selected_page == "📊 Company Analysis":
         
         col5.metric("FCF Per Share", f"${fcf_per_share:.2f}" if fcf_per_share > 0 else "N/A",
                    help="Free Cash Flow divided by shares outstanding")
+        
+        # Price Estimate tile
+        if price_target_data:
+            target_avg = price_target_data.get('targetConsensus', 0) or price_target_data.get('targetMean', 0)
+            if target_avg and target_avg > 0 and price > 0:
+                upside = ((target_avg - price) / price) * 100
+                col6.metric("Price Estimate", f"${target_avg:.2f}", f"{upside:+.1f}%",
+                           help=f"Average analyst price target (12-month). Based on {price_target_data.get('numberOfAnalysts', 'N/A')} analysts.")
+            else:
+                col6.metric("Price Estimate", "N/A", help="No analyst price targets available")
+        else:
+            col6.metric("Price Estimate", "N/A", help="No analyst price targets available")
 
         # Market Benchmarks & Investment Calculator - Compact Right Column
         # Create tight 2-column layout (no divider for same-level alignment)
@@ -2757,12 +2772,42 @@ elif selected_page == "📊 Company Analysis":
         cash_df = get_cash_flow(ticker, period, years*4 if period == 'quarter' else years)
         balance_df = get_balance_sheet(ticker, period, years*4 if period == 'quarter' else years)
         
-        st.markdown(f"### 📈 {company_name} - Stock Price ({years} Years)")
-        price_data = get_historical_price(ticker, years)
-        if not price_data.empty and 'price' in price_data.columns:
+        st.markdown(f"### 📈 {company_name} - Stock Price")
+        
+        # Timeframe toggles for stock chart
+        timeframe_options = ["1D", "5D", "1M", "6M", "YTD", "1Y", "5Y"]
+        selected_timeframe = st.radio(
+            "Select timeframe:",
+            timeframe_options,
+            index=timeframe_options.index("5Y"),
+            horizontal=True,
+            key="big_picture_timeframe"
+        )
+        
+        # Calculate days based on timeframe
+        timeframe_days = {
+            "1D": 3,
+            "5D": 7,
+            "1M": 30,
+            "6M": 180,
+            "YTD": (datetime.now() - datetime(datetime.now().year, 1, 1)).days,
+            "1Y": 365,
+            "5Y": 365 * 5
+        }
+        days_to_show = timeframe_days.get(selected_timeframe, 365 * 5)
+        fetch_years = max(days_to_show / 365, 1) + 1
+        
+        price_data_full = get_historical_price(ticker, int(fetch_years))
+        if not price_data_full.empty and 'price' in price_data_full.columns:
+            # Filter to selected timeframe
+            cutoff_date = datetime.now() - timedelta(days=days_to_show)
+            price_data = price_data_full[price_data_full['date'] >= cutoff_date].copy()
+            
+            if len(price_data) < 2:
+                price_data = price_data_full.tail(3)
             
             fig = px.area(price_data, x='date', y='price', 
-                         title=f'{company_name} Stock Price')
+                         title=f'{company_name} Stock Price ({selected_timeframe})')
             fig.update_layout(
                 height=350,
                 plot_bgcolor='rgba(0,0,0,0)',
