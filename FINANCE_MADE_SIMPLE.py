@@ -1084,38 +1084,56 @@ def get_profile(ticker):
     except:
         return None
 
-@st.cache_data(ttl=1800)
 def get_stock_specific_news(ticker, limit=10):
-    """Get STOCK-SPECIFIC news - fetch more and return all relevant articles"""
-    # Fetch more articles than needed to ensure we have enough after any filtering
-    fetch_limit = max(limit * 3, 30)
-    url = f"{BASE_URL}/stock_news?tickers={ticker}&limit={fetch_limit}&apikey={FMP_API_KEY}"
+    """Get STOCK-SPECIFIC news using Perplexity API (FMP news endpoint is legacy)"""
+    import json
+    
+    perplexity_api_key = os.environ.get('PERPLEXITY_API_KEY', '')
+    if not perplexity_api_key:
+        return []
+    
     try:
-        response = requests.get(url, timeout=10)
+        # Use Perplexity to get recent news about the stock
+        perplexity_url = "https://api.perplexity.ai/chat/completions"
+        perplexity_headers = {
+            "Authorization": f"Bearer {perplexity_api_key}",
+            "Content-Type": "application/json"
+        }
+        perplexity_payload = {
+            "model": "sonar",
+            "messages": [
+                {"role": "system", "content": "You are a financial news aggregator. Return ONLY a JSON array of news articles. No other text."},
+                {"role": "user", "content": f"""Find the {limit} most recent news articles about {ticker} stock from the past 7 days.
+Return ONLY a valid JSON array with this exact format (no other text):
+[
+  {{"title": "Article headline", "url": "https://source.com/article", "publishedDate": "2025-12-30", "source": "Source Name"}},
+  ...
+]
+Include real URLs from reputable financial news sources like Reuters, Bloomberg, CNBC, Yahoo Finance, MarketWatch, etc."""}
+            ],
+            "max_tokens": 1500,
+            "temperature": 0.1
+        }
+        
+        response = requests.post(perplexity_url, headers=perplexity_headers, json=perplexity_payload, timeout=15)
         if response.status_code == 200:
-            data = response.json()
-            if isinstance(data, list) and len(data) > 0:
-                # Return all articles from the API - FMP already filters by ticker
-                return data[:limit]
+            content = response.json().get('choices', [{}])[0].get('message', {}).get('content', '')
             
-            # Fallback: try general stock news endpoint
-            fallback_url = f"{BASE_URL}/stock_news?limit=50&apikey={FMP_API_KEY}"
-            fallback_response = requests.get(fallback_url, timeout=10)
-            if fallback_response.status_code == 200:
-                fallback_data = fallback_response.json()
-                if isinstance(fallback_data, list):
-                    # Filter for ticker mentions
-                    filtered = []
-                    for article in fallback_data:
-                        title = article.get('title', '').upper()
-                        text = article.get('text', '').upper()
-                        symbol = article.get('symbol', '').upper()
-                        if ticker.upper() in title or ticker.upper() in text or symbol == ticker.upper():
-                            filtered.append(article)
-                    if filtered:
-                        return filtered[:limit]
+            # Try to parse JSON from the response
+            try:
+                # Find JSON array in the response
+                start_idx = content.find('[')
+                end_idx = content.rfind(']') + 1
+                if start_idx != -1 and end_idx > start_idx:
+                    json_str = content[start_idx:end_idx]
+                    articles = json.loads(json_str)
+                    if isinstance(articles, list) and len(articles) > 0:
+                        return articles[:limit]
+            except json.JSONDecodeError:
+                pass
     except Exception as e:
         pass
+    
     return []
 
 @st.cache_data(ttl=3600)
@@ -1551,7 +1569,7 @@ OVERALL: [One sentence summary - is this stock looking good or risky right now?]
 Remember: Use simple words like "the company is making less money" instead of "declining revenue margins"."""
 
         payload = {
-            "model": "llama-3.1-sonar-small-128k-online",
+            "model": "sonar",
             "messages": [
                 {"role": "system", "content": "You are a helpful financial analyst who explains things simply for beginners. Always search for recent news about the company."},
                 {"role": "user", "content": prompt}
@@ -3940,7 +3958,7 @@ elif selected_page == "📈 Financial Ratios":
                         "Content-Type": "application/json"
                     }
                     perplexity_payload = {
-                        "model": "llama-3.1-sonar-small-128k-online",
+                        "model": "sonar",
                         "messages": [
                             {"role": "system", "content": "You are a financial analyst. Summarize the news in 2 sentences for a beginner investor."},
                             {"role": "user", "content": f"Summarize these headlines about {ticker} ({company_name}): {headlines_text}"}
