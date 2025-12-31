@@ -650,7 +650,7 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
         if metric in df_reversed.columns:
             values = df_reversed[metric].values
             if len(values) >= 2 and values[0] != 0:
-                growth_rate = ((values[-1] - values[0]) / abs(values[0])) * 100
+                growth_rate = ((values[0] - values[-1]) / abs(values[-1])) * 100
                 growth_rates[metric] = growth_rate
             
             fig.add_trace(go.Bar(
@@ -2181,98 +2181,101 @@ with tab1:
         col5.metric("FCF Per Share", f"${fcf_per_share:.2f}" if fcf_per_share > 0 else "N/A",
                    help="Free Cash Flow divided by shares outstanding")
         
-        st.markdown("---")
         
-        # 2-COLUMN LAYOUT: Main (left) + Sidebar (right) - NO EMPTY SPACE
-        main_col, sidebar_col = st.columns([2.5, 1], gap="small")
-        
-        with sidebar_col:
-            st.markdown("### 📊 Benchmarks")
-            
-            try:
-                sp500_quote = get_quote("^GSPC")
-                if sp500_quote:
-                    st.metric("S&P 500 YTD", f"{sp500_quote.get('changesPercentage', 0):+.1f}%")
-            except:
-                st.metric("S&P 500 YTD", "N/A")
-            
-            try:
-                stock_quote = get_quote(ticker)
-                if stock_quote:
-                    st.metric(f"{ticker} YTD", f"{stock_quote.get('changesPercentage', 0):+.1f}%")
-            except:
-                pass
-            
+        # RIGHT SIDEBAR: ONLY show on Key Metrics page
+        if view == "📊 Key Metrics":
             st.markdown("---")
-            st.markdown("**🏦 Treasury Rates**")
-            st.caption("Risk-free returns. Safe alternative to stocks.")
             
-            # Fetch treasury rates
-            treasury_url = f"https://financialmodelingprep.com/api/v4/treasury?apikey={FMP_API_KEY}"
-            try:
-                treasury_response = requests.get(treasury_url, timeout=5)
-                if treasury_response.status_code == 200:
-                    treasury_data = treasury_response.json()
-                    if treasury_data:
-                        latest = treasury_data[0] if isinstance(treasury_data, list) else treasury_data
-                        
-                        col_t1, col_t2 = st.columns(2)
-                        with col_t1:
-                            if 'month3' in latest:
-                                st.metric("3M", f"{latest['month3']:.2f}%")
-                            if 'year2' in latest:
-                                st.metric("2Y", f"{latest['year2']:.2f}%")
-                        with col_t2:
-                            if 'year5' in latest:
-                                st.metric("5Y", f"{latest['year5']:.2f}%")
-                            if 'year10' in latest:
-                                st.metric("10Y", f"{latest['year10']:.2f}%")
-                        
-                        st.info(f"💡 Earn {latest.get('year10', 4):.2f}% risk-free! No volatility.")
-            except:
-                st.metric("10Y Treasury", "~4.25%")
-                st.caption("Risk-free baseline")
+            # 2-COLUMN LAYOUT
+            main_col, sidebar_col = st.columns([2, 1.2], gap="small")
             
-            st.markdown("---")
-            st.markdown("### 💰 Calculator")
-            st.caption("Lump sum returns")
-            
-            amt = st.number_input("Amount ($)", 1, 10000, 100, 50, key="calc")
-            
-            yrs = years if 'years' in locals() else 5
-            hist = get_historical_price(ticker, yrs)
-            
-            if not hist.empty and len(hist) > 1 and hist['price'].iloc[0] > 0:
-                # Stock
-                stock_v = (amt / hist['price'].iloc[0]) * hist['price'].iloc[-1]
-                stock_r = ((stock_v - amt) / amt) * 100
-                st.markdown(f"**{ticker}**")
-                st.metric("Value", f"${stock_v:,.0f}", f"{stock_r:+.1f}%")
+            with sidebar_col:
+                st.markdown("### 📊 Benchmarks")
                 
-                # S&P
-                sp = get_historical_price("SPY", yrs)
-                if not sp.empty and len(sp) > 1 and sp['price'].iloc[0] > 0:
-                    sp_v = (amt / sp['price'].iloc[0]) * sp['price'].iloc[-1]
-                    sp_r = ((sp_v - amt) / amt) * 100
-                    st.markdown("**S&P 500**")
-                    st.metric("Value", f"${sp_v:,.0f}", f"{sp_r:+.1f}%")
+                try:
+                    sp500_quote = get_quote("^GSPC")
+                    if sp500_quote:
+                        st.metric("S&P 500 YTD", f"{sp500_quote.get('changesPercentage', 0):+.1f}%")
+                except:
+                    st.metric("S&P 500 YTD", "N/A")
+                
+                try:
+                    stock_quote = get_quote(ticker)
+                    if stock_quote:
+                        st.metric(f"{ticker} YTD", f"{stock_quote.get('changesPercentage', 0):+.1f}%")
+                except:
+                    pass
+                
+                st.markdown("---")
+                st.markdown("**🏦 Treasury Rates**")
+                st.caption("Risk-free returns. Safe alternative to stocks.")
+                
+                treasury_url = f"https://financialmodelingprep.com/api/v4/treasury?apikey={FMP_API_KEY}"
+                try:
+                    treasury_response = requests.get(treasury_url, timeout=5)
+                    if treasury_response.status_code == 200:
+                        treasury_data = treasury_response.json()
+                        if treasury_data:
+                            latest = treasury_data[0] if isinstance(treasury_data, list) else treasury_data
+                            
+                            col_t1, col_t2 = st.columns(2)
+                            with col_t1:
+                                if 'month3' in latest:
+                                    st.metric("3M", f"{latest['month3']:.2f}%")
+                                if 'year2' in latest:
+                                    st.metric("2Y", f"{latest['year2']:.2f}%")
+                            with col_t2:
+                                if 'year5' in latest:
+                                    st.metric("5Y", f"{latest['year5']:.2f}%")
+                                if 'year10' in latest:
+                                    st.metric("10Y", f"{latest['year10']:.2f}%")
+                            
+                            st.info(f"💡 Earn {latest.get('year10', 4):.2f}% risk-free! No volatility.")
+                except:
+                    st.metric("10Y Treasury", "~4.25%")
+                    st.caption("Risk-free baseline")
+                
+                st.markdown("---")
+                st.markdown("### 💰 Calculator")
+                st.caption("Lump sum returns")
+                
+                amt = st.number_input("Amount ($)", 1, 10000, 100, 50, key="calc")
+                
+                yrs = years if 'years' in locals() else 5
+                hist = get_historical_price(ticker, yrs)
+                
+                if not hist.empty and len(hist) > 1 and hist['price'].iloc[0] > 0:
+                    stock_v = (amt / hist['price'].iloc[0]) * hist['price'].iloc[-1]
+                    stock_r = ((stock_v - amt) / amt) * 100
+                    st.markdown(f"**{ticker}**")
+                    st.metric("Value", f"${stock_v:,.0f}", f"{stock_r:+.1f}%")
                     
-                    # Savings + Inflation
-                    st.markdown("---")
-                    st.markdown("**💵 Doing Nothing**")
-                    sav = amt * (1.04 ** yrs)
-                    real = amt / (1.03 ** yrs)
-                    st.metric("Savings", f"${sav:,.0f}", "@4% APY")
-                    st.warning(f"⚠️ Inflation ate ${amt-real:.0f}!")
-                    
-                    st.markdown("---")
-                    if stock_v > sp_v:
-                        st.success(f"✅ {ticker} wins")
-                    else:
-                        st.info(f"📊 S&P wins")
-        
-        with main_col:
+                    sp = get_historical_price("SPY", yrs)
+                    if not sp.empty and len(sp) > 1 and sp['price'].iloc[0] > 0:
+                        sp_v = (amt / sp['price'].iloc[0]) * sp['price'].iloc[-1]
+                        sp_r = ((sp_v - amt) / amt) * 100
+                        st.markdown("**S&P 500**")
+                        st.metric("Value", f"${sp_v:,.0f}", f"{sp_r:+.1f}%")
+                        
+                        st.markdown("---")
+                        st.markdown("**💵 Doing Nothing**")
+                        sav = amt * (1.04 ** yrs)
+                        real = amt / (1.03 ** yrs)
+                        st.metric("Savings", f"${sav:,.0f}", "@4% APY")
+                        st.warning(f"⚠️ Inflation ate ${amt-real:.0f}!")
+                        
+                        st.markdown("---")
+                        if stock_v > sp_v:
+                            st.success(f"✅ {ticker} wins")
+                        else:
+                            st.info(f"📊 S&P wins")
+            
+            with main_col:
+                pass
+        else:
+            # No sidebar for other views
             pass
+        
         
 
 
