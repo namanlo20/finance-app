@@ -1114,38 +1114,35 @@ def get_earnings_calendar(ticker):
 
 @st.cache_data(ttl=3600)
 def get_treasury_rates():
-    """Get current treasury rates"""
+    """Get current treasury rates - optimized to use single API call instead of 3 separate calls"""
     rates = {}
     
     try:
-        url = f"{BASE_URL}/treasury?from=10Y&to=10Y&apikey={FMP_API_KEY}"
+        # Use the v4/treasury endpoint which returns all rates in a single call
+        # This is more efficient than making 3 separate API calls
+        url = f"https://financialmodelingprep.com/api/v4/treasury?apikey={FMP_API_KEY}"
         response = requests.get(url, timeout=10)
         if response.status_code == 200:
             data = response.json()
-            if data and len(data) > 0:
-                rates['10Y'] = data[0].get('yield', 0)
-    except:
-        rates['10Y'] = 0
-    
-    try:
-        url = f"{BASE_URL}/treasury?from=2Y&to=2Y&apikey={FMP_API_KEY}"
-        response = requests.get(url, timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            if data and len(data) > 0:
-                rates['2Y'] = data[0].get('yield', 0)
-    except:
-        rates['2Y'] = 0
-    
-    try:
-        url = f"{BASE_URL}/treasury?from=30Y&to=30Y&apikey={FMP_API_KEY}"
-        response = requests.get(url, timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            if data and len(data) > 0:
-                rates['30Y'] = data[0].get('yield', 0)
-    except:
-        rates['30Y'] = 0
+            if data:
+                latest = data[0] if isinstance(data, list) else data
+                # Map the API response keys to our standard format
+                rates['month3'] = latest.get('month3', 0)
+                rates['year2'] = latest.get('year2', 0)
+                rates['year5'] = latest.get('year5', 0)
+                rates['year10'] = latest.get('year10', 0)
+                rates['year30'] = latest.get('year30', 0)
+                # Also provide legacy keys for backward compatibility
+                rates['2Y'] = rates['year2']
+                rates['10Y'] = rates['year10']
+                rates['30Y'] = rates['year30']
+    except Exception:
+        # Provide fallback values if API fails
+        rates = {
+            'month3': 4.25, 'year2': 4.25, 'year5': 4.25, 
+            'year10': 4.25, 'year30': 4.25,
+            '2Y': 4.25, '10Y': 4.25, '30Y': 4.25
+        }
     
     return rates
 
@@ -2159,29 +2156,24 @@ with tab1:
             st.markdown("**🏦 Treasury Rates**")
             st.caption("Safest investment. Zero risk = guaranteed returns.")
             
-            # Fetch treasury rates from FMP
-            treasury_url = f"https://financialmodelingprep.com/api/v4/treasury?apikey={FMP_API_KEY}"
-            try:
-                treasury_response = requests.get(treasury_url, timeout=5)
-                if treasury_response.status_code == 200:
-                    treasury_data = treasury_response.json()
-                    if treasury_data:
-                        latest = treasury_data[0] if isinstance(treasury_data, list) else treasury_data
-                        
-                        col_t1, col_t2 = st.columns(2)
-                        with col_t1:
-                            if 'month3' in latest:
-                                st.metric("3-Month", f"{latest['month3']:.2f}%")
-                            if 'year2' in latest:
-                                st.metric("2-Year", f"{latest['year2']:.2f}%")
-                        with col_t2:
-                            if 'year5' in latest:
-                                st.metric("5-Year", f"{latest['year5']:.2f}%")
-                            if 'year10' in latest:
-                                st.metric("10-Year", f"{latest['year10']:.2f}%")
-                        
-                        st.caption(f"💡 Earn {latest.get('year10', 4):.2f}% risk-free with treasuries!")
-            except:
+            # Use the cached get_treasury_rates() function instead of making a direct API call
+            # This reduces redundant API calls and ensures proper caching
+            treasury_rates = get_treasury_rates()
+            if treasury_rates:
+                col_t1, col_t2 = st.columns(2)
+                with col_t1:
+                    if treasury_rates.get('month3'):
+                        st.metric("3-Month", f"{treasury_rates['month3']:.2f}%")
+                    if treasury_rates.get('year2'):
+                        st.metric("2-Year", f"{treasury_rates['year2']:.2f}%")
+                with col_t2:
+                    if treasury_rates.get('year5'):
+                        st.metric("5-Year", f"{treasury_rates['year5']:.2f}%")
+                    if treasury_rates.get('year10'):
+                        st.metric("10-Year", f"{treasury_rates['year10']:.2f}%")
+                
+                st.caption(f"💡 Earn {treasury_rates.get('year10', 4.25):.2f}% risk-free with treasuries!")
+            else:
                 # Fallback if API fails
                 st.metric("10-Year Treasury", "~4.25%")
                 st.caption("Risk-free baseline return")
