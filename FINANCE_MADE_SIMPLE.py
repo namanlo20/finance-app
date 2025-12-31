@@ -1865,11 +1865,13 @@ with st.sidebar:
             "📊 Company Analysis",
             "🌍 Sector Explorer",
             "📋 Investment Checklist",
-            "💼 Paper Portfolio",
-            "✅ Portfolio Risk Analyzer"
+            "💼 My Portfolio"
         ],
         index=2
     )
+    
+    if 'analysis_view' not in st.session_state:
+        st.session_state.analysis_view = "🌟 The Big Picture"
 
 # ============= PAGE CONTENT =============
 if selected_page == "📚 Finance 101":
@@ -2192,12 +2194,14 @@ elif selected_page == "📊 Company Analysis":
         ticker, company_name = smart_search_ticker(search)
         st.session_state.selected_ticker = ticker
         if ticker != search.upper():
-            st.success(f"✅ Found: {company_name} ({ticker})")
+            st.success(f"Found: {company_name} ({ticker})")
     else:
         ticker = st.session_state.selected_ticker
     
     profile = get_profile(ticker)
-    if profile:
+    has_company = profile is not None
+    
+    if has_company:
         company_name = profile.get('companyName', ticker)
         sector = profile.get('sector', 'N/A')
         industry = profile.get('industry', 'N/A')
@@ -2232,21 +2236,21 @@ elif selected_page == "📊 Company Analysis":
         sector = "Unknown"
         st.subheader(f"{ticker}")
     
-    view = st.radio("Choose View:", [
-        "📊 Key Metrics", 
-        "🔀 Compare 2 Stocks",
-        "📈 Financial Ratios", 
-        "💰 Valuation (DCF)", 
-        "📉 Technical Analysis", 
-        "📰 Latest News",
-        "🤖 AI Risk Profile",
-        "📈 Investment Calculator"
-    ], horizontal=True)
-    
     income_df = get_income_statement(ticker, 'annual', 5)
     cash_df = get_cash_flow(ticker, 'annual', 5)
     balance_df = get_balance_sheet(ticker, 'annual', 5)
     ratios_df = get_financial_ratios(ticker, 'annual', 5)
+    
+    fcf_cagr = None
+    if cash_df is not None and not cash_df.empty and 'freeCashFlow' in cash_df.columns:
+        fcf_values = cash_df['freeCashFlow'].dropna()
+        if len(fcf_values) >= 2:
+            start_fcf = fcf_values.iloc[-1]
+            end_fcf = fcf_values.iloc[0]
+            if start_fcf > 0 and end_fcf > 0:
+                years_count = len(fcf_values) - 1
+                if years_count > 0:
+                    fcf_cagr = calculate_cagr(start_fcf, end_fcf, years_count)
     
     with st.sidebar:
         st.header("⚙️ Settings")
@@ -2256,11 +2260,25 @@ elif selected_page == "📊 Company Analysis":
         
         st.markdown("---")
         
-        st.markdown("### 📊 Growth Metrics")
+        if has_company:
+            st.markdown("### 🔍 Explore This Company")
+            view = st.radio(
+                "Choose what to analyze:",
+                ["🌟 The Big Picture", "💪 Financial Health", "💰 Price & Future Value", "⚠️ Risk Report"],
+                key="analysis_view_radio",
+                help="Pick a category to explore different aspects of this company"
+            )
+            st.session_state.analysis_view = view
+            st.markdown("---")
+        else:
+            st.info("🔍 Search for a company above to unlock analysis options!")
+            view = "🌟 The Big Picture"
+        
+        st.markdown("### 📊 Quick Stats")
         
         if fcf_cagr:
-                st.metric("FCF CAGR", f"{fcf_cagr:+.1f}%",
-                         help=f"Free cash flow growth rate over {years} years")
+            st.metric("FCF Growth", f"{fcf_cagr:+.1f}%",
+                     help="How fast is the company's free cash flow growing?")
         
         price_data = get_historical_price(ticker, years)
         if not price_data.empty and len(price_data) > 1 and 'price' in price_data.columns:
@@ -2268,32 +2286,32 @@ elif selected_page == "📊 Company Analysis":
             end_price = price_data['price'].iloc[-1]
             price_growth = ((end_price - start_price) / start_price) * 100
             st.metric(f"Stock Growth ({years}Y)", f"{price_growth:+.1f}%",
-                     help=f"Total stock price return over {years} years")
+                     help=f"How much has the stock price changed over {years} years?")
         
         st.markdown("---")
         
-        st.markdown("### ⚠️ Risk Indicators")
+        st.markdown("### ⚠️ Health Check")
         
         de_ratio = calculate_debt_to_equity(balance_df)
         if de_ratio > 0:
             if de_ratio > 2.0:
-                st.error(f"D/E: {de_ratio:.2f} 🔴")
-                st.caption("High debt risk")
+                st.error(f"Debt Level: {de_ratio:.2f} 🔴")
+                st.caption("High debt - be careful!")
             elif de_ratio > 1.0:
-                st.warning(f"D/E: {de_ratio:.2f} 🟡")
+                st.warning(f"Debt Level: {de_ratio:.2f} 🟡")
                 st.caption("Moderate debt")
             else:
-                st.success(f"D/E: {de_ratio:.2f} 🟢")
-                st.caption("Low debt")
+                st.success(f"Debt Level: {de_ratio:.2f} 🟢")
+                st.caption("Low debt - good!")
         
         qr = calculate_quick_ratio(balance_df)
         if qr > 0:
             if qr < 1.0:
-                st.warning(f"Quick Ratio: {qr:.2f} 🟡")
-                st.caption("Low liquidity")
+                st.warning(f"Cash on Hand: {qr:.2f} 🟡")
+                st.caption("Might struggle to pay bills")
             else:
-                st.success(f"Quick Ratio: {qr:.2f} 🟢")
-                st.caption("Good liquidity")
+                st.success(f"Cash on Hand: {qr:.2f} 🟢")
+                st.caption("Can pay bills easily")
 
 
     quote = get_quote(ticker)
@@ -2523,7 +2541,7 @@ elif selected_page == "📊 Company Analysis":
                     st.caption(f"Based on {num_analysts} analysts")
         
     
-    if view == "📊 Key Metrics":
+    if view == "🌟 The Big Picture":
         
         income_df = get_income_statement(ticker, period, years*4 if period == 'quarter' else years)
         cash_df = get_cash_flow(ticker, period, years*4 if period == 'quarter' else years)
@@ -2811,8 +2829,62 @@ elif selected_page == "📊 Company Analysis":
         else:
             st.warning("⚠️ Balance sheet not available")
     
-    elif view == "🔀 Compare 2 Stocks":
-        st.markdown("## 🔀 Compare 2 Stocks")
+    elif view == "💪 Financial Health":
+        st.markdown("## 💪 Financial Health")
+        st.info("💡 **What is this?** See how healthy this company is financially - its profit margins, debt levels, and how it compares to others.")
+        
+        health_tab1, health_tab2 = st.tabs(["📈 Financial Ratios", "🔀 Compare Stocks"])
+        
+        with health_tab1:
+            st.markdown("### 📈 Financial Ratios")
+            st.caption("See how the company's key ratios compare to the S&P 500 average")
+            
+            ratios_df_health = get_financial_ratios(ticker, period, years*4 if period == 'quarter' else years)
+            
+            if ratios_df_health is not None and not ratios_df_health.empty:
+                ratio_options = [
+                    ("Gross Margin", "grossProfitMargin"),
+                    ("Operating Margin", "operatingProfitMargin"),
+                    ("Net Margin", "netProfitMargin"),
+                    ("Return on Equity", "returnOnEquity"),
+                    ("Return on Assets", "returnOnAssets"),
+                    ("Current Ratio", "currentRatio")
+                ]
+                
+                available_ratios = [(name, col) for name, col in ratio_options if col in ratios_df_health.columns]
+                
+                if available_ratios:
+                    selected_ratio = st.selectbox(
+                        "Select a ratio to analyze:",
+                        options=[name for name, _ in available_ratios],
+                        key="health_ratio_select"
+                    )
+                    
+                    ratio_col = next(col for name, col in available_ratios if name == selected_ratio)
+                    
+                    fig = create_ratio_trend_chart(
+                        ratios_df_health,
+                        selected_ratio,
+                        ratio_col,
+                        f"{company_name} - {selected_ratio} Trend",
+                        sector
+                    )
+                    
+                    if fig:
+                        st.plotly_chart(fig, use_container_width=True)
+                    
+                    with st.expander(f"💡 What is {selected_ratio}?"):
+                        if selected_ratio in RATIO_EXPLANATIONS:
+                            exp = RATIO_EXPLANATIONS[selected_ratio]
+                            st.markdown(f"**What it measures:** {exp.get('what', 'N/A')}")
+                            st.markdown(f"**What's good:** {exp.get('good', 'N/A')}")
+                else:
+                    st.warning("No ratio data available for this company")
+            else:
+                st.warning("Financial ratios not available")
+        
+        with health_tab2:
+            st.markdown("### 🔀 Compare 2 Stocks")
         st.info("💡 Compare metrics side-by-side with sector averages and explanations")
         
         col1, col2 = st.columns(2)
@@ -3209,7 +3281,7 @@ elif selected_page == "📊 Company Analysis":
 - This is educational - not financial advice
         """)
 
-    elif view == "💰 Valuation (DCF)":
+    elif view == "💰 Price & Future Value":
         st.markdown("## 💰 DCF Valuation")
         st.caption("⚠️ Educational model only. Not a valuation recommendation.")
         st.info("Simplified DCF model - adjust assumptions")
@@ -3296,7 +3368,7 @@ elif selected_page == "📊 Company Analysis":
             st.info("No recent news for this ticker")
             st.caption("News available for major stocks like AAPL, TSLA, MSFT")
     
-    elif view == "🤖 AI Risk Profile":
+    elif view == "⚠️ Risk Report":
         st.markdown(f"## 🤖 AI Risk Profile for {company_name}")
         st.info("💡 **What is this?** Our AI analyzes news from the last 30 days to identify potential risks and opportunities. Written in simple language anyone can understand!")
         
@@ -3545,10 +3617,15 @@ elif selected_page == "📋 Investment Checklist":
                 st.error("🚨 Many red flags")
 
 
-elif selected_page == "💼 Paper Portfolio":
-    st.header("💼 Paper Portfolio Tracker")
-    st.markdown("**Practice trading with fake money! Track your performance without any risk.**")
-    st.caption("⚠️ Simulated trading for educational purposes only. Does not reflect real trading costs, slippage, or market conditions.")
+elif selected_page == "💼 My Portfolio":
+    st.header("💼 My Portfolio")
+    st.markdown("**Track your practice portfolio and analyze its risk profile.**")
+    
+    portfolio_tab1, portfolio_tab2 = st.tabs(["📊 Portfolio Tracker", "⚠️ Risk Analyzer"])
+    
+    with portfolio_tab1:
+        st.markdown("### 📊 Paper Portfolio Tracker")
+        st.caption("⚠️ Simulated trading for educational purposes only. Does not reflect real trading costs, slippage, or market conditions.")
     
     # Initialize session state for portfolio
     if 'portfolio' not in st.session_state:
