@@ -2066,9 +2066,58 @@ with tab1:
         
         st.markdown("---")
         
-        st.markdown("### 📊 Growth Metrics")
+        st.markdown("### 📊 Market Benchmarks")
         
-        if fcf_cagr:
+        treasury_rates = get_treasury_rates()
+        sp500_ytd = get_sp500_performance()
+        
+        if treasury_rates.get('10Y', 0) > 0:
+            st.metric("🏦 10Y Treasury (Risk-Free)", f"{treasury_rates['10Y']:.2f}%",
+                     help="10-year US Treasury yield - the 'risk-free' rate investors use as baseline")
+        
+        if sp500_ytd != 0:
+            st.metric("📈 S&P 500 YTD", f"{sp500_ytd:+.1f}%",
+                     help="S&P 500 year-to-date return - benchmark for US stock market")
+        
+        price_data_ytd = get_historical_price(ticker, 1)
+        if not price_data_ytd.empty and len(price_data_ytd) > 1:
+            try:
+                current_year = datetime.now().year
+                price_data_ytd['year'] = pd.to_datetime(price_data_ytd['date']).dt.year
+                ytd_data = price_data_ytd[price_data_ytd['year'] == current_year]
+                
+                if len(ytd_data) > 1:
+                    price_col = 'close' if 'close' in ytd_data.columns else 'price'
+                    
+                    start_price = ytd_data[price_col].iloc[0]
+                    latest_price = ytd_data[price_col].iloc[-1]
+                    
+                    if start_price > 0:
+                        stock_ytd = ((latest_price - start_price) / start_price) * 100
+                        st.metric(f"🎯 {ticker} YTD", f"{stock_ytd:+.1f}%",
+                             help=f"{ticker} year-to-date return")
+            except:
+                pass
+        
+        st.markdown("---")
+        
+        st.markdown("### 📈 Growth Metrics")
+        
+        if not income_df.empty:
+            revenue_cagr = calculate_growth_rate(income_df, 'revenue', years)
+            if revenue_cagr:
+                st.metric("Revenue CAGR", f"{revenue_cagr:+.1f}%",
+                         help=f"Compound Annual Growth Rate over {years} years")
+            
+            if 'netIncome' in income_df.columns:
+                profit_cagr = calculate_growth_rate(income_df, 'netIncome', years)
+                if profit_cagr:
+                    st.metric("Profit CAGR", f"{profit_cagr:+.1f}%",
+                             help=f"Net income growth rate over {years} years")
+        
+        if not cash_df.empty and 'freeCashFlow' in cash_df.columns:
+            fcf_cagr = calculate_growth_rate(cash_df, 'freeCashFlow', years)
+            if fcf_cagr:
                 st.metric("FCF CAGR", f"{fcf_cagr:+.1f}%",
                          help=f"Free cash flow growth rate over {years} years")
         
@@ -2133,8 +2182,10 @@ with tab1:
                    help="Free Cash Flow divided by shares outstanding")
 
         # Market Benchmarks & Investment Calculator - Compact Right Column
-        # Create tight 2-column layout (no divider for same-level alignment)
-        col_left_main, col_right_widgets = st.columns([2, 1.2], gap="small")
+        st.markdown("---")
+        
+        # Create tight 2-column layout
+        col_left_main, col_right_widgets = st.columns([2.5, 1])
         
         with col_right_widgets:
             st.markdown("### 📊 Benchmarks")
@@ -2178,27 +2229,88 @@ with tab1:
                 # Fallback if API fails
                 st.metric("10-Year Treasury", "~4.25%")
                 st.caption("Risk-free baseline return")
-            
-            st.markdown("---")
-            st.markdown("### 🏆 My Top 5 Metrics")
-            
-            with st.expander("#1: Net Income Growth"):
-                st.caption("Bottom line profit. If this isn't growing, nothing else matters.")
-            
-            with st.expander("#2: Operating Income Growth"):
-                st.caption("Shows if the core business is healthy, before financial engineering.")
-            
-            with st.expander("#3: Free Cash Flow Growth"):
-                st.caption("Cash is king. A company can manipulate earnings, but cash flow doesn't lie.")
-            
-            with st.expander("#4: Revenue Growth"):
-                st.caption("Top line tells you if customers want the product.")
-            
-            with st.expander("#5: Quick Ratio Growth"):
-                st.caption("Can they handle a crisis? Rising liquidity = safety.")
 
             st.markdown("---")
+            st.markdown("### 💰 Calculator")
             
+            invest_initial = st.number_input("Initial Investment ($)", min_value=1, value=100, step=50, key="right_invest")
+            invest_dca = st.number_input("Bi-Weekly DCA ($)", min_value=0, value=100, step=25, key="right_dca")
+            
+            # Calculate returns
+            calc_years = years if 'years' in locals() else 5
+            price_hist = get_historical_price(ticker, calc_years)
+            
+            if not price_hist.empty and len(price_hist) > 1:
+                start_price = price_hist['price'].iloc[0]
+                end_price = price_hist['price'].iloc[-1]
+                
+                if start_price > 0:
+                    # Stock - Lump Sum
+                    stock_lump_value = (invest_initial / start_price) * end_price
+                    stock_lump_return = ((stock_lump_value - invest_initial) / invest_initial) * 100
+                    
+                    # Stock - DCA
+                    weeks = calc_years * 52
+                    num_dca = weeks // 2
+                    avg_price = price_hist['price'].mean()
+                    total_invested = invest_initial + (invest_dca * num_dca)
+                    stock_shares_dca = (invest_initial / start_price) + (invest_dca * num_dca / avg_price)
+                    stock_dca_value = stock_shares_dca * end_price
+                    stock_dca_return = ((stock_dca_value - total_invested) / total_invested) * 100 if total_invested > 0 else 0
+                    
+                    # Display Stock results
+                    with st.expander(f"💵 Lump Sum: ${invest_initial} → {ticker}", expanded=True):
+                        st.metric("Current Value", f"${stock_lump_value:,.2f}", f"{stock_lump_return:+.1f}%")
+                        st.caption(f"Bought {invest_initial/start_price:.2f} shares @ ${start_price:.2f}")
+                    
+                    with st.expander(f"📅 DCA: ${invest_dca} bi-weekly → {ticker}", expanded=True):
+                        st.metric("Current Value", f"${stock_dca_value:,.2f}", f"{stock_dca_return:+.1f}%")
+                        st.caption(f"Total invested: ${total_invested:,.2f} over {calc_years} years")
+                    
+                    st.markdown("#### vs S&P 500")
+                    
+                    # S&P 500 calculations
+                    sp500_hist = get_historical_price("SPY", calc_years)
+                    
+                    if not sp500_hist.empty and len(sp500_hist) > 1:
+                        sp500_start = sp500_hist['price'].iloc[0]
+                        sp500_end = sp500_hist['price'].iloc[-1]
+                        
+                        if sp500_start > 0:
+                            # S&P - Lump Sum
+                            sp500_lump_value = (invest_initial / sp500_start) * sp500_end
+                            sp500_lump_return = ((sp500_lump_value - invest_initial) / invest_initial) * 100
+                            
+                            # S&P - DCA
+                            sp500_avg = sp500_hist['price'].mean()
+                            sp500_shares_dca = (invest_initial / sp500_start) + (invest_dca * num_dca / sp500_avg)
+                            sp500_dca_value = sp500_shares_dca * sp500_end
+                            sp500_dca_return = ((sp500_dca_value - total_invested) / total_invested) * 100 if total_invested > 0 else 0
+                            
+                            # Display S&P results
+                            with st.expander(f"💵 Lump Sum: ${invest_initial} → S&P 500", expanded=True):
+                                st.metric("Current Value", f"${sp500_lump_value:,.2f}", f"{sp500_lump_return:+.1f}%")
+                            st.caption("S&P 500 (SPY)")
+                            
+                            with st.expander(f"📅 DCA: ${invest_dca} bi-weekly → S&P 500", expanded=True):
+                                st.metric("Current Value", f"${sp500_dca_value:,.2f}", f"{sp500_dca_return:+.1f}%")
+                            st.caption(f"Total invested: ${total_invested:,.2f}")
+                            
+                            # Comparison
+                            lump_diff = stock_lump_value - sp500_lump_value
+                            dca_diff = stock_dca_value - sp500_dca_value
+                            
+                            if lump_diff > 0:
+                                st.success(f"✅ Lump sum: {ticker} outperformed S&P 500 by ${lump_diff:,.2f} (+{stock_lump_return - sp500_lump_return:.1f}%)")
+                            else:
+                                st.info(f"📊 Lump sum: S&P 500 outperformed {ticker} by ${abs(lump_diff):,.2f} (+{sp500_lump_return - stock_lump_return:.1f}%)")
+                            
+                            if dca_diff > 0:
+                                st.success(f"✅ DCA: {ticker} outperformed S&P 500 by ${dca_diff:,.2f} (+{stock_dca_return - sp500_dca_return:.1f}%)")
+                            else:
+                                st.info(f"📊 DCA: S&P 500 outperformed {ticker} by ${abs(dca_diff):,.2f} (+{sp500_dca_return - stock_dca_return:.1f}%)")
+
+        
         with col_left_main:
             # Stock Price Chart
             st.markdown(f"### {company_name} Stock Price")
@@ -2226,79 +2338,6 @@ with tab1:
                 )
                 
                 st.plotly_chart(fig_price, use_container_width=True)
-            
-            st.markdown("---")
-            st.markdown("### 💰 Investment Calculator")
-            st.caption("See what your investment would be worth")
-            
-            col_calc1, col_calc2 = st.columns(2)
-            with col_calc1:
-                invest_initial = st.number_input("💵 Lump Sum ($)", min_value=1, value=100, step=50, key="calc_lump")
-            with col_calc2:
-                invest_dca = st.number_input("📅 Bi-Weekly DCA ($)", min_value=0, value=100, step=25, key="calc_dca")
-            
-            calc_years = years
-            price_hist = get_historical_price(ticker, calc_years)
-            
-            if not price_hist.empty and len(price_hist) > 1:
-                start_price = price_hist['price'].iloc[0]
-                end_price = price_hist['price'].iloc[-1]
-                
-                if start_price > 0:
-                    # Stock calculations
-                    stock_lump = (invest_initial / start_price) * end_price
-                    stock_lump_ret = ((stock_lump - invest_initial) / invest_initial) * 100
-                    
-                    weeks = calc_years * 52
-                    payments = weeks // 2
-                    avg_price = price_hist['price'].mean()
-                    total_inv = invest_initial + (invest_dca * payments)
-                    stock_shares = (invest_initial / start_price) + (invest_dca * payments / avg_price)
-                    stock_dca = stock_shares * end_price
-                    stock_dca_ret = ((stock_dca - total_inv) / total_inv) * 100 if total_inv > 0 else 0
-                    
-                    with st.expander(f"💵 Lump Sum: ${invest_initial} → {ticker}", expanded=True):
-                        st.metric("Current Value", f"${stock_lump:,.2f}", f"{stock_lump_ret:+.1f}%")
-                        st.caption(f"Bought {invest_initial/start_price:.2f} shares @ ${start_price:.2f}")
-                    
-                    with st.expander(f"📅 DCA: ${invest_dca} bi-weekly → {ticker}", expanded=True):
-                        st.metric("Current Value", f"${stock_dca:,.2f}", f"{stock_dca_ret:+.1f}%")
-                        st.caption(f"Total invested: ${total_inv:,.2f} over {calc_years} years")
-                    
-                    st.markdown("### vs S&P 500")
-                    
-                    sp_data = get_historical_price("SPY", calc_years)
-                    if not sp_data.empty and len(sp_data) > 1:
-                        sp_start = sp_data['price'].iloc[0]
-                        sp_end = sp_data['price'].iloc[-1]
-                        
-                        if sp_start > 0:
-                            sp_lump = (invest_initial / sp_start) * sp_end
-                            sp_lump_ret = ((sp_lump - invest_initial) / invest_initial) * 100
-                            
-                            sp_avg = sp_data['price'].mean()
-                            sp_shares = (invest_initial / sp_start) + (invest_dca * payments / sp_avg)
-                            sp_dca_val = sp_shares * sp_end
-                            sp_dca_ret = ((sp_dca_val - total_inv) / total_inv) * 100 if total_inv > 0 else 0
-                            
-                            with st.expander(f"💵 Lump Sum: ${invest_initial} → S&P 500", expanded=True):
-                                st.metric("Current Value", f"${sp_lump:,.2f}", f"{sp_lump_ret:+.1f}%")
-                                st.caption("S&P 500 (SPY)")
-                            
-                            with st.expander(f"📅 DCA: ${invest_dca} bi-weekly → S&P 500", expanded=True):
-                                st.metric("Current Value", f"${sp_dca_val:,.2f}", f"{sp_dca_ret:+.1f}%")
-                                st.caption(f"Total invested: ${total_inv:,.2f}")
-                            
-                            if stock_lump > sp_lump:
-                                st.success(f"✅ Lump sum: {ticker} outperformed S&P 500 by ${stock_lump - sp_lump:,.2f} (+{stock_lump_ret - sp_lump_ret:.1f}%)")
-                            else:
-                                st.info(f"📊 Lump sum: S&P 500 outperformed {ticker} by ${sp_lump - stock_lump:,.2f} (+{sp_lump_ret - stock_lump_ret:.1f}%)")
-                            
-                            if stock_dca > sp_dca_val:
-                                st.success(f"✅ DCA: {ticker} outperformed S&P 500 by ${stock_dca - sp_dca_val:,.2f} (+{stock_dca_ret - sp_dca_ret:.1f}%)")
-                            else:
-                                st.info(f"📊 DCA: S&P 500 outperformed {ticker} by ${sp_dca_val - stock_dca:,.2f} (+{sp_dca_ret - stock_dca_ret:.1f}%)")
-
             
             st.markdown("---")
             
@@ -2993,7 +3032,8 @@ with tab1:
             else:
                 st.warning("Ratio data not available for the selected period")
         except Exception as e:
-            st.warning("⚠️ Unable to load ratio data at this time")
+            # Stop loss suggestion
+            st.caption("⚠️ Set a stop-loss based on your risk tolerance to protect capital.")
         
         st.markdown("---")
         st.markdown("### ⚠️ Technical Analysis Disclaimer")
@@ -3473,9 +3513,9 @@ with tab7:
                             if st.button(f"💰 Sell All", key=f"sell_{ticker}_{i}", type="secondary"):
                                 # Sell position
                                 sale_value = shares * current_price
-                                st.session_state.cash += sale_value
+                            st.session_state.cash += sale_value
                                 
-                                # Add transaction
+                            # Add transaction
                             st.session_state.transactions.append({
                                 'date': datetime.now().strftime('%Y-%m-%d %H:%M'),
                                 'type': 'SELL',
