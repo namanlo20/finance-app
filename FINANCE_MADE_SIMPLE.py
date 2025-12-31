@@ -830,12 +830,7 @@ def show_why_these_metrics(metric_type="financial_statements"):
 These tell the real story!
         """)
         
-        with st.sidebar.expander("🏆 My Top 5 Favorites"):
-            for key, info in sorted(MY_TOP_5_METRICS.items(), key=lambda x: x[1]['rank']):
-                st.markdown(f"**#{info['rank']}: {info['name']}**")
-                st.caption(info['why'])
-                st.markdown("---")
-
+        
 def get_available_metrics(df, exclude_cols=['date', 'symbol', 'reportedCurrency', 'cik', 'fillingDate', 'acceptedDate', 'calendarYear', 'period', 'link', 'finalLink']):
     """Get all numeric columns from dataframe for dropdown"""
     if df.empty:
@@ -2145,17 +2140,22 @@ with tab1:
         
         with col_right_widgets:
             st.markdown("### 📊 Benchmarks")
-            # S&P 500 YTD
-            sp500_quote = get_quote("^GSPC")
-            if sp500_quote:
-                sp500_ytd = sp500_quote.get('changesPercentage', 0)
-                st.metric("S&P 500 YTD", f"{sp500_ytd:+.1f}%")
             
-            # Current stock YTD
-            stock_quote = get_quote(ticker)
-            if stock_quote:
-                stock_ytd = stock_quote.get('changesPercentage', 0)
-                st.metric(f"{ticker} YTD", f"{stock_ytd:+.1f}%")
+            # Calculate S&P 500 performance over selected period
+            sp_data = get_historical_price("SPY", years)
+            if not sp_data.empty and len(sp_data) > 1:
+                sp_start = sp_data['price'].iloc[0]
+                sp_end = sp_data['price'].iloc[-1]
+                sp_return = ((sp_end - sp_start) / sp_start) * 100
+                st.metric(f"S&P 500 ({years}Y)", f"{sp_return:+.1f}%")
+            
+            # Calculate stock performance over selected period
+            stock_data = get_historical_price(ticker, years)
+            if not stock_data.empty and len(stock_data) > 1:
+                stock_start = stock_data['price'].iloc[0]
+                stock_end = stock_data['price'].iloc[-1]
+                stock_return = ((stock_end - stock_start) / stock_start) * 100
+                st.metric(f"{ticker} ({years}Y)", f"{stock_return:+.1f}%")
             st.markdown("**🏦 Treasury Rates**")
             st.caption("Safest investment. Zero risk = guaranteed returns.")
             
