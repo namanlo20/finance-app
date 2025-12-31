@@ -2066,9 +2066,58 @@ with tab1:
         
         st.markdown("---")
         
-        st.markdown("### 📊 Growth Metrics")
+        st.markdown("### 📊 Market Benchmarks")
         
-        if fcf_cagr:
+        treasury_rates = get_treasury_rates()
+        sp500_ytd = get_sp500_performance()
+        
+        if treasury_rates.get('10Y', 0) > 0:
+            st.metric("🏦 10Y Treasury (Risk-Free)", f"{treasury_rates['10Y']:.2f}%",
+                     help="10-year US Treasury yield - the 'risk-free' rate investors use as baseline")
+        
+        if sp500_ytd != 0:
+            st.metric("📈 S&P 500 YTD", f"{sp500_ytd:+.1f}%",
+                     help="S&P 500 year-to-date return - benchmark for US stock market")
+        
+        price_data_ytd = get_historical_price(ticker, 1)
+        if not price_data_ytd.empty and len(price_data_ytd) > 1:
+            try:
+                current_year = datetime.now().year
+                price_data_ytd['year'] = pd.to_datetime(price_data_ytd['date']).dt.year
+                ytd_data = price_data_ytd[price_data_ytd['year'] == current_year]
+                
+                if len(ytd_data) > 1:
+                    price_col = 'close' if 'close' in ytd_data.columns else 'price'
+                    
+                    start_price = ytd_data[price_col].iloc[0]
+                    latest_price = ytd_data[price_col].iloc[-1]
+                    
+                    if start_price > 0:
+                        stock_ytd = ((latest_price - start_price) / start_price) * 100
+                        st.metric(f"🎯 {ticker} YTD", f"{stock_ytd:+.1f}%",
+                             help=f"{ticker} year-to-date return")
+            except:
+                pass
+        
+        st.markdown("---")
+        
+        st.markdown("### 📈 Growth Metrics")
+        
+        if not income_df.empty:
+            revenue_cagr = calculate_growth_rate(income_df, 'revenue', years)
+            if revenue_cagr:
+                st.metric("Revenue CAGR", f"{revenue_cagr:+.1f}%",
+                         help=f"Compound Annual Growth Rate over {years} years")
+            
+            if 'netIncome' in income_df.columns:
+                profit_cagr = calculate_growth_rate(income_df, 'netIncome', years)
+                if profit_cagr:
+                    st.metric("Profit CAGR", f"{profit_cagr:+.1f}%",
+                             help=f"Net income growth rate over {years} years")
+        
+        if not cash_df.empty and 'freeCashFlow' in cash_df.columns:
+            fcf_cagr = calculate_growth_rate(cash_df, 'freeCashFlow', years)
+            if fcf_cagr:
                 st.metric("FCF CAGR", f"{fcf_cagr:+.1f}%",
                          help=f"Free cash flow growth rate over {years} years")
         
@@ -2133,10 +2182,8 @@ with tab1:
                    help="Free Cash Flow divided by shares outstanding")
 
         # Market Benchmarks & Investment Calculator - Compact Right Column
-        st.markdown("---")
-        
-        # Create tight 2-column layout
-        col_left_main, col_right_widgets = st.columns([2.5, 1])
+        # Create tight 2-column layout - NO divider for same-level alignment
+        col_left_main, col_right_widgets = st.columns([2, 1.2], gap="small")
         
         with col_right_widgets:
             st.markdown("### 📊 Benchmarks")
@@ -3468,9 +3515,9 @@ with tab7:
                             if st.button(f"💰 Sell All", key=f"sell_{ticker}_{i}", type="secondary"):
                                 # Sell position
                                 sale_value = shares * current_price
-                            st.session_state.cash += sale_value
+                                st.session_state.cash += sale_value
                                 
-                            # Add transaction
+                                # Add transaction
                             st.session_state.transactions.append({
                                 'date': datetime.now().strftime('%Y-%m-%d %H:%M'),
                                 'type': 'SELL',
