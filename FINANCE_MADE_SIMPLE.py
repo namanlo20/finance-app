@@ -1864,9 +1864,11 @@ with st.sidebar:
             "📚 Finance 101",
             "🧠 Risk Quiz",
             "📊 Company Analysis",
+            "📈 Financial Ratios",
             "🌍 Sector Explorer",
             "📋 Investment Checklist",
-            "💼 My Portfolio"
+            "💼 Paper Portfolio",
+            "👤 Naman's Portfolio"
         ],
         index=2
     )
@@ -3861,8 +3863,273 @@ elif selected_page == "🌍 Sector Explorer":
                     st.rerun()
 
 
+elif selected_page == "📈 Financial Ratios":
+    st.header("📈 Financial Ratios - Historical Trends")
+    st.markdown("**Compare company ratios to S&P 500 averages and historical benchmarks**")
+    
+    # Ticker search
+    ratio_search = st.text_input(
+        "Search by Company Name or Ticker:",
+        st.session_state.selected_ticker,
+        help="Enter a ticker symbol to analyze its financial ratios",
+        key="ratio_search"
+    )
+    
+    if ratio_search:
+        ticker, company_name = smart_search_ticker(ratio_search)
+        st.session_state.selected_ticker = ticker
+    else:
+        ticker = st.session_state.selected_ticker
+        company_name = ticker
+    
+    # Sidebar settings
+    with st.sidebar:
+        st.markdown("### Ratio Settings")
+        years = st.slider("Years of History:", 1, 10, 5, key="ratio_years")
+        period = st.radio("Period:", ["Annual", "Quarterly"], key="ratio_period")
+        period_type = 'annual' if period == "Annual" else 'quarter'
+    
+    # Fetch ratio data
+    ratios_df = get_financial_ratios(ticker, period_type, years * 4 if period_type == 'quarter' else years)
+    
+    if not ratios_df.empty:
+        st.subheader(f"{company_name} ({ticker}) - Ratio Analysis")
+        
+        # S&P 500 benchmarks
+        sp500_benchmarks = {
+            "priceEarningsRatio": {"value": 22, "name": "P/E Ratio", "type": "lower_is_better"},
+            "priceToSalesRatio": {"value": 2.5, "name": "P/S Ratio", "type": "lower_is_better"},
+            "priceToBookRatio": {"value": 4.0, "name": "P/B Ratio", "type": "lower_is_better"},
+            "enterpriseValueMultiple": {"value": 15, "name": "EV/EBITDA", "type": "lower_is_better"},
+            "debtEquityRatio": {"value": 1.5, "name": "Debt-to-Equity", "type": "lower_is_better"},
+            "currentRatio": {"value": 1.5, "name": "Current Ratio", "type": "higher_is_better"}
+        }
+        
+        # Create tabs for different ratio categories
+        val_tab, health_tab = st.tabs(["Valuation Ratios", "Financial Health"])
+        
+        def create_ratio_chart_with_table(ratio_col, ratio_name, benchmark_val, comparison_type, ratios_data):
+            """Create a ratio chart with historical benchmarking table"""
+            if ratio_col not in ratios_data.columns:
+                st.info(f"No data available for {ratio_name}")
+                return
+            
+            ratio_data = ratios_data[['date', ratio_col]].dropna()
+            if len(ratio_data) == 0:
+                st.info(f"No historical data for {ratio_name}")
+                return
+            
+            col_chart, col_table = st.columns([2, 1])
+            
+            with col_chart:
+                fig = go.Figure()
+                
+                # Add company ratio line
+                fig.add_trace(go.Scatter(
+                    x=ratio_data['date'],
+                    y=ratio_data[ratio_col],
+                    mode='lines+markers',
+                    name=f'{ticker}',
+                    line=dict(color='#9D4EDD', width=2),
+                    marker=dict(size=6)
+                ))
+                
+                # Add S&P 500 benchmark line
+                fig.add_trace(go.Scatter(
+                    x=ratio_data['date'],
+                    y=[benchmark_val] * len(ratio_data),
+                    mode='lines',
+                    name='S&P 500 Avg',
+                    line=dict(color='#00C853', width=2, dash='dash')
+                ))
+                
+                # Y-axis with 5% padding
+                all_y = list(ratio_data[ratio_col]) + [benchmark_val]
+                y_min, y_max = min(all_y), max(all_y)
+                y_range = y_max - y_min if y_max != y_min else abs(y_max) * 0.1 or 1
+                
+                fig.update_layout(
+                    title=f"{ratio_name} Over Time",
+                    xaxis_title="Date",
+                    yaxis_title=ratio_name,
+                    yaxis=dict(range=[y_min - y_range * 0.05, y_max + y_range * 0.05]),
+                    height=300,
+                    margin=dict(l=0, r=0, t=40, b=0),
+                    hovermode='x unified',
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Dynamic warning/insight box
+                latest_val = ratio_data[ratio_col].iloc[-1] if len(ratio_data) > 0 else None
+                if latest_val is not None:
+                    if comparison_type == "lower_is_better":
+                        if latest_val > benchmark_val * 1.1:
+                            st.warning(f"{ticker}'s {ratio_name} ({latest_val:.2f}) is HIGHER than S&P 500 average ({benchmark_val:.2f})")
+                        elif latest_val < benchmark_val * 0.9:
+                            st.success(f"{ticker}'s {ratio_name} ({latest_val:.2f}) is LOWER than S&P 500 average ({benchmark_val:.2f})")
+                        else:
+                            st.info(f"{ticker}'s {ratio_name} ({latest_val:.2f}) is near S&P 500 average ({benchmark_val:.2f})")
+                    else:
+                        if latest_val > benchmark_val * 1.1:
+                            st.success(f"{ticker}'s {ratio_name} ({latest_val:.2f}) is HIGHER than S&P 500 average ({benchmark_val:.2f})")
+                        elif latest_val < benchmark_val * 0.9:
+                            st.warning(f"{ticker}'s {ratio_name} ({latest_val:.2f}) is LOWER than S&P 500 average ({benchmark_val:.2f})")
+                        else:
+                            st.info(f"{ticker}'s {ratio_name} ({latest_val:.2f}) is near S&P 500 average ({benchmark_val:.2f})")
+            
+            with col_table:
+                st.markdown("**Historical Benchmarks**")
+                
+                values = ratio_data[ratio_col].values
+                
+                # Calculate stats
+                period_avg = values.mean() if len(values) > 0 else None
+                period_median = pd.Series(values).median() if len(values) > 0 else None
+                
+                # 5-year and 10-year averages (if data available)
+                five_year_cutoff = datetime.now() - timedelta(days=5*365)
+                ten_year_cutoff = datetime.now() - timedelta(days=10*365)
+                
+                five_year_data = ratio_data[ratio_data['date'] >= five_year_cutoff][ratio_col]
+                ten_year_data = ratio_data[ratio_data['date'] >= ten_year_cutoff][ratio_col]
+                
+                five_year_avg = five_year_data.mean() if len(five_year_data) > 0 else None
+                ten_year_avg = ten_year_data.mean() if len(ten_year_data) > 0 else None
+                
+                # Display table
+                st.metric("Current", f"{latest_val:.2f}" if latest_val else "N/A")
+                st.metric(f"{years}Y Average", f"{period_avg:.2f}" if period_avg else "N/A")
+                st.metric(f"{years}Y Median", f"{period_median:.2f}" if period_median else "N/A")
+                
+                if five_year_avg and years >= 5:
+                    st.metric("5Y Average", f"{five_year_avg:.2f}")
+                if ten_year_avg and years >= 10:
+                    st.metric("10Y Average", f"{ten_year_avg:.2f}")
+                
+                st.metric("S&P 500 Avg", f"{benchmark_val:.2f}")
+        
+        with val_tab:
+            st.markdown("### Valuation Ratios")
+            st.caption("Is the stock expensive or cheap compared to the market?")
+            
+            for ratio_col, info in [
+                ("priceEarningsRatio", sp500_benchmarks.get("priceEarningsRatio")),
+                ("priceToSalesRatio", sp500_benchmarks.get("priceToSalesRatio")),
+                ("priceToBookRatio", sp500_benchmarks.get("priceToBookRatio")),
+                ("enterpriseValueMultiple", sp500_benchmarks.get("enterpriseValueMultiple"))
+            ]:
+                if info and ratio_col in ratios_df.columns:
+                    with st.expander(f"{info['name']}", expanded=ratio_col == "priceEarningsRatio"):
+                        create_ratio_chart_with_table(ratio_col, info['name'], info['value'], info['type'], ratios_df)
+        
+        with health_tab:
+            st.markdown("### Financial Health Ratios")
+            st.caption("How safe and stable is the company?")
+            
+            for ratio_col, info in [
+                ("debtEquityRatio", sp500_benchmarks.get("debtEquityRatio")),
+                ("currentRatio", sp500_benchmarks.get("currentRatio"))
+            ]:
+                if info and ratio_col in ratios_df.columns:
+                    with st.expander(f"{info['name']}", expanded=ratio_col == "debtEquityRatio"):
+                        create_ratio_chart_with_table(ratio_col, info['name'], info['value'], info['type'], ratios_df)
+        
+        # Market Intelligence Section
+        st.markdown("---")
+        st.markdown("### Market Intelligence")
+        st.caption("AI-powered news summary for this stock")
+        
+        news = get_stock_specific_news(ticker, 5)
+        if news:
+            st.markdown("**Latest Headlines:**")
+            for article in news[:3]:
+                title = article.get('title', 'No title')
+                published = article.get('publishedDate', '')[:10]
+                st.markdown(f"- **{title}** ({published})")
+            
+            # AI Summary using Perplexity (if API key available)
+            perplexity_api_key = os.environ.get('PERPLEXITY_API_KEY', '')
+            if perplexity_api_key:
+                try:
+                    headlines_text = " | ".join([a.get('title', '') for a in news[:5]])
+                    
+                    perplexity_url = "https://api.perplexity.ai/chat/completions"
+                    perplexity_headers = {
+                        "Authorization": f"Bearer {perplexity_api_key}",
+                        "Content-Type": "application/json"
+                    }
+                    perplexity_payload = {
+                        "model": "llama-3.1-sonar-small-128k-online",
+                        "messages": [
+                            {"role": "system", "content": "You are a financial analyst. Summarize the news in 2 sentences for a beginner investor."},
+                            {"role": "user", "content": f"Summarize these headlines about {ticker} ({company_name}): {headlines_text}"}
+                        ],
+                        "max_tokens": 150
+                    }
+                    
+                    response = requests.post(perplexity_url, headers=perplexity_headers, json=perplexity_payload, timeout=10)
+                    if response.status_code == 200:
+                        ai_summary = response.json().get('choices', [{}])[0].get('message', {}).get('content', '')
+                        if ai_summary:
+                            st.success(f"**AI Bottom Line:** {ai_summary}")
+                        else:
+                            st.info(f"**Quick Take:** {ticker} has been in the news recently. Check the headlines above for details.")
+                    else:
+                        st.info(f"**Quick Take:** {ticker} has been in the news recently. Check the headlines above for details.")
+                except:
+                    st.info(f"**Quick Take:** {ticker} has been in the news recently. Check the headlines above for details.")
+            else:
+                st.info(f"**Quick Take:** {ticker} has been in the news recently. Check the headlines above for details.")
+        else:
+            st.info(f"No recent news found for {ticker}")
+    else:
+        st.warning(f"No ratio data available for {ticker}. Try a different ticker.")
+        st.info("**Tip:** Try major stocks like AAPL, MSFT, GOOGL, or AMZN")
+
+
+elif selected_page == "👤 Naman's Portfolio":
+    st.header("Naman's Portfolio")
+    st.markdown("**Track your personal investment portfolio**")
+    
+    st.info("**Coming Soon!** This feature is under development.")
+    
+    st.markdown("### Portfolio Input")
+    st.caption("Add your holdings below:")
+    
+    # Simple placeholder UI
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        holding_ticker = st.text_input("Ticker Symbol", placeholder="e.g., AAPL", key="naman_ticker")
+    with col2:
+        holding_shares = st.number_input("Shares", min_value=0.0, value=0.0, step=1.0, key="naman_shares")
+    with col3:
+        holding_cost = st.number_input("Avg Cost ($)", min_value=0.0, value=0.0, step=1.0, key="naman_cost")
+    
+    if st.button("Add Holding", key="naman_add"):
+        st.success(f"Added {holding_shares} shares of {holding_ticker} @ ${holding_cost:.2f}")
+        st.caption("(This is a placeholder - full functionality coming soon)")
+    
+    st.markdown("---")
+    st.markdown("### Portfolio Summary")
+    st.caption("Your holdings will appear here once the feature is complete.")
+    
+    # Placeholder table
+    placeholder_data = {
+        "Ticker": ["AAPL", "MSFT", "GOOGL"],
+        "Shares": [10, 5, 3],
+        "Avg Cost": ["$150.00", "$300.00", "$140.00"],
+        "Current": ["$250.00", "$420.00", "$175.00"],
+        "Gain/Loss": ["+66.7%", "+40.0%", "+25.0%"]
+    }
+    st.dataframe(pd.DataFrame(placeholder_data), use_container_width=True)
+    
+    st.warning("This is sample data. Connect your brokerage or manually add holdings to see real data.")
+
+
 elif selected_page == "📋 Investment Checklist":
-    st.header("✅ Investment Checklist")
+    st.header("Investment Checklist")
     st.write("Quick check before investing")
     
     ticker_check = st.text_input("Enter ticker:", value=st.session_state.selected_ticker, key="checklist_ticker")
@@ -3924,7 +4191,7 @@ elif selected_page == "📋 Investment Checklist":
                 st.error("🚨 Many red flags")
 
 
-elif selected_page == "💼 My Portfolio":
+elif selected_page == "💼 Paper Portfolio":
     st.header("💼 My Portfolio")
     st.markdown("**Track your practice portfolio and analyze its risk profile.**")
     
