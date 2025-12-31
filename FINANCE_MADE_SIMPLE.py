@@ -1084,26 +1084,56 @@ def get_profile(ticker):
     except:
         return None
 
-@st.cache_data(ttl=1800)
 def get_stock_specific_news(ticker, limit=10):
-    """Get STOCK-SPECIFIC news - FIXED"""
-    url = f"{BASE_URL}/stock_news?tickers={ticker}&limit={limit}&apikey={FMP_API_KEY}"
+    """Get STOCK-SPECIFIC news using Perplexity API (FMP news endpoint is legacy)"""
+    import json
+    
+    perplexity_api_key = os.environ.get('PERPLEXITY_API_KEY', '')
+    if not perplexity_api_key:
+        return []
+    
     try:
-        response = requests.get(url, timeout=10)
+        # Use Perplexity to get recent news about the stock
+        perplexity_url = "https://api.perplexity.ai/chat/completions"
+        perplexity_headers = {
+            "Authorization": f"Bearer {perplexity_api_key}",
+            "Content-Type": "application/json"
+        }
+        perplexity_payload = {
+            "model": "sonar",
+            "messages": [
+                {"role": "system", "content": "You are a financial news aggregator. Return ONLY a JSON array of news articles. No other text."},
+                {"role": "user", "content": f"""Find the {limit} most recent news articles about {ticker} stock from the past 7 days.
+Return ONLY a valid JSON array with this exact format (no other text):
+[
+  {{"title": "Article headline", "url": "https://source.com/article", "publishedDate": "2025-12-30", "source": "Source Name"}},
+  ...
+]
+Include real URLs from reputable financial news sources like Reuters, Bloomberg, CNBC, Yahoo Finance, MarketWatch, etc."""}
+            ],
+            "max_tokens": 1500,
+            "temperature": 0.1
+        }
+        
+        response = requests.post(perplexity_url, headers=perplexity_headers, json=perplexity_payload, timeout=15)
         if response.status_code == 200:
-            data = response.json()
-            filtered = []
-            for article in data:
-                title = article.get('title', '').upper()
-                text = article.get('text', '').upper()
-                symbol = article.get('symbol', '').upper()
-                
-                if ticker.upper() in title or ticker.upper() in text or symbol == ticker.upper():
-                    filtered.append(article)
+            content = response.json().get('choices', [{}])[0].get('message', {}).get('content', '')
             
-            return filtered[:limit]
-    except:
+            # Try to parse JSON from the response
+            try:
+                # Find JSON array in the response
+                start_idx = content.find('[')
+                end_idx = content.rfind(']') + 1
+                if start_idx != -1 and end_idx > start_idx:
+                    json_str = content[start_idx:end_idx]
+                    articles = json.loads(json_str)
+                    if isinstance(articles, list) and len(articles) > 0:
+                        return articles[:limit]
+            except json.JSONDecodeError:
+                pass
+    except Exception as e:
         pass
+    
     return []
 
 @st.cache_data(ttl=3600)
@@ -1539,7 +1569,7 @@ OVERALL: [One sentence summary - is this stock looking good or risky right now?]
 Remember: Use simple words like "the company is making less money" instead of "declining revenue margins"."""
 
         payload = {
-            "model": "llama-3.1-sonar-small-128k-online",
+            "model": "sonar",
             "messages": [
                 {"role": "system", "content": "You are a helpful financial analyst who explains things simply for beginners. Always search for recent news about the company."},
                 {"role": "user", "content": prompt}
@@ -2614,7 +2644,7 @@ elif selected_page == "📊 Company Analysis":
             
             st.markdown("---")
             st.markdown("### 💰 Investment Calculator")
-            st.caption("See what your investment would be worth")
+            st.caption("Compare your investment performance: Stock vs S&P 500 side-by-side")
             
             col_calc1, col_calc2 = st.columns(2)
             with col_calc1:
@@ -2624,6 +2654,7 @@ elif selected_page == "📊 Company Analysis":
             
             calc_years = years
             price_hist = get_historical_price(ticker, calc_years)
+            sp_data = get_historical_price("SPY", calc_years)
             
             if not price_hist.empty and len(price_hist) > 1:
                 start_price = price_hist['price'].iloc[0]
@@ -2642,187 +2673,57 @@ elif selected_page == "📊 Company Analysis":
                     stock_dca = stock_shares * end_price
                     stock_dca_ret = ((stock_dca - total_inv) / total_inv) * 100 if total_inv > 0 else 0
                     
-                    with st.expander(f"💵 Lump Sum: ${invest_initial} → {ticker}", expanded=True):
-                        st.metric("Current Value", f"${stock_lump:,.2f}", f"{stock_lump_ret:+.1f}%")
-                        st.caption(f"Bought {invest_initial/start_price:.2f} shares @ ${start_price:.2f}")
-                    
-                    with st.expander(f"📅 DCA: ${invest_dca} bi-weekly → {ticker}", expanded=True):
-                        st.metric("Current Value", f"${stock_dca:,.2f}", f"{stock_dca_ret:+.1f}%")
-                        st.caption(f"Total invested: ${total_inv:,.2f} over {calc_years} years")
-                    
-                    st.markdown("### vs S&P 500")
-                    
-                    sp_data = get_historical_price("SPY", calc_years)
+                    # S&P 500 calculations
+                    sp_lump = sp_lump_ret = sp_dca_val = sp_dca_ret = 0
                     if not sp_data.empty and len(sp_data) > 1:
                         sp_start = sp_data['price'].iloc[0]
                         sp_end = sp_data['price'].iloc[-1]
-                        
                         if sp_start > 0:
                             sp_lump = (invest_initial / sp_start) * sp_end
                             sp_lump_ret = ((sp_lump - invest_initial) / invest_initial) * 100
-                            
                             sp_avg = sp_data['price'].mean()
                             sp_shares = (invest_initial / sp_start) + (invest_dca * payments / sp_avg)
                             sp_dca_val = sp_shares * sp_end
                             sp_dca_ret = ((sp_dca_val - total_inv) / total_inv) * 100 if total_inv > 0 else 0
-                            
-                            with st.expander(f"💵 Lump Sum: ${invest_initial} → S&P 500", expanded=True):
-                                st.metric("Current Value", f"${sp_lump:,.2f}", f"{sp_lump_ret:+.1f}%")
-                                st.caption("S&P 500 (SPY)")
-                            
-                            with st.expander(f"📅 DCA: ${invest_dca} bi-weekly → S&P 500", expanded=True):
-                                st.metric("Current Value", f"${sp_dca_val:,.2f}", f"{sp_dca_ret:+.1f}%")
-                                st.caption(f"Total invested: ${total_inv:,.2f}")
-                            
-                            if stock_lump > sp_lump:
-                                st.success(f"✅ Lump sum: {ticker} outperformed S&P 500 by ${stock_lump - sp_lump:,.2f} (+{stock_lump_ret - sp_lump_ret:.1f}%)")
-                            else:
-                                st.info(f"📊 Lump sum: S&P 500 outperformed {ticker} by ${sp_lump - stock_lump:,.2f} (+{sp_lump_ret - stock_lump_ret:.1f}%)")
-                            
-                            if stock_dca > sp_dca_val:
-                                st.success(f"✅ DCA: {ticker} outperformed S&P 500 by ${stock_dca - sp_dca_val:,.2f} (+{stock_dca_ret - sp_dca_ret:.1f}%)")
-                            else:
-                                st.info(f"📊 DCA: S&P 500 outperformed {ticker} by ${sp_dca_val - stock_dca:,.2f} (+{sp_dca_ret - stock_dca_ret:.1f}%)")
+                    
+                    # Side-by-side comparison layout
+                    col_stock, col_sp500 = st.columns(2)
+                    
+                    with col_stock:
+                        st.markdown(f"#### {ticker} Performance")
+                        st.metric("Lump Sum Value", f"${stock_lump:,.2f}", f"{stock_lump_ret:+.1f}%")
+                        st.caption(f"${invest_initial} invested at start")
+                        st.metric("DCA Value", f"${stock_dca:,.2f}", f"{stock_dca_ret:+.1f}%")
+                        st.caption(f"${total_inv:,.2f} total invested")
+                    
+                    with col_sp500:
+                        st.markdown("#### S&P 500 Benchmark")
+                        st.metric("Lump Sum Value", f"${sp_lump:,.2f}", f"{sp_lump_ret:+.1f}%")
+                        st.caption(f"${invest_initial} invested at start")
+                        st.metric("DCA Value", f"${sp_dca_val:,.2f}", f"{sp_dca_ret:+.1f}%")
+                        st.caption(f"${total_inv:,.2f} total invested")
+                    
+                    # Winner summary
+                    st.markdown("---")
+                    if stock_lump > sp_lump and stock_dca > sp_dca_val:
+                        st.success(f"**Winner: {ticker}** outperformed S&P 500 in both strategies!")
+                    elif sp_lump > stock_lump and sp_dca_val > stock_dca:
+                        st.info(f"**Winner: S&P 500** outperformed {ticker} in both strategies")
+                    else:
+                        if stock_lump > sp_lump:
+                            st.success(f"Lump Sum: {ticker} won by ${stock_lump - sp_lump:,.2f}")
+                        else:
+                            st.info(f"Lump Sum: S&P 500 won by ${sp_lump - stock_lump:,.2f}")
+                        if stock_dca > sp_dca_val:
+                            st.success(f"DCA: {ticker} won by ${stock_dca - sp_dca_val:,.2f}")
+                        else:
+                            st.info(f"DCA: S&P 500 won by ${sp_dca_val - stock_dca:,.2f}")
 
             
             st.markdown("---")
             
-            # Financial Ratios Section - Historical Line Charts
-            st.markdown("### 📊 Financial Ratios (Historical Trends)")
-            st.caption("See how key ratios have changed over time compared to S&P 500 averages")
-            
-            ratios_df = get_financial_ratios(ticker, period, years)
-            
-            if not ratios_df.empty:
-                # Ratio selection
-                ratio_options = {
-                    "P/E Ratio": "priceEarningsRatio",
-                    "P/S Ratio": "priceToSalesRatio",
-                    "Debt-to-Equity": "debtEquityRatio",
-                    "Quick Ratio": "quickRatio",
-                    "Gross Margin": "grossProfitMargin",
-                    "Operating Margin": "operatingProfitMargin",
-                    "Net Profit Margin": "netProfitMargin",
-                    "Return on Equity": "returnOnEquity"
-                }
-                
-                # Filter to available ratios
-                available_ratios = {k: v for k, v in ratio_options.items() if v in ratios_df.columns}
-                
-                if available_ratios:
-                    selected_ratio = st.selectbox(
-                        "Select ratio to visualize:",
-                        options=list(available_ratios.keys()),
-                        key="ratio_chart_select"
-                    )
-                    
-                    ratio_col = available_ratios[selected_ratio]
-                    
-                    # S&P 500 benchmarks for comparison
-                    sp500_benchmarks = {
-                        "priceEarningsRatio": 22,
-                        "priceToSalesRatio": 2.5,
-                        "debtEquityRatio": 1.5,
-                        "quickRatio": 1.0,
-                        "grossProfitMargin": 0.42,
-                        "operatingProfitMargin": 0.15,
-                        "netProfitMargin": 0.11,
-                        "returnOnEquity": 0.18
-                    }
-                    
-                    benchmark = sp500_benchmarks.get(ratio_col, None)
-                    
-                    # Create line chart
-                    fig_ratio = go.Figure()
-                    
-                    # Get ratio data
-                    ratio_data = ratios_df[['date', ratio_col]].dropna()
-                    
-                    if len(ratio_data) > 0:
-                        # Convert margins to percentages for display
-                        is_margin = 'Margin' in selected_ratio or 'Return' in selected_ratio
-                        y_values = ratio_data[ratio_col] * 100 if is_margin else ratio_data[ratio_col]
-                        benchmark_val = benchmark * 100 if is_margin and benchmark else benchmark
-                        
-                        # Add company ratio line
-                        fig_ratio.add_trace(go.Scatter(
-                            x=ratio_data['date'],
-                            y=y_values,
-                            mode='lines+markers',
-                            name=f'{ticker} {selected_ratio}',
-                            line=dict(color='#9D4EDD', width=2),
-                            marker=dict(size=6),
-                            hovertemplate='%{x}<br>' + selected_ratio + ': %{y:.2f}' + ('%' if is_margin else '') + '<extra></extra>'
-                        ))
-                        
-                        # Add S&P 500 benchmark line
-                        if benchmark_val:
-                            fig_ratio.add_trace(go.Scatter(
-                                x=ratio_data['date'],
-                                y=[benchmark_val] * len(ratio_data),
-                                mode='lines',
-                                name='S&P 500 Average',
-                                line=dict(color='#00C853', width=2, dash='dash'),
-                                hovertemplate='S&P 500 Avg: %{y:.2f}' + ('%' if is_margin else '') + '<extra></extra>'
-                            ))
-                        
-                        # Calculate Y-axis range with 5% padding
-                        all_y = list(y_values)
-                        if benchmark_val:
-                            all_y.append(benchmark_val)
-                        y_min = min(all_y)
-                        y_max = max(all_y)
-                        y_range = y_max - y_min if y_max != y_min else abs(y_max) * 0.1 or 1
-                        
-                        fig_ratio.update_layout(
-                            title=f"{ticker} {selected_ratio} vs S&P 500",
-                            xaxis_title="Date",
-                            yaxis_title=selected_ratio + (' (%)' if is_margin else ''),
-                            yaxis=dict(range=[y_min - y_range * 0.05, y_max + y_range * 0.05]),
-                            height=300,
-                            margin=dict(l=0, r=0, t=40, b=0),
-                            hovermode='x unified',
-                            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-                        )
-                        
-                        st.plotly_chart(fig_ratio, use_container_width=True)
-                        
-                        # Beginner tooltip
-                        ratio_tooltips = {
-                            "P/E Ratio": "Price-to-Earnings shows how much investors pay for $1 of earnings. Higher = more expensive. S&P 500 avg is ~22.",
-                            "P/S Ratio": "Price-to-Sales shows how much investors pay for $1 of revenue. Useful for unprofitable companies.",
-                            "Debt-to-Equity": "How much debt vs shareholder equity. Lower is safer. Above 2 can be risky.",
-                            "Quick Ratio": "Can the company pay its bills? Above 1 = yes. Below 1 = potential trouble.",
-                            "Gross Margin": "Money left after making the product. Higher = better pricing power.",
-                            "Operating Margin": "Profit from core business operations. Shows efficiency.",
-                            "Net Profit Margin": "The bottom line - actual profit after everything. Higher = more profitable.",
-                            "Return on Equity": "How well the company uses shareholder money. 15%+ is good."
-                        }
-                        
-                        with st.expander(f"💡 What is {selected_ratio}?"):
-                            st.info(ratio_tooltips.get(selected_ratio, "Financial ratio for analysis"))
-                            
-                            # Compare to benchmark
-                            latest_val = y_values.iloc[-1] if len(y_values) > 0 else None
-                            if latest_val and benchmark_val:
-                                if selected_ratio in ["Debt-to-Equity", "P/E Ratio", "P/S Ratio"]:
-                                    # Lower is better
-                                    if latest_val < benchmark_val:
-                                        st.success(f"✅ {ticker}'s {selected_ratio} ({latest_val:.2f}) is BETTER than S&P 500 average ({benchmark_val:.2f})")
-                                    else:
-                                        st.warning(f"⚠️ {ticker}'s {selected_ratio} ({latest_val:.2f}) is HIGHER than S&P 500 average ({benchmark_val:.2f})")
-                                else:
-                                    # Higher is better
-                                    if latest_val > benchmark_val:
-                                        st.success(f"✅ {ticker}'s {selected_ratio} ({latest_val:.2f}{'%' if is_margin else ''}) is BETTER than S&P 500 average ({benchmark_val:.2f}{'%' if is_margin else ''})")
-                                    else:
-                                        st.warning(f"⚠️ {ticker}'s {selected_ratio} ({latest_val:.2f}{'%' if is_margin else ''}) is BELOW S&P 500 average ({benchmark_val:.2f}{'%' if is_margin else ''})")
-                    else:
-                        st.info(f"No historical data available for {selected_ratio}")
-                else:
-                    st.info("No ratio data available for this company")
-            else:
-                st.info("Financial ratios data not available")
+            # Link to Financial Ratios tab
+            st.info("📈 **Want to see detailed ratio analysis?** Check out the **Financial Ratios** tab in the sidebar for historical trends, S&P 500 comparisons, and more!")
             
             st.markdown("---")
             
@@ -3895,29 +3796,33 @@ elif selected_page == "📈 Financial Ratios":
     if not ratios_df.empty:
         st.subheader(f"{company_name} ({ticker}) - Ratio Analysis")
         
-        # S&P 500 benchmarks
-        sp500_benchmarks = {
-            "priceEarningsRatio": {"value": 22, "name": "P/E Ratio", "type": "lower_is_better"},
-            "priceToSalesRatio": {"value": 2.5, "name": "P/S Ratio", "type": "lower_is_better"},
-            "priceToBookRatio": {"value": 4.0, "name": "P/B Ratio", "type": "lower_is_better"},
-            "enterpriseValueMultiple": {"value": 15, "name": "EV/EBITDA", "type": "lower_is_better"},
-            "debtEquityRatio": {"value": 1.5, "name": "Debt-to-Equity", "type": "lower_is_better"},
-            "currentRatio": {"value": 1.5, "name": "Current Ratio", "type": "higher_is_better"}
-        }
+        # S&P 500 benchmarks - all ratios in one list for vertical display
+        all_ratios = [
+            ("priceEarningsRatio", "P/E Ratio", 22, "lower_is_better", "Price-to-Earnings shows how much investors pay for $1 of earnings. Higher = more expensive. S&P 500 avg is ~22."),
+            ("priceToSalesRatio", "P/S Ratio", 2.5, "lower_is_better", "Price-to-Sales shows how much investors pay for $1 of revenue. Useful for unprofitable companies."),
+            ("priceToBookRatio", "P/B Ratio", 4.0, "lower_is_better", "Price-to-Book compares stock price to the company's net assets. Lower = potentially undervalued."),
+            ("enterpriseValueMultiple", "EV/EBITDA", 15, "lower_is_better", "Enterprise Value to EBITDA shows how expensive the company is relative to its cash earnings. Lower = cheaper."),
+            ("debtEquityRatio", "Debt-to-Equity", 1.5, "lower_is_better", "How much debt vs shareholder equity. Lower is safer. Above 2 can be risky."),
+            ("currentRatio", "Current Ratio", 1.5, "higher_is_better", "Can the company pay its bills? Above 1 = yes. Below 1 = potential trouble."),
+            ("quickRatio", "Quick Ratio", 1.0, "higher_is_better", "Like Current Ratio but excludes inventory. More conservative measure of short-term liquidity.")
+        ]
         
-        # Create tabs for different ratio categories
-        val_tab, health_tab = st.tabs(["Valuation Ratios", "Financial Health"])
-        
-        def create_ratio_chart_with_table(ratio_col, ratio_name, benchmark_val, comparison_type, ratios_data):
+        def create_ratio_chart_with_table(ratio_col, ratio_name, benchmark_val, comparison_type, ratios_data, description):
             """Create a ratio chart with historical benchmarking table"""
             if ratio_col not in ratios_data.columns:
-                st.info(f"No data available for {ratio_name}")
-                return
+                return False
             
             ratio_data = ratios_data[['date', ratio_col]].dropna()
             if len(ratio_data) == 0:
-                st.info(f"No historical data for {ratio_name}")
-                return
+                return False
+            
+            # Convert date column to datetime for comparison
+            ratio_data = ratio_data.copy()
+            ratio_data['date'] = pd.to_datetime(ratio_data['date'], errors='coerce')
+            ratio_data = ratio_data.dropna(subset=['date'])
+            
+            if len(ratio_data) == 0:
+                return False
             
             col_chart, col_table = st.columns([2, 1])
             
@@ -3961,6 +3866,9 @@ elif selected_page == "📈 Financial Ratios":
                 
                 st.plotly_chart(fig, use_container_width=True)
                 
+                # Description
+                st.caption(description)
+                
                 # Dynamic warning/insight box
                 latest_val = ratio_data[ratio_col].iloc[-1] if len(ratio_data) > 0 else None
                 if latest_val is not None:
@@ -3983,12 +3891,13 @@ elif selected_page == "📈 Financial Ratios":
                 st.markdown("**Historical Benchmarks**")
                 
                 values = ratio_data[ratio_col].values
+                latest_val = values[-1] if len(values) > 0 else None
                 
                 # Calculate stats
                 period_avg = values.mean() if len(values) > 0 else None
                 period_median = pd.Series(values).median() if len(values) > 0 else None
                 
-                # 5-year and 10-year averages (if data available)
+                # 5-year and 10-year averages (always show if data available)
                 five_year_cutoff = datetime.now() - timedelta(days=5*365)
                 ten_year_cutoff = datetime.now() - timedelta(days=10*365)
                 
@@ -3998,56 +3907,44 @@ elif selected_page == "📈 Financial Ratios":
                 five_year_avg = five_year_data.mean() if len(five_year_data) > 0 else None
                 ten_year_avg = ten_year_data.mean() if len(ten_year_data) > 0 else None
                 
-                # Display table
+                # Display metrics
                 st.metric("Current", f"{latest_val:.2f}" if latest_val else "N/A")
-                st.metric(f"{years}Y Average", f"{period_avg:.2f}" if period_avg else "N/A")
-                st.metric(f"{years}Y Median", f"{period_median:.2f}" if period_median else "N/A")
-                
-                if five_year_avg and years >= 5:
-                    st.metric("5Y Average", f"{five_year_avg:.2f}")
-                if ten_year_avg and years >= 10:
-                    st.metric("10Y Average", f"{ten_year_avg:.2f}")
-                
+                st.metric("5Y Average", f"{five_year_avg:.2f}" if five_year_avg else "N/A")
+                st.metric("10Y Average", f"{ten_year_avg:.2f}" if ten_year_avg else "N/A")
+                st.metric("Historical Median", f"{period_median:.2f}" if period_median else "N/A")
                 st.metric("S&P 500 Avg", f"{benchmark_val:.2f}")
-        
-        with val_tab:
-            st.markdown("### Valuation Ratios")
-            st.caption("Is the stock expensive or cheap compared to the market?")
             
-            for ratio_col, info in [
-                ("priceEarningsRatio", sp500_benchmarks.get("priceEarningsRatio")),
-                ("priceToSalesRatio", sp500_benchmarks.get("priceToSalesRatio")),
-                ("priceToBookRatio", sp500_benchmarks.get("priceToBookRatio")),
-                ("enterpriseValueMultiple", sp500_benchmarks.get("enterpriseValueMultiple"))
-            ]:
-                if info and ratio_col in ratios_df.columns:
-                    with st.expander(f"{info['name']}", expanded=ratio_col == "priceEarningsRatio"):
-                        create_ratio_chart_with_table(ratio_col, info['name'], info['value'], info['type'], ratios_df)
+            return True
         
-        with health_tab:
-            st.markdown("### Financial Health Ratios")
-            st.caption("How safe and stable is the company?")
-            
-            for ratio_col, info in [
-                ("debtEquityRatio", sp500_benchmarks.get("debtEquityRatio")),
-                ("currentRatio", sp500_benchmarks.get("currentRatio"))
-            ]:
-                if info and ratio_col in ratios_df.columns:
-                    with st.expander(f"{info['name']}", expanded=ratio_col == "debtEquityRatio"):
-                        create_ratio_chart_with_table(ratio_col, info['name'], info['value'], info['type'], ratios_df)
+        # Display all ratio charts vertically (no sub-tabs)
+        charts_displayed = 0
+        for ratio_col, ratio_name, benchmark_val, comparison_type, description in all_ratios:
+            if ratio_col in ratios_df.columns:
+                st.markdown(f"### {ratio_name}")
+                if create_ratio_chart_with_table(ratio_col, ratio_name, benchmark_val, comparison_type, ratios_df, description):
+                    charts_displayed += 1
+                st.markdown("---")
+        
+        if charts_displayed == 0:
+            st.info("No ratio data available for this company")
         
         # Market Intelligence Section
         st.markdown("---")
         st.markdown("### Market Intelligence")
         st.caption("AI-powered news summary for this stock")
         
-        news = get_stock_specific_news(ticker, 5)
+        # Fetch 10 news stories
+        news = get_stock_specific_news(ticker, 10)
         if news:
             st.markdown("**Latest Headlines:**")
-            for article in news[:3]:
+            for article in news[:10]:
                 title = article.get('title', 'No title')
                 published = article.get('publishedDate', '')[:10]
-                st.markdown(f"- **{title}** ({published})")
+                url = article.get('url', '')
+                if url:
+                    st.markdown(f"- [{title}]({url}) ({published})")
+                else:
+                    st.markdown(f"- **{title}** ({published})")
             
             # AI Summary using Perplexity (if API key available)
             perplexity_api_key = os.environ.get('PERPLEXITY_API_KEY', '')
@@ -4061,7 +3958,7 @@ elif selected_page == "📈 Financial Ratios":
                         "Content-Type": "application/json"
                     }
                     perplexity_payload = {
-                        "model": "llama-3.1-sonar-small-128k-online",
+                        "model": "sonar",
                         "messages": [
                             {"role": "system", "content": "You are a financial analyst. Summarize the news in 2 sentences for a beginner investor."},
                             {"role": "user", "content": f"Summarize these headlines about {ticker} ({company_name}): {headlines_text}"}
@@ -4084,6 +3981,10 @@ elif selected_page == "📈 Financial Ratios":
                 st.info(f"**Quick Take:** {ticker} has been in the news recently. Check the headlines above for details.")
         else:
             st.info(f"No recent news found for {ticker}")
+        
+        # Disclaimer at bottom of page
+        st.markdown("---")
+        st.caption("*Data based on historical filings; past performance does not guarantee future results. S&P 500 benchmark values are approximate averages.*")
     else:
         st.warning(f"No ratio data available for {ticker}. Try a different ticker.")
         st.info("**Tip:** Try major stocks like AAPL, MSFT, GOOGL, or AMZN")
