@@ -2068,13 +2068,6 @@ with tab1:
         
         st.markdown("### 📊 Growth Metrics")
         
-        # Calculate FCF CAGR
-        fcf_cagr = 0
-        if not cash_df.empty and 'freeCashFlow' in cash_df.columns:
-            fcf_values = cash_df['freeCashFlow'].dropna()
-            if len(fcf_values) >= 2 and fcf_values.iloc[0] != 0:
-                fcf_cagr = ((fcf_values.iloc[-1] - fcf_values.iloc[0]) / abs(fcf_values.iloc[0])) * 100
-        
         if fcf_cagr:
                 st.metric("FCF CAGR", f"{fcf_cagr:+.1f}%",
                          help=f"Free cash flow growth rate over {years} years")
@@ -3000,12 +2993,7 @@ with tab1:
             else:
                 st.warning("Ratio data not available for the selected period")
         except Exception as e:
-            # Stop loss suggestion
-            atr_estimate = (high_90d - low_90d) / 90 * 14  # Rough ATR estimate
-            stop_loss = current - (2 * atr_estimate)
-            
-            st.info(f"💡 **Suggested Stop-Loss:** ${stop_loss:.2f} (2x ATR below current price)")
-            st.caption("Stop-loss exits your position if price drops to protect capital. Adjust based on your risk tolerance.")
+            st.warning("⚠️ Unable to load ratio data at this time")
         
         st.markdown("---")
         st.markdown("### ⚠️ Technical Analysis Disclaimer")
