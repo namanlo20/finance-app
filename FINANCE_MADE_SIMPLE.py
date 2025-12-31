@@ -3327,28 +3327,28 @@ elif selected_page == "💼 Paper Portfolio":
 
 
 # ============= FOOTER DISCLAIMER =============
-st.divider()
-st.markdown("---")
-st.caption("""
-**Disclaimer:** Finance Made Simple | FMP Premium | Real-time data  
+    st.divider()
+    st.markdown("---")
+    st.caption("""
+    **Disclaimer:** Finance Made Simple | FMP Premium | Real-time data  
 
-⚠️ **IMPORTANT LEGAL DISCLAIMER:**  
-This application and all content provided herein are for **educational and informational purposes ONLY**. Nothing on this platform constitutes financial advice, investment advice, trading advice, legal advice, tax advice, or any other sort of advice. You should not treat any of the app's content as a recommendation to buy, sell, or hold any security or investment.
+    ⚠️ **IMPORTANT LEGAL DISCLAIMER:**  
+    This application and all content provided herein are for **educational and informational purposes ONLY**. Nothing on this platform constitutes financial advice, investment advice, trading advice, legal advice, tax advice, or any other sort of advice. You should not treat any of the app's content as a recommendation to buy, sell, or hold any security or investment.
 
-**No Warranty:** The information is provided "as-is" without warranty of any kind. We do not guarantee the accuracy, completeness, or timeliness of any information presented.
+    **No Warranty:** The information is provided "as-is" without warranty of any kind. We do not guarantee the accuracy, completeness, or timeliness of any information presented.
 
-**Investment Risks:** All investments involve risk, including the potential loss of principal. Past performance does not guarantee future results. Securities trading and investing involve substantial risk of loss.
+    **Investment Risks:** All investments involve risk, including the potential loss of principal. Past performance does not guarantee future results. Securities trading and investing involve substantial risk of loss.
 
-**Not Professional Advice:** We are not registered financial advisors, brokers, or investment professionals. Always consult with qualified financial, legal, and tax professionals before making any investment decisions.
+    **Not Professional Advice:** We are not registered financial advisors, brokers, or investment professionals. Always consult with qualified financial, legal, and tax professionals before making any investment decisions.
 
-**Data Sources:** Data is sourced from Financial Modeling Prep API. We are not responsible for data accuracy or API availability.
+    **Data Sources:** Data is sourced from Financial Modeling Prep API. We are not responsible for data accuracy or API availability.
 
-**Paper Portfolio:** The paper portfolio feature is for educational simulation only. Results do not represent actual trading and do not reflect real market conditions, fees, or slippage.
+    **Paper Portfolio:** The paper portfolio feature is for educational simulation only. Results do not represent actual trading and do not reflect real market conditions, fees, or slippage.
 
-**Your Responsibility:** You are solely responsible for your own investment decisions and their outcomes. By using this app, you acknowledge and accept these terms.
+    **Your Responsibility:** You are solely responsible for your own investment decisions and their outcomes. By using this app, you acknowledge and accept these terms.
 
-© 2024 Finance Made Simple. All rights reserved.
-""")
+    © 2024 Finance Made Simple. All rights reserved.
+    """)
 
 elif selected_page == "✅ Portfolio Risk Analyzer":
     st.header("📈 Portfolio Risk Analyzer")
