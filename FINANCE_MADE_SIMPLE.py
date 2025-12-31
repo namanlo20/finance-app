@@ -2203,6 +2203,59 @@ with tab1:
             
             with st.expander("#5: Quick Ratio Growth"):
                 st.caption("Can they handle a crisis? Rising liquidity = safety.")
+            
+            st.markdown("---")
+            st.markdown("### ⚙️ Settings")
+            
+            period_type = st.radio("Time Period:", ["Annual", "Quarterly"], key="period_type_right")
+            period = 'annual' if period_type == "Annual" else 'quarter'
+            years = st.slider("Years of History:", 1, 30, 5, key="years_right")
+            
+            st.markdown("---")
+            st.markdown("### 📊 Growth Metrics")
+            
+            # Calculate FCF CAGR
+            fcf_cagr = 0
+            if not cash_df.empty and 'freeCashFlow' in cash_df.columns:
+                fcf_values = cash_df['freeCashFlow'].dropna()
+                if len(fcf_values) >= 2 and fcf_values.iloc[0] != 0:
+                    fcf_cagr = ((fcf_values.iloc[-1] - fcf_values.iloc[0]) / abs(fcf_values.iloc[0])) * 100
+            
+            if fcf_cagr:
+                st.metric("FCF CAGR", f"{fcf_cagr:+.1f}%",
+                         help=f"Free cash flow growth rate over {years} years")
+            
+            price_data = get_historical_price(ticker, years)
+            if not price_data.empty and len(price_data) > 1 and 'price' in price_data.columns:
+                start_price = price_data['price'].iloc[0]
+                end_price = price_data['price'].iloc[-1]
+                price_growth = ((end_price - start_price) / start_price) * 100
+                st.metric(f"Stock Growth ({years}Y)", f"{price_growth:+.1f}%",
+                         help=f"Total stock price return over {years} years")
+            
+            st.markdown("---")
+            st.markdown("### ⚠️ Risk Indicators")
+            
+            de_ratio = calculate_debt_to_equity(balance_df)
+            if de_ratio > 0:
+                if de_ratio > 2.0:
+                    st.error(f"D/E: {de_ratio:.2f} 🔴")
+                    st.caption("High debt risk")
+                elif de_ratio > 1.0:
+                    st.warning(f"D/E: {de_ratio:.2f} 🟡")
+                    st.caption("Moderate debt")
+                else:
+                    st.success(f"D/E: {de_ratio:.2f} 🟢")
+                    st.caption("Low debt")
+            
+            qr = calculate_quick_ratio(balance_df)
+            if qr > 0:
+                if qr < 1.0:
+                    st.warning(f"Quick Ratio: {qr:.2f} 🟡")
+                    st.caption("Low liquidity")
+                else:
+                    st.success(f"Quick Ratio: {qr:.2f} 🟢")
+                    st.caption("Good liquidity")
 
             st.markdown("---")
             
@@ -3409,32 +3462,6 @@ with tab7:
         st.session_state.cash = 100000.0  # Start with $100k
     if 'transactions' not in st.session_state:
         st.session_state.transactions = []
-    
-    # Sidebar for adding positions
-    with st.sidebar:
-        st.markdown("### 📊 Portfolio Summary")
-        
-        # Calculate total value
-        total_value = st.session_state.cash
-        total_gain_loss = 0
-        
-        for position in st.session_state.portfolio:
-            quote = get_quote(position['ticker'])
-            if quote:
-                current_price = quote.get('price', 0)
-                position_value = position['shares'] * current_price
-                total_value += position_value
-                
-                cost_basis = position['shares'] * position['avg_price']
-                total_gain_loss += (position_value - cost_basis)
-        
-        st.metric("Portfolio Value", f"${total_value:,.2f}")
-        st.metric("Cash Available", f"${st.session_state.cash:,.2f}")
-        st.metric("Total Gain/Loss", f"${total_gain_loss:,.2f}", 
-                 f"{(total_gain_loss / 100000 * 100):+.2f}%")
-        
-        st.markdown("---")
-        st.markdown("### 🆕 Add Position")
     
     col1, col2 = st.columns([2, 1])
     
