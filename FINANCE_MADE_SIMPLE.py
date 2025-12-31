@@ -829,8 +829,8 @@ def show_why_these_metrics(metric_type="financial_statements"):
 
 These tell the real story!
         """)
-        
-        
+
+
 def get_available_metrics(df, exclude_cols=['date', 'symbol', 'reportedCurrency', 'cik', 'fillingDate', 'acceptedDate', 'calendarYear', 'period', 'link', 'finalLink']):
     """Get all numeric columns from dataframe for dropdown"""
     if df.empty:
@@ -2147,7 +2147,7 @@ with tab1:
                 sp_start = sp_data['price'].iloc[0]
                 sp_end = sp_data['price'].iloc[-1]
                 sp_return = ((sp_end - sp_start) / sp_start) * 100
-                st.metric(f"S&P 500 ({years}Y)", f"{sp_return:+.1f}%")
+                st.metric("S&P 500", f"{sp_return:+.1f}%")
             
             # Calculate stock performance over selected period
             stock_data = get_historical_price(ticker, years)
@@ -2155,7 +2155,7 @@ with tab1:
                 stock_start = stock_data['price'].iloc[0]
                 stock_end = stock_data['price'].iloc[-1]
                 stock_return = ((stock_end - stock_start) / stock_start) * 100
-                st.metric(f"{ticker} ({years}Y)", f"{stock_return:+.1f}%")
+                st.metric(f"{ticker}", f"{stock_return:+.1f}%")
             st.markdown("**🏦 Treasury Rates**")
             st.caption("Safest investment. Zero risk = guaranteed returns.")
             
