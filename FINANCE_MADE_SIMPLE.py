@@ -677,8 +677,9 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
     if all_values:
         max_val = max(all_values)
         min_val = min(all_values)
-        y_range_max = max_val * 1.2 if max_val > 0 else max_val * 0.8
-        y_range_min = min_val * 0.9 if min_val < 0 else 0
+        # Tighter Y-axis padding (5-7% above max) so bars nearly reach top
+        y_range_max = max_val * 1.07 if max_val > 0 else max_val * 0.93
+        y_range_min = min_val * 1.05 if min_val < 0 else 0
         fig.update_layout(yaxis=dict(range=[y_range_min, y_range_max]))
     
     fig.update_layout(
@@ -2046,32 +2047,32 @@ elif selected_page == "🧠 Risk Quiz":
             color = "🟢"
             description = "You prefer safety and stability. Focus on dividend stocks, bonds, and blue-chip companies."
             stocks = [
-                ("JNJ", "Johnson & Johnson", "Healthcare giant with 60+ years of dividend growth"),
-                ("PG", "Procter & Gamble", "Consumer staples, recession-resistant")
+                ("JNJ", "Johnson & Johnson", "We chose this because it's a stable 'Blue Chip' company. JNJ has paid dividends for 60+ consecutive years and sells essential healthcare products that people need regardless of the economy. Perfect for investors who prioritize safety over growth."),
+                ("PG", "Procter & Gamble", "We chose this because it sells everyday essentials (Tide, Pampers, Gillette) that people buy in good times and bad. This 'recession-resistant' business model means steady profits even during market downturns - ideal for conservative investors.")
             ]
         elif risk_score <= 20:
             profile = "Moderate"
             color = "🟡"
             description = "You want balanced growth with manageable risk. Mix of stable companies and growth stocks."
             stocks = [
-                ("MSFT", "Microsoft", "Tech leader with strong fundamentals and growing dividends"),
-                ("V", "Visa", "Payment processor with consistent growth")
+                ("MSFT", "Microsoft", "We chose this because it combines growth potential with stability. Microsoft dominates enterprise software (Office, Azure cloud), pays growing dividends, and has a fortress balance sheet. It offers upside while being less volatile than pure growth stocks."),
+                ("V", "Visa", "We chose this because it profits from every card swipe without taking credit risk (banks do). As digital payments grow globally, Visa benefits from a 'toll booth' business model - consistent growth with lower risk than most tech stocks.")
             ]
         elif risk_score <= 30:
             profile = "Growth-Oriented"
             color = "🟠"
             description = "You're comfortable with volatility for higher returns. Focus on growth stocks and emerging sectors."
             stocks = [
-                ("NVDA", "NVIDIA", "AI and chip leader with explosive growth potential"),
-                ("GOOGL", "Alphabet", "Dominant in search, cloud, and AI")
+                ("NVDA", "NVIDIA", "We chose this because you can handle volatility for higher returns. NVIDIA dominates AI chips - the 'picks and shovels' of the AI gold rush. High growth potential but expect 30-50% swings. Only for investors comfortable with roller coaster rides."),
+                ("GOOGL", "Alphabet", "We chose this because it dominates search (90% market share), YouTube, and is a major cloud player. Strong cash generation funds AI investments. More stable than pure growth plays but still offers significant upside for growth-oriented investors.")
             ]
         else:
             profile = "Aggressive"
             color = "🔴"
             description = "You're seeking maximum returns and can handle high volatility. High-growth and speculative plays."
             stocks = [
-                ("TSLA", "Tesla", "EV leader with high growth but volatile"),
-                ("COIN", "Coinbase", "Crypto exposure with high risk/reward")
+                ("TSLA", "Tesla", "We chose this because you're seeking maximum returns and can handle extreme volatility. Tesla is a high-conviction bet on EVs, energy storage, and AI robotics. Can double or halve in a year - only for investors with strong stomachs and long time horizons."),
+                ("COIN", "Coinbase", "We chose this because you want crypto exposure through a regulated company. Coinbase profits when crypto trading volume is high. Extremely volatile - can move 10%+ in a day. Only for aggressive investors who understand they could lose significant capital.")
             ]
         
         # Display profile
@@ -2197,6 +2198,46 @@ elif selected_page == "📊 Company Analysis":
             st.success(f"Found: {company_name} ({ticker})")
     else:
         ticker = st.session_state.selected_ticker
+    
+    # Show Welcome view if no ticker is selected or default AAPL
+    if not ticker or ticker == "AAPL" and not search:
+        st.markdown("## 👋 Welcome to Company Analysis!")
+        st.markdown("Not sure where to start? Here are some popular stocks to explore:")
+        
+        # Starter stocks grid
+        starter_stocks = [
+            ("AAPL", "Apple Inc.", "Tech giant - iPhones, Macs, Services. One of the world's most valuable companies."),
+            ("MSFT", "Microsoft", "Enterprise software leader - Windows, Office, Azure cloud. Steady growth + dividends."),
+            ("SPY", "S&P 500 ETF", "Own a piece of 500 top US companies. The benchmark for the stock market."),
+            ("GOOGL", "Alphabet (Google)", "Search, YouTube, Cloud, AI. Dominant in digital advertising.")
+        ]
+        
+        col1, col2 = st.columns(2)
+        for i, (stock_ticker, stock_name, stock_desc) in enumerate(starter_stocks):
+            with col1 if i % 2 == 0 else col2:
+                with st.container():
+                    st.markdown(f"### {stock_ticker}")
+                    st.markdown(f"**{stock_name}**")
+                    st.caption(stock_desc)
+                    
+                    # Get quick price info
+                    try:
+                        quote = get_quote(stock_ticker)
+                        if quote:
+                            price = quote.get('price', 0)
+                            change = quote.get('changesPercentage', 0)
+                            st.metric("Price", f"${price:.2f}", f"{change:+.2f}%")
+                    except:
+                        pass
+                    
+                    if st.button(f"📊 Analyze {stock_ticker}", key=f"starter_{stock_ticker}"):
+                        st.session_state.selected_ticker = stock_ticker
+                        st.rerun()
+                    
+                    st.markdown("---")
+        
+        st.info("💡 **Tip:** Type any company name or ticker symbol in the search box above to get started!")
+        st.stop()
     
     profile = get_profile(ticker)
     has_company = profile is not None
@@ -2353,17 +2394,34 @@ elif selected_page == "📊 Company Analysis":
         
         with col_right_widgets:
             st.markdown("### 📊 Benchmarks")
-            # S&P 500 YTD
-            sp500_quote = get_quote("^GSPC")
-            if sp500_quote:
-                sp500_ytd = sp500_quote.get('changesPercentage', 0)
-                st.metric("S&P 500 YTD", f"{sp500_ytd:+.1f}%")
             
-            # Current stock YTD
-            stock_quote = get_quote(ticker)
-            if stock_quote:
-                stock_ytd = stock_quote.get('changesPercentage', 0)
-                st.metric(f"{ticker} YTD", f"{stock_ytd:+.1f}%")
+            sp500_hist = get_historical_price("SPY", years)
+            if not sp500_hist.empty and len(sp500_hist) > 1:
+                sp500_start = sp500_hist['price'].iloc[0]
+                sp500_end = sp500_hist['price'].iloc[-1]
+                if sp500_start > 0:
+                    sp500_growth = ((sp500_end - sp500_start) / sp500_start) * 100
+                    period_label = f"{years}Y" if years > 1 else "1Y"
+                    st.metric(f"S&P 500 ({period_label})", f"{sp500_growth:+.1f}%",
+                             help=f"S&P 500 growth over the past {years} year(s)")
+                else:
+                    st.metric(f"S&P 500 ({years}Y)", "N/A")
+            else:
+                st.metric(f"S&P 500 ({years}Y)", "N/A")
+            
+            stock_hist = get_historical_price(ticker, years)
+            if not stock_hist.empty and len(stock_hist) > 1:
+                stock_start = stock_hist['price'].iloc[0]
+                stock_end = stock_hist['price'].iloc[-1]
+                if stock_start > 0:
+                    stock_growth = ((stock_end - stock_start) / stock_start) * 100
+                    period_label = f"{years}Y" if years > 1 else "1Y"
+                    st.metric(f"{ticker} ({period_label})", f"{stock_growth:+.1f}%",
+                             help=f"{ticker} growth over the past {years} year(s)")
+                else:
+                    st.metric(f"{ticker} ({years}Y)", "N/A")
+            else:
+                st.metric(f"{ticker} ({years}Y)", "N/A")
             st.markdown("**🏦 Treasury Rates**")
             st.caption("Safest investment. Zero risk = guaranteed returns.")
             
@@ -2415,30 +2473,140 @@ elif selected_page == "📊 Company Analysis":
             st.markdown("---")
             
         with col_left_main:
-            # Stock Price Chart
+            # Stock Price Chart with Timeframe Toggles
             st.markdown(f"### {company_name} Stock Price")
-            price_history = get_historical_price(ticker, years)
             
-            if not price_history.empty:
-                fig_price = go.Figure()
-                fig_price.add_trace(go.Scatter(
-                    x=price_history['date'],
-                    y=price_history['price'],
-                    mode='lines',
-                    name='Price',
-                    line=dict(color='#9D4EDD', width=2),
-                    fill='tozeroy',
-                    fillcolor='rgba(157, 78, 221, 0.2)'
-                ))
+            # Timeframe toggles
+            timeframe_options = ["1D", "5D", "1M", "6M", "YTD", "1Y", "5Y"]
+            selected_timeframe = st.radio(
+                "Select timeframe:",
+                timeframe_options,
+                index=timeframe_options.index("1Y") if years == 1 else (timeframe_options.index("5Y") if years >= 5 else 4),
+                horizontal=True,
+                key="price_timeframe"
+            )
+            
+            # Calculate days based on timeframe
+            timeframe_days = {
+                "1D": 3,  # Show last 3 days for daily data
+                "5D": 7,
+                "1M": 30,
+                "6M": 180,
+                "YTD": (datetime.now() - datetime(datetime.now().year, 1, 1)).days,
+                "1Y": 365,
+                "5Y": 365 * 5
+            }
+            days_to_show = timeframe_days.get(selected_timeframe, 365)
+            
+            # Fetch price history (use max of selected timeframe or sidebar years)
+            fetch_years = max(days_to_show / 365, years)
+            price_history_full = get_historical_price(ticker, int(fetch_years) + 1)
+            
+            if not price_history_full.empty:
+                # Filter to selected timeframe
+                cutoff_date = datetime.now() - timedelta(days=days_to_show)
+                price_history = price_history_full[price_history_full['date'] >= cutoff_date].copy()
                 
-                fig_price.update_layout(
-                    title=f"{ticker} Price History",
-                    xaxis_title="Date",
-                    yaxis_title="Price ($)",
-                    height=350,
-                    margin=dict(l=0, r=0, t=40, b=0),
-                    hovermode='x unified'
-                )
+                if len(price_history) < 2:
+                    price_history = price_history_full.tail(3)  # Fallback to last 3 points
+                
+                # S&P 500 overlay toggle
+                show_sp500 = st.checkbox("📊 Compare to S&P 500 (% Growth)", key="show_sp500_overlay")
+                
+                fig_price = go.Figure()
+                
+                if show_sp500 and len(price_history) > 1:
+                    # Fetch SPY data for same period
+                    spy_history_full = get_historical_price("SPY", int(fetch_years) + 1)
+                    spy_history = spy_history_full[spy_history_full['date'] >= cutoff_date].copy()
+                    
+                    # Merge on date to get common dates
+                    price_col = 'close' if 'close' in price_history.columns else 'price'
+                    spy_col = 'close' if 'close' in spy_history.columns else 'price'
+                    
+                    merged = pd.merge(
+                        price_history[['date', price_col]].rename(columns={price_col: 'stock_price'}),
+                        spy_history[['date', spy_col]].rename(columns={spy_col: 'spy_price'}),
+                        on='date',
+                        how='inner'
+                    ).sort_values('date')
+                    
+                    if len(merged) > 1:
+                        # Normalize to % growth from start
+                        stock_start = merged['stock_price'].iloc[0]
+                        spy_start = merged['spy_price'].iloc[0]
+                        
+                        merged['stock_growth'] = ((merged['stock_price'] / stock_start) - 1) * 100
+                        merged['spy_growth'] = ((merged['spy_price'] / spy_start) - 1) * 100
+                        
+                        # Add stock trace
+                        fig_price.add_trace(go.Scatter(
+                            x=merged['date'],
+                            y=merged['stock_growth'],
+                            mode='lines',
+                            name=f'{ticker}',
+                            line=dict(color='#9D4EDD', width=2),
+                            hovertemplate='%{x}<br>' + ticker + ': %{y:.1f}%<extra></extra>'
+                        ))
+                        
+                        # Add SPY trace
+                        fig_price.add_trace(go.Scatter(
+                            x=merged['date'],
+                            y=merged['spy_growth'],
+                            mode='lines',
+                            name='S&P 500',
+                            line=dict(color='#00C853', width=2, dash='dash'),
+                            hovertemplate='%{x}<br>S&P 500: %{y:.1f}%<extra></extra>'
+                        ))
+                        
+                        # Calculate Y-axis range with 5% padding
+                        all_values = list(merged['stock_growth']) + list(merged['spy_growth'])
+                        y_min = min(all_values)
+                        y_max = max(all_values)
+                        y_range = y_max - y_min if y_max != y_min else 1
+                        
+                        fig_price.update_layout(
+                            title=f"{ticker} vs S&P 500 - Relative Performance",
+                            xaxis_title="Date",
+                            yaxis_title="% Growth",
+                            yaxis=dict(
+                                range=[y_min - y_range * 0.05, y_max + y_range * 0.05],
+                                ticksuffix='%'
+                            ),
+                            height=350,
+                            margin=dict(l=0, r=0, t=40, b=0),
+                            hovermode='x unified',
+                            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+                        )
+                else:
+                    # Regular price chart
+                    price_col = 'close' if 'close' in price_history.columns else 'price'
+                    
+                    fig_price.add_trace(go.Scatter(
+                        x=price_history['date'],
+                        y=price_history[price_col],
+                        mode='lines',
+                        name='Price',
+                        line=dict(color='#9D4EDD', width=2),
+                        fill='tozeroy',
+                        fillcolor='rgba(157, 78, 221, 0.2)',
+                        hovertemplate='%{x}<br>Price: $%{y:.2f}<extra></extra>'
+                    ))
+                    
+                    # Calculate Y-axis range with 5% padding (not starting from 0)
+                    y_min = price_history[price_col].min()
+                    y_max = price_history[price_col].max()
+                    y_range = y_max - y_min if y_max != y_min else y_max * 0.1
+                    
+                    fig_price.update_layout(
+                        title=f"{ticker} Price History ({selected_timeframe})",
+                        xaxis_title="Date",
+                        yaxis_title="Price ($)",
+                        yaxis=dict(range=[y_min - y_range * 0.05, y_max + y_range * 0.05]),
+                        height=350,
+                        margin=dict(l=0, r=0, t=40, b=0),
+                        hovermode='x unified'
+                    )
                 
                 st.plotly_chart(fig_price, use_container_width=True)
             
@@ -2514,6 +2682,145 @@ elif selected_page == "📊 Company Analysis":
                             else:
                                 st.info(f"📊 DCA: S&P 500 outperformed {ticker} by ${sp_dca_val - stock_dca:,.2f} (+{sp_dca_ret - stock_dca_ret:.1f}%)")
 
+            
+            st.markdown("---")
+            
+            # Financial Ratios Section - Historical Line Charts
+            st.markdown("### 📊 Financial Ratios (Historical Trends)")
+            st.caption("See how key ratios have changed over time compared to S&P 500 averages")
+            
+            ratios_df = get_financial_ratios(ticker, period, years)
+            
+            if not ratios_df.empty:
+                # Ratio selection
+                ratio_options = {
+                    "P/E Ratio": "priceEarningsRatio",
+                    "P/S Ratio": "priceToSalesRatio",
+                    "Debt-to-Equity": "debtEquityRatio",
+                    "Quick Ratio": "quickRatio",
+                    "Gross Margin": "grossProfitMargin",
+                    "Operating Margin": "operatingProfitMargin",
+                    "Net Profit Margin": "netProfitMargin",
+                    "Return on Equity": "returnOnEquity"
+                }
+                
+                # Filter to available ratios
+                available_ratios = {k: v for k, v in ratio_options.items() if v in ratios_df.columns}
+                
+                if available_ratios:
+                    selected_ratio = st.selectbox(
+                        "Select ratio to visualize:",
+                        options=list(available_ratios.keys()),
+                        key="ratio_chart_select"
+                    )
+                    
+                    ratio_col = available_ratios[selected_ratio]
+                    
+                    # S&P 500 benchmarks for comparison
+                    sp500_benchmarks = {
+                        "priceEarningsRatio": 22,
+                        "priceToSalesRatio": 2.5,
+                        "debtEquityRatio": 1.5,
+                        "quickRatio": 1.0,
+                        "grossProfitMargin": 0.42,
+                        "operatingProfitMargin": 0.15,
+                        "netProfitMargin": 0.11,
+                        "returnOnEquity": 0.18
+                    }
+                    
+                    benchmark = sp500_benchmarks.get(ratio_col, None)
+                    
+                    # Create line chart
+                    fig_ratio = go.Figure()
+                    
+                    # Get ratio data
+                    ratio_data = ratios_df[['date', ratio_col]].dropna()
+                    
+                    if len(ratio_data) > 0:
+                        # Convert margins to percentages for display
+                        is_margin = 'Margin' in selected_ratio or 'Return' in selected_ratio
+                        y_values = ratio_data[ratio_col] * 100 if is_margin else ratio_data[ratio_col]
+                        benchmark_val = benchmark * 100 if is_margin and benchmark else benchmark
+                        
+                        # Add company ratio line
+                        fig_ratio.add_trace(go.Scatter(
+                            x=ratio_data['date'],
+                            y=y_values,
+                            mode='lines+markers',
+                            name=f'{ticker} {selected_ratio}',
+                            line=dict(color='#9D4EDD', width=2),
+                            marker=dict(size=6),
+                            hovertemplate='%{x}<br>' + selected_ratio + ': %{y:.2f}' + ('%' if is_margin else '') + '<extra></extra>'
+                        ))
+                        
+                        # Add S&P 500 benchmark line
+                        if benchmark_val:
+                            fig_ratio.add_trace(go.Scatter(
+                                x=ratio_data['date'],
+                                y=[benchmark_val] * len(ratio_data),
+                                mode='lines',
+                                name='S&P 500 Average',
+                                line=dict(color='#00C853', width=2, dash='dash'),
+                                hovertemplate='S&P 500 Avg: %{y:.2f}' + ('%' if is_margin else '') + '<extra></extra>'
+                            ))
+                        
+                        # Calculate Y-axis range with 5% padding
+                        all_y = list(y_values)
+                        if benchmark_val:
+                            all_y.append(benchmark_val)
+                        y_min = min(all_y)
+                        y_max = max(all_y)
+                        y_range = y_max - y_min if y_max != y_min else abs(y_max) * 0.1 or 1
+                        
+                        fig_ratio.update_layout(
+                            title=f"{ticker} {selected_ratio} vs S&P 500",
+                            xaxis_title="Date",
+                            yaxis_title=selected_ratio + (' (%)' if is_margin else ''),
+                            yaxis=dict(range=[y_min - y_range * 0.05, y_max + y_range * 0.05]),
+                            height=300,
+                            margin=dict(l=0, r=0, t=40, b=0),
+                            hovermode='x unified',
+                            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+                        )
+                        
+                        st.plotly_chart(fig_ratio, use_container_width=True)
+                        
+                        # Beginner tooltip
+                        ratio_tooltips = {
+                            "P/E Ratio": "Price-to-Earnings shows how much investors pay for $1 of earnings. Higher = more expensive. S&P 500 avg is ~22.",
+                            "P/S Ratio": "Price-to-Sales shows how much investors pay for $1 of revenue. Useful for unprofitable companies.",
+                            "Debt-to-Equity": "How much debt vs shareholder equity. Lower is safer. Above 2 can be risky.",
+                            "Quick Ratio": "Can the company pay its bills? Above 1 = yes. Below 1 = potential trouble.",
+                            "Gross Margin": "Money left after making the product. Higher = better pricing power.",
+                            "Operating Margin": "Profit from core business operations. Shows efficiency.",
+                            "Net Profit Margin": "The bottom line - actual profit after everything. Higher = more profitable.",
+                            "Return on Equity": "How well the company uses shareholder money. 15%+ is good."
+                        }
+                        
+                        with st.expander(f"💡 What is {selected_ratio}?"):
+                            st.info(ratio_tooltips.get(selected_ratio, "Financial ratio for analysis"))
+                            
+                            # Compare to benchmark
+                            latest_val = y_values.iloc[-1] if len(y_values) > 0 else None
+                            if latest_val and benchmark_val:
+                                if selected_ratio in ["Debt-to-Equity", "P/E Ratio", "P/S Ratio"]:
+                                    # Lower is better
+                                    if latest_val < benchmark_val:
+                                        st.success(f"✅ {ticker}'s {selected_ratio} ({latest_val:.2f}) is BETTER than S&P 500 average ({benchmark_val:.2f})")
+                                    else:
+                                        st.warning(f"⚠️ {ticker}'s {selected_ratio} ({latest_val:.2f}) is HIGHER than S&P 500 average ({benchmark_val:.2f})")
+                                else:
+                                    # Higher is better
+                                    if latest_val > benchmark_val:
+                                        st.success(f"✅ {ticker}'s {selected_ratio} ({latest_val:.2f}{'%' if is_margin else ''}) is BETTER than S&P 500 average ({benchmark_val:.2f}{'%' if is_margin else ''})")
+                                    else:
+                                        st.warning(f"⚠️ {ticker}'s {selected_ratio} ({latest_val:.2f}{'%' if is_margin else ''}) is BELOW S&P 500 average ({benchmark_val:.2f}{'%' if is_margin else ''})")
+                    else:
+                        st.info(f"No historical data available for {selected_ratio}")
+                else:
+                    st.info("No ratio data available for this company")
+            else:
+                st.info("Financial ratios data not available")
             
             st.markdown("---")
             
