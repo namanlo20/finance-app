@@ -681,7 +681,7 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
         yaxis_title=yaxis_title,
         barmode='group',
         hovermode='x unified',
-        height=500,
+        height=400,
         showlegend=True,
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
@@ -1633,7 +1633,7 @@ with tab2:
             col1, col2 = st.columns([3, 1])
             with col1:
                 selected = st.selectbox("Choose:", df['Ticker'].tolist(), 
-                                       format_func=lambda x: f"{df[df['Ticker']==x]['Company'].values[0]} ({x})")
+                                   format_func=lambda x: f"{df[df['Ticker']==x]['Company'].values[0]} ({x})")
             with col2:
                 if st.button("Analyze →", type="primary", use_container_width=True):
                     st.session_state.selected_ticker = selected
@@ -1652,10 +1652,10 @@ with tab3:
         col1, col2 = st.columns([2, 1])
         with col1:
             ticker_input = st.text_input(f"Stock {i+1} Ticker:", key=f"ticker_{i}", 
-                                  placeholder="e.g., AAPL")
+                              placeholder="e.g., AAPL")
         with col2:
             allocation = st.number_input(f"% of Portfolio:", 0, 100, 
-                                        33 if i < 3 else 0, key=f"alloc_{i}")
+                                    33 if i < 3 else 0, key=f"alloc_{i}")
         
         if ticker_input and allocation > 0:
             portfolio.append({"ticker": ticker_input.upper(), "allocation": allocation})
@@ -1696,9 +1696,9 @@ with tab3:
                         
                         if risk_factors:
                             all_risk_factors.append({
-                                "ticker": item['ticker'],
-                                "allocation": item['allocation'],
-                                "factors": risk_factors
+                            "ticker": item['ticker'],
+                            "allocation": item['allocation'],
+                            "factors": risk_factors
                             })
                         
                         industry_pe = get_industry_benchmark(sector, 'pe')
@@ -1741,8 +1741,7 @@ with tab3:
                     </div>
                     """, unsafe_allow_html=True)
                     
-                    st.divider()
-                    
+                            
                     if total_risk_score > 70:
                         st.markdown(f"""
                         <div class="risk-warning">
@@ -1764,8 +1763,7 @@ with tab3:
                         </div>
                         """, unsafe_allow_html=True)
                     
-                    st.divider()
-                    
+                            
                     col1, col2, col3, col4, col5 = st.columns(5)
                     col1.metric("Portfolio Beta", f"{weighted_beta:.2f}",
                                help=explain_metric("Beta", weighted_beta))
@@ -1778,8 +1776,7 @@ with tab3:
                     col5.metric("Weighted Mkt Cap", format_number(total_market_cap),
                                help=explain_metric("Market Cap", total_market_cap))
                     
-                    st.divider()
-                    
+                            
                     if all_risk_factors:
                         st.markdown("### 🚨 Individual Stock Risk Factors")
                         for stock_risk in all_risk_factors:
@@ -1792,8 +1789,7 @@ with tab3:
                                     for factor in factors:
                                         st.warning(f"• {factor}")
                     
-                    st.divider()
-                    
+                            
                     st.markdown("### 📊 Industry Comparison")
                     
                     comparison_data = []
@@ -1812,8 +1808,7 @@ with tab3:
                     
                     st.dataframe(pd.DataFrame(comparison_data), use_container_width=True, height=300)
                     
-                    st.divider()
-                    
+                            
                     st.markdown("### 📉 Market Crash Scenarios")
                     
                     scenarios = [
@@ -1855,8 +1850,7 @@ with tab3:
                             else:
                                 st.info(f"{risk_level} - Portfolio would track market closely")
                     
-                    st.divider()
-                    
+                            
                     st.markdown("### 🎯 Diversification Analysis")
                     
                     if len(portfolio_data) < 5:
@@ -1882,15 +1876,13 @@ with tab3:
                     else:
                         st.success(f"✅ Spread across {len(sector_counts)} sectors")
                     
-                    st.divider()
-                    
+                            
                     st.markdown("### 📊 Detailed Breakdown")
                     detail_df = df[['ticker', 'name', 'allocation', 'sector', 'beta', 'pe', 'de_ratio', 'quick_ratio', 'risk_score']].copy()
                     detail_df.columns = ['Ticker', 'Company', 'Allocation %', 'Sector', 'Beta', 'P/E', 'Debt/Equity', 'Quick Ratio', 'Risk Score']
                     st.dataframe(detail_df, use_container_width=True)
                     
-                    st.divider()
-                    
+                            
                     st.markdown("### 💡 Recommendations")
                     
                     recommendations = []
@@ -1972,7 +1964,6 @@ with tab4:
             passed_count = sum(1 for _, p in checks if p)
             total = len(checks)
             
-            st.divider()
             st.metric("Score", f"{passed_count}/{total}")
             
             if passed_count >= total * 0.75:
@@ -2058,6 +2049,7 @@ with tab1:
         "🔀 Compare 2 Stocks",
         "📈 Financial Ratios", 
         "💰 Valuation (DCF)", 
+        "📉 Technical Analysis", 
         "📰 Latest News"
     ], horizontal=True)
     
@@ -2072,7 +2064,7 @@ with tab1:
         period = 'annual' if period_type == "Annual" else 'quarter'
         years = st.slider("Years of History:", 1, 30, 5)
         
-        st.divider()
+        st.markdown("---")
         
         st.markdown("### 📊 Market Benchmarks")
         
@@ -2103,11 +2095,11 @@ with tab1:
                     if start_price > 0:
                         stock_ytd = ((latest_price - start_price) / start_price) * 100
                         st.metric(f"🎯 {ticker} YTD", f"{stock_ytd:+.1f}%",
-                                 help=f"{ticker} year-to-date return")
+                             help=f"{ticker} year-to-date return")
             except:
                 pass
         
-        st.divider()
+        st.markdown("---")
         
         st.markdown("### 📈 Growth Metrics")
         
@@ -2137,7 +2129,7 @@ with tab1:
             st.metric(f"Stock Growth ({years}Y)", f"{price_growth:+.1f}%",
                      help=f"Total stock price return over {years} years")
         
-        st.divider()
+        st.markdown("---")
         
         st.markdown("### ⚠️ Risk Indicators")
         
@@ -2188,113 +2180,102 @@ with tab1:
         
         col5.metric("FCF Per Share", f"${fcf_per_share:.2f}" if fcf_per_share > 0 else "N/A",
                    help="Free Cash Flow divided by shares outstanding")
-
-        # RIGHT SIDEBAR: Market Benchmarks & Investment Calculator
-        st.divider()
         
-        main_content, right_sidebar = st.columns([3, 1])
+        st.markdown("---")
         
-        with right_sidebar:
-            st.markdown("### 📊 Market Benchmarks")
+        # 2-COLUMN LAYOUT: Main (left) + Sidebar (right) - NO EMPTY SPACE
+        main_col, sidebar_col = st.columns([2.5, 1], gap="small")
+        
+        with sidebar_col:
+            st.markdown("### 📊 Benchmarks")
             
-            # S&P 500 YTD
-            sp500_quote = get_quote("^GSPC")
-            if sp500_quote:
-                sp500_ytd = sp500_quote.get('changesPercentage', 0)
-                st.metric("S&P 500 YTD", f"{sp500_ytd:+.1f}%")
+            try:
+                sp500_quote = get_quote("^GSPC")
+                if sp500_quote:
+                    st.metric("S&P 500 YTD", f"{sp500_quote.get('changesPercentage', 0):+.1f}%")
+            except:
+                st.metric("S&P 500 YTD", "N/A")
             
-            # Current stock YTD
-            stock_quote = get_quote(ticker)
-            if stock_quote:
-                stock_ytd = stock_quote.get('changesPercentage', 0)
-                st.metric(f"{ticker} YTD", f"{stock_ytd:+.1f}%")
+            try:
+                stock_quote = get_quote(ticker)
+                if stock_quote:
+                    st.metric(f"{ticker} YTD", f"{stock_quote.get('changesPercentage', 0):+.1f}%")
+            except:
+                pass
             
-            st.divider()
-            st.markdown("### 💰 Investment Calculator")
+            st.markdown("---")
+            st.markdown("**🏦 Treasury Rates**")
+            st.caption("Risk-free returns. Safe alternative to stocks.")
             
-            invest_initial = st.number_input("Initial Investment ($)", min_value=1, value=100, step=50, key="right_invest")
-            invest_dca = st.number_input("Bi-Weekly DCA ($)", min_value=0, value=100, step=25, key="right_dca")
-            
-            # Calculate returns
-            calc_years = years if 'years' in locals() else 5
-            price_hist = get_historical_price(ticker, calc_years)
-            
-            if not price_hist.empty and len(price_hist) > 1:
-                start_price = price_hist['price'].iloc[0]
-                end_price = price_hist['price'].iloc[-1]
-                
-                if start_price > 0:
-                    # Stock - Lump Sum
-                    stock_lump_value = (invest_initial / start_price) * end_price
-                    stock_lump_return = ((stock_lump_value - invest_initial) / invest_initial) * 100
-                    
-                    # Stock - DCA
-                    weeks = calc_years * 52
-                    num_dca = weeks // 2
-                    avg_price = price_hist['price'].mean()
-                    total_invested = invest_initial + (invest_dca * num_dca)
-                    stock_shares_dca = (invest_initial / start_price) + (invest_dca * num_dca / avg_price)
-                    stock_dca_value = stock_shares_dca * end_price
-                    stock_dca_return = ((stock_dca_value - total_invested) / total_invested) * 100 if total_invested > 0 else 0
-                    
-                    # Display Stock results
-                    with st.expander(f"💵 Lump Sum: ${invest_initial} → {ticker}", expanded=True):
-                        st.metric("Current Value", f"${stock_lump_value:,.2f}", f"{stock_lump_return:+.1f}%")
-                        st.caption(f"Bought {invest_initial/start_price:.2f} shares @ ${start_price:.2f}")
-                    
-                    with st.expander(f"📅 DCA: ${invest_dca} bi-weekly → {ticker}", expanded=True):
-                        st.metric("Current Value", f"${stock_dca_value:,.2f}", f"{stock_dca_return:+.1f}%")
-                        st.caption(f"Total invested: ${total_invested:,.2f} over {calc_years} years")
-                    
-                    st.markdown("#### vs S&P 500")
-                    
-                    # S&P 500 calculations
-                    sp500_hist = get_historical_price("SPY", calc_years)
-                    
-                    if not sp500_hist.empty and len(sp500_hist) > 1:
-                        sp500_start = sp500_hist['price'].iloc[0]
-                        sp500_end = sp500_hist['price'].iloc[-1]
+            # Fetch treasury rates
+            treasury_url = f"https://financialmodelingprep.com/api/v4/treasury?apikey={FMP_API_KEY}"
+            try:
+                treasury_response = requests.get(treasury_url, timeout=5)
+                if treasury_response.status_code == 200:
+                    treasury_data = treasury_response.json()
+                    if treasury_data:
+                        latest = treasury_data[0] if isinstance(treasury_data, list) else treasury_data
                         
-                        if sp500_start > 0:
-                            # S&P - Lump Sum
-                            sp500_lump_value = (invest_initial / sp500_start) * sp500_end
-                            sp500_lump_return = ((sp500_lump_value - invest_initial) / invest_initial) * 100
-                            
-                            # S&P - DCA
-                            sp500_avg = sp500_hist['price'].mean()
-                            sp500_shares_dca = (invest_initial / sp500_start) + (invest_dca * num_dca / sp500_avg)
-                            sp500_dca_value = sp500_shares_dca * sp500_end
-                            sp500_dca_return = ((sp500_dca_value - total_invested) / total_invested) * 100 if total_invested > 0 else 0
-                            
-                            # Display S&P results
-                            with st.expander(f"💵 Lump Sum: ${invest_initial} → S&P 500", expanded=True):
-                                st.metric("Current Value", f"${sp500_lump_value:,.2f}", f"{sp500_lump_return:+.1f}%")
-                                st.caption("S&P 500 (SPY)")
-                            
-                            with st.expander(f"📅 DCA: ${invest_dca} bi-weekly → S&P 500", expanded=True):
-                                st.metric("Current Value", f"${sp500_dca_value:,.2f}", f"{sp500_dca_return:+.1f}%")
-                                st.caption(f"Total invested: ${total_invested:,.2f}")
-                            
-                            # Comparison
-                            st.divider()
-                            lump_diff = stock_lump_value - sp500_lump_value
-                            dca_diff = stock_dca_value - sp500_dca_value
-                            
-                            if lump_diff > 0:
-                                st.success(f"✅ Lump sum: {ticker} outperformed S&P 500 by ${lump_diff:,.2f} (+{stock_lump_return - sp500_lump_return:.1f}%)")
-                            else:
-                                st.info(f"📊 Lump sum: S&P 500 outperformed {ticker} by ${abs(lump_diff):,.2f} (+{sp500_lump_return - stock_lump_return:.1f}%)")
-                            
-                            if dca_diff > 0:
-                                st.success(f"✅ DCA: {ticker} outperformed S&P 500 by ${dca_diff:,.2f} (+{stock_dca_return - sp500_dca_return:.1f}%)")
-                            else:
-                                st.info(f"📊 DCA: S&P 500 outperformed {ticker} by ${abs(dca_diff):,.2f} (+{sp500_dca_return - stock_dca_return:.1f}%)")
+                        col_t1, col_t2 = st.columns(2)
+                        with col_t1:
+                            if 'month3' in latest:
+                                st.metric("3M", f"{latest['month3']:.2f}%")
+                            if 'year2' in latest:
+                                st.metric("2Y", f"{latest['year2']:.2f}%")
+                        with col_t2:
+                            if 'year5' in latest:
+                                st.metric("5Y", f"{latest['year5']:.2f}%")
+                            if 'year10' in latest:
+                                st.metric("10Y", f"{latest['year10']:.2f}%")
+                        
+                        st.info(f"💡 Earn {latest.get('year10', 4):.2f}% risk-free! No volatility.")
+            except:
+                st.metric("10Y Treasury", "~4.25%")
+                st.caption("Risk-free baseline")
+            
+            st.markdown("---")
+            st.markdown("### 💰 Calculator")
+            st.caption("Lump sum returns")
+            
+            amt = st.number_input("Amount ($)", 1, 10000, 100, 50, key="calc")
+            
+            yrs = years if 'years' in locals() else 5
+            hist = get_historical_price(ticker, yrs)
+            
+            if not hist.empty and len(hist) > 1 and hist['price'].iloc[0] > 0:
+                # Stock
+                stock_v = (amt / hist['price'].iloc[0]) * hist['price'].iloc[-1]
+                stock_r = ((stock_v - amt) / amt) * 100
+                st.markdown(f"**{ticker}**")
+                st.metric("Value", f"${stock_v:,.0f}", f"{stock_r:+.1f}%")
+                
+                # S&P
+                sp = get_historical_price("SPY", yrs)
+                if not sp.empty and len(sp) > 1 and sp['price'].iloc[0] > 0:
+                    sp_v = (amt / sp['price'].iloc[0]) * sp['price'].iloc[-1]
+                    sp_r = ((sp_v - amt) / amt) * 100
+                    st.markdown("**S&P 500**")
+                    st.metric("Value", f"${sp_v:,.0f}", f"{sp_r:+.1f}%")
+                    
+                    # Savings + Inflation
+                    st.markdown("---")
+                    st.markdown("**💵 Doing Nothing**")
+                    sav = amt * (1.04 ** yrs)
+                    real = amt / (1.03 ** yrs)
+                    st.metric("Savings", f"${sav:,.0f}", "@4% APY")
+                    st.warning(f"⚠️ Inflation ate ${amt-real:.0f}!")
+                    
+                    st.markdown("---")
+                    if stock_v > sp_v:
+                        st.success(f"✅ {ticker} wins")
+                    else:
+                        st.info(f"📊 S&P wins")
         
-        with main_content:
-            # Main content continues here
+        with main_col:
             pass
         
-        
+
+
         price_target_summary = get_price_target_summary(ticker)
         if price_target_summary:
             target_high = price_target_summary.get('targetHigh', 0)
@@ -2348,7 +2329,7 @@ with tab1:
         else:
             st.warning("⚠️ Stock price data not available")
         
-        st.divider()
+        st.markdown("---")
         
         st.markdown(f"### 💵 {company_name} - Cash Flow Statement")
         show_why_it_matters('fcfAfterSBC')
@@ -2439,7 +2420,7 @@ with tab1:
         else:
             st.warning("⚠️ Cash flow data not available")
         
-        st.divider()
+        st.markdown("---")
         
         st.markdown(f"### 💰 {company_name} - Income Statement")
         show_why_it_matters('revenue')
@@ -2524,7 +2505,7 @@ with tab1:
         else:
             st.warning("⚠️ Income statement not available")
         
-        st.divider()
+        st.markdown("---")
         
         st.markdown(f"### 🏦 {company_name} - Balance Sheet")
         
@@ -2637,7 +2618,6 @@ with tab1:
                 sector1 = profile1.get('sector', 'Unknown') if profile1 else 'Unknown'
                 sector2 = profile2.get('sector', 'Unknown') if profile2 else 'Unknown'
                 
-                st.divider()
                 st.markdown("### 📊 Side-by-Side Comparison")
                 
                 pe1 = get_pe_ratio(stock1, quote1, ratios_ttm1, income1)
@@ -2691,8 +2671,7 @@ with tab1:
                 
                 st.dataframe(pd.DataFrame(comparison_data), use_container_width=True, hide_index=True)
                 
-                st.divider()
-                
+                    
                 st.markdown("### 📊 Detailed Metric Analysis")
                 
                 with st.expander("📈 P/E Ratio (Price-to-Earnings) - Click for explanation"):
@@ -2707,10 +2686,10 @@ with tab1:
                             if pe1 > 0:
                                 if pe1 < sector1_pe * 0.8:
                                     st.success("✅ Trading below sector average (potentially undervalued)")
-                                elif pe1 > sector1_pe * 1.2:
-                                    st.warning("⚠️ Trading above sector average (potentially overvalued)")
-                                else:
-                                    st.info("➡️ In line with sector average")
+                            elif pe1 > sector1_pe * 1.2:
+                                st.warning("⚠️ Trading above sector average (potentially overvalued)")
+                            else:
+                                st.info("➡️ In line with sector average")
                     
                     with col2:
                         st.markdown(f"**{stock2}: {pe2:.2f if pe2 > 0 else 'N/A'}**")
@@ -2719,10 +2698,10 @@ with tab1:
                             if pe2 > 0:
                                 if pe2 < sector2_pe * 0.8:
                                     st.success("✅ Trading below sector average (potentially undervalued)")
-                                elif pe2 > sector2_pe * 1.2:
-                                    st.warning("⚠️ Trading above sector average (potentially overvalued)")
-                                else:
-                                    st.info("➡️ In line with sector average")
+                            elif pe2 > sector2_pe * 1.2:
+                                st.warning("⚠️ Trading above sector average (potentially overvalued)")
+                            else:
+                                st.info("➡️ In line with sector average")
                 
                 with st.expander("💰 P/S Ratio (Price-to-Sales) - Click for explanation"):
                     st.markdown(f"**What it means:** {METRIC_EXPLANATIONS['P/S Ratio']['explanation']}")
@@ -2746,10 +2725,10 @@ with tab1:
                             if de1 > 0:
                                 if de1 < sector1_de:
                                     st.success("✅ Lower debt than sector (less risky)")
-                                elif de1 > sector1_de * 1.5:
-                                    st.error("🚨 Much higher debt than sector (risky)")
-                                else:
-                                    st.warning("⚠️ Higher debt than sector average")
+                            elif de1 > sector1_de * 1.5:
+                                st.error("🚨 Much higher debt than sector (risky)")
+                            else:
+                                st.warning("⚠️ Higher debt than sector average")
                     
                     with col2:
                         st.markdown(f"**{stock2}: {de2:.2f if de2 > 0 else 'N/A'}**")
@@ -2758,10 +2737,10 @@ with tab1:
                             if de2 > 0:
                                 if de2 < sector2_de:
                                     st.success("✅ Lower debt than sector (less risky)")
-                                elif de2 > sector2_de * 1.5:
-                                    st.error("🚨 Much higher debt than sector (risky)")
-                                else:
-                                    st.warning("⚠️ Higher debt than sector average")
+                            elif de2 > sector2_de * 1.5:
+                                st.error("🚨 Much higher debt than sector (risky)")
+                            else:
+                                st.warning("⚠️ Higher debt than sector average")
                 
                 with st.expander("💧 Quick Ratio (Liquidity) - Click for explanation"):
                     st.markdown(f"**What it means:** {METRIC_EXPLANATIONS['Quick Ratio']['explanation']}")
@@ -2775,10 +2754,10 @@ with tab1:
                             if qr1 > 0:
                                 if qr1 > sector1_qr:
                                     st.success("✅ Better liquidity than sector")
-                                elif qr1 < 1.0:
-                                    st.error("🚨 Low liquidity (below 1.0)")
-                                else:
-                                    st.warning("⚠️ Lower liquidity than sector average")
+                            elif qr1 < 1.0:
+                                st.error("🚨 Low liquidity (below 1.0)")
+                            else:
+                                st.warning("⚠️ Lower liquidity than sector average")
                     
                     with col2:
                         st.markdown(f"**{stock2}: {qr2:.2f if qr2 > 0 else 'N/A'}**")
@@ -2787,10 +2766,10 @@ with tab1:
                             if qr2 > 0:
                                 if qr2 > sector2_qr:
                                     st.success("✅ Better liquidity than sector")
-                                elif qr2 < 1.0:
-                                    st.error("🚨 Low liquidity (below 1.0)")
-                                else:
-                                    st.warning("⚠️ Lower liquidity than sector average")
+                            elif qr2 < 1.0:
+                                st.error("🚨 Low liquidity (below 1.0)")
+                            else:
+                                st.warning("⚠️ Lower liquidity than sector average")
                 
                 with st.expander("💵 Free Cash Flow per Share - Click for explanation"):
                     st.markdown(f"**What it means:** {METRIC_EXPLANATIONS['FCF per Share']['explanation']}")
@@ -2838,8 +2817,7 @@ with tab1:
                         else:
                             st.info("➡️ Moves with market")
                 
-                st.divider()
-                
+                    
                 st.markdown("### 🏆 Quick Verdict")
                 
                 scores = {stock1: 0, stock2: 0}
@@ -2910,22 +2888,21 @@ with tab1:
                     if 'grossProfitMargin' in ratios_df_new.columns:
                         latest = ratios_df_new['grossProfitMargin'].iloc[0] * 100
                         st.metric("Gross Margin", f"{latest:.1f}%",
-                                 help="Revenue minus cost of goods sold, divided by revenue")
+                             help="Revenue minus cost of goods sold, divided by revenue")
                 
                 with col2:
                     if 'operatingProfitMargin' in ratios_df_new.columns:
                         latest = ratios_df_new['operatingProfitMargin'].iloc[0] * 100
                         st.metric("Operating Margin", f"{latest:.1f}%",
-                                 help="Operating income divided by revenue - shows efficiency")
+                             help="Operating income divided by revenue - shows efficiency")
                 
                 with col3:
                     if 'netProfitMargin' in ratios_df_new.columns:
                         latest = ratios_df_new['netProfitMargin'].iloc[0] * 100
                         st.metric("Net Margin", f"{latest:.1f}%",
-                                 help="Net income divided by revenue - bottom line profitability")
+                             help="Net income divided by revenue - bottom line profitability")
                 
-                st.divider()
-                st.markdown("### 💰 Profitability Trends")
+                    st.markdown("### 💰 Profitability Trends")
                 
                 st.info("**Profitability shows how much profit the company keeps from each dollar of sales. Higher margins = better pricing power and efficiency.**")
                 
@@ -2946,8 +2923,7 @@ with tab1:
                             </div>""", unsafe_allow_html=True)
                             
                 
-                st.divider()
-                st.markdown("### ⚡ Efficiency Trends")
+                    st.markdown("### ⚡ Efficiency Trends")
                 
                 st.info("**Efficiency ratios show how well the company uses its money to generate profits. Higher returns = better management and stronger business.**")
                 
@@ -2968,8 +2944,7 @@ with tab1:
                             </div>""", unsafe_allow_html=True)
                             
                 
-                st.divider()
-                st.markdown("### 🏦 Liquidity & Leverage Trends")
+                    st.markdown("### 🏦 Liquidity & Leverage Trends")
                 
                 st.info("**Liquidity = Can the company pay its bills? Leverage = How much debt does it have? Good liquidity + low debt = safer company.**")
                 
@@ -2992,147 +2967,25 @@ with tab1:
             else:
                 st.warning("Ratio data not available for the selected period")
         except Exception as e:
-            # Fallback to manual calculation (silent)
+            # Stop loss suggestion
+            atr_estimate = (high_90d - low_90d) / 90 * 14  # Rough ATR estimate
+            stop_loss = current - (2 * atr_estimate)
             
-            # Fallback: Calculate ratios manually from financial statements
-            try:
-                # Get fresh data
-                income_data = get_income_statement(ticker, period_param, ratio_years)
-                balance_data = get_balance_sheet(ticker, period_param, ratio_years)
-                
-                if not income_data.empty and not balance_data.empty:
-                    # Calculate ratios manually
-                    calculated_ratios = []
-                    
-                    for i in range(min(len(income_data), len(balance_data))):
-                        ratio_row = {'date': income_data['date'].iloc[i]}
-                        
-                        # Get values
-                        revenue = income_data['revenue'].iloc[i] if 'revenue' in income_data.columns else 0
-                        gross_profit = income_data['grossProfit'].iloc[i] if 'grossProfit' in income_data.columns else 0
-                        operating_income = income_data['operatingIncome'].iloc[i] if 'operatingIncome' in income_data.columns else 0
-                        net_income = income_data['netIncome'].iloc[i] if 'netIncome' in income_data.columns else 0
-                        total_assets = balance_data['totalAssets'].iloc[i] if 'totalAssets' in balance_data.columns else 0
-                        total_equity = balance_data['totalStockholdersEquity'].iloc[i] if 'totalStockholdersEquity' in balance_data.columns else 0
-                        current_assets = balance_data['totalCurrentAssets'].iloc[i] if 'totalCurrentAssets' in balance_data.columns else 0
-                        current_liabilities = balance_data['totalCurrentLiabilities'].iloc[i] if 'totalCurrentLiabilities' in balance_data.columns else 0
-                        total_debt = balance_data['totalDebt'].iloc[i] if 'totalDebt' in balance_data.columns else 0
-                        cash = balance_data['cashAndCashEquivalents'].iloc[i] if 'cashAndCashEquivalents' in balance_data.columns else 0
-                        inventory = balance_data['inventory'].iloc[i] if 'inventory' in balance_data.columns else 0
-                        
-                        # Calculate ratios
-                        if revenue > 0:
-                            ratio_row['grossProfitMargin'] = gross_profit / revenue
-                            ratio_row['operatingProfitMargin'] = operating_income / revenue
-                            ratio_row['netProfitMargin'] = net_income / revenue
-                        
-                        if total_equity > 0:
-                            ratio_row['returnOnEquity'] = net_income / total_equity
-                            if total_debt > 0:
-                                ratio_row['debtToEquity'] = total_debt / total_equity
-                        
-                        if total_assets > 0:
-                            ratio_row['returnOnAssets'] = net_income / total_assets
-                            # ROCE = EBIT / (Total Assets - Current Liabilities)
-                            capital_employed = total_assets - current_liabilities
-                            if capital_employed > 0:
-                                ratio_row['returnOnCapitalEmployed'] = operating_income / capital_employed
-                        
-                        if current_liabilities > 0:
-                            ratio_row['currentRatio'] = current_assets / current_liabilities
-                            quick_assets = current_assets - inventory
-                            ratio_row['quickRatio'] = quick_assets / current_liabilities
-                        
-                        calculated_ratios.append(ratio_row)
-                    
-                    ratios_df_new = pd.DataFrame(calculated_ratios)
-                    
-                    if not ratios_df_new.empty:
-                        # Successfully calculated ratios
-                        
-                        # Show current ratios
-                        st.markdown("### 📊 Current Ratios")
-                        col1, col2, col3 = st.columns(3)
-                        
-                        with col1:
-                            if 'grossProfitMargin' in ratios_df_new.columns:
-                                latest = ratios_df_new['grossProfitMargin'].iloc[0] * 100
-                                st.metric("Gross Margin", f"{latest:.1f}%")
-                        
-                        with col2:
-                            if 'operatingProfitMargin' in ratios_df_new.columns:
-                                latest = ratios_df_new['operatingProfitMargin'].iloc[0] * 100
-                                st.metric("Operating Margin", f"{latest:.1f}%")
-                        
-                        with col3:
-                            if 'netProfitMargin' in ratios_df_new.columns:
-                                latest = ratios_df_new['netProfitMargin'].iloc[0] * 100
-                                st.metric("Net Margin", f"{latest:.1f}%")
-                        
-                        # Show all the trend charts
-                        st.divider()
-                        st.markdown("### 💰 Profitability Trends")
-                        st.info("**Profitability shows how much profit the company keeps from each dollar of sales. Higher margins = better pricing power and efficiency.**")
-                        
-                        for metric_name, metric_col in [('Gross Profit Margin', 'grossProfitMargin'), 
-                                                         ('Operating Profit Margin', 'operatingProfitMargin'),
-                                                         ('Net Profit Margin', 'netProfitMargin')]:
-                            if metric_col in ratios_df_new.columns:
-                                fig = create_ratio_trend_chart(ratios_df_new, metric_name, metric_col, 
-                                                               f"{company_name} - {metric_name}")
-                                if fig:
-                                    st.plotly_chart(fig, use_container_width=True)
-                                    explanation = get_metric_explanation(metric_col)
-                                    if explanation:
-                                        st.markdown(f"""<div class="metric-explain">
-                                    📊 **What it is:** {explanation["simple"]}  
-                                    💡 **Why it matters:** {explanation["why"]}
-                                    </div>""", unsafe_allow_html=True)
-                        
-                        st.divider()
-                        st.markdown("### ⚡ Efficiency Trends")
-                        st.info("**Efficiency ratios show how well the company uses its money to generate profits. Higher returns = better management and stronger business.**")
-                        
-                        for metric_name, metric_col in [('Return on Equity (ROE)', 'returnOnEquity'),
-                                                         ('Return on Assets (ROA)', 'returnOnAssets'),
-                                                         ('Return on Capital Employed', 'returnOnCapitalEmployed')]:
-                            if metric_col in ratios_df_new.columns:
-                                fig = create_ratio_trend_chart(ratios_df_new, metric_name, metric_col,
-                                                               f"{company_name} - {metric_name}")
-                                if fig:
-                                    st.plotly_chart(fig, use_container_width=True)
-                                    explanation = get_metric_explanation(metric_col)
-                                    if explanation:
-                                        st.markdown(f"""<div class="metric-explain">
-                                    📊 **What it is:** {explanation["simple"]}  
-                                    💡 **Why it matters:** {explanation["why"]}
-                                    </div>""", unsafe_allow_html=True)
-                        
-                        st.divider()
-                        st.markdown("### 🏦 Liquidity & Leverage Trends")
-                        st.info("**Liquidity = Can the company pay its bills? Leverage = How much debt does it have? Good liquidity + low debt = safer company.**")
-                        
-                        for metric_name, metric_col in [('Current Ratio', 'currentRatio'),
-                                                         ('Quick Ratio', 'quickRatio'),
-                                                         ('Debt to Equity', 'debtToEquity')]:
-                            if metric_col in ratios_df_new.columns:
-                                fig = create_ratio_trend_chart(ratios_df_new, metric_name, metric_col,
-                                                               f"{company_name} - {metric_name}")
-                                if fig:
-                                    st.plotly_chart(fig, use_container_width=True)
-                                    explanation = get_metric_explanation(metric_col)
-                                    if explanation:
-                                        st.markdown(f"""<div class="metric-explain">
-                                    📊 **What it is:** {explanation["simple"]}  
-                                    💡 **Why it matters:** {explanation["why"]}
-                                    </div>""", unsafe_allow_html=True)
-                    else:
-                        st.error("Could not calculate ratios from available data")
-                else:
-                    st.error("Financial statement data not available to calculate ratios")
-            except Exception as calc_error:
-                st.error(f"Could not calculate ratios: {str(calc_error)}")
-    
+            st.info(f"💡 **Suggested Stop-Loss:** ${stop_loss:.2f} (2x ATR below current price)")
+            st.caption("Stop-loss exits your position if price drops to protect capital. Adjust based on your risk tolerance.")
+        
+        st.markdown("---")
+        st.markdown("### ⚠️ Technical Analysis Disclaimer")
+        st.warning("""
+**IMPORTANT:**
+- Technical analysis is NOT guaranteed to predict future prices
+- Past patterns do NOT ensure future results
+- Always use stop-losses to limit downside
+- Combine with fundamental analysis for best results
+- Never invest more than you can afford to lose
+- This is educational - not financial advice
+        """)
+
     elif view == "💰 Valuation (DCF)":
         st.markdown("## 💰 DCF Valuation")
         st.caption("⚠️ Educational model only. Not a valuation recommendation.")
@@ -3158,7 +3011,7 @@ with tab1:
                     pv_fcf += pv
                 
                 terminal_value = (latest_fcf * ((1 + growth_rate/100) ** years_forecast) * 
-                                (1 + terminal_growth/100)) / ((discount_rate - terminal_growth)/100)
+                            (1 + terminal_growth/100)) / ((discount_rate - terminal_growth)/100)
                 pv_terminal = terminal_value / ((1 + discount_rate/100) ** years_forecast)
                 
                 enterprise_value = pv_fcf + pv_terminal
@@ -3298,6 +3151,46 @@ with tab6:
              "Multiple income streams + significant savings"]
         )
         
+        # Question 7: Age
+        q7 = st.radio(
+            "7. Your age / investment timeline:",
+            ["Under 25 (40+ years to retirement)",
+             "25-35 (30-40 years to retirement)",
+             "35-50 (15-30 years to retirement)",
+             "50-60 (5-15 years to retirement)",
+             "60+ (in or near retirement)"]
+        )
+        
+        # Question 8: Emergency Fund
+        q8 = st.radio(
+            "8. Do you have an emergency fund (3-6 months expenses)?",
+            ["No emergency fund",
+             "1-2 months saved",
+             "3-6 months saved",
+             "6-12 months saved",
+             "12+ months saved"]
+        )
+        
+        # Question 9: Investment Goal
+        q9 = st.radio(
+            "9. Your primary investment goal:",
+            ["Short-term profit (< 1 year)",
+             "Save for major purchase (house, car)",
+             "Build wealth over time",
+             "Retirement savings",
+             "Generate passive income (dividends)"]
+        )
+        
+        # Question 10: Sector Preference
+        q10 = st.radio(
+            "10. Preferred investment style:",
+            ["Individual stocks only",
+             "Mix of stocks and ETFs",
+             "Mostly ETFs for diversification",
+             "Index funds (S&P 500, Total Market)",
+             "Bonds and treasuries for safety"]
+        )
+        
         submitted = st.form_submit_button("🎯 Get My Results & Stock Picks!", use_container_width=True)
         
         if submitted:
@@ -3310,26 +3203,30 @@ with tab6:
                 q3: [0, 1, 2, 3, 4],
                 q4: [0, 1, 2, 3, 4],
                 q5: [0, 1, 2, 3, 4],
-                q6: [0, 1, 2, 3, 4]
+                q6: [0, 1, 2, 3, 4],
+                q7: [4, 3, 2, 1, 0],  # Younger = more risk capacity
+                q8: [0, 1, 2, 3, 4],  # More savings = more risk capacity
+                q9: [0, 1, 2, 3, 4],  # Different goals have different risk needs
+                q10: [4, 3, 2, 1, 0]  # Stocks = higher risk, bonds = lower
             }
             
             risk_score = sum([scores[q][i] for q, options in [(q1, q1), (q2, q2), (q3, q3), (q4, q4), (q5, q5), (q6, q6)] 
                             for i, opt in enumerate([
-                                ["Preserve capital (safety first)", "Generate steady income (dividends/interest)", "Balanced growth and income", "Aggressive growth (maximize returns)", "Speculative gains (high risk, high reward)"],
-                                ["Less than 1 year", "1-3 years", "3-5 years", "5-10 years", "10+ years (long-term)"],
-                                ["Sell everything immediately (too stressful)", "Sell some to reduce risk", "Hold and wait for recovery", "Buy more (it's on sale!)", "Go all-in with more money"],
-                                ["0-5% (very low risk)", "5-10% (low risk)", "10-20% (moderate risk)", "20-30% (high risk)", "30%+ (very high risk)"],
-                                ["Beginner (just starting)", "Basic (understand stocks/bonds)", "Intermediate (can read financial statements)", "Advanced (active trader)", "Expert (professional level)"],
-                                ["Unstable or uncertain", "Stable but limited", "Stable with some savings", "Very stable with good savings", "Multiple income streams + significant savings"]
+                            ["Preserve capital (safety first)", "Generate steady income (dividends/interest)", "Balanced growth and income", "Aggressive growth (maximize returns)", "Speculative gains (high risk, high reward)"],
+                            ["Less than 1 year", "1-3 years", "3-5 years", "5-10 years", "10+ years (long-term)"],
+                            ["Sell everything immediately (too stressful)", "Sell some to reduce risk", "Hold and wait for recovery", "Buy more (it's on sale!)", "Go all-in with more money"],
+                            ["0-5% (very low risk)", "5-10% (low risk)", "10-20% (moderate risk)", "20-30% (high risk)", "30%+ (very high risk)"],
+                            ["Beginner (just starting)", "Basic (understand stocks/bonds)", "Intermediate (can read financial statements)", "Advanced (active trader)", "Expert (professional level)"],
+                            ["Unstable or uncertain", "Stable but limited", "Stable with some savings", "Very stable with good savings", "Multiple income streams + significant savings"]
                             ]) if options[i] == q])
     
     if st.session_state.quiz_submitted:
-        st.divider()
+        st.markdown("---")
         st.markdown("## 🎯 Your Results")
         st.caption("⚠️ Educational purposes only. Not personalized financial advice.")
         
         # Determine risk profile
-        if risk_score <= 6:
+        if risk_score <= 10:
             profile = "Conservative"
             color = "🟢"
             description = "You prefer safety and stability. Focus on dividend stocks, bonds, and blue-chip companies."
@@ -3337,7 +3234,7 @@ with tab6:
                 ("JNJ", "Johnson & Johnson", "Healthcare giant with 60+ years of dividend growth"),
                 ("PG", "Procter & Gamble", "Consumer staples, recession-resistant")
             ]
-        elif risk_score <= 12:
+        elif risk_score <= 20:
             profile = "Moderate"
             color = "🟡"
             description = "You want balanced growth with manageable risk. Mix of stable companies and growth stocks."
@@ -3345,7 +3242,7 @@ with tab6:
                 ("MSFT", "Microsoft", "Tech leader with strong fundamentals and growing dividends"),
                 ("V", "Visa", "Payment processor with consistent growth")
             ]
-        elif risk_score <= 18:
+        elif risk_score <= 30:
             profile = "Growth-Oriented"
             color = "🟠"
             description = "You're comfortable with volatility for higher returns. Focus on growth stocks and emerging sectors."
@@ -3365,11 +3262,11 @@ with tab6:
         # Display profile
         col1, col2 = st.columns([1, 2])
         with col1:
-            st.metric("Your Risk Profile", f"{color} {profile}", f"Score: {risk_score}/24")
+            st.metric("Your Risk Profile", f"{color} {profile}", f"Score: {risk_score}/40")
         with col2:
             st.info(description)
         
-        st.divider()
+        st.markdown("---")
         st.markdown("### 🎁 Your FREE Stock Recommendations")
         st.warning("⚠️ These are educational examples based on your risk profile, NOT personalized investment recommendations. Always do your own research and consult a financial advisor.")
         
@@ -3394,13 +3291,66 @@ with tab6:
                             eps = income_df['eps'].iloc[-1]
                             if eps > 0:
                                 pe = price / eps
-                                col3.metric("P/E Ratio", f"{pe:.1f}")
+                            col3.metric("P/E Ratio", f"{pe:.1f}")
                         
                         st.markdown(f"[📊 View Full Analysis](/?ticker={ticker})")
                 except:
                     st.markdown(f"[📊 Analyze {ticker}](/?ticker={ticker})")
         
-        st.divider()
+        
+        
+        st.markdown("---")
+        st.markdown("### 📦 Recommended ETFs for Your Profile")
+        st.info("⚠️ Educational suggestions only. ETFs provide instant diversification. Not personalized advice.")
+        
+        # ETF recommendations based on profile
+        if risk_score <= 10:
+            etfs = [
+                ("BND", "Vanguard Total Bond Market", "Safe bonds with ~4-5% yield"),
+                ("SCHD", "Schwab US Dividend Equity", "High-quality dividend stocks"),
+                ("JEPI", "JPMorgan Equity Premium Income", "Income-focused with downside protection")
+            ]
+        elif risk_score <= 20:
+            etfs = [
+                ("VOO", "Vanguard S&P 500", "Classic diversified S&P 500 index"),
+                ("VTI", "Vanguard Total Stock Market", "Entire U.S. stock market"),
+                ("SCHD", "Schwab US Dividend Equity", "Quality dividend growth")
+            ]
+        elif risk_score <= 30:
+            etfs = [
+                ("QQQ", "Invesco QQQ", "Nasdaq 100 tech growth"),
+                ("VUG", "Vanguard Growth", "U.S. growth stocks"),
+                ("SCHG", "Schwab U.S. Large-Cap Growth", "Growth-focused")
+            ]
+        else:
+            etfs = [
+                ("ARKK", "ARK Innovation", "Disruptive innovation (high risk)"),
+                ("TQQQ", "ProShares UltraPro QQQ", "3x leveraged Nasdaq (very risky)"),
+                ("SOXL", "Direxion Semiconductor Bull 3X", "3x leveraged chips (extreme risk)")
+            ]
+        
+        for ticker_etf, name, reason in etfs:
+            with st.expander(f"📦 {ticker_etf} - {name}"):
+                st.markdown(f"**Why:** {reason}")
+                try:
+                    quote_etf = get_quote(ticker_etf)
+                    if quote_etf:
+                        price_etf = quote_etf.get('price', 0)
+                        change_etf = quote_etf.get('changesPercentage', 0)
+                        st.metric("Price", f"${price_etf:.2f}", f"{change_etf:+.2f}%")
+                except:
+                    pass
+        
+        st.markdown("---")
+        st.markdown("### 🎮 Want to Practice First?")
+        st.success("✨ **Try our Paper Portfolio!** Practice trading with $100,000 fake money before risking real capital. Build confidence, test strategies, track performance.")
+        
+        if st.button("🚀 Start Paper Trading Now", use_container_width=True, type="primary"):
+            st.info("👉 Click the **'💼 Paper Portfolio'** tab above to get started!")
+        
+        st.caption("⚠️ Paper trading doesn't reflect real costs, slippage, or emotions. But it's a great way to learn!")
+
+        st.markdown("---")
         st.markdown("### 🔒 Want More?")
         st.warning("""
 **Upgrade to Premium for:**
@@ -3455,7 +3405,7 @@ with tab7:
         st.metric("Total Gain/Loss", f"${total_gain_loss:,.2f}", 
                  f"{(total_gain_loss / 100000 * 100):+.2f}%")
         
-        st.divider()
+        st.markdown("---")
         st.markdown("### 🆕 Add Position")
     
     col1, col2 = st.columns([2, 1])
@@ -3496,7 +3446,7 @@ with tab7:
                         with col_x:
                             if st.button(f"📊 Analyze {ticker}", key=f"analyze_{ticker}_{i}"):
                                 st.session_state.selected_ticker = ticker
-                                st.rerun()
+                            st.rerun()
                         
                         with col_y:
                             if st.button(f"💰 Sell All", key=f"sell_{ticker}_{i}", type="secondary"):
@@ -3505,20 +3455,20 @@ with tab7:
                                 st.session_state.cash += sale_value
                                 
                                 # Add transaction
-                                st.session_state.transactions.append({
-                                    'date': datetime.now().strftime('%Y-%m-%d %H:%M'),
-                                    'type': 'SELL',
-                                    'ticker': ticker,
-                                    'shares': shares,
-                                    'price': current_price,
-                                    'total': sale_value,
-                                    'gain_loss': gain_loss
-                                })
+                            st.session_state.transactions.append({
+                                'date': datetime.now().strftime('%Y-%m-%d %H:%M'),
+                                'type': 'SELL',
+                                'ticker': ticker,
+                                'shares': shares,
+                                'price': current_price,
+                                'total': sale_value,
+                                'gain_loss': gain_loss
+                            })
                                 
-                                # Remove position
-                                st.session_state.portfolio.pop(i)
-                                st.success(f"✅ Sold {shares} shares of {ticker} for ${sale_value:,.2f}")
-                                st.rerun()
+                            # Remove position
+                            st.session_state.portfolio.pop(i)
+                            st.success(f"✅ Sold {shares} shares of {ticker} for ${sale_value:,.2f}")
+                            st.rerun()
     
     with col2:
         st.markdown("### 🛒 Buy Stock")
@@ -3545,7 +3495,7 @@ with tab7:
                         for pos in st.session_state.portfolio:
                             if pos['ticker'] == buy_ticker:
                                 existing = pos
-                                break
+                            break
                         
                         if existing:
                             # Update existing position (average down/up)
@@ -3558,9 +3508,9 @@ with tab7:
                         else:
                             # Add new position
                             st.session_state.portfolio.append({
-                                'ticker': buy_ticker,
-                                'shares': buy_shares,
-                                'avg_price': current_price
+                            'ticker': buy_ticker,
+                            'shares': buy_shares,
+                            'avg_price': current_price
                             })
                         
                         # Deduct cash
@@ -3583,7 +3533,7 @@ with tab7:
     
     # Transaction history
     if st.session_state.transactions:
-        st.divider()
+        st.markdown("---")
         st.markdown("### 📜 Transaction History")
         
         with st.expander("View All Transactions", expanded=False):
@@ -3633,3 +3583,4 @@ This application and all content provided herein are for **educational and infor
 
 © 2024 Finance Made Simple. All rights reserved.
 """)
+
