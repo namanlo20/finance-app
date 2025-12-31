@@ -2184,9 +2184,7 @@ with tab1:
         
         # RIGHT SIDEBAR: ONLY show on Key Metrics page
         if view == "📊 Key Metrics":
-            st.markdown("---")
-            
-            # 2-COLUMN LAYOUT
+            # 2-COLUMN LAYOUT (no divider - tight spacing)
             main_col, sidebar_col = st.columns([2, 1.2], gap="small")
             
             with sidebar_col:
@@ -3586,4 +3584,3 @@ This application and all content provided herein are for **educational and infor
 
 © 2024 Finance Made Simple. All rights reserved.
 """)
-
