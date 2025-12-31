@@ -2068,6 +2068,13 @@ with tab1:
         
         st.markdown("### 📊 Growth Metrics")
         
+        # Calculate FCF CAGR
+        fcf_cagr = 0
+        if not cash_df.empty and 'freeCashFlow' in cash_df.columns:
+            fcf_values = cash_df['freeCashFlow'].dropna()
+            if len(fcf_values) >= 2 and fcf_values.iloc[0] != 0:
+                fcf_cagr = ((fcf_values.iloc[-1] - fcf_values.iloc[0]) / abs(fcf_values.iloc[0])) * 100
+        
         if fcf_cagr:
                 st.metric("FCF CAGR", f"{fcf_cagr:+.1f}%",
                          help=f"Free cash flow growth rate over {years} years")
