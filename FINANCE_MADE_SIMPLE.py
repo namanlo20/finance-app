@@ -2173,30 +2173,40 @@ def get_beginner_tooltip(metric_name):
     return BEGINNER_TOOLTIPS.get(metric_name, f"A financial metric that helps evaluate the company's {metric_name.lower()}.")
 
 # ============= LIVE TICKER BAR =============
-TOP_50_TICKERS = [
+TOP_100_TICKERS = [
+    # Top 50 by market cap
     "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "BRK.B", "UNH", "JNJ",
     "V", "XOM", "JPM", "WMT", "MA", "PG", "HD", "CVX", "MRK", "ABBV",
     "LLY", "PEP", "KO", "COST", "AVGO", "TMO", "MCD", "CSCO", "ACN", "ABT",
     "DHR", "NKE", "ORCL", "VZ", "ADBE", "CRM", "INTC", "CMCSA", "PFE", "TXN",
-    "AMD", "NFLX", "QCOM", "HON", "UPS", "PM", "IBM", "LOW", "CAT", "BA"
+    "AMD", "NFLX", "QCOM", "HON", "UPS", "PM", "IBM", "LOW", "CAT", "BA",
+    # Next 50 popular stocks
+    "GE", "SPGI", "RTX", "NEE", "AMAT", "BKNG", "ISRG", "NOW", "AXP", "SYK",
+    "MDLZ", "GILD", "ADI", "LRCX", "REGN", "VRTX", "ZTS", "PANW", "SNPS", "KLAC",
+    "CME", "CDNS", "SHW", "ETN", "BSX", "MO", "CI", "CB", "SO", "DUK",
+    "MMC", "PLD", "ICE", "CL", "EOG", "APD", "MCK", "NOC", "WM", "USB",
+    "FDX", "EMR", "PNC", "TGT", "NSC", "PSX", "ADP", "ITW", "GM", "F"
 ]
 
 @st.cache_data(ttl=60)
 def get_live_ticker_data():
-    """Fetch live quotes for top 50 stocks in a single API call"""
+    """Fetch live quotes for top 100 stocks in batches"""
     try:
-        tickers_str = ",".join(TOP_50_TICKERS[:25])
-        url = f"{BASE_URL}/quote/{tickers_str}?apikey={FMP_API_KEY}"
-        response = requests.get(url, timeout=10)
-        data = response.json()
         ticker_data = []
-        for quote in data:
-            if isinstance(quote, dict):
-                ticker_data.append({
-                    "symbol": quote.get("symbol", ""),
-                    "price": quote.get("price", 0),
-                    "change_pct": quote.get("changesPercentage", 0)
-                })
+        # Fetch in batches of 50 (API limit)
+        for i in range(0, len(TOP_100_TICKERS), 50):
+            batch = TOP_100_TICKERS[i:i+50]
+            tickers_str = ",".join(batch)
+            url = f"{BASE_URL}/quote/{tickers_str}?apikey={FMP_API_KEY}"
+            response = requests.get(url, timeout=15)
+            data = response.json()
+            for quote in data:
+                if isinstance(quote, dict):
+                    ticker_data.append({
+                        "symbol": quote.get("symbol", ""),
+                        "price": quote.get("price", 0),
+                        "change_pct": quote.get("changesPercentage", 0)
+                    })
         return ticker_data
     except:
         return [
@@ -2613,6 +2623,20 @@ with st.sidebar:
 
 # ============= HOMEPAGE: START HERE =============
 if selected_page == "🏠 Start Here":
+    # Progress Bar for Start Here page
+    if 'start_here_progress' not in st.session_state:
+        st.session_state.start_here_progress = 0
+    
+    # Calculate progress based on sections viewed
+    progress_items = ['viewed_narrative', 'viewed_comparison', 'viewed_truth_meter', 'viewed_next_steps']
+    completed = sum(1 for item in progress_items if st.session_state.get(item, False))
+    progress_pct = (completed / len(progress_items)) * 100
+    
+    render_progress_bar(progress_pct, "Start Here Journey")
+    
+    # Mark narrative as viewed
+    st.session_state.viewed_narrative = True
+    
     # ============= THE HOOK & BATTLE SCARS NARRATIVE =============
     st.markdown("""
     ### 💔 It's painful to see your portfolio down.
@@ -3724,6 +3748,11 @@ elif selected_page == "📊 Company Analysis":
                         else:
                             st.info(f"DCA: S&P 500 won by ${sp_dca_val - stock_dca:,.2f}")
 
+            
+            st.markdown("---")
+            
+            # Coffee Comparison Calculator
+            render_coffee_calculator(ticker, company_name)
             
             st.markdown("---")
             
@@ -5526,11 +5555,20 @@ elif selected_page == "👤 Naman's Portfolio":
 
 elif selected_page == "📋 Investment Checklist":
     st.header("Investment Checklist")
+    
+    # Progress Bar for Investment Checklist
+    if 'checklist_analyzed' not in st.session_state:
+        st.session_state.checklist_analyzed = False
+    
+    checklist_progress = 100 if st.session_state.checklist_analyzed else 0
+    render_progress_bar(checklist_progress, "Checklist Progress")
+    
     st.write("Quick check before investing")
     
     ticker_check = st.text_input("Enter ticker:", value=st.session_state.selected_ticker, key="checklist_ticker")
     
     if st.button("Analyze", key="checklist_analyze"):
+        st.session_state.checklist_analyzed = True
         quote = get_quote(ticker_check)
         ratios = get_financial_ratios(ticker_check, 'annual', 1)
         cash = get_cash_flow(ticker_check, 'annual', 1)
