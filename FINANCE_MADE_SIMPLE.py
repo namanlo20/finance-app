@@ -4285,8 +4285,8 @@ elif selected_page == "📈 Financial Ratios":
             # 1. PROFITABILITY METRICS (Quality First)
             ("freeCashFlowPerShare", "FCF Per Share (Truth Meter)", 5.0, "higher_is_better", "The actual cash a company keeps after paying for everything."),
             ("grossProfitMargin", "Gross Margin", 0.40, "higher_is_better", "Profit left after the direct cost of making the product."),
-            ("operatingProfitMargin", "Operating Margin", 0.15, "higher_is_better", "Profit left after paying the bills like rent, salaries, and ads."),
-            ("netProfitMargin", "Net Income Margin", 0.10, "higher_is_better", "The final 'Bottom Line' profit after every single expense is paid."),
+            ("operatingProfitMargin", "Operating Margin", 0.15, "higher_is_better", "Profit left after paying the bills (Rent, Salaries, Marketing)."),
+            ("netProfitMargin", "Net Income Margin", 0.10, "higher_is_better", "The final 'Bottom Line' profit after everything, including taxes."),
             
             # 2. VALUATION METRICS
             ("priceEarningsRatio", "P/E Ratio", 22, "lower_is_better", "Price vs. Profit. How much you pay for $1 of earnings."),
@@ -4567,41 +4567,142 @@ elif selected_page == "📈 Financial Ratios":
 
 elif selected_page == "👤 Naman's Portfolio":
     st.header("Naman's Portfolio")
-    st.markdown("**Track your personal investment portfolio**")
+    st.markdown("**My High-Conviction Investment Strategy**")
     
-    st.info("**Coming Soon!** This feature is under development.")
+    # Exact portfolio holdings with weightings
+    NAMAN_PORTFOLIO = [
+        {"ticker": "META", "name": "Meta Platforms", "sector": "Technology", "weight": 12.53},
+        {"ticker": "NFLX", "name": "Netflix", "sector": "Communication Services", "weight": 11.93},
+        {"ticker": "SPGI", "name": "S&P Global", "sector": "Financials", "weight": 10.53},
+        {"ticker": "AMZN", "name": "Amazon", "sector": "Consumer Discretionary", "weight": 9.90},
+        {"ticker": "MCO", "name": "Moody's Corp", "sector": "Financials", "weight": 9.52},
+        {"ticker": "MSFT", "name": "Microsoft", "sector": "Technology", "weight": 7.33},
+        {"ticker": "GOOG", "name": "Alphabet", "sector": "Technology", "weight": 6.73},
+        {"ticker": "PANW", "name": "Palo Alto Networks", "sector": "Technology", "weight": 6.17},
+        {"ticker": "HOOD", "name": "Robinhood", "sector": "Financials", "weight": 5.82},
+        {"ticker": "NVDA", "name": "NVIDIA", "sector": "Technology", "weight": 5.48},
+        {"ticker": "CRWD", "name": "CrowdStrike", "sector": "Technology", "weight": 4.95},
+        {"ticker": "AVGO", "name": "Broadcom", "sector": "Technology", "weight": 4.79},
+        {"ticker": "ASML", "name": "ASML Holdings", "sector": "Technology", "weight": 4.34},
+    ]
     
-    st.markdown("### Portfolio Input")
-    st.caption("Add your holdings below:")
-    
-    # Simple placeholder UI
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        holding_ticker = st.text_input("Ticker Symbol", placeholder="e.g., AAPL", key="naman_ticker")
-    with col2:
-        holding_shares = st.number_input("Shares", min_value=0.0, value=0.0, step=1.0, key="naman_shares")
-    with col3:
-        holding_cost = st.number_input("Avg Cost ($)", min_value=0.0, value=0.0, step=1.0, key="naman_cost")
-    
-    if st.button("Add Holding", key="naman_add"):
-        st.success(f"Added {holding_shares} shares of {holding_ticker} @ ${holding_cost:.2f}")
-        st.caption("(This is a placeholder - full functionality coming soon)")
+    # Tiered access simulation (for demo purposes - in production this would check user subscription)
+    st.markdown("### 🔐 Access Tier")
+    access_tier = st.radio(
+        "Select your access level:",
+        ["Free (Preview)", "Pro ($10/mo)", "Ultimate ($25/mo)"],
+        horizontal=True,
+        key="access_tier"
+    )
     
     st.markdown("---")
-    st.markdown("### Portfolio Summary")
-    st.caption("Your holdings will appear here once the feature is complete.")
+    st.markdown("### 📊 Portfolio Holdings")
     
-    # Placeholder table
-    placeholder_data = {
-        "Ticker": ["AAPL", "MSFT", "GOOGL"],
-        "Shares": [10, 5, 3],
-        "Avg Cost": ["$150.00", "$300.00", "$140.00"],
-        "Current": ["$250.00", "$420.00", "$175.00"],
-        "Gain/Loss": ["+66.7%", "+40.0%", "+25.0%"]
-    }
-    st.dataframe(pd.DataFrame(placeholder_data), use_container_width=True)
+    # Determine how many holdings to show based on tier
+    if access_tier == "Free (Preview)":
+        visible_count = 3
+        st.info("**Free Preview:** Showing top 3 holdings. Upgrade to Pro to see top 5, or Ultimate for full portfolio.")
+    elif access_tier == "Pro ($10/mo)":
+        visible_count = 5
+        st.success("**Pro Tier:** Showing top 5 holdings + 3-5 trade alerts per month.")
+    else:
+        visible_count = len(NAMAN_PORTFOLIO)
+        st.success("**Ultimate Tier:** Full portfolio access + instant trade alerts + Scenario Analysis 'Time Machine'.")
     
-    st.warning("This is sample data. Connect your brokerage or manually add holdings to see real data.")
+    # Build the portfolio table with logos
+    for i, holding in enumerate(NAMAN_PORTFOLIO):
+        is_visible = i < visible_count
+        
+        col1, col2, col3, col4 = st.columns([3, 2, 2, 1])
+        
+        if is_visible:
+            # Get logo
+            logo_url = get_company_logo(holding["ticker"])
+            
+            with col1:
+                if logo_url:
+                    st.markdown(f"""
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <img src="{logo_url}" width="30" height="30" style="border-radius: 4px;">
+                        <span><strong>{holding["ticker"]}</strong> - {holding["name"]}</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.markdown(f"**{holding['ticker']}** - {holding['name']}")
+            
+            with col2:
+                st.caption(holding["sector"])
+            
+            with col3:
+                st.markdown(f"**{holding['weight']:.2f}%**")
+            
+            with col4:
+                st.caption(f"#{i+1}")
+        else:
+            # Blurred/locked row
+            with col1:
+                st.markdown(f"""
+                <div style="filter: blur(5px); user-select: none;">
+                    <strong>████</strong> - ████████████
+                </div>
+                """, unsafe_allow_html=True)
+            
+            with col2:
+                st.markdown('<span style="filter: blur(5px);">████████</span>', unsafe_allow_html=True)
+            
+            with col3:
+                st.markdown('<span style="filter: blur(5px);">**█.██%**</span>', unsafe_allow_html=True)
+            
+            with col4:
+                st.caption(f"#{i+1}")
+    
+    # Upgrade prompts
+    if access_tier != "Ultimate ($25/mo)":
+        st.markdown("---")
+        st.markdown("### 🚀 Upgrade Your Access")
+        
+        if access_tier == "Free (Preview)":
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown("""
+                **Pro Tier ($10/mo)**
+                - Top 5 holdings revealed
+                - 3-5 hand-picked trade alerts/month
+                - Priority email support
+                """)
+            with col2:
+                st.markdown("""
+                **Ultimate Tier ($25/mo)**
+                - Full 100% portfolio list
+                - Instant trade alerts for every move
+                - Scenario Analysis "Time Machine" tab
+                - Direct access to Naman's research notes
+                """)
+        else:
+            st.markdown("""
+            **Upgrade to Ultimate ($25/mo)**
+            - Full 100% portfolio list (all 13 holdings)
+            - Instant trade alerts for every move
+            - Scenario Analysis "Time Machine" tab
+            - Direct access to Naman's research notes
+            """)
+    
+    # Portfolio summary
+    st.markdown("---")
+    st.markdown("### 📈 Portfolio Summary")
+    
+    total_weight = sum(h["weight"] for h in NAMAN_PORTFOLIO[:visible_count])
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Holdings Visible", f"{visible_count} of {len(NAMAN_PORTFOLIO)}")
+    with col2:
+        st.metric("Weight Shown", f"{total_weight:.1f}%")
+    with col3:
+        tech_weight = sum(h["weight"] for h in NAMAN_PORTFOLIO[:visible_count] if h["sector"] == "Technology")
+        st.metric("Tech Allocation", f"{tech_weight:.1f}%")
+    
+    st.caption("*Portfolio weightings as of December 2025. Subject to change based on market conditions.*")
 
 
 elif selected_page == "📋 Investment Checklist":
