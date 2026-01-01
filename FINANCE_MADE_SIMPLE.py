@@ -171,39 +171,90 @@ else:
     """, unsafe_allow_html=True)
 
 # ============= METRIC EXPLANATIONS (FOR TOOLTIPS) =============
+# "Dumb-User" 10-Word Definitions for Beginners
 METRIC_EXPLANATIONS = {
     "P/E Ratio": {
-        "short": "Price divided by Earnings (TTM)",
+        "short": "Price vs. Profit. How much you pay for $1 of earnings.",
         "explanation": "How much you pay for $1 of earnings. Lower = cheaper. Tech average: 25 | Value stocks: 15",
         "good": "15-25 is reasonable | >40 is expensive | <10 might be undervalued or troubled"
     },
     "P/S Ratio": {
-        "short": "Price divided by Sales",
+        "short": "Price vs. Sales. Good for companies not yet profitable.",
         "explanation": "How much you pay for $1 of revenue. Useful when company isn't profitable yet.",
         "good": "Tech: 5-10 | Retail: 0.5-2 | Lower = better value"
     },
+    "P/B Ratio": {
+        "short": "Price vs. Book Value. What you pay for company's assets.",
+        "explanation": "Stock price divided by book value per share. Shows if stock is cheap relative to assets.",
+        "good": "<1.0 = Trading below asset value | 1-3 = Fair | >5 = Expensive"
+    },
+    "EV/EBITDA": {
+        "short": "Enterprise Value vs. Operating Profit. Compares total company value.",
+        "explanation": "Total company value (including debt) divided by operating earnings. Better than P/E for comparing companies with different debt levels.",
+        "good": "<10 = Cheap | 10-15 = Fair | >20 = Expensive"
+    },
     "Debt-to-Equity": {
-        "short": "Total Debt ÷ Shareholder Equity",
+        "short": "How much debt a company uses to grow. Lower is safer.",
         "explanation": "Measures financial leverage. High debt = risky during recessions.",
         "good": "<1.0 = Low debt (good) | 1-2 = Moderate | >2.0 = High risk"
     },
+    "Current Ratio": {
+        "short": "Can the company pay its bills? Above 1.5 is safe.",
+        "explanation": "Current assets divided by current liabilities. Shows short-term financial health.",
+        "good": ">2.0 = Very safe | 1.5-2.0 = Good | <1.0 = Risky"
+    },
     "Quick Ratio": {
-        "short": "(Current Assets - Inventory) ÷ Current Liabilities",
+        "short": "Cash available to pay bills immediately. Above 1.0 is good.",
         "explanation": "Can the company pay short-term bills without selling inventory?",
         "good": ">1.5 = Excellent liquidity | 1.0-1.5 = Good | <1.0 = Potential cash problems"
     },
     "FCF per Share": {
-        "short": "Free Cash Flow ÷ Shares Outstanding",
+        "short": "Real cash generated per share. Can't be faked with accounting.",
         "explanation": "Real cash generated per share you own. Unlike earnings, FCF can't be manipulated easily.",
         "good": "Positive = good | Growing FCF/share = excellent | Negative = burning cash"
     },
+    "FCF Yield": {
+        "short": "Free cash flow as % of stock price. Higher is better.",
+        "explanation": "FCF per share divided by stock price. Shows cash return on investment.",
+        "good": ">5% = Good yield | 3-5% = Average | <3% = Low yield"
+    },
+    "Gross Margin": {
+        "short": "Profit kept after making the product. Shows pricing power.",
+        "explanation": "Revenue minus cost of goods sold, as a percentage. Higher = better pricing power.",
+        "good": ">50% = Strong | 30-50% = Average | <30% = Weak pricing power"
+    },
+    "Operating Margin": {
+        "short": "Profit kept after bills are paid. Higher is more efficient.",
+        "explanation": "Operating income divided by revenue. Shows how efficiently company runs.",
+        "good": ">20% = Excellent | 10-20% = Good | <10% = Needs improvement"
+    },
+    "Net Margin": {
+        "short": "Final profit after everything. The bottom line percentage.",
+        "explanation": "Net income divided by revenue. The ultimate profitability measure.",
+        "good": ">15% = Strong | 5-15% = Average | <5% = Thin margins"
+    },
+    "ROE": {
+        "short": "Return on shareholder money. Buffett's favorite metric.",
+        "explanation": "Net income divided by shareholder equity. Shows how well company uses investor money.",
+        "good": ">20% = Excellent | 15-20% = Good | <10% = Poor"
+    },
+    "ROA": {
+        "short": "Return on all assets. How efficiently company uses everything.",
+        "explanation": "Net income divided by total assets. Shows overall efficiency.",
+        "good": ">10% = Excellent | 5-10% = Good | <5% = Inefficient"
+    },
+    "RSI": {
+        "short": "Speedometer for price. Over 70 is 'Hot,' under 30 is 'Cold'.",
+        "explanation": "Relative Strength Index. Measures if stock is overbought or oversold.",
+        "good": ">70 = Overbought (might drop) | 30-70 = Normal | <30 = Oversold (might rise)"
+    },
     "Market Cap": {
-        "short": "Total value of all shares",
+        "short": "Total value of all shares. Shows company size.",
         "explanation": "Stock price × shares outstanding. Shows company size.",
         "good": ">$200B = Mega cap | $10-200B = Large cap | <$2B = Small cap (risky)"
     },
     "Beta": {
-        "short": "Stock volatility vs S&P 500",
+        "short": "Stock volatility vs market. Higher means more swings.",
         "explanation": "Measures how much stock moves relative to market.",
         "good": "<0.8 = Defensive | 1.0 = Moves with market | >1.3 = High volatility"
     }
@@ -1084,6 +1135,20 @@ def get_profile(ticker):
     except:
         return None
 
+def get_company_logo(ticker):
+    """Get company logo URL from FMP profile"""
+    profile = get_profile(ticker)
+    if profile and 'image' in profile and profile['image']:
+        return profile['image']
+    return None
+
+def display_stock_with_logo(ticker, size=30):
+    """Display stock ticker with logo inline using HTML"""
+    logo_url = get_company_logo(ticker)
+    if logo_url:
+        return f'<img src="{logo_url}" width="{size}" height="{size}" style="vertical-align: middle; margin-right: 8px; border-radius: 4px;"> <strong>{ticker}</strong>'
+    return f'<strong>{ticker}</strong>'
+
 def get_stock_specific_news(ticker, limit=10):
     """Get STOCK-SPECIFIC news using Perplexity API (FMP news endpoint is legacy)"""
     import json
@@ -1895,10 +1960,11 @@ with st.sidebar:
     selected_timeline = st.slider(
         "Years of History:",
         min_value=1,
-        max_value=10,
+        max_value=30,
         value=5,
         step=1,
-        key="global_timeline"
+        key="global_timeline",
+        help="CAGR is the 'smoothed' average return. It shows what you earned every year, ignoring the scary zigs and zags."
     )
     st.session_state.years_of_history = selected_timeline
     
@@ -1929,17 +1995,159 @@ with st.sidebar:
     
     if 'analysis_view' not in st.session_state:
         st.session_state.analysis_view = "🌟 The Big Picture"
+    
+    # ============= FEAR & GREED GAUGE =============
+    st.markdown("---")
+    st.markdown("### 📊 Market Sentiment")
+    
+    # Calculate a simple Fear & Greed proxy based on S&P 500 momentum
+    try:
+        spy_data = get_historical_price("SPY", 1)
+        if not spy_data.empty and 'price' in spy_data.columns and len(spy_data) >= 20:
+            spy_data = spy_data.sort_values('date')
+            current_price = spy_data['price'].iloc[-1]
+            price_20d_ago = spy_data['price'].iloc[-20] if len(spy_data) >= 20 else spy_data['price'].iloc[0]
+            price_50d_ago = spy_data['price'].iloc[-50] if len(spy_data) >= 50 else spy_data['price'].iloc[0]
+            
+            # Calculate momentum (20-day return)
+            momentum_20d = ((current_price - price_20d_ago) / price_20d_ago) * 100
+            
+            # Map momentum to Fear/Greed scale (0-100)
+            # -10% or worse = Extreme Fear (0-20)
+            # -5% to -10% = Fear (20-40)
+            # -5% to +5% = Neutral (40-60)
+            # +5% to +10% = Greed (60-80)
+            # +10% or better = Extreme Greed (80-100)
+            
+            if momentum_20d <= -10:
+                sentiment_score = max(0, 20 + momentum_20d)
+                sentiment_label = "Extreme Fear"
+                sentiment_color = "#FF0000"
+            elif momentum_20d <= -5:
+                sentiment_score = 20 + (momentum_20d + 10) * 4
+                sentiment_label = "Fear"
+                sentiment_color = "#FF6B6B"
+            elif momentum_20d <= 5:
+                sentiment_score = 40 + (momentum_20d + 5) * 2
+                sentiment_label = "Neutral"
+                sentiment_color = "#FFD700"
+            elif momentum_20d <= 10:
+                sentiment_score = 60 + (momentum_20d - 5) * 4
+                sentiment_label = "Greed"
+                sentiment_color = "#90EE90"
+            else:
+                sentiment_score = min(100, 80 + (momentum_20d - 10) * 2)
+                sentiment_label = "Extreme Greed"
+                sentiment_color = "#00C853"
+            
+            # Display gauge
+            st.markdown(f"""
+            <div style="text-align: center; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 10px;">
+                <div style="font-size: 2em; font-weight: bold; color: {sentiment_color};">{sentiment_score:.0f}</div>
+                <div style="font-size: 1.2em; color: {sentiment_color};">{sentiment_label}</div>
+                <div style="font-size: 0.8em; margin-top: 5px;">S&P 500 20-day: {momentum_20d:+.1f}%</div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            st.caption("Based on S&P 500 momentum. Not financial advice.")
+        else:
+            st.info("Market data loading...")
+    except Exception as e:
+        st.caption("Market sentiment unavailable")
 
 # ============= PAGE CONTENT =============
 
 # ============= HOMEPAGE: START HERE =============
 if selected_page == "🏠 Start Here":
-    st.markdown("### 👋 Welcome! I'm excited to help you get started on your investing journey.")
+    # ============= THE HOOK & BATTLE SCARS NARRATIVE =============
+    st.markdown("""
+    ### 💔 It's painful to see your portfolio down.
+    
+    *I'm speaking from experience.* I've lived through the Trump-era trade wars, the 2022 tech crash, and the COVID-19 collapse. 
+    Investing isn't about avoiding the storm; it's about knowing **which ships won't sink.**
+    
+    We focus on **'High Moats'** and **'Monopolistic Power.'** I've stayed strong in winners while avoiding the traps that wiped others out.
+    
+    **Here is how I distinguish a Fortress from a Value Trap.**
+    """)
+    
     st.markdown("---")
     
-    # Tale of Two Stocks Header
-    st.header("📊 The Tale of Two Stocks")
-    st.markdown("**Learn to spot a good investment vs a risky one by comparing real companies.**")
+    # ============= WINNER VS TRAP COMPARISON TABLE =============
+    st.header("⚔️ The Winner vs. Trap Comparison")
+    st.markdown("**Learn from real examples: stocks I bought vs. stocks I avoided.**")
+    
+    # Define the 8 stocks with their stories
+    WEALTH_BUILDERS = {
+        "GOOGL": "Dropped to $150 in 2025 on AI fears, but search volume and fundamentals were record-high. I bought aggressively; it's now 2x those lows.",
+        "META": "The world hated the 'Metaverse' spend in 2022, but their underlying family of apps (IG/FB) remained a cash-cow with incredible operating efficiency.",
+        "NFLX": "Cratered after losing subs for 2 quarters. But they had 'Pricing Power'—they launched ads and stopped account sharing, causing profits to explode.",
+        "NVDA": "Dipped on DeepSeek fears, but the Jevons Paradox (efficiency increases demand) meant the need for compute was only going higher."
+    }
+    
+    VALUE_TRAPS = {
+        "AMC": "Massive debt levels and constant shareholder dilution (printing new shares) just to pay bills. A classic trap where the business serves the debt, not the owners.",
+        "RIVN": "Burning over $1 Billion in cash (FCF) every single quarter for years. Without a path to self-funding, you are just funding their losses.",
+        "DJT": "(Non-political analysis) A multi-billion dollar valuation for a company making only a few million in revenue. The fundamentals are too skewed to the stock price.",
+        "SNAP": "Peaked at $80+ and is now below $10. I avoided it because of terrible margins and 'Insider Compensation' that ignored shareholders."
+    }
+    
+    # Create two columns for the comparison
+    col_winners, col_traps = st.columns(2)
+    
+    with col_winners:
+        st.markdown("### 🏆 The Wealth Builders")
+        st.markdown("**(I Bought the Dip)**")
+        st.markdown("")
+        
+        for ticker, story in WEALTH_BUILDERS.items():
+            logo_url = get_company_logo(ticker)
+            profile = get_profile(ticker)
+            company_name = profile.get('companyName', ticker) if profile else ticker
+            
+            # Display with logo
+            if logo_url:
+                st.markdown(f"""
+                <div style="display: flex; align-items: flex-start; margin-bottom: 15px; padding: 10px; background: rgba(0,200,83,0.1); border-radius: 8px; border-left: 4px solid #00C853;">
+                    <img src="{logo_url}" width="40" height="40" style="border-radius: 6px; margin-right: 12px; margin-top: 2px;">
+                    <div>
+                        <strong style="color: #00C853;">{ticker}</strong> - {company_name}<br>
+                        <span style="font-size: 0.9em;">{story}</span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.success(f"**{ticker}**: {story}")
+    
+    with col_traps:
+        st.markdown("### ⚠️ The Value Traps")
+        st.markdown("**(I Stayed Away)**")
+        st.markdown("")
+        
+        for ticker, story in VALUE_TRAPS.items():
+            logo_url = get_company_logo(ticker)
+            profile = get_profile(ticker)
+            company_name = profile.get('companyName', ticker) if profile else ticker
+            
+            # Display with logo
+            if logo_url:
+                st.markdown(f"""
+                <div style="display: flex; align-items: flex-start; margin-bottom: 15px; padding: 10px; background: rgba(255,82,82,0.1); border-radius: 8px; border-left: 4px solid #FF5252;">
+                    <img src="{logo_url}" width="40" height="40" style="border-radius: 6px; margin-right: 12px; margin-top: 2px;">
+                    <div>
+                        <strong style="color: #FF5252;">{ticker}</strong> - {company_name}<br>
+                        <span style="font-size: 0.9em;">{story}</span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.error(f"**{ticker}**: {story}")
+    
+    st.markdown("---")
+    
+    # ============= INTERACTIVE COMPARISON SECTION =============
+    st.header("📊 Compare Any Two Stocks")
+    st.markdown("**Pick your own stocks to see the difference in fundamentals.**")
     
     years = st.session_state.years_of_history
     
@@ -1954,26 +2162,36 @@ if selected_page == "🏠 Start Here":
         if stock2:
             st.session_state.homepage_stock2 = stock2
     
-    # Side-by-side Stock Charts
+    # Side-by-side Stock Charts with Logos
     col_chart1, col_chart2 = st.columns(2)
     
     with col_chart1:
-        st.markdown(f"### {stock1}")
+        logo1 = get_company_logo(stock1)
+        if logo1:
+            st.markdown(f'<img src="{logo1}" width="40" style="vertical-align: middle; margin-right: 10px;"> <strong style="font-size: 1.5em;">{stock1}</strong>', unsafe_allow_html=True)
+        else:
+            st.markdown(f"### {stock1}")
         price1 = get_historical_price(stock1, years)
         if not price1.empty and 'price' in price1.columns:
             fig1 = px.area(price1, x='date', y='price', title=f'{stock1} Stock Price ({years}Y)')
-            fig1.update_layout(height=250, margin=dict(l=0, r=0, t=40, b=0))
+            max_price1 = price1['price'].max()
+            fig1.update_layout(height=250, margin=dict(l=0, r=0, t=40, b=0), yaxis=dict(range=[0, max_price1 * 1.1]))
             fig1.update_traces(fillcolor='rgba(0, 200, 83, 0.3)', line_color='#00C853')
             st.plotly_chart(fig1, use_container_width=True)
         else:
             st.warning(f"No price data for {stock1}")
     
     with col_chart2:
-        st.markdown(f"### {stock2}")
+        logo2 = get_company_logo(stock2)
+        if logo2:
+            st.markdown(f'<img src="{logo2}" width="40" style="vertical-align: middle; margin-right: 10px;"> <strong style="font-size: 1.5em;">{stock2}</strong>', unsafe_allow_html=True)
+        else:
+            st.markdown(f"### {stock2}")
         price2 = get_historical_price(stock2, years)
         if not price2.empty and 'price' in price2.columns:
             fig2 = px.area(price2, x='date', y='price', title=f'{stock2} Stock Price ({years}Y)')
-            fig2.update_layout(height=250, margin=dict(l=0, r=0, t=40, b=0))
+            max_price2 = price2['price'].max()
+            fig2.update_layout(height=250, margin=dict(l=0, r=0, t=40, b=0), yaxis=dict(range=[0, max_price2 * 1.1]))
             fig2.update_traces(fillcolor='rgba(255, 82, 82, 0.3)', line_color='#FF5252')
             st.plotly_chart(fig2, use_container_width=True)
         else:
@@ -1981,21 +2199,17 @@ if selected_page == "🏠 Start Here":
     
     # The Lesson
     st.markdown("---")
-    st.markdown("### ⚠️ You could have avoided a big downturn if you looked at the metrics below.")
-    st.markdown("**The numbers tell the story before the stock price does.**")
-    
-    # Growth Metrics Table
-    st.markdown("### 📊 Growth Comparison Table")
-    st.caption(f"Comparing {years}-year growth rates")
+    st.markdown("### 📈 Growth Comparison Table (CAGR)")
+    st.caption(f"Comparing {years}-year Compound Annual Growth Rates")
     
     # Fetch financial data for both stocks
-    income1 = get_income_statement(stock1, 'annual', years + 1)
-    income2 = get_income_statement(stock2, 'annual', years + 1)
-    cash1 = get_cash_flow(stock1, 'annual', years + 1)
-    cash2 = get_cash_flow(stock2, 'annual', years + 1)
+    income1 = get_income_statement(stock1, 'annual', min(years + 1, 30))
+    income2 = get_income_statement(stock2, 'annual', min(years + 1, 30))
+    cash1 = get_cash_flow(stock1, 'annual', min(years + 1, 30))
+    cash2 = get_cash_flow(stock2, 'annual', min(years + 1, 30))
     
-    def calc_growth(df, column):
-        """Calculate simple % growth from oldest to newest"""
+    def calc_cagr_from_df(df, column, years):
+        """Calculate CAGR from dataframe"""
         if df.empty or column not in df.columns:
             return None
         df_sorted = df.sort_values('date')
@@ -2004,9 +2218,10 @@ if selected_page == "🏠 Start Here":
             return None
         start_val = values.iloc[0]
         end_val = values.iloc[-1]
-        if start_val == 0 or pd.isna(start_val):
+        actual_years = len(values) - 1
+        if actual_years <= 0:
             return None
-        return ((end_val - start_val) / abs(start_val)) * 100
+        return calculate_cagr(start_val, end_val, actual_years)
     
     def calc_margin_change(df, numerator_col, denominator_col):
         """Calculate margin change in percentage points"""
@@ -2021,19 +2236,19 @@ if selected_page == "🏠 Start Here":
             return None
         return end_margin - start_margin
     
-    # Calculate metrics
+    # Calculate metrics using CAGR
     metrics = {
-        "📈 Revenue Growth": (
-            calc_growth(income1, 'revenue'),
-            calc_growth(income2, 'revenue')
+        "📈 Revenue CAGR": (
+            calc_cagr_from_df(income1, 'revenue', years),
+            calc_cagr_from_df(income2, 'revenue', years)
         ),
-        "💰 Net Income Growth": (
-            calc_growth(income1, 'netIncome'),
-            calc_growth(income2, 'netIncome')
+        "💰 Net Income CAGR": (
+            calc_cagr_from_df(income1, 'netIncome', years),
+            calc_cagr_from_df(income2, 'netIncome', years)
         ),
-        "💵 FCF Growth": (
-            calc_growth(cash1, 'freeCashFlow'),
-            calc_growth(cash2, 'freeCashFlow')
+        "💵 FCF CAGR": (
+            calc_cagr_from_df(cash1, 'freeCashFlow', years),
+            calc_cagr_from_df(cash2, 'freeCashFlow', years)
         ),
         "📊 Margin Change (pp)": (
             calc_margin_change(income1, 'netIncome', 'revenue'),
@@ -2064,28 +2279,42 @@ if selected_page == "🏠 Start Here":
         else:
             col_v2.markdown("N/A")
     
-    # Insight boxes
+    # Naman's Note - Truth Meter explanation
     st.markdown("---")
+    st.markdown("""
+    <div class="growth-note">
+    <strong>💡 Naman's Note:</strong> I call FCF the "Truth Meter." It shows if a company is making real cash or just playing with accounting numbers. 
+    If Net Income is high but FCF is low, someone is hiding something!
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Insight boxes
     col_insight1, col_insight2 = st.columns(2)
     with col_insight1:
-        rev1 = metrics["📈 Revenue Growth"][0]
-        if rev1 is not None and rev1 > 0:
-            st.success(f"✅ {stock1}: Growing revenue shows customers want the product")
+        rev1 = metrics["📈 Revenue CAGR"][0]
+        fcf1 = metrics["💵 FCF CAGR"][0]
+        if rev1 is not None and rev1 > 10:
+            st.success(f"**{stock1}**: Strong revenue growth ({rev1:+.1f}% CAGR) - customers want the product!")
+        elif rev1 is not None and rev1 > 0:
+            st.info(f"**{stock1}**: Moderate growth ({rev1:+.1f}% CAGR) - stable but not explosive")
         elif rev1 is not None:
-            st.warning(f"⚠️ {stock1}: Declining revenue is a warning sign")
+            st.warning(f"**{stock1}**: Declining revenue ({rev1:+.1f}% CAGR) - warning sign")
         else:
-            st.info(f"ℹ️ {stock1}: Revenue data not available")
+            st.info(f"**{stock1}**: Revenue data not available")
     
     with col_insight2:
-        rev2 = metrics["📈 Revenue Growth"][1]
-        if rev2 is not None and rev2 > 0:
-            st.success(f"✅ {stock2}: Growing revenue shows customers want the product")
+        rev2 = metrics["📈 Revenue CAGR"][1]
+        fcf2 = metrics["💵 FCF CAGR"][1]
+        if fcf2 is not None and fcf2 < -20:
+            st.error(f"**{stock2}**: Burning cash ({fcf2:+.1f}% FCF CAGR) - funding their losses!")
+        elif rev2 is not None and rev2 < 0:
+            st.error(f"**{stock2}**: Declining revenue ({rev2:+.1f}% CAGR) - major red flag")
         elif rev2 is not None:
-            st.error(f"❌ {stock2}: Declining revenue is a major red flag")
+            st.warning(f"**{stock2}**: Revenue growth of {rev2:+.1f}% CAGR - check the fundamentals")
         else:
-            st.info(f"ℹ️ {stock2}: Revenue data not available")
+            st.info(f"**{stock2}**: Revenue data not available")
     
-    # Next Step Button
+    # Next Step Button - Direct link to Risk Quiz
     st.markdown("---")
     st.markdown("### 🎯 Ready to discover your investor profile?")
     st.markdown("Take our quick quiz to find stocks that match your risk tolerance.")
@@ -4033,14 +4262,104 @@ elif selected_page == "📈 Financial Ratios":
         
         # S&P 500 benchmarks - all ratios in one list for vertical display
         all_ratios = [
-            ("priceEarningsRatio", "P/E Ratio", 22, "lower_is_better", "Price-to-Earnings shows how much investors pay for $1 of earnings. Higher = more expensive. S&P 500 avg is ~22."),
-            ("priceToSalesRatio", "P/S Ratio", 2.5, "lower_is_better", "Price-to-Sales shows how much investors pay for $1 of revenue. Useful for unprofitable companies."),
-            ("priceToBookRatio", "P/B Ratio", 4.0, "lower_is_better", "Price-to-Book compares stock price to the company's net assets. Lower = potentially undervalued."),
-            ("enterpriseValueMultiple", "EV/EBITDA", 15, "lower_is_better", "Enterprise Value to EBITDA shows how expensive the company is relative to its cash earnings. Lower = cheaper."),
-            ("debtEquityRatio", "Debt-to-Equity", 1.5, "lower_is_better", "How much debt vs shareholder equity. Lower is safer. Above 2 can be risky."),
-            ("currentRatio", "Current Ratio", 1.5, "higher_is_better", "Can the company pay its bills? Above 1 = yes. Below 1 = potential trouble."),
-            ("quickRatio", "Quick Ratio", 1.0, "higher_is_better", "Like Current Ratio but excludes inventory. More conservative measure of short-term liquidity.")
+            ("priceEarningsRatio", "P/E Ratio", 22, "lower_is_better", "Price vs. Profit. How much you pay for $1 of earnings. S&P 500 avg is ~22."),
+            ("priceToSalesRatio", "P/S Ratio", 2.5, "lower_is_better", "Price vs. Sales. Good for companies not yet profitable. Lower = better value."),
+            ("priceToBookRatio", "P/B Ratio", 4.0, "lower_is_better", "Price vs. Book Value. What you pay for company's assets. Lower = potentially undervalued."),
+            ("enterpriseValueMultiple", "EV/EBITDA", 15, "lower_is_better", "Enterprise Value vs. Operating Profit. Compares total company value. Lower = cheaper."),
+            ("debtEquityRatio", "Debt-to-Equity", 1.5, "lower_is_better", "How much debt a company uses to grow. Lower is safer. Above 2 can be risky."),
+            ("currentRatio", "Current Ratio", 1.5, "higher_is_better", "Can the company pay its bills? Above 1.5 is safe. Below 1 = potential trouble."),
+            ("quickRatio", "Quick Ratio", 1.0, "higher_is_better", "Cash available to pay bills immediately. Above 1.0 is good."),
+            ("grossProfitMargin", "Gross Margin", 0.40, "higher_is_better", "Profit kept after making the product. Shows pricing power. Higher = stronger business."),
+            ("operatingProfitMargin", "Operating Margin", 0.15, "higher_is_better", "Profit kept after bills are paid. Higher is more efficient. S&P 500 avg ~15%."),
+            ("netProfitMargin", "Net Margin", 0.10, "higher_is_better", "Final profit after everything. The bottom line percentage. Higher = more profitable."),
+            ("returnOnEquity", "ROE", 0.15, "higher_is_better", "Return on shareholder money. Buffett's favorite metric. Above 15% is good."),
+            ("freeCashFlowPerShare", "FCF per Share", 5.0, "higher_is_better", "Real cash generated per share. Can't be faked with accounting. Positive = good.")
         ]
+        
+        # ============= THE TRUTH METER (FCF vs Net Income) =============
+        st.markdown("---")
+        st.markdown("### 🔍 The Truth Meter: FCF vs Net Income")
+        st.markdown("""
+        <div class="growth-note">
+        <strong>💡 Naman's Note:</strong> I call this the "Truth Meter." It shows if a company is making real cash or just playing with accounting numbers. 
+        If Net Income is high but Free Cash Flow is low, someone is hiding something! Look for FCF that's close to or higher than Net Income.
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Fetch cash flow and income data for Truth Meter
+        cash_flow_data = get_cash_flow(ticker, period_type, years * 4 if period_type == 'quarter' else years)
+        income_data = get_income_statement(ticker, period_type, years * 4 if period_type == 'quarter' else years)
+        
+        if not cash_flow_data.empty and not income_data.empty:
+            # Merge on date
+            truth_df = pd.merge(
+                cash_flow_data[['date', 'freeCashFlow']],
+                income_data[['date', 'netIncome']],
+                on='date',
+                how='inner'
+            )
+            
+            if not truth_df.empty and len(truth_df) > 1:
+                truth_df['date'] = pd.to_datetime(truth_df['date'], errors='coerce')
+                truth_df = truth_df.dropna().sort_values('date')
+                
+                # Create Truth Meter chart
+                fig_truth = go.Figure()
+                
+                fig_truth.add_trace(go.Scatter(
+                    x=truth_df['date'],
+                    y=truth_df['netIncome'] / 1e9,
+                    mode='lines+markers',
+                    name='Net Income',
+                    line=dict(color='#9D4EDD', width=2),
+                    marker=dict(size=6)
+                ))
+                
+                fig_truth.add_trace(go.Scatter(
+                    x=truth_df['date'],
+                    y=truth_df['freeCashFlow'] / 1e9,
+                    mode='lines+markers',
+                    name='Free Cash Flow',
+                    line=dict(color='#00C853', width=2),
+                    marker=dict(size=6)
+                ))
+                
+                # Y-axis with 10% padding
+                all_y = list(truth_df['netIncome'] / 1e9) + list(truth_df['freeCashFlow'] / 1e9)
+                y_min, y_max = min(all_y), max(all_y)
+                y_range = y_max - y_min if y_max != y_min else abs(y_max) * 0.1 or 1
+                
+                fig_truth.update_layout(
+                    title="Net Income vs Free Cash Flow (Billions $)",
+                    xaxis_title="Date",
+                    yaxis_title="Amount (Billions $)",
+                    yaxis=dict(range=[y_min - y_range * 0.1, y_max + y_range * 0.1]),
+                    height=350,
+                    margin=dict(l=0, r=0, t=40, b=0),
+                    hovermode='x unified',
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+                )
+                
+                st.plotly_chart(fig_truth, use_container_width=True)
+                
+                # Truth Meter insight
+                latest_ni = truth_df['netIncome'].iloc[-1]
+                latest_fcf = truth_df['freeCashFlow'].iloc[-1]
+                
+                if latest_fcf > 0 and latest_ni > 0:
+                    fcf_to_ni_ratio = latest_fcf / latest_ni
+                    if fcf_to_ni_ratio >= 0.8:
+                        st.success(f"**Truth Meter: PASS** - FCF is {fcf_to_ni_ratio:.0%} of Net Income. This company generates real cash!")
+                    elif fcf_to_ni_ratio >= 0.5:
+                        st.info(f"**Truth Meter: CAUTION** - FCF is {fcf_to_ni_ratio:.0%} of Net Income. Some earnings may not be cash.")
+                    else:
+                        st.warning(f"**Truth Meter: WARNING** - FCF is only {fcf_to_ni_ratio:.0%} of Net Income. Earnings quality may be poor.")
+                elif latest_fcf < 0:
+                    st.error(f"**Truth Meter: FAIL** - Negative FCF! This company is burning cash despite reported profits.")
+                else:
+                    st.info("**Truth Meter:** Unable to calculate - check the data above.")
+        
+        st.markdown("---")
         
         def create_ratio_chart_with_table(ratio_col, ratio_name, benchmark_val, comparison_type, ratios_data, description):
             """Create a ratio chart with historical benchmarking table"""
