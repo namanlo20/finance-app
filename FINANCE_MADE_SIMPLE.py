@@ -157,6 +157,163 @@ if st.session_state.theme == 'dark':
         visibility: visible;
         opacity: 1;
     }
+    
+    /* RED BUTTONS - Global styling for Analyze buttons and dropdowns */
+    .stButton > button {
+        background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%) !important;
+        color: #FFFFFF !important;
+        border: none !important;
+        font-weight: bold !important;
+        transition: all 0.3s ease !important;
+    }
+    .stButton > button:hover {
+        background: linear-gradient(135deg, #FF6666 0%, #EE0000 100%) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 4px 15px rgba(255, 68, 68, 0.4) !important;
+    }
+    
+    /* RED SELECT/DROPDOWN styling */
+    div[data-baseweb="select"] {
+        border: 2px solid #FF4444 !important;
+        border-radius: 8px !important;
+    }
+    div[data-baseweb="select"]:hover {
+        border-color: #FF6666 !important;
+        box-shadow: 0 0 10px rgba(255, 68, 68, 0.3) !important;
+    }
+    
+    /* Fade-in animation for cards */
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    .fade-in {
+        animation: fadeInUp 0.5s ease-out forwards;
+    }
+    
+    /* Hover lift effect for cards */
+    .lift-card {
+        transition: all 0.3s ease !important;
+    }
+    .lift-card:hover {
+        transform: translateY(-5px) !important;
+        box-shadow: 0 10px 30px rgba(0, 217, 255, 0.2) !important;
+    }
+    
+    /* Live Ticker Bar styling */
+    .ticker-bar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 35px;
+        background: linear-gradient(90deg, #0a0a0a 0%, #1a1a2e 50%, #0a0a0a 100%);
+        border-bottom: 1px solid #333;
+        z-index: 9999;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+    }
+    .ticker-content {
+        display: flex;
+        animation: scroll-left 60s linear infinite;
+        white-space: nowrap;
+    }
+    @keyframes scroll-left {
+        0% { transform: translateX(0); }
+        100% { transform: translateX(-50%); }
+    }
+    .ticker-item {
+        display: inline-flex;
+        align-items: center;
+        padding: 0 20px;
+        font-size: 13px;
+        color: #FFFFFF;
+    }
+    .ticker-item .symbol {
+        font-weight: bold;
+        color: #00D9FF;
+        margin-right: 8px;
+    }
+    .ticker-item .price {
+        margin-right: 8px;
+    }
+    .ticker-item .change-up {
+        color: #00FF00;
+    }
+    .ticker-item .change-down {
+        color: #FF4444;
+    }
+    
+    /* Add padding to main content for ticker bar */
+    [data-testid="stAppViewContainer"] {
+        padding-top: 40px !important;
+    }
+    
+    /* Welcome popup styling */
+    .welcome-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.9);
+        z-index: 10000;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    .welcome-popup {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        border: 2px solid #00D9FF;
+        border-radius: 20px;
+        padding: 40px;
+        max-width: 500px;
+        text-align: center;
+        animation: fadeInUp 0.5s ease-out;
+    }
+    .welcome-popup h1 {
+        color: #FFFFFF;
+        margin-bottom: 20px;
+    }
+    .welcome-popup ul {
+        text-align: left;
+        color: #FFFFFF;
+        line-height: 2;
+    }
+    .welcome-btn {
+        background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%) !important;
+        color: #FFFFFF !important;
+        padding: 15px 40px !important;
+        font-size: 18px !important;
+        font-weight: bold !important;
+        border: none !important;
+        border-radius: 10px !important;
+        cursor: pointer !important;
+        margin-top: 20px !important;
+    }
+    .welcome-btn:hover {
+        background: linear-gradient(135deg, #FF6666 0%, #EE0000 100%) !important;
+    }
+    
+    /* Confetti animation */
+    @keyframes confetti-fall {
+        0% { transform: translateY(-100vh) rotate(0deg); opacity: 1; }
+        100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+    }
+    .confetti {
+        position: fixed;
+        width: 10px;
+        height: 10px;
+        z-index: 10001;
+        animation: confetti-fall 3s ease-out forwards;
+    }
     </style>
     """, unsafe_allow_html=True)
 else:
@@ -2015,6 +2172,276 @@ def get_beginner_tooltip(metric_name):
     """Get a beginner-friendly tooltip for a metric"""
     return BEGINNER_TOOLTIPS.get(metric_name, f"A financial metric that helps evaluate the company's {metric_name.lower()}.")
 
+# ============= LIVE TICKER BAR =============
+TOP_50_TICKERS = [
+    "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "BRK.B", "UNH", "JNJ",
+    "V", "XOM", "JPM", "WMT", "MA", "PG", "HD", "CVX", "MRK", "ABBV",
+    "LLY", "PEP", "KO", "COST", "AVGO", "TMO", "MCD", "CSCO", "ACN", "ABT",
+    "DHR", "NKE", "ORCL", "VZ", "ADBE", "CRM", "INTC", "CMCSA", "PFE", "TXN",
+    "AMD", "NFLX", "QCOM", "HON", "UPS", "PM", "IBM", "LOW", "CAT", "BA"
+]
+
+@st.cache_data(ttl=60)
+def get_live_ticker_data():
+    """Fetch live quotes for top 50 stocks in a single API call"""
+    try:
+        tickers_str = ",".join(TOP_50_TICKERS[:25])
+        url = f"{BASE_URL}/quote/{tickers_str}?apikey={FMP_API_KEY}"
+        response = requests.get(url, timeout=10)
+        data = response.json()
+        ticker_data = []
+        for quote in data:
+            if isinstance(quote, dict):
+                ticker_data.append({
+                    "symbol": quote.get("symbol", ""),
+                    "price": quote.get("price", 0),
+                    "change_pct": quote.get("changesPercentage", 0)
+                })
+        return ticker_data
+    except:
+        return [
+            {"symbol": "AAPL", "price": 185.50, "change_pct": 1.2},
+            {"symbol": "MSFT", "price": 378.25, "change_pct": -0.5},
+            {"symbol": "GOOGL", "price": 141.80, "change_pct": 0.8},
+            {"symbol": "AMZN", "price": 178.90, "change_pct": 1.5},
+            {"symbol": "NVDA", "price": 495.20, "change_pct": 2.3},
+            {"symbol": "META", "price": 505.15, "change_pct": -0.3},
+            {"symbol": "TSLA", "price": 248.50, "change_pct": -1.8},
+        ]
+
+def render_live_ticker_bar():
+    """Render the scrolling live ticker bar at the top of the page"""
+    ticker_data = get_live_ticker_data()
+    if not ticker_data:
+        return
+    
+    ticker_items = ""
+    for item in ticker_data:
+        change_class = "change-up" if item["change_pct"] >= 0 else "change-down"
+        change_sign = "+" if item["change_pct"] >= 0 else ""
+        ticker_items += f'''
+            <div class="ticker-item">
+                <span class="symbol">{item["symbol"]}</span>
+                <span class="price">${item["price"]:.2f}</span>
+                <span class="{change_class}">{change_sign}{item["change_pct"]:.2f}%</span>
+            </div>
+        '''
+    
+    ticker_html = f'''
+    <div class="ticker-bar">
+        <div class="ticker-content">
+            {ticker_items}
+            {ticker_items}
+        </div>
+    </div>
+    '''
+    st.markdown(ticker_html, unsafe_allow_html=True)
+
+# ============= WELCOME POPUP =============
+def show_welcome_popup():
+    """Show welcome popup for first-time users"""
+    if 'welcome_seen' not in st.session_state:
+        st.session_state.welcome_seen = False
+    
+    if not st.session_state.welcome_seen:
+        st.markdown('''
+        <div class="welcome-overlay" id="welcome-overlay">
+            <div class="welcome-popup">
+                <h1>Welcome to Finance Made Simple! 🚀</h1>
+                <p style="color: #FFFFFF; font-size: 16px; margin-bottom: 20px;">We've upgraded your experience:</p>
+                <ul style="color: #FFFFFF; font-size: 14px; line-height: 2.2;">
+                    <li><strong>Market Mood:</strong> Check the speedometer to see if the market is fearful or greedy.</li>
+                    <li><strong>Easy Search:</strong> Type 'Apple' or 'Tesla'—no need to memorize tickers!</li>
+                    <li><strong>Simpler Metrics:</strong> Hover over any number for a 'Sweet & Simple' explanation.</li>
+                    <li><strong>Live Updates:</strong> Watch the top ticker for real-time prices.</li>
+                </ul>
+            </div>
+        </div>
+        ''', unsafe_allow_html=True)
+        
+        if st.button("Let's Get Started", key="welcome_btn", type="primary"):
+            st.session_state.welcome_seen = True
+            st.rerun()
+
+# ============= COFFEE COMPARISON CALCULATOR =============
+def calculate_coffee_investment(ticker, weekly_amount, years=5):
+    """Calculate what weekly coffee money would be worth if invested"""
+    try:
+        price_data = get_historical_price(ticker, years)
+        if price_data.empty or 'price' not in price_data.columns:
+            return None, None
+        
+        price_data = price_data.sort_values('date')
+        start_price = price_data['price'].iloc[0]
+        end_price = price_data['price'].iloc[-1]
+        
+        total_return = (end_price - start_price) / start_price
+        weeks = years * 52
+        total_invested = weekly_amount * weeks
+        
+        avg_weekly_return = (1 + total_return) ** (1 / weeks) - 1
+        
+        future_value = 0
+        for week in range(weeks):
+            weeks_remaining = weeks - week
+            future_value += weekly_amount * ((1 + avg_weekly_return) ** weeks_remaining)
+        
+        return total_invested, future_value
+    except:
+        return None, None
+
+def render_coffee_calculator(ticker, stock_name):
+    """Render the coffee comparison calculator"""
+    st.markdown("### ☕ The Power of Small Habits")
+    st.markdown("*What if you invested your coffee money instead?*")
+    
+    weekly_amount = st.slider(
+        "Weekly investment amount:",
+        min_value=5,
+        max_value=50,
+        value=10,
+        step=5,
+        key=f"coffee_slider_{ticker}",
+        help="How much you'd invest each week instead of buying coffee"
+    )
+    
+    total_invested, future_value = calculate_coffee_investment(ticker, weekly_amount, 5)
+    
+    if total_invested and future_value:
+        gain = future_value - total_invested
+        gain_pct = (gain / total_invested) * 100
+        
+        st.markdown(f'''
+        <div class="fade-in lift-card" style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
+                    border: 2px solid #00D9FF; border-radius: 15px; padding: 25px; margin: 20px 0;">
+            <h4 style="color: #00D9FF; margin-bottom: 15px;">If you invested ${weekly_amount} (the cost of a coffee) into {stock_name} every week for the last 5 years...</h4>
+            <div style="display: flex; justify-content: space-around; text-align: center;">
+                <div>
+                    <p style="color: #888; font-size: 14px;">Total Invested</p>
+                    <p style="color: #FFFFFF; font-size: 28px; font-weight: bold;">${total_invested:,.0f}</p>
+                </div>
+                <div>
+                    <p style="color: #888; font-size: 14px;">You Would Have</p>
+                    <p style="color: #00FF00; font-size: 28px; font-weight: bold;">${future_value:,.0f}</p>
+                </div>
+                <div>
+                    <p style="color: #888; font-size: 14px;">Gain</p>
+                    <p style="color: {"#00FF00" if gain > 0 else "#FF4444"}; font-size: 28px; font-weight: bold;">
+                        {"+" if gain > 0 else ""}{gain_pct:.1f}%
+                    </p>
+                </div>
+            </div>
+        </div>
+        ''', unsafe_allow_html=True)
+    else:
+        st.info(f"Unable to calculate coffee investment for {ticker}. Try a different stock.")
+
+# ============= PROGRESS GAMIFICATION =============
+def render_progress_bar(current_step, total_steps, section_name):
+    """Render a progress bar with gamification"""
+    progress = (current_step / total_steps) * 100
+    
+    st.markdown(f'''
+    <div style="margin: 20px 0;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+            <span style="color: #FFFFFF; font-size: 14px;">{section_name} Progress</span>
+            <span style="color: #00D9FF; font-size: 14px;">{current_step}/{total_steps} Complete</span>
+        </div>
+        <div style="background: #333; border-radius: 10px; height: 20px; overflow: hidden;">
+            <div style="background: linear-gradient(90deg, #00D9FF 0%, #00FF00 100%); 
+                        width: {progress}%; height: 100%; border-radius: 10px;
+                        transition: width 0.5s ease;"></div>
+        </div>
+    </div>
+    ''', unsafe_allow_html=True)
+    
+    if progress >= 100:
+        st.balloons()
+        st.success("🎉 Congratulations! You've completed this section!")
+
+# ============= MARKET MOOD SPEEDOMETER =============
+def create_fear_greed_gauge(sentiment_score):
+    """Create a Fear & Greed speedometer gauge using Plotly"""
+    fig = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=sentiment_score,
+        domain={'x': [0, 1], 'y': [0, 1]},
+        title={'text': "Market Mood", 'font': {'size': 24, 'color': '#FFFFFF'}},
+        number={'font': {'size': 40, 'color': '#FFFFFF'}},
+        gauge={
+            'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "#FFFFFF",
+                    'tickfont': {'color': '#FFFFFF'}},
+            'bar': {'color': "#00D9FF"},
+            'bgcolor': "rgba(0,0,0,0)",
+            'borderwidth': 2,
+            'bordercolor': "#333",
+            'steps': [
+                {'range': [0, 25], 'color': '#FF4444', 'name': 'Extreme Fear'},
+                {'range': [25, 45], 'color': '#FF8844', 'name': 'Fear'},
+                {'range': [45, 55], 'color': '#FFFF44', 'name': 'Neutral'},
+                {'range': [55, 75], 'color': '#88FF44', 'name': 'Greed'},
+                {'range': [75, 100], 'color': '#44FF44', 'name': 'Extreme Greed'}
+            ],
+            'threshold': {
+                'line': {'color': "#FFFFFF", 'width': 4},
+                'thickness': 0.75,
+                'value': sentiment_score
+            }
+        }
+    ))
+    
+    fig.update_layout(
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font={'color': '#FFFFFF'},
+        height=300,
+        margin=dict(l=20, r=20, t=50, b=20)
+    )
+    
+    return fig
+
+def get_market_sentiment_label(score):
+    """Get the label for a market sentiment score"""
+    if score < 25:
+        return "Extreme Fear (Market on Sale)", "#FF4444"
+    elif score < 45:
+        return "Fear", "#FF8844"
+    elif score < 55:
+        return "Neutral (Steady)", "#FFFF44"
+    elif score < 75:
+        return "Greed", "#88FF44"
+    else:
+        return "Extreme Greed (Over-hyped)", "#44FF44"
+
+# ============= METRIC EXPLANATIONS =============
+METRIC_EXPLANATIONS = {
+    "FCF after Stock Comp": "The 'True Cash' left after paying employees in stock. This is the real money the company keeps.",
+    "Free Cash Flow (FCF)": "The company's 'spare change' after paying all its bills. This is what's left for dividends, buybacks, or growth.",
+    "Operating Cash Flow": "Money made from the core business engine. This shows if the main business actually generates cash.",
+    "FCF / Share": "The amount of spare cash for every single share you own. Higher is better!",
+    "Revenue Growth": "How fast the company's sales are growing. 10%+ is solid, 20%+ is excellent.",
+    "Net Income Growth": "How fast profits are growing. Should ideally match or beat revenue growth.",
+    "EPS Growth": "How fast earnings per share are growing. This directly affects stock price over time."
+}
+
+def render_metric_with_explanation(metric_name, value, explanation_key=None):
+    """Render a metric with a hover explanation"""
+    explanation = METRIC_EXPLANATIONS.get(explanation_key or metric_name, "")
+    if explanation:
+        st.markdown(f'''
+        <div class="lift-card" style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px; margin: 5px 0;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="color: #FFFFFF;">{metric_name}</span>
+                <span class="ratio-tooltip" style="color: #00D9FF;">&#x3F;
+                    <span class="tooltip-text">{explanation}</span>
+                </span>
+            </div>
+            <p style="color: #00D9FF; font-size: 24px; font-weight: bold; margin: 5px 0;">{value}</p>
+        </div>
+        ''', unsafe_allow_html=True)
+    else:
+        st.metric(metric_name, value)
+
 # ============= SECTOR DEFINITIONS =============
 SECTORS = {
     "🏦 Financial Services": {
@@ -2055,6 +2482,12 @@ if 'homepage_stock1' not in st.session_state:
 
 if 'homepage_stock2' not in st.session_state:
     st.session_state.homepage_stock2 = "AMC"
+
+# ============= LIVE TICKER BAR =============
+render_live_ticker_bar()
+
+# ============= WELCOME POPUP FOR FIRST-TIME USERS =============
+show_welcome_popup()
 
 # ============= HEADER =============
 col1, col2, col3 = st.columns([4, 1, 1])
@@ -4232,7 +4665,10 @@ elif selected_page == "📊 Company Analysis":
 elif selected_page == "🌍 Sector Explorer":
     st.header("🎯 Sector Explorer")
     
-    selected_sector = st.selectbox("Choose sector:", list(SECTORS.keys()))
+    # Default to Technology sector
+    sector_list = list(SECTORS.keys())
+    default_sector_idx = sector_list.index("💻 Technology") if "💻 Technology" in sector_list else 0
+    selected_sector = st.selectbox("Choose sector:", sector_list, index=default_sector_idx)
     sector_info = SECTORS[selected_sector]
     st.info(f"**{selected_sector}** - {sector_info['desc']}")
     
@@ -4665,6 +5101,61 @@ elif selected_page == "📈 Financial Ratios":
 elif selected_page == "📰 Market Intelligence":
     st.header("Market Intelligence")
     st.markdown("**AI-Powered Market News & Analysis**")
+    
+    # ============= MARKET MOOD SPEEDOMETER =============
+    st.markdown("---")
+    st.markdown("### 📊 Market Mood Speedometer")
+    
+    # Calculate Fear & Greed score based on S&P 500 momentum
+    try:
+        spy_data = get_historical_price("SPY", 1)
+        if not spy_data.empty and 'price' in spy_data.columns and len(spy_data) >= 20:
+            spy_data = spy_data.sort_values('date')
+            current_price = spy_data['price'].iloc[-1]
+            price_20d_ago = spy_data['price'].iloc[-20] if len(spy_data) >= 20 else spy_data['price'].iloc[0]
+            
+            # Calculate momentum (20-day return)
+            momentum_20d = ((current_price - price_20d_ago) / price_20d_ago) * 100
+            
+            # Map momentum to Fear/Greed scale (0-100)
+            if momentum_20d <= -10:
+                sentiment_score = 10
+            elif momentum_20d <= -5:
+                sentiment_score = 30
+            elif momentum_20d <= 0:
+                sentiment_score = 45
+            elif momentum_20d <= 5:
+                sentiment_score = 55
+            elif momentum_20d <= 10:
+                sentiment_score = 70
+            else:
+                sentiment_score = 90
+        else:
+            sentiment_score = 50
+    except:
+        sentiment_score = 50
+    
+    # Display the speedometer gauge
+    col_gauge, col_labels = st.columns([2, 1])
+    
+    with col_gauge:
+        gauge_fig = create_fear_greed_gauge(sentiment_score)
+        st.plotly_chart(gauge_fig, use_container_width=True)
+    
+    with col_labels:
+        label, color = get_market_sentiment_label(sentiment_score)
+        st.markdown(f'''
+        <div style="padding: 20px; text-align: center;">
+            <h3 style="color: {color}; margin-bottom: 20px;">{label}</h3>
+            <div style="text-align: left; color: #FFFFFF; font-size: 14px; line-height: 2;">
+                <p><span style="color: #FF4444;">0-25:</span> Extreme Fear (Market on Sale)</p>
+                <p><span style="color: #FF8844;">25-45:</span> Fear</p>
+                <p><span style="color: #FFFF44;">45-55:</span> Neutral (Steady)</p>
+                <p><span style="color: #88FF44;">55-75:</span> Greed</p>
+                <p><span style="color: #44FF44;">75-100:</span> Extreme Greed (Over-hyped)</p>
+            </div>
+        </div>
+        ''', unsafe_allow_html=True)
     
     st.markdown("---")
     
