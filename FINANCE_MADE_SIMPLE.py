@@ -225,6 +225,9 @@ if st.session_state.theme == 'dark':
         animation: scroll-left 60s linear infinite;
         white-space: nowrap;
     }
+    .ticker-bar:hover .ticker-content {
+        animation-play-state: paused;
+    }
     @keyframes scroll-left {
         0% { transform: translateX(0); }
         100% { transform: translateX(-50%); }
@@ -2249,17 +2252,72 @@ def render_live_ticker_bar():
 
 # ============= WELCOME POPUP =============
 def show_welcome_popup():
-    """Show welcome popup for first-time users"""
+    """Show welcome popup for first-time users with X button and 10-second auto-dismiss"""
     if 'welcome_seen' not in st.session_state:
         st.session_state.welcome_seen = False
     
     if not st.session_state.welcome_seen:
         st.markdown('''
+        <style>
+        .welcome-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 10000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            animation: fadeIn 0.3s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .welcome-popup {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border: 2px solid #00D9FF;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 500px;
+            text-align: center;
+            position: relative;
+            animation: slideUp 0.5s ease-out;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .welcome-close-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: transparent;
+            border: 2px solid #FF4444;
+            color: #FF4444;
+            font-size: 20px;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+        .welcome-close-btn:hover {
+            background: #FF4444;
+            color: #FFFFFF;
+        }
+        </style>
         <div class="welcome-overlay" id="welcome-overlay">
             <div class="welcome-popup">
-                <h1>Welcome to Finance Made Simple! 🚀</h1>
+                <button class="welcome-close-btn" onclick="document.getElementById('welcome-overlay').style.display='none';">✕</button>
+                <h1 style="color: #00D9FF; margin-bottom: 20px;">Welcome to Finance Made Simple! 🚀</h1>
                 <p style="color: #FFFFFF; font-size: 16px; margin-bottom: 20px;">We've upgraded your experience:</p>
-                <ul style="color: #FFFFFF; font-size: 14px; line-height: 2.2;">
+                <ul style="color: #FFFFFF; font-size: 14px; line-height: 2.2; text-align: left; padding-left: 20px;">
                     <li><strong>Market Mood:</strong> Check the speedometer to see if the market is fearful or greedy.</li>
                     <li><strong>Easy Search:</strong> Type 'Apple' or 'Tesla'—no need to memorize tickers!</li>
                     <li><strong>Simpler Metrics:</strong> Hover over any number for a 'Sweet & Simple' explanation.</li>
@@ -2267,6 +2325,15 @@ def show_welcome_popup():
                 </ul>
             </div>
         </div>
+        <script>
+            // Auto-dismiss after 10 seconds
+            setTimeout(function() {
+                var overlay = document.getElementById('welcome-overlay');
+                if (overlay) {
+                    overlay.style.display = 'none';
+                }
+            }, 10000);
+        </script>
         ''', unsafe_allow_html=True)
         
         if st.button("Let's Get Started", key="welcome_btn", type="primary"):
@@ -2630,9 +2697,13 @@ if selected_page == "🏠 Start Here":
     # Calculate progress based on sections viewed
     progress_items = ['viewed_narrative', 'viewed_comparison', 'viewed_truth_meter', 'viewed_next_steps']
     completed = sum(1 for item in progress_items if st.session_state.get(item, False))
-    progress_pct = (completed / len(progress_items)) * 100
+    total_steps = len(progress_items)
     
-    render_progress_bar(progress_pct, "Start Here Journey")
+    # Only show confetti once per session
+    if 'start_here_confetti_shown' not in st.session_state:
+        st.session_state.start_here_confetti_shown = False
+    
+    render_progress_bar(completed, total_steps, "Start Here Journey")
     
     # Mark narrative as viewed
     st.session_state.viewed_narrative = True
@@ -5560,8 +5631,10 @@ elif selected_page == "📋 Investment Checklist":
     if 'checklist_analyzed' not in st.session_state:
         st.session_state.checklist_analyzed = False
     
-    checklist_progress = 100 if st.session_state.checklist_analyzed else 0
-    render_progress_bar(checklist_progress, "Checklist Progress")
+    # Use current_step/total_steps format for render_progress_bar
+    checklist_current = 1 if st.session_state.checklist_analyzed else 0
+    checklist_total = 1
+    render_progress_bar(checklist_current, checklist_total, "Checklist Progress")
     
     st.write("Quick check before investing")
     
