@@ -1860,7 +1860,16 @@ SECTORS = {
 
 # ============= STATE =============
 if 'selected_ticker' not in st.session_state:
-    st.session_state.selected_ticker = "AAPL"
+    st.session_state.selected_ticker = "GOOGL"
+
+if 'years_of_history' not in st.session_state:
+    st.session_state.years_of_history = 5
+
+if 'homepage_stock1' not in st.session_state:
+    st.session_state.homepage_stock1 = "GOOGL"
+
+if 'homepage_stock2' not in st.session_state:
+    st.session_state.homepage_stock2 = "AMC"
 
 # ============= HEADER =============
 col1, col2, col3 = st.columns([4, 1, 1])
@@ -1880,8 +1889,22 @@ with col3:
 # ============= VERTICAL SIDEBAR NAVIGATION =============
 with st.sidebar:
     st.markdown("## 📚 Navigation")
-    st.markdown("### 1. The Learn Group")
-    st.caption("Foundation before tickers")
+    
+    # Global Timeline Picker at TOP of sidebar
+    st.markdown("### ⏱️ Timeline")
+    timeline_options = {"1Y": 1, "3Y": 3, "5Y": 5, "Max": 10}
+    selected_timeline = st.radio(
+        "Years of History:",
+        list(timeline_options.keys()),
+        index=2,
+        horizontal=True,
+        key="global_timeline"
+    )
+    st.session_state.years_of_history = timeline_options[selected_timeline]
+    
+    st.markdown("---")
+    st.markdown("### 1. Start Here")
+    st.caption("Learn the basics")
     st.markdown("### 2. The Analysis Group")
     st.caption("The meat of the site")
     st.markdown("### 3. The Action Group")
@@ -1891,6 +1914,7 @@ with st.sidebar:
     selected_page = st.radio(
         "Choose a tool:",
         [
+            "🏠 Start Here",
             "📚 Finance 101",
             "🧠 Risk Quiz",
             "📊 Company Analysis",
@@ -1900,14 +1924,180 @@ with st.sidebar:
             "💼 Paper Portfolio",
             "👤 Naman's Portfolio"
         ],
-        index=2
+        index=0
     )
     
     if 'analysis_view' not in st.session_state:
         st.session_state.analysis_view = "🌟 The Big Picture"
 
 # ============= PAGE CONTENT =============
-if selected_page == "📚 Finance 101":
+
+# ============= HOMEPAGE: START HERE =============
+if selected_page == "🏠 Start Here":
+    st.markdown("### 👋 Welcome! I'm excited to help you get started on your investing journey.")
+    st.markdown("---")
+    
+    # Tale of Two Stocks Header
+    st.header("📊 The Tale of Two Stocks")
+    st.markdown("**Learn to spot a good investment vs a risky one by comparing real companies.**")
+    
+    years = st.session_state.years_of_history
+    
+    # Stock Picker Row
+    col_pick1, col_pick2 = st.columns(2)
+    with col_pick1:
+        stock1 = st.text_input("📈 Good Business:", value=st.session_state.homepage_stock1, key="home_stock1").upper()
+        if stock1:
+            st.session_state.homepage_stock1 = stock1
+    with col_pick2:
+        stock2 = st.text_input("📉 Risky Business:", value=st.session_state.homepage_stock2, key="home_stock2").upper()
+        if stock2:
+            st.session_state.homepage_stock2 = stock2
+    
+    # Side-by-side Stock Charts
+    col_chart1, col_chart2 = st.columns(2)
+    
+    with col_chart1:
+        st.markdown(f"### {stock1}")
+        price1 = get_historical_price(stock1, years)
+        if not price1.empty and 'price' in price1.columns:
+            fig1 = px.area(price1, x='date', y='price', title=f'{stock1} Stock Price ({years}Y)')
+            fig1.update_layout(height=250, margin=dict(l=0, r=0, t=40, b=0))
+            fig1.update_traces(fillcolor='rgba(0, 200, 83, 0.3)', line_color='#00C853')
+            st.plotly_chart(fig1, use_container_width=True)
+        else:
+            st.warning(f"No price data for {stock1}")
+    
+    with col_chart2:
+        st.markdown(f"### {stock2}")
+        price2 = get_historical_price(stock2, years)
+        if not price2.empty and 'price' in price2.columns:
+            fig2 = px.area(price2, x='date', y='price', title=f'{stock2} Stock Price ({years}Y)')
+            fig2.update_layout(height=250, margin=dict(l=0, r=0, t=40, b=0))
+            fig2.update_traces(fillcolor='rgba(255, 82, 82, 0.3)', line_color='#FF5252')
+            st.plotly_chart(fig2, use_container_width=True)
+        else:
+            st.warning(f"No price data for {stock2}")
+    
+    # The Lesson
+    st.markdown("---")
+    st.markdown("### ⚠️ You could have avoided a big downturn if you looked at the metrics below.")
+    st.markdown("**The numbers tell the story before the stock price does.**")
+    
+    # Growth Metrics Table
+    st.markdown("### 📊 Growth Comparison Table")
+    st.caption(f"Comparing {years}-year growth rates")
+    
+    # Fetch financial data for both stocks
+    income1 = get_income_statement(stock1, 'annual', years + 1)
+    income2 = get_income_statement(stock2, 'annual', years + 1)
+    cash1 = get_cash_flow(stock1, 'annual', years + 1)
+    cash2 = get_cash_flow(stock2, 'annual', years + 1)
+    
+    def calc_growth(df, column):
+        """Calculate simple % growth from oldest to newest"""
+        if df.empty or column not in df.columns:
+            return None
+        df_sorted = df.sort_values('date')
+        values = df_sorted[column].dropna()
+        if len(values) < 2:
+            return None
+        start_val = values.iloc[0]
+        end_val = values.iloc[-1]
+        if start_val == 0 or pd.isna(start_val):
+            return None
+        return ((end_val - start_val) / abs(start_val)) * 100
+    
+    def calc_margin_change(df, numerator_col, denominator_col):
+        """Calculate margin change in percentage points"""
+        if df.empty or numerator_col not in df.columns or denominator_col not in df.columns:
+            return None
+        df_sorted = df.sort_values('date')
+        if len(df_sorted) < 2:
+            return None
+        start_margin = df_sorted[numerator_col].iloc[0] / df_sorted[denominator_col].iloc[0] * 100 if df_sorted[denominator_col].iloc[0] != 0 else None
+        end_margin = df_sorted[numerator_col].iloc[-1] / df_sorted[denominator_col].iloc[-1] * 100 if df_sorted[denominator_col].iloc[-1] != 0 else None
+        if start_margin is None or end_margin is None:
+            return None
+        return end_margin - start_margin
+    
+    # Calculate metrics
+    metrics = {
+        "📈 Revenue Growth": (
+            calc_growth(income1, 'revenue'),
+            calc_growth(income2, 'revenue')
+        ),
+        "💰 Net Income Growth": (
+            calc_growth(income1, 'netIncome'),
+            calc_growth(income2, 'netIncome')
+        ),
+        "💵 FCF Growth": (
+            calc_growth(cash1, 'freeCashFlow'),
+            calc_growth(cash2, 'freeCashFlow')
+        ),
+        "📊 Margin Change (pp)": (
+            calc_margin_change(income1, 'netIncome', 'revenue'),
+            calc_margin_change(income2, 'netIncome', 'revenue')
+        )
+    }
+    
+    # Display metrics table with icons
+    col_metric, col_stock1, col_stock2 = st.columns([2, 1, 1])
+    col_metric.markdown("**Metric**")
+    col_stock1.markdown(f"**{stock1}**")
+    col_stock2.markdown(f"**{stock2}**")
+    
+    for metric_name, (val1, val2) in metrics.items():
+        col_m, col_v1, col_v2 = st.columns([2, 1, 1])
+        col_m.markdown(metric_name)
+        
+        # Format values with color coding
+        if val1 is not None:
+            color1 = "green" if val1 > 0 else "red"
+            col_v1.markdown(f":{color1}[{val1:+.1f}%]")
+        else:
+            col_v1.markdown("N/A")
+        
+        if val2 is not None:
+            color2 = "green" if val2 > 0 else "red"
+            col_v2.markdown(f":{color2}[{val2:+.1f}%]")
+        else:
+            col_v2.markdown("N/A")
+    
+    # Insight boxes
+    st.markdown("---")
+    col_insight1, col_insight2 = st.columns(2)
+    with col_insight1:
+        rev1 = metrics["📈 Revenue Growth"][0]
+        if rev1 is not None and rev1 > 0:
+            st.success(f"✅ {stock1}: Growing revenue shows customers want the product")
+        elif rev1 is not None:
+            st.warning(f"⚠️ {stock1}: Declining revenue is a warning sign")
+        else:
+            st.info(f"ℹ️ {stock1}: Revenue data not available")
+    
+    with col_insight2:
+        rev2 = metrics["📈 Revenue Growth"][1]
+        if rev2 is not None and rev2 > 0:
+            st.success(f"✅ {stock2}: Growing revenue shows customers want the product")
+        elif rev2 is not None:
+            st.error(f"❌ {stock2}: Declining revenue is a major red flag")
+        else:
+            st.info(f"ℹ️ {stock2}: Revenue data not available")
+    
+    # Next Step Button
+    st.markdown("---")
+    st.markdown("### 🎯 Ready to discover your investor profile?")
+    st.markdown("Take our quick quiz to find stocks that match your risk tolerance.")
+    
+    if st.button("🚀 Take the Risk Quiz →", type="primary", use_container_width=True):
+        st.session_state.selected_page = "🧠 Risk Quiz"
+        st.rerun()
+    
+    st.markdown("---")
+    st.caption("💡 **Tip:** Use the Timeline picker in the sidebar to see how these metrics change over different time periods!")
+
+elif selected_page == "📚 Finance 101":
     st.header("📚 Finance 101")
     st.write("Learn key financial terms")
     
@@ -2399,7 +2589,10 @@ elif selected_page == "📊 Company Analysis":
         ps = get_ps_ratio(ticker, ratios_ttm)
         fcf_per_share = calculate_fcf_per_share(ticker, cash_df, quote)
         
-        col1, col2, col3, col4, col5 = st.columns(5)
+        # Get price target for estimate
+        price_target_data = get_price_target_summary(ticker)
+        
+        col1, col2, col3, col4, col5, col6 = st.columns(6)
         col1.metric("Current Price", f"${price:.2f}", f"{change_pct:+.2f}%")
         col2.metric("Market Cap", format_number(market_cap),
                    help=explain_metric("Market Cap", market_cap, sector))
@@ -2419,6 +2612,18 @@ elif selected_page == "📊 Company Analysis":
         
         col5.metric("FCF Per Share", f"${fcf_per_share:.2f}" if fcf_per_share > 0 else "N/A",
                    help="Free Cash Flow divided by shares outstanding")
+        
+        # Price Estimate tile
+        if price_target_data:
+            target_avg = price_target_data.get('targetConsensus', 0) or price_target_data.get('targetMean', 0)
+            if target_avg and target_avg > 0 and price > 0:
+                upside = ((target_avg - price) / price) * 100
+                col6.metric("Price Estimate", f"${target_avg:.2f}", f"{upside:+.1f}%",
+                           help=f"Average analyst price target (12-month). Based on {price_target_data.get('numberOfAnalysts', 'N/A')} analysts.")
+            else:
+                col6.metric("Price Estimate", "N/A", help="No analyst price targets available")
+        else:
+            col6.metric("Price Estimate", "N/A", help="No analyst price targets available")
 
         # Market Benchmarks & Investment Calculator - Compact Right Column
         # Create tight 2-column layout (no divider for same-level alignment)
@@ -2757,12 +2962,42 @@ elif selected_page == "📊 Company Analysis":
         cash_df = get_cash_flow(ticker, period, years*4 if period == 'quarter' else years)
         balance_df = get_balance_sheet(ticker, period, years*4 if period == 'quarter' else years)
         
-        st.markdown(f"### 📈 {company_name} - Stock Price ({years} Years)")
-        price_data = get_historical_price(ticker, years)
-        if not price_data.empty and 'price' in price_data.columns:
+        st.markdown(f"### 📈 {company_name} - Stock Price")
+        
+        # Timeframe toggles for stock chart
+        timeframe_options = ["1D", "5D", "1M", "6M", "YTD", "1Y", "5Y"]
+        selected_timeframe = st.radio(
+            "Select timeframe:",
+            timeframe_options,
+            index=timeframe_options.index("5Y"),
+            horizontal=True,
+            key="big_picture_timeframe"
+        )
+        
+        # Calculate days based on timeframe
+        timeframe_days = {
+            "1D": 3,
+            "5D": 7,
+            "1M": 30,
+            "6M": 180,
+            "YTD": (datetime.now() - datetime(datetime.now().year, 1, 1)).days,
+            "1Y": 365,
+            "5Y": 365 * 5
+        }
+        days_to_show = timeframe_days.get(selected_timeframe, 365 * 5)
+        fetch_years = max(days_to_show / 365, 1) + 1
+        
+        price_data_full = get_historical_price(ticker, int(fetch_years))
+        if not price_data_full.empty and 'price' in price_data_full.columns:
+            # Filter to selected timeframe
+            cutoff_date = datetime.now() - timedelta(days=days_to_show)
+            price_data = price_data_full[price_data_full['date'] >= cutoff_date].copy()
+            
+            if len(price_data) < 2:
+                price_data = price_data_full.tail(3)
             
             fig = px.area(price_data, x='date', y='price', 
-                         title=f'{company_name} Stock Price')
+                         title=f'{company_name} Stock Price ({selected_timeframe})')
             fig.update_layout(
                 height=350,
                 plot_bgcolor='rgba(0,0,0,0)',
