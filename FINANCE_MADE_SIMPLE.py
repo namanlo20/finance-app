@@ -1892,15 +1892,15 @@ with st.sidebar:
     
     # Global Timeline Picker at TOP of sidebar
     st.markdown("### ⏱️ Timeline")
-    timeline_options = {"1Y": 1, "3Y": 3, "5Y": 5, "Max": 10}
-    selected_timeline = st.radio(
+    selected_timeline = st.slider(
         "Years of History:",
-        list(timeline_options.keys()),
-        index=2,
-        horizontal=True,
+        min_value=1,
+        max_value=10,
+        value=5,
+        step=1,
         key="global_timeline"
     )
-    st.session_state.years_of_history = timeline_options[selected_timeline]
+    st.session_state.years_of_history = selected_timeline
     
     st.markdown("---")
     st.markdown("### 1. Start Here")
