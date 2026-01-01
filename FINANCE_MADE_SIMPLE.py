@@ -1330,6 +1330,62 @@ def get_price_target_summary(ticker):
     return None
 
 @st.cache_data(ttl=3600)
+def get_price_target_consensus(ticker):
+    """Get price target consensus from FMP stable API"""
+    url = f"https://financialmodelingprep.com/stable/price-target-consensus?symbol={ticker}&apikey={FMP_API_KEY}"
+    try:
+        response = requests.get(url, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            if data and len(data) > 0:
+                return data[0]
+    except:
+        pass
+    return None
+
+@st.cache_data(ttl=86400)
+def get_ai_price_target(ticker, company_name):
+    """Fallback: Get price target from Perplexity AI if FMP has no data"""
+    if not PERPLEXITY_API_KEY:
+        return None
+    
+    try:
+        headers = {
+            "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "model": "sonar",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": f"What is the current average 12-month analyst price target for {company_name} ({ticker})? Just give me the dollar amount as a number, nothing else. If you don't know, say 'unknown'."
+                }
+            ],
+            "max_tokens": 50
+        }
+        
+        response = requests.post(
+            "https://api.perplexity.ai/chat/completions",
+            headers=headers,
+            json=payload,
+            timeout=15
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            content = result.get('choices', [{}])[0].get('message', {}).get('content', '')
+            import re
+            match = re.search(r'\$?([\d,]+\.?\d*)', content)
+            if match:
+                price_str = match.group(1).replace(',', '')
+                return float(price_str)
+    except:
+        pass
+    return None
+
+@st.cache_data(ttl=3600)
 def get_shares_float(ticker):
     """Get shares float"""
     url = f"{BASE_URL}/shares-float?symbol={ticker}&apikey={FMP_API_KEY}"
@@ -2818,7 +2874,8 @@ elif selected_page == "📊 Company Analysis":
         ps = get_ps_ratio(ticker, ratios_ttm)
         fcf_per_share = calculate_fcf_per_share(ticker, cash_df, quote)
         
-        # Get price target for estimate
+        # Get price target for estimate - try consensus API first, then summary, then AI fallback
+        price_target_consensus = get_price_target_consensus(ticker)
         price_target_data = get_price_target_summary(ticker)
         
         col1, col2, col3, col4, col5, col6 = st.columns(6)
@@ -2842,17 +2899,33 @@ elif selected_page == "📊 Company Analysis":
         col5.metric("FCF Per Share", f"${fcf_per_share:.2f}" if fcf_per_share > 0 else "N/A",
                    help="Free Cash Flow divided by shares outstanding")
         
-        # Price Estimate tile
-        if price_target_data:
-            target_avg = price_target_data.get('targetConsensus', 0) or price_target_data.get('targetMean', 0)
-            if target_avg and target_avg > 0 and price > 0:
-                upside = ((target_avg - price) / price) * 100
-                col6.metric("Price Estimate", f"${target_avg:.2f}", f"{upside:+.1f}%",
-                           help=f"Average analyst price target (12-month). Based on {price_target_data.get('numberOfAnalysts', 'N/A')} analysts.")
-            else:
-                col6.metric("Price Estimate", "N/A", help="No analyst price targets available")
+        # Wall Street 1-Yr Price Target - try consensus API first, then summary, then AI fallback
+        target_avg = None
+        num_analysts = None
+        
+        # Try consensus API first
+        if price_target_consensus:
+            target_avg = price_target_consensus.get('targetConsensus', 0)
+            if not target_avg or target_avg <= 0:
+                target_avg = price_target_consensus.get('targetMedian', 0)
+        
+        # Fallback to summary API
+        if (not target_avg or target_avg <= 0) and price_target_data:
+            target_avg = price_target_data.get('targetConsensus', 0) or price_target_data.get('targetMean', 0) or price_target_data.get('targetMedian', 0)
+            num_analysts = price_target_data.get('numberOfAnalysts', None)
+        
+        # Final fallback to Perplexity AI
+        if not target_avg or target_avg <= 0:
+            target_avg = get_ai_price_target(ticker, company_name)
+        
+        if target_avg and target_avg > 0 and price > 0:
+            upside = ((target_avg - price) / price) * 100
+            help_text = f"Wall Street consensus 12-month price target."
+            if num_analysts:
+                help_text += f" Based on {num_analysts} analysts."
+            col6.metric("Wall St. Target", f"${target_avg:.2f}", f"{upside:+.1f}%", help=help_text)
         else:
-            col6.metric("Price Estimate", "N/A", help="No analyst price targets available")
+            col6.metric("Wall St. Target", "N/A", help="No analyst price targets available")
 
         # Market Benchmarks & Investment Calculator - Compact Right Column
         # Create tight 2-column layout (no divider for same-level alignment)
@@ -3191,60 +3264,7 @@ elif selected_page == "📊 Company Analysis":
         cash_df = get_cash_flow(ticker, period, years*4 if period == 'quarter' else years)
         balance_df = get_balance_sheet(ticker, period, years*4 if period == 'quarter' else years)
         
-        st.markdown(f"### 📈 {company_name} - Stock Price")
-        
-        # Timeframe toggles for stock chart
-        timeframe_options = ["1D", "5D", "1M", "6M", "YTD", "1Y", "5Y"]
-        selected_timeframe = st.radio(
-            "Select timeframe:",
-            timeframe_options,
-            index=timeframe_options.index("5Y"),
-            horizontal=True,
-            key="big_picture_timeframe"
-        )
-        
-        # Calculate days based on timeframe
-        timeframe_days = {
-            "1D": 3,
-            "5D": 7,
-            "1M": 30,
-            "6M": 180,
-            "YTD": (datetime.now() - datetime(datetime.now().year, 1, 1)).days,
-            "1Y": 365,
-            "5Y": 365 * 5
-        }
-        days_to_show = timeframe_days.get(selected_timeframe, 365 * 5)
-        fetch_years = max(days_to_show / 365, 1) + 1
-        
-        price_data_full = get_historical_price(ticker, int(fetch_years))
-        if not price_data_full.empty and 'price' in price_data_full.columns:
-            # Filter to selected timeframe
-            cutoff_date = datetime.now() - timedelta(days=days_to_show)
-            price_data = price_data_full[price_data_full['date'] >= cutoff_date].copy()
-            
-            if len(price_data) < 2:
-                price_data = price_data_full.tail(3)
-            
-            fig = px.area(price_data, x='date', y='price', 
-                         title=f'{company_name} Stock Price ({selected_timeframe})')
-            fig.update_layout(
-                height=350,
-                plot_bgcolor='rgba(0,0,0,0)',
-                paper_bgcolor='rgba(0,0,0,0)',
-                font_color='white',
-                xaxis_title="",
-                yaxis_title="Price ($)",
-                showlegend=False,
-                margin=dict(l=20, r=20, t=60, b=20),
-                hoverlabel=dict(bgcolor="white", font_size=12, font_color="black")
-            )
-            fig.update_traces(fillcolor='rgba(157, 78, 221, 0.3)', line_color='#9D4EDD', line_width=2)
-            fig.update_yaxes(rangemode='tozero')
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.warning("⚠️ Stock price data not available")
-        
-        st.markdown("---")
+        # Stock chart is already shown above - removed duplicate here
         
         st.markdown(f"### 💵 {company_name} - Cash Flow Statement")
         show_why_it_matters('fcfAfterSBC')
@@ -4260,20 +4280,21 @@ elif selected_page == "📈 Financial Ratios":
     if not ratios_df.empty:
         st.subheader(f"{company_name} ({ticker}) - Ratio Analysis")
         
-        # S&P 500 benchmarks - all ratios in one list for vertical display
+        # S&P 500 benchmarks - PROFITABILITY FIRST, then valuation (user's "Profitability First" order)
         all_ratios = [
-            ("priceEarningsRatio", "P/E Ratio", 22, "lower_is_better", "Price vs. Profit. How much you pay for $1 of earnings. S&P 500 avg is ~22."),
-            ("priceToSalesRatio", "P/S Ratio", 2.5, "lower_is_better", "Price vs. Sales. Good for companies not yet profitable. Lower = better value."),
-            ("priceToBookRatio", "P/B Ratio", 4.0, "lower_is_better", "Price vs. Book Value. What you pay for company's assets. Lower = potentially undervalued."),
-            ("enterpriseValueMultiple", "EV/EBITDA", 15, "lower_is_better", "Enterprise Value vs. Operating Profit. Compares total company value. Lower = cheaper."),
-            ("debtEquityRatio", "Debt-to-Equity", 1.5, "lower_is_better", "How much debt a company uses to grow. Lower is safer. Above 2 can be risky."),
-            ("currentRatio", "Current Ratio", 1.5, "higher_is_better", "Can the company pay its bills? Above 1.5 is safe. Below 1 = potential trouble."),
-            ("quickRatio", "Quick Ratio", 1.0, "higher_is_better", "Cash available to pay bills immediately. Above 1.0 is good."),
-            ("grossProfitMargin", "Gross Margin", 0.40, "higher_is_better", "Profit kept after making the product. Shows pricing power. Higher = stronger business."),
-            ("operatingProfitMargin", "Operating Margin", 0.15, "higher_is_better", "Profit kept after bills are paid. Higher is more efficient. S&P 500 avg ~15%."),
-            ("netProfitMargin", "Net Margin", 0.10, "higher_is_better", "Final profit after everything. The bottom line percentage. Higher = more profitable."),
-            ("returnOnEquity", "ROE", 0.15, "higher_is_better", "Return on shareholder money. Buffett's favorite metric. Above 15% is good."),
-            ("freeCashFlowPerShare", "FCF per Share", 5.0, "higher_is_better", "Real cash generated per share. Can't be faked with accounting. Positive = good.")
+            # 1. PROFITABILITY METRICS (Quality First)
+            ("freeCashFlowPerShare", "FCF Per Share (Truth Meter)", 5.0, "higher_is_better", "The actual cash a company keeps after paying for everything."),
+            ("grossProfitMargin", "Gross Margin", 0.40, "higher_is_better", "Profit left after the direct cost of making the product."),
+            ("operatingProfitMargin", "Operating Margin", 0.15, "higher_is_better", "Profit left after paying the bills like rent, salaries, and ads."),
+            ("netProfitMargin", "Net Income Margin", 0.10, "higher_is_better", "The final 'Bottom Line' profit after every single expense is paid."),
+            
+            # 2. VALUATION METRICS
+            ("priceEarningsRatio", "P/E Ratio", 22, "lower_is_better", "Price vs. Profit. How much you pay for $1 of earnings."),
+            ("priceToSalesRatio", "P/S Ratio", 2.5, "lower_is_better", "Price vs. Sales. Best for checking companies that aren't profitable yet."),
+            ("priceToBookRatio", "P/B Ratio", 4.0, "lower_is_better", "Price vs. Assets. Compares the stock price to what the company actually owns."),
+            
+            # 3. SAFETY METRICS
+            ("debtEquityRatio", "Debt-to-Equity", 1.5, "lower_is_better", "How much debt a company uses to grow. Lower is safer.")
         ]
         
         # ============= THE TRUTH METER (FCF vs Net Income) =============
