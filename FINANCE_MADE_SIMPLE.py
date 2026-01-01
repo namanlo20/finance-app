@@ -2251,12 +2251,36 @@ def render_live_ticker_bar():
     st.markdown(ticker_html, unsafe_allow_html=True)
 
 # ============= WELCOME POPUP =============
+import time
+
 def show_welcome_popup():
-    """Show welcome popup for first-time users with X button and 10-second auto-dismiss"""
+    """Show welcome popup for first-time users - dismisses on X click or after 10 seconds, never returns until refresh"""
+    # Initialize session state
     if 'welcome_seen' not in st.session_state:
         st.session_state.welcome_seen = False
+    if 'welcome_first_shown' not in st.session_state:
+        st.session_state.welcome_first_shown = None
     
+    # Check if popup was dismissed via query param (X button click)
+    query_params = st.query_params
+    if query_params.get("dismiss_welcome") == "1":
+        st.session_state.welcome_seen = True
+        # Clear the query param so refresh shows popup again
+        st.query_params.clear()
+        st.rerun()
+    
+    # Check if 10 seconds have passed since first shown
+    if st.session_state.welcome_first_shown is not None:
+        elapsed = time.time() - st.session_state.welcome_first_shown
+        if elapsed >= 10:
+            st.session_state.welcome_seen = True
+    
+    # Only show popup if not seen
     if not st.session_state.welcome_seen:
+        # Record when popup was first shown
+        if st.session_state.welcome_first_shown is None:
+            st.session_state.welcome_first_shown = time.time()
+        
         st.markdown('''
         <style>
         .welcome-overlay {
@@ -2306,6 +2330,7 @@ def show_welcome_popup():
             align-items: center;
             justify-content: center;
             transition: all 0.3s ease;
+            text-decoration: none;
         }
         .welcome-close-btn:hover {
             background: #FF4444;
@@ -2314,7 +2339,7 @@ def show_welcome_popup():
         </style>
         <div class="welcome-overlay" id="welcome-overlay">
             <div class="welcome-popup">
-                <button class="welcome-close-btn" onclick="document.getElementById('welcome-overlay').style.display='none';">✕</button>
+                <a href="?dismiss_welcome=1" class="welcome-close-btn">✕</a>
                 <h1 style="color: #00D9FF; margin-bottom: 20px;">Welcome to Finance Made Simple! 🚀</h1>
                 <p style="color: #FFFFFF; font-size: 16px; margin-bottom: 20px;">We've upgraded your experience:</p>
                 <ul style="color: #FFFFFF; font-size: 14px; line-height: 2.2; text-align: left; padding-left: 20px;">
@@ -2325,15 +2350,6 @@ def show_welcome_popup():
                 </ul>
             </div>
         </div>
-        <script>
-            // Auto-dismiss after 10 seconds
-            setTimeout(function() {
-                var overlay = document.getElementById('welcome-overlay');
-                if (overlay) {
-                    overlay.style.display = 'none';
-                }
-            }, 10000);
-        </script>
         ''', unsafe_allow_html=True)
         
         if st.button("Let's Get Started", key="welcome_btn", type="primary"):
