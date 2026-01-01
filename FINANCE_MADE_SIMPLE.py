@@ -33,9 +33,13 @@ if 'theme' not in st.session_state:
 if st.session_state.theme == 'dark':
     st.markdown("""
     <style>
-    .main { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .main { background: #000000 !important; }
+    .stApp { background: #000000 !important; }
+    [data-testid="stAppViewContainer"] { background: #000000 !important; }
+    [data-testid="stHeader"] { background: #000000 !important; }
+    [data-testid="stSidebar"] { background: #0a0a0a !important; }
     h1, h2, h3 { color: white !important; }
-    .stMetric { background: rgba(255,255,255,0.15); padding: 15px; border-radius: 10px; }
+    .stMetric { background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px; }
     .why-box { 
         background: rgba(255,255,255,0.1); 
         padding: 20px; 
@@ -2037,14 +2041,15 @@ with st.sidebar:
         "Choose a tool:",
         [
             "🏠 Start Here",
+            "📈 Financial Ratios",
+            "📰 Market Intelligence",
+            "👤 Naman's Portfolio",
+            "📊 Company Analysis",
             "📚 Finance 101",
             "🧠 Risk Quiz",
-            "📊 Company Analysis",
-            "📈 Financial Ratios",
             "🌍 Sector Explorer",
             "📋 Investment Checklist",
-            "💼 Paper Portfolio",
-            "👤 Naman's Portfolio"
+            "💼 Paper Portfolio"
         ],
         index=0
     )
@@ -4565,28 +4570,72 @@ elif selected_page == "📈 Financial Ratios":
         st.info("**Tip:** Try major stocks like AAPL, MSFT, GOOGL, or AMZN")
 
 
+# ============= MARKET INTELLIGENCE TAB =============
+elif selected_page == "📰 Market Intelligence":
+    st.header("Market Intelligence")
+    st.markdown("**Investment Insights & Market Analysis**")
+    
+    st.markdown("---")
+    
+    # First Post: The Streaming Shakeup
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
+                border: 2px solid #00D9FF; border-radius: 15px; padding: 30px; margin: 20px 0;">
+        <h2 style="color: #00D9FF; margin-bottom: 15px;">The Streaming Shakeup: Why I'm Betting on the Predator (NFLX), Not the Prey</h2>
+        <p style="color: #888; font-size: 14px; margin-bottom: 20px;">Posted: December 2025</p>
+        <p style="color: #ffffff; font-size: 16px; line-height: 1.8;">
+            The news is buzzing about Paramount and WBD potentially merging. Beginners think "bigger is better," but in the 
+            stock market, <strong>two sinking ships tied together just sink faster</strong>.
+        </p>
+        <p style="color: #ffffff; font-size: 16px; line-height: 1.8; margin-top: 15px;">
+            Netflix is currently generating <strong style="color: #00FF96;">$7.4B in free cash flow</strong> while its competitors are bleeding. 
+            My money stays with the winner who has the <strong>pricing power to hike rates without losing users</strong>.
+        </p>
+        <div style="background: rgba(0,217,255,0.1); padding: 15px; border-radius: 10px; margin-top: 20px;">
+            <p style="color: #00D9FF; font-size: 14px; margin: 0;">
+                <strong>Key Insight:</strong> When competitors merge out of desperation, the market leader (Netflix) doesn't need to buy them—
+                they just wait for them to fail and buy their best content for pennies on the dollar.
+            </p>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Additional context
+    st.markdown("### Why This Matters for Beginners")
+    st.markdown("""
+    **The Lesson:** Not all mergers are good. When two struggling companies combine, they often just combine their problems. 
+    Look for companies that are **generating cash** (positive Free Cash Flow) rather than burning it.
+    
+    **Netflix's Moat:**
+    - 280M+ subscribers worldwide
+    - $7.4B in annual free cash flow
+    - Pricing power (can raise prices without losing users)
+    - Moving into live sports (NFL/WWE) for recession-proof revenue
+    - Ad-supported tier adds new revenue stream
+    
+    **The Competition's Problem:**
+    - Paramount and WBD are drowning in debt
+    - Losing subscribers quarter after quarter
+    - Forced to merge just to survive
+    - No pricing power—users leave when prices rise
+    """)
+    
+    st.markdown("---")
+    st.caption("*This is educational content, not financial advice. Always do your own research before investing.*")
+
+
 elif selected_page == "👤 Naman's Portfolio":
     st.header("Naman's Portfolio")
     st.markdown("**My High-Conviction Investment Strategy**")
     
-    # Exact portfolio holdings with weightings
-    NAMAN_PORTFOLIO = [
+    # FREE TIER HOLDINGS ONLY - Hard data block for security (Pro/Ultimate data NOT fetched for free users)
+    FREE_TIER_HOLDINGS = [
         {"ticker": "META", "name": "Meta Platforms", "sector": "Technology", "weight": 12.53},
         {"ticker": "NFLX", "name": "Netflix", "sector": "Communication Services", "weight": 11.93},
         {"ticker": "SPGI", "name": "S&P Global", "sector": "Financials", "weight": 10.53},
-        {"ticker": "AMZN", "name": "Amazon", "sector": "Consumer Discretionary", "weight": 9.90},
-        {"ticker": "MCO", "name": "Moody's Corp", "sector": "Financials", "weight": 9.52},
-        {"ticker": "MSFT", "name": "Microsoft", "sector": "Technology", "weight": 7.33},
-        {"ticker": "GOOG", "name": "Alphabet", "sector": "Technology", "weight": 6.73},
-        {"ticker": "PANW", "name": "Palo Alto Networks", "sector": "Technology", "weight": 6.17},
-        {"ticker": "HOOD", "name": "Robinhood", "sector": "Financials", "weight": 5.82},
-        {"ticker": "NVDA", "name": "NVIDIA", "sector": "Technology", "weight": 5.48},
-        {"ticker": "CRWD", "name": "CrowdStrike", "sector": "Technology", "weight": 4.95},
-        {"ticker": "AVGO", "name": "Broadcom", "sector": "Technology", "weight": 4.79},
-        {"ticker": "ASML", "name": "ASML Holdings", "sector": "Technology", "weight": 4.34},
     ]
     
-    # Tiered access simulation (for demo purposes - in production this would check user subscription)
+    # Tiered access - HARD DATA BLOCK (not CSS blur)
     st.markdown("### 🔐 Access Tier")
     access_tier = st.radio(
         "Select your access level:",
@@ -4595,29 +4644,46 @@ elif selected_page == "👤 Naman's Portfolio":
         key="access_tier"
     )
     
-    st.markdown("---")
-    st.markdown("### 📊 Portfolio Holdings")
-    
-    # Determine how many holdings to show based on tier
-    if access_tier == "Free (Preview)":
-        visible_count = 3
-        st.info("**Free Preview:** Showing top 3 holdings. Upgrade to Pro to see top 5, or Ultimate for full portfolio.")
-    elif access_tier == "Pro ($10/mo)":
-        visible_count = 5
-        st.success("**Pro Tier:** Showing top 5 holdings + 3-5 trade alerts per month.")
+    # ============= WAITLIST OVERLAY FOR PRO/ULTIMATE =============
+    if access_tier != "Free (Preview)":
+        st.markdown("---")
+        st.markdown("""
+        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
+                    border: 2px solid #9D4EDD; border-radius: 15px; padding: 40px; 
+                    text-align: center; margin: 20px 0;">
+            <h2 style="color: #9D4EDD; margin-bottom: 20px;">🔒 Naman's Pro/Ultimate Portfolio is Locked for Exclusivity</h2>
+            <p style="color: #ffffff; font-size: 18px; margin-bottom: 30px;">
+                Join the waitlist for the next <strong>50 spots</strong>. Get instant trade alerts and full portfolio access.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Email capture form
+        st.markdown("### 📧 Join the Waitlist")
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            waitlist_email = st.text_input("Enter your email:", placeholder="your@email.com", key="waitlist_email")
+        with col2:
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("Join Waitlist", key="join_waitlist"):
+                if waitlist_email and "@" in waitlist_email:
+                    st.success(f"You're on the list! We'll notify {waitlist_email} when spots open.")
+                else:
+                    st.error("Please enter a valid email address.")
+        
+        st.info("**Current waitlist:** 127 people ahead of you. Pro spots open monthly.")
+        
     else:
-        visible_count = len(NAMAN_PORTFOLIO)
-        st.success("**Ultimate Tier:** Full portfolio access + instant trade alerts + Scenario Analysis 'Time Machine'.")
-    
-    # Build the portfolio table with logos
-    for i, holding in enumerate(NAMAN_PORTFOLIO):
-        is_visible = i < visible_count
+        # FREE TIER - Show only the 3 free holdings (HARD DATA BLOCK - no Pro/Ultimate data fetched)
+        st.markdown("---")
+        st.markdown("### 📊 Portfolio Holdings (Free Preview)")
+        st.info("**Free Preview:** Showing top 3 holdings only. Pro/Ultimate holdings are locked for exclusivity.")
         
-        col1, col2, col3, col4 = st.columns([3, 2, 2, 1])
-        
-        if is_visible:
-            # Get logo
+        # Display FREE tier holdings only
+        for i, holding in enumerate(FREE_TIER_HOLDINGS):
             logo_url = get_company_logo(holding["ticker"])
+            
+            col1, col2, col3, col4 = st.columns([3, 2, 2, 1])
             
             with col1:
                 if logo_url:
@@ -4638,71 +4704,88 @@ elif selected_page == "👤 Naman's Portfolio":
             
             with col4:
                 st.caption(f"#{i+1}")
-        else:
-            # Blurred/locked row
-            with col1:
-                st.markdown(f"""
-                <div style="filter: blur(5px); user-select: none;">
-                    <strong>████</strong> - ████████████
-                </div>
-                """, unsafe_allow_html=True)
-            
-            with col2:
-                st.markdown('<span style="filter: blur(5px);">████████</span>', unsafe_allow_html=True)
-            
-            with col3:
-                st.markdown('<span style="filter: blur(5px);">**█.██%**</span>', unsafe_allow_html=True)
-            
-            with col4:
-                st.caption(f"#{i+1}")
-    
-    # Upgrade prompts
-    if access_tier != "Ultimate ($25/mo)":
-        st.markdown("---")
-        st.markdown("### 🚀 Upgrade Your Access")
         
-        if access_tier == "Free (Preview)":
-            col1, col2 = st.columns(2)
-            with col1:
-                st.markdown("""
-                **Pro Tier ($10/mo)**
-                - Top 5 holdings revealed
-                - 3-5 hand-picked trade alerts/month
-                - Priority email support
-                """)
-            with col2:
-                st.markdown("""
-                **Ultimate Tier ($25/mo)**
-                - Full 100% portfolio list
-                - Instant trade alerts for every move
-                - Scenario Analysis "Time Machine" tab
-                - Direct access to Naman's research notes
-                """)
-        else:
-            st.markdown("""
-            **Upgrade to Ultimate ($25/mo)**
-            - Full 100% portfolio list (all 13 holdings)
-            - Instant trade alerts for every move
-            - Scenario Analysis "Time Machine" tab
-            - Direct access to Naman's research notes
-            """)
+        # Show locked indicator for remaining holdings (NO DATA - just count)
+        st.markdown("---")
+        st.markdown("### 🔒 10 More Holdings Locked")
+        st.markdown("""
+        <div style="background: #1a1a1a; border: 1px solid #333; border-radius: 10px; padding: 20px; text-align: center;">
+            <p style="color: #888; font-size: 16px;">Holdings #4-13 are exclusive to Pro & Ultimate members.</p>
+            <p style="color: #9D4EDD; font-size: 14px;">Join the waitlist above to unlock full portfolio access.</p>
+        </div>
+        """, unsafe_allow_html=True)
     
-    # Portfolio summary
+    # ============= THE NAMAN ANALYSIS (Visible to ALL) =============
     st.markdown("---")
-    st.markdown("### 📈 Portfolio Summary")
+    st.markdown("## 📊 The Naman Analysis")
+    st.markdown("*Detailed breakdowns of my top 3 conviction picks - visible to everyone.*")
     
-    total_weight = sum(h["weight"] for h in NAMAN_PORTFOLIO[:visible_count])
+    # Pick #1: META
+    st.markdown("### 🏆 Pick #1: Meta Platforms (META) – The Digital Landlord")
+    st.markdown("""
+    **The Human Take:** People counted Meta out in 2022. They were wrong. Meta owns the most valuable "attention" on earth 
+    with 3.5 billion users. They aren't just an app company; they are an AI powerhouse. They are spending $100B on AI 
+    compute clusters—not because they're wasting money, but because they are building a wall so high that no competitor 
+    can ever climb it.
+    """)
     
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Holdings Visible", f"{visible_count} of {len(NAMAN_PORTFOLIO)}")
-    with col2:
-        st.metric("Weight Shown", f"{total_weight:.1f}%")
-    with col3:
-        tech_weight = sum(h["weight"] for h in NAMAN_PORTFOLIO[:visible_count] if h["sector"] == "Technology")
-        st.metric("Tech Allocation", f"{tech_weight:.1f}%")
+    # META financials table
+    meta_data = {
+        "Year": ["2022", "2023", "2024"],
+        "Revenue": ["$116.6B", "$134.9B", "$164.5B"],
+        "Net Income": ["$23.2B", "$39.1B", "$62.4B"],
+        "Op Margin %": ["24.8%", "34.7%", "42.2%"],
+        "FCF": ["$50.5B", "$71.1B", "$91.3B"]
+    }
+    st.dataframe(pd.DataFrame(meta_data), use_container_width=True, hide_index=True)
     
-    st.caption("*Portfolio weightings as of December 2025. Subject to change based on market conditions.*")
+    st.markdown("---")
+    
+    # Pick #2: NFLX
+    st.markdown("### 🏆 Pick #2: Netflix (NFLX) – The Predator of Streaming")
+    st.markdown("""
+    **The Human Take:** While everyone else is merging just to survive, Netflix is playing a different game. You hear rumors 
+    about Paramount buying Warner Bros Discovery (WBD)—that's a "defensive" move because they are drowning in debt and losing 
+    subs. Netflix doesn't need to merge. They have the scale moat. They are the only ones with 280M+ subs and $7B+ in free 
+    cash flow to buy whatever content they want.
+    
+    **The Strategy:** Netflix is the "utility" of entertainment. By moving into live sports (NFL/WWE) and adding ads, they've 
+    made their business recession-proof. If WBD or Paramount goes on sale, Netflix doesn't buy the company—they just wait for 
+    them to fail and then buy their best shows for pennies on the dollar.
+    """)
+    
+    # NFLX financials table
+    nflx_data = {
+        "Year": ["2022", "2023", "2024"],
+        "Revenue": ["$31.6B", "$33.7B", "$39.0B"],
+        "Net Income": ["$4.5B", "$5.4B", "$8.7B"],
+        "Op Margin %": ["17.8%", "20.6%", "26.7%"],
+        "FCF": ["$2.0B", "$7.3B", "$7.4B"]
+    }
+    st.dataframe(pd.DataFrame(nflx_data), use_container_width=True, hide_index=True)
+    
+    st.markdown("---")
+    
+    # Pick #3: SPGI
+    st.markdown("### 🏆 Pick #3: S&P Global (SPGI) – The Financial Toll Booth")
+    st.markdown("""
+    **The Human Take:** This is the ultimate "Monopoly" play. If a big company wants to borrow money, they must pay S&P Global 
+    for a credit rating. It is a legal toll booth that sits in the middle of the global financial system. 80% of their revenue 
+    is recurring—meaning they get paid every single year just for existing.
+    """)
+    
+    # SPGI financials table
+    spgi_data = {
+        "Year": ["2021", "2022", "2023"],
+        "Revenue": ["$8.3B", "$11.2B", "$12.5B"],
+        "Net Income": ["$3.3B", "$3.5B", "$2.9B"],
+        "FCF": ["$3.6B", "$2.6B", "$3.7B"],
+        "Op Margin %": ["50.9%", "44.2%", "32.2%"]
+    }
+    st.dataframe(pd.DataFrame(spgi_data), use_container_width=True, hide_index=True)
+    
+    st.markdown("---")
+    st.caption("*Portfolio weightings as of December 2025. Subject to change based on market conditions. This is not financial advice.*")
 
 
 elif selected_page == "📋 Investment Checklist":
