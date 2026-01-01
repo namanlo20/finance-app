@@ -33,37 +33,61 @@ if 'theme' not in st.session_state:
 if st.session_state.theme == 'dark':
     st.markdown("""
     <style>
+    /* DARK MODE - Pure Black Background with White Text */
     .main { background: #000000 !important; }
     .stApp { background: #000000 !important; }
     [data-testid="stAppViewContainer"] { background: #000000 !important; }
     [data-testid="stHeader"] { background: #000000 !important; }
     [data-testid="stSidebar"] { background: #0a0a0a !important; }
-    h1, h2, h3 { color: white !important; }
+    
+    /* CRITICAL: Force white text on dark background */
+    html, body, .stApp, [data-testid="stAppViewContainer"], 
+    [data-testid="stSidebar"], p, span, div, label, li, td, th,
+    .stMarkdown, .stText, [data-testid="stMarkdownContainer"],
+    .element-container, .stRadio label, .stSelectbox label,
+    .stTextInput label, .stSlider label, .stCheckbox label {
+        color: #FFFFFF !important;
+    }
+    
+    h1, h2, h3, h4, h5, h6 { color: #FFFFFF !important; }
+    a { color: #00D9FF !important; }
+    
     .stMetric { background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px; }
+    .stMetric label, .stMetric [data-testid="stMetricValue"], .stMetric [data-testid="stMetricDelta"] {
+        color: #FFFFFF !important;
+    }
+    
+    /* Dataframe/Table text */
+    .stDataFrame, .dataframe, table, tr, td, th { color: #FFFFFF !important; }
+    
     .why-box { 
         background: rgba(255,255,255,0.1); 
         padding: 20px; 
         border-radius: 10px; 
         border-left: 5px solid #00D9FF;
         margin: 10px 0;
+        color: #FFFFFF !important;
     }
     .personal-budget {
         background: rgba(255,215,0,0.2);
         padding: 15px;
         border-radius: 10px;
         border-left: 5px solid #FFD700;
+        color: #FFFFFF !important;
     }
     .risk-warning {
         background: rgba(255,0,0,0.2);
         padding: 15px;
         border-radius: 10px;
         border-left: 5px solid #FF0000;
+        color: #FFFFFF !important;
     }
     .risk-good {
         background: rgba(0,255,0,0.2);
         padding: 15px;
         border-radius: 10px;
         border-left: 5px solid #00FF00;
+        color: #FFFFFF !important;
     }
     .roast-box {
         background: rgba(255,100,100,0.2);
@@ -72,6 +96,7 @@ if st.session_state.theme == 'dark':
         border: 2px solid #FF6B6B;
         margin: 15px 0;
         font-size: 1.1em;
+        color: #FFFFFF !important;
     }
     .metric-explain {
         background: rgba(255,255,255,0.1);
@@ -80,6 +105,7 @@ if st.session_state.theme == 'dark':
         margin: 5px 0;
         font-size: 0.9em;
         border-left: 3px solid #00D9FF;
+        color: #FFFFFF !important;
     }
     .sector-info {
         background: rgba(255,215,0,0.15);
@@ -88,6 +114,7 @@ if st.session_state.theme == 'dark':
         margin: 3px 0;
         font-size: 0.85em;
         border-left: 3px solid #FFD700;
+        color: #FFFFFF !important;
     }
     .growth-note {
         background: rgba(0,255,150,0.2);
@@ -96,6 +123,39 @@ if st.session_state.theme == 'dark':
         border-left: 5px solid #00FF96;
         margin: 10px 0;
         font-size: 1em;
+        color: #FFFFFF !important;
+    }
+    
+    /* Tooltip styling for hover definitions */
+    .ratio-tooltip {
+        position: relative;
+        display: inline-block;
+        cursor: help;
+        color: #00D9FF;
+        margin-left: 5px;
+    }
+    .ratio-tooltip .tooltip-text {
+        visibility: hidden;
+        width: 300px;
+        background-color: #1a1a2e;
+        color: #FFFFFF;
+        text-align: left;
+        border-radius: 8px;
+        padding: 15px;
+        position: absolute;
+        z-index: 1000;
+        bottom: 125%;
+        left: 50%;
+        margin-left: -150px;
+        opacity: 0;
+        transition: opacity 0.3s;
+        border: 1px solid #00D9FF;
+        font-size: 14px;
+        line-height: 1.5;
+    }
+    .ratio-tooltip:hover .tooltip-text {
+        visibility: visible;
+        opacity: 1;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -2041,15 +2101,15 @@ with st.sidebar:
         "Choose a tool:",
         [
             "🏠 Start Here",
-            "📈 Financial Ratios",
-            "📰 Market Intelligence",
-            "👤 Naman's Portfolio",
-            "📊 Company Analysis",
             "📚 Finance 101",
             "🧠 Risk Quiz",
+            "📊 Company Analysis",
+            "📈 Financial Ratios",
+            "📰 Market Intelligence",
             "🌍 Sector Explorer",
             "📋 Investment Checklist",
-            "💼 Paper Portfolio"
+            "💼 Paper Portfolio",
+            "👤 Naman's Portfolio"
         ],
         index=0
     )
@@ -4286,20 +4346,40 @@ elif selected_page == "📈 Financial Ratios":
         st.subheader(f"{company_name} ({ticker}) - Ratio Analysis")
         
         # S&P 500 benchmarks - PROFITABILITY FIRST, then valuation (user's "Profitability First" order)
+        # Each tuple: (api_col, display_name, benchmark, comparison_type, short_desc, tooltip_definition, tooltip_example)
         all_ratios = [
             # 1. PROFITABILITY METRICS (Quality First)
-            ("freeCashFlowPerShare", "FCF Per Share (Truth Meter)", 5.0, "higher_is_better", "The actual cash a company keeps after paying for everything."),
-            ("grossProfitMargin", "Gross Margin", 0.40, "higher_is_better", "Profit left after the direct cost of making the product."),
-            ("operatingProfitMargin", "Operating Margin", 0.15, "higher_is_better", "Profit left after paying the bills (Rent, Salaries, Marketing)."),
-            ("netProfitMargin", "Net Income Margin", 0.10, "higher_is_better", "The final 'Bottom Line' profit after everything, including taxes."),
+            ("freeCashFlowPerShare", "FCF Per Share (Truth Meter)", 5.0, "higher_is_better", "The actual cash a company keeps after paying for everything.",
+             "The actual cash a company keeps after paying for everything - salaries, rent, equipment, taxes.",
+             "If a company reports $10B in profit but only has $2B in FCF, the 'profit' might be accounting tricks."),
+            ("grossProfitMargin", "Gross Margin", 0.40, "higher_is_better", "Profit left after the direct cost of making the product.",
+             "The percentage of revenue left after paying the direct costs of producing goods.",
+             "If a company sells a shirt for $100 and it costs $40 to make, the Gross Margin is 60%."),
+            ("operatingProfitMargin", "Operating Margin", 0.15, "higher_is_better", "Profit left after paying the bills (Rent, Salaries, Marketing).",
+             "Profit left after paying operating expenses like rent, salaries, and marketing.",
+             "A 20% operating margin means for every $100 in sales, $20 is left after paying all operating costs."),
+            ("netProfitMargin", "Net Income Margin", 0.10, "higher_is_better", "The final 'Bottom Line' profit after everything, including taxes.",
+             "The final profit percentage after ALL expenses including taxes and interest.",
+             "A 15% net margin means the company keeps $15 for every $100 in revenue after everything is paid."),
             
             # 2. VALUATION METRICS
-            ("priceEarningsRatio", "P/E Ratio", 22, "lower_is_better", "Price vs. Profit. How much you pay for $1 of earnings."),
-            ("priceToSalesRatio", "P/S Ratio", 2.5, "lower_is_better", "Price vs. Sales. Best for checking companies that aren't profitable yet."),
-            ("priceToBookRatio", "P/B Ratio", 4.0, "lower_is_better", "Price vs. Assets. Compares the stock price to what the company actually owns."),
+            ("priceEarningsRatio", "P/E Ratio", 22, "lower_is_better", "Price vs. Profit. How much you pay for $1 of earnings.",
+             "A tool used to see if a stock is overvalued or undervalued by comparing its price to its profit.",
+             "If a stock is $20 and the company earns $2 per share, the P/E is 10. You are paying $10 for every $1 of profit."),
+            ("priceToSalesRatio", "P/S Ratio", 2.5, "lower_is_better", "Price vs. Sales. Best for checking companies that aren't profitable yet.",
+             "Compares stock price to revenue - useful for companies that aren't profitable yet.",
+             "A P/S of 5 means investors pay $5 for every $1 of sales the company generates."),
+            ("priceToBookRatio", "P/B Ratio", 4.0, "lower_is_better", "Price vs. Assets. Compares the stock price to what the company actually owns.",
+             "Compares the stock price to the company's book value (assets minus liabilities).",
+             "A P/B of 2 means the stock trades at twice the value of what the company actually owns."),
             
             # 3. SAFETY METRICS
-            ("debtEquityRatio", "Debt-to-Equity", 1.5, "lower_is_better", "How much debt a company uses to grow. Lower is safer.")
+            ("debtEquityRatio", "Debt-to-Equity", 1.5, "lower_is_better", "How much debt a company uses to grow. Lower is safer.",
+             "Measures how much a company is using debt to run its business compared to its own money.",
+             "A ratio of 2.0 means the company has twice as much debt as it has 'own cash' (equity)."),
+            ("returnOnEquity", "Return on Equity (ROE)", 0.15, "higher_is_better", "How efficiently a company uses investors' money.",
+             "Shows how efficiently a company uses investors' money to generate profit.",
+             "An ROE of 15% means the company generated $0.15 in profit for every $1 of shareholder money.")
         ]
         
         # ============= THE TRUTH METER (FCF vs Net Income) =============
@@ -4496,11 +4576,22 @@ elif selected_page == "📈 Financial Ratios":
             
             return True
         
-        # Display all ratio charts vertically (no sub-tabs)
+        # Display all ratio charts vertically (no sub-tabs) with hover tooltips
         charts_displayed = 0
-        for ratio_col, ratio_name, benchmark_val, comparison_type, description in all_ratios:
+        for ratio_tuple in all_ratios:
+            ratio_col, ratio_name, benchmark_val, comparison_type, description, tooltip_def, tooltip_example = ratio_tuple
             if ratio_col in ratios_df.columns:
-                st.markdown(f"### {ratio_name}")
+                # Render ratio name with hover tooltip (question mark icon)
+                st.markdown(f"""
+                <h3 style="color: #FFFFFF;">{ratio_name} 
+                    <span class="ratio-tooltip">&#x3F;
+                        <span class="tooltip-text">
+                            <strong>Definition:</strong> {tooltip_def}<br><br>
+                            <strong>Example:</strong> {tooltip_example}
+                        </span>
+                    </span>
+                </h3>
+                """, unsafe_allow_html=True)
                 if create_ratio_chart_with_table(ratio_col, ratio_name, benchmark_val, comparison_type, ratios_df, description):
                     charts_displayed += 1
                 st.markdown("---")
@@ -4573,55 +4664,112 @@ elif selected_page == "📈 Financial Ratios":
 # ============= MARKET INTELLIGENCE TAB =============
 elif selected_page == "📰 Market Intelligence":
     st.header("Market Intelligence")
-    st.markdown("**Investment Insights & Market Analysis**")
+    st.markdown("**AI-Powered Market News & Analysis**")
     
     st.markdown("---")
     
-    # First Post: The Streaming Shakeup
-    st.markdown("""
-    <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
-                border: 2px solid #00D9FF; border-radius: 15px; padding: 30px; margin: 20px 0;">
-        <h2 style="color: #00D9FF; margin-bottom: 15px;">The Streaming Shakeup: Why I'm Betting on the Predator (NFLX), Not the Prey</h2>
-        <p style="color: #888; font-size: 14px; margin-bottom: 20px;">Posted: December 2025</p>
-        <p style="color: #ffffff; font-size: 16px; line-height: 1.8;">
-            The news is buzzing about Paramount and WBD potentially merging. Beginners think "bigger is better," but in the 
-            stock market, <strong>two sinking ships tied together just sink faster</strong>.
-        </p>
-        <p style="color: #ffffff; font-size: 16px; line-height: 1.8; margin-top: 15px;">
-            Netflix is currently generating <strong style="color: #00FF96;">$7.4B in free cash flow</strong> while its competitors are bleeding. 
-            My money stays with the winner who has the <strong>pricing power to hike rates without losing users</strong>.
-        </p>
-        <div style="background: rgba(0,217,255,0.1); padding: 15px; border-radius: 10px; margin-top: 20px;">
-            <p style="color: #00D9FF; font-size: 14px; margin: 0;">
-                <strong>Key Insight:</strong> When competitors merge out of desperation, the market leader (Netflix) doesn't need to buy them—
-                they just wait for them to fail and buy their best content for pennies on the dollar.
-            </p>
+    # Ticker Search Box
+    st.markdown("### Search for Stock-Specific News")
+    intel_ticker = st.text_input(
+        "Enter a ticker symbol (leave empty for general market news):",
+        "",
+        placeholder="e.g., AAPL, TSLA, GOOGL",
+        key="intel_ticker_search"
+    )
+    
+    # Function to get market news via Perplexity API
+    def get_market_intelligence(ticker=None):
+        """Fetch market news using Perplexity API"""
+        if not PERPLEXITY_API_KEY:
+            return None, "Perplexity API key not configured"
+        
+        try:
+            if ticker and ticker.strip():
+                query = f"Latest news, catalysts, and market analysis for {ticker.upper()} stock. Include recent price movements, analyst opinions, and any significant company developments."
+            else:
+                query = "Today's US stock market news summary: S&P 500 performance, interest rates, inflation data, major earnings reports, and key market movers."
+            
+            headers = {
+                "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
+                "Content-Type": "application/json"
+            }
+            
+            payload = {
+                "model": "sonar",
+                "messages": [
+                    {"role": "system", "content": "You are a financial news analyst. Provide concise, factual market updates in bullet points. Focus on actionable insights for investors."},
+                    {"role": "user", "content": query}
+                ],
+                "max_tokens": 1000
+            }
+            
+            response = requests.post(
+                "https://api.perplexity.ai/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                return content, None
+            else:
+                return None, f"API error: {response.status_code}"
+        except Exception as e:
+            return None, str(e)
+    
+    # Fetch and display news
+    with st.spinner("Fetching latest market intelligence..."):
+        news_content, error = get_market_intelligence(intel_ticker if intel_ticker.strip() else None)
+    
+    if news_content:
+        if intel_ticker and intel_ticker.strip():
+            st.markdown(f"### 📊 {intel_ticker.upper()} - Latest News & Analysis")
+        else:
+            st.markdown("### 📈 General Market News")
+        
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
+                    border: 2px solid #00D9FF; border-radius: 15px; padding: 30px; margin: 20px 0;">
+            <div style="color: #FFFFFF; font-size: 16px; line-height: 1.8;">
+                {news_content}
+            </div>
         </div>
-    </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
+    elif error:
+        st.warning(f"Could not fetch news: {error}")
+        st.info("Try again later or check if the Perplexity API key is configured correctly.")
     
-    # Additional context
-    st.markdown("### Why This Matters for Beginners")
-    st.markdown("""
-    **The Lesson:** Not all mergers are good. When two struggling companies combine, they often just combine their problems. 
-    Look for companies that are **generating cash** (positive Free Cash Flow) rather than burning it.
+    # Also show FMP news headlines if available
+    st.markdown("---")
+    st.markdown("### 📰 Recent Headlines")
     
-    **Netflix's Moat:**
-    - 280M+ subscribers worldwide
-    - $7.4B in annual free cash flow
-    - Pricing power (can raise prices without losing users)
-    - Moving into live sports (NFL/WWE) for recession-proof revenue
-    - Ad-supported tier adds new revenue stream
+    if intel_ticker and intel_ticker.strip():
+        fmp_news = get_stock_specific_news(intel_ticker.upper(), 10)
+    else:
+        # Get general market news from FMP
+        try:
+            news_url = f"{BASE_URL}/news/stock-news-sentiments-rss-feed?apikey={FMP_API_KEY}"
+            response = requests.get(news_url, timeout=10)
+            fmp_news = response.json()[:10] if response.status_code == 200 else []
+        except:
+            fmp_news = []
     
-    **The Competition's Problem:**
-    - Paramount and WBD are drowning in debt
-    - Losing subscribers quarter after quarter
-    - Forced to merge just to survive
-    - No pricing power—users leave when prices rise
-    """)
+    if fmp_news:
+        for article in fmp_news[:10]:
+            title = article.get('title', 'No title')
+            published = article.get('publishedDate', '')[:10] if article.get('publishedDate') else ''
+            url = article.get('url', '')
+            if url:
+                st.markdown(f"- [{title}]({url}) ({published})")
+            else:
+                st.markdown(f"- **{title}** ({published})")
+    else:
+        st.info("No recent headlines available.")
     
     st.markdown("---")
-    st.caption("*This is educational content, not financial advice. Always do your own research before investing.*")
+    st.caption("*News powered by Perplexity AI and Financial Modeling Prep. This is not financial advice.*")
 
 
 elif selected_page == "👤 Naman's Portfolio":
@@ -4635,17 +4783,114 @@ elif selected_page == "👤 Naman's Portfolio":
         {"ticker": "SPGI", "name": "S&P Global", "sector": "Financials", "weight": 10.53},
     ]
     
-    # Tiered access - HARD DATA BLOCK (not CSS blur)
-    st.markdown("### 🔐 Access Tier")
-    access_tier = st.radio(
-        "Select your access level:",
-        ["Free (Preview)", "Pro ($10/mo)", "Ultimate ($25/mo)"],
-        horizontal=True,
-        key="access_tier"
-    )
+    # Initialize selected tier in session state
+    if 'selected_tier' not in st.session_state:
+        st.session_state.selected_tier = "Free"
+    
+    # ============= TIERED PRICING COMPARISON TABLE =============
+    st.markdown("### 🔐 Choose Your Access Tier")
+    st.markdown("*All 3 tiers are always visible. Click to select your tier.*")
+    
+    # Create 3 columns for the tier cards
+    col_free, col_pro, col_ultimate = st.columns(3)
+    
+    with col_free:
+        # Highlight if selected
+        border_color = "#00C853" if st.session_state.selected_tier == "Free" else "#333"
+        shadow = "0 0 20px rgba(0,200,83,0.5)" if st.session_state.selected_tier == "Free" else "none"
+        st.markdown(f"""
+        <div style="background: #1a1a1a; border: 3px solid {border_color}; border-radius: 15px; 
+                    padding: 20px; text-align: center; box-shadow: {shadow};">
+            <h3 style="color: #00C853; margin-bottom: 10px;">Free</h3>
+            <p style="color: #888; font-size: 24px; margin: 10px 0;"><strong>$0</strong>/mo</p>
+            <p style="color: #FFFFFF; font-size: 14px;">Preview Access</p>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("Select Free", key="select_free", use_container_width=True):
+            st.session_state.selected_tier = "Free"
+            st.rerun()
+    
+    with col_pro:
+        border_color = "#9D4EDD" if st.session_state.selected_tier == "Pro" else "#333"
+        shadow = "0 0 20px rgba(157,78,221,0.5)" if st.session_state.selected_tier == "Pro" else "none"
+        st.markdown(f"""
+        <div style="background: #1a1a1a; border: 3px solid {border_color}; border-radius: 15px; 
+                    padding: 20px; text-align: center; box-shadow: {shadow};">
+            <h3 style="color: #9D4EDD; margin-bottom: 10px;">Pro</h3>
+            <p style="color: #888; font-size: 24px; margin: 10px 0;"><strong>$10</strong>/mo</p>
+            <p style="color: #FFFFFF; font-size: 14px;">Full Portfolio Access</p>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("Select Pro", key="select_pro", use_container_width=True):
+            st.session_state.selected_tier = "Pro"
+            st.rerun()
+    
+    with col_ultimate:
+        border_color = "#FFD700" if st.session_state.selected_tier == "Ultimate" else "#333"
+        shadow = "0 0 20px rgba(255,215,0,0.5)" if st.session_state.selected_tier == "Ultimate" else "none"
+        st.markdown(f"""
+        <div style="background: #1a1a1a; border: 3px solid {border_color}; border-radius: 15px; 
+                    padding: 20px; text-align: center; box-shadow: {shadow};">
+            <h3 style="color: #FFD700; margin-bottom: 10px;">Ultimate</h3>
+            <p style="color: #888; font-size: 24px; margin: 10px 0;"><strong>$25</strong>/mo</p>
+            <p style="color: #FFFFFF; font-size: 14px;">VIP Access + Support</p>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("Select Ultimate", key="select_ultimate", use_container_width=True):
+            st.session_state.selected_tier = "Ultimate"
+            st.rerun()
+    
+    # Feature Comparison Table
+    st.markdown("---")
+    st.markdown("### Feature Comparison")
+    
+    # Create feature comparison table with HTML for better styling
+    st.markdown("""
+    <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+        <thead>
+            <tr style="background: #1a1a1a;">
+                <th style="padding: 15px; text-align: left; border-bottom: 2px solid #333; color: #FFFFFF;">Feature</th>
+                <th style="padding: 15px; text-align: center; border-bottom: 2px solid #333; color: #00C853;">Free</th>
+                <th style="padding: 15px; text-align: center; border-bottom: 2px solid #333; color: #9D4EDD;">Pro</th>
+                <th style="padding: 15px; text-align: center; border-bottom: 2px solid #333; color: #FFD700;">Ultimate</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr style="background: #0a0a0a;">
+                <td style="padding: 12px; border-bottom: 1px solid #222; color: #FFFFFF;">Basic Ratios</td>
+                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #00C853; font-size: 20px;">&#10003;</td>
+                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #00C853; font-size: 20px;">&#10003;</td>
+                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #00C853; font-size: 20px;">&#10003;</td>
+            </tr>
+            <tr style="background: #1a1a1a;">
+                <td style="padding: 12px; border-bottom: 1px solid #222; color: #FFFFFF;">Trade Alerts</td>
+                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #FF4444; font-size: 20px;">&#10007;</td>
+                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #00C853; font-size: 20px;">&#10003;</td>
+                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #00C853; font-size: 20px;">&#10003;</td>
+            </tr>
+            <tr style="background: #0a0a0a;">
+                <td style="padding: 12px; border-bottom: 1px solid #222; color: #FFFFFF;">Naman's Portfolio</td>
+                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #FF4444; font-size: 20px;">&#10007;</td>
+                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #00C853; font-size: 20px;">&#10003;</td>
+                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #00C853; font-size: 20px;">&#10003;</td>
+            </tr>
+            <tr style="background: #1a1a1a;">
+                <td style="padding: 12px; border-bottom: 1px solid #222; color: #FFFFFF;">1-on-1 Support</td>
+                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #FF4444; font-size: 20px;">&#10007;</td>
+                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #FF4444; font-size: 20px;">&#10007;</td>
+                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #00C853; font-size: 20px;">&#10003;</td>
+            </tr>
+        </tbody>
+    </table>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # Set access_tier based on selected_tier for backward compatibility
+    access_tier = st.session_state.selected_tier
     
     # ============= WAITLIST OVERLAY FOR PRO/ULTIMATE =============
-    if access_tier != "Free (Preview)":
+    if access_tier != "Free":
         st.markdown("---")
         st.markdown("""
         <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
