@@ -23,7 +23,7 @@ BASE_URL = "https://financialmodelingprep.com/stable"
 PERPLEXITY_API_KEY = os.environ.get("PERPLEXITY_API_KEY", "")
 USE_AI_ANALYSIS = bool(PERPLEXITY_API_KEY)
 
-st.set_page_config(page_title="Investing Made Simple", layout="wide", page_icon="💰")
+st.set_page_config(page_title="Finance Made Simple", layout="wide", page_icon="💰")
 
 # ============= DARK/LIGHT MODE =============
 if 'theme' not in st.session_state:
@@ -2609,7 +2609,7 @@ def show_welcome_popup():
                 <form class="welcome-close-form" method="get">
                     <button class="welcome-close-btn" type="submit" name="dismiss_welcome" value="1">×</button>
                 </form>
-                <h1 style="color: #00D9FF; margin-bottom: 20px;">Welcome to Investing Made Simple!</h1>
+                <h1 style="color: #00D9FF; margin-bottom: 20px;">Welcome to Finance Made Simple!</h1>
                 <p style="color: #FFFFFF; font-size: 16px; margin-bottom: 20px;">We've upgraded your experience:</p>
                 <ul style="color: #FFFFFF; font-size: 14px; line-height: 2.2; text-align: left; padding-left: 20px;">
                     <li><strong>Market Mood:</strong> Check the speedometer to see if the market is fearful or greedy.</li>
@@ -2852,15 +2852,15 @@ st.markdown(f"""
             background: {'#000000' if st.session_state.theme == 'dark' else '#FFFFFF'}; 
             padding: 10px 20px; display: flex; justify-content: flex-end; gap: 15px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.3);">
-    <a href="?page=signup" style="background: linear-gradient(135deg, #00C853 0%, #00A843 100%); 
+    <a href="?page=signup" style="background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%); 
        color: white; padding: 10px 24px; border-radius: 8px; text-decoration: none; 
        font-weight: bold; display: inline-block;">📝 Sign Up</a>
-    <a href="?page=signin" style="background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%); 
+    <a href="?page=signin" style="background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%); 
        color: white; padding: 10px 24px; border-radius: 8px; text-decoration: none; 
        font-weight: bold; display: inline-block;">🔐 Sign In</a>
-    <a href="?page=vip" style="background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); 
-       color: black; padding: 10px 24px; border-radius: 8px; text-decoration: none; 
-       font-weight: bold; display: inline-block; border: 2px solid #FFD700;">👑 Become a VIP</a>
+    <a href="?page=vip" style="background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%); 
+       color: white; padding: 10px 24px; border-radius: 8px; text-decoration: none; 
+       font-weight: bold; display: inline-block;">👑 Become a VIP</a>
 </div>
 """, unsafe_allow_html=True)
 
@@ -2871,29 +2871,19 @@ try:
         page = query_params["page"]
         if page == "vip":
             st.session_state.selected_page = "👑 Become a VIP"
+            st.query_params.clear()  # Clear params after navigation
             st.rerun()
         elif page == "signup":
             st.info("📝 Sign Up functionality coming soon!")
+            st.query_params.clear()
         elif page == "signin":
             st.info("🔐 Sign In functionality coming soon!")
+            st.query_params.clear()
 except:
     pass
 
-# Regular Streamlit buttons as fallback (hidden but functional)
-cols = st.columns([2, 1, 1, 1])
-with cols[1]:
-    if st.button("📝 Sign Up", key="signup_btn_hidden"):
-        st.info("Sign Up functionality coming soon!")
-with cols[2]:
-    if st.button("🔐 Sign In", key="signin_btn_hidden"):
-        st.info("Sign In functionality coming soon!")
-with cols[3]:
-    if st.button("👑 Become a VIP", key="vip_btn_hidden"):
-        st.session_state.selected_page = "👑 Become a VIP"
-        st.rerun()
-
-# Add spacing
-st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
+# Add spacing for content below frozen bar
+st.markdown("<div style='margin-bottom: 30px;'></div>", unsafe_allow_html=True)
 
 # ============= LIVE TICKER BAR =============
 render_live_ticker_bar()
@@ -2904,7 +2894,7 @@ show_welcome_popup()
 # ============= HEADER =============
 col1, col2 = st.columns([3, 1])
 with col1:
-    st.title("💰 Investing Made Simple")
+    st.title("💰 Finance Made Simple")
     st.caption("AI-Powered Stock Analysis for Everyone")
 with col2:
     st.markdown("### 🤖 AI-Ready")
@@ -6310,7 +6300,7 @@ elif selected_page == "💼 Paper Portfolio":
     st.divider()
     st.markdown("---")
     st.caption("""
-    **Disclaimer:** Investing Made Simple | FMP Premium | Real-time data  
+    **Disclaimer:** Finance Made Simple | FMP Premium | Real-time data  
 
     ⚠️ **IMPORTANT LEGAL DISCLAIMER:**  
     This application and all content provided herein are for **educational and informational purposes ONLY**. Nothing on this platform constitutes financial advice, investment advice, trading advice, legal advice, tax advice, or any other sort of advice. You should not treat any of the app's content as a recommendation to buy, sell, or hold any security or investment.
@@ -6327,7 +6317,7 @@ elif selected_page == "💼 Paper Portfolio":
 
     **Your Responsibility:** You are solely responsible for your own investment decisions and their outcomes. By using this app, you acknowledge and accept these terms.
 
-    © 2024 Investing Made Simple. All rights reserved.
+    © 2024 Finance Made Simple. All rights reserved.
     """)
 
 elif selected_page == "✅ Portfolio Risk Analyzer":
@@ -6603,5 +6593,5 @@ elif selected_page == "✅ Portfolio Risk Analyzer":
 
 # ============= FOOTER =============
 st.divider()
-st.caption("💡 Investing Made Simple | FMP Premium | Real-time data")
+st.caption("💡 Finance Made Simple | FMP Premium | Real-time data")
 st.caption("⚠️ Educational purposes only. Not financial advice.")
