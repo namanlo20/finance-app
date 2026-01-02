@@ -38,7 +38,18 @@ if st.session_state.theme == 'dark':
     .stApp { background: #000000 !important; }
     [data-testid="stAppViewContainer"] { background: #000000 !important; padding-top: 60px !important; }
     [data-testid="stHeader"] { background: #000000 !important; }
-    [data-testid="stSidebar"] { background: #0a0a0a !important; }
+    [data-testid="stSidebar"] { background: #0a0a0a !important; padding-top: 80px !important; }
+    
+    /* FREEZE TOP NAVIGATION BUTTONS - Like Excel freeze panes */
+    .element-container:has(button[data-testid*="signup_btn"]),
+    .element-container:has(button[data-testid*="signin_btn"]),
+    .element-container:has(button[data-testid*="vip_header_btn"]) {
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 999999 !important;
+        background: #000000 !important;
+        padding: 10px 0 !important;
+    }
     
     /* CRITICAL: Force white text on dark background */
     html, body, .stApp, [data-testid="stAppViewContainer"], 
@@ -420,7 +431,18 @@ else:
     .stApp { background: #FFFFFF !important; }
     [data-testid="stAppViewContainer"] { background: #FFFFFF !important; padding-top: 60px !important; }
     [data-testid="stHeader"] { background: #FFFFFF !important; }
-    [data-testid="stSidebar"] { background: #F5F5F5 !important; }
+    [data-testid="stSidebar"] { background: #F5F5F5 !important; padding-top: 80px !important; }
+    
+    /* FREEZE TOP NAVIGATION BUTTONS - Like Excel freeze panes */
+    .element-container:has(button[data-testid*="signup_btn"]),
+    .element-container:has(button[data-testid*="signin_btn"]),
+    .element-container:has(button[data-testid*="vip_header_btn"]) {
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 999999 !important;
+        background: #FFFFFF !important;
+        padding: 10px 0 !important;
+    }
     
     /* Force black text on white background */
     html, body, .stApp, [data-testid="stAppViewContainer"], 
@@ -2887,7 +2909,61 @@ with col2:
 with st.sidebar:
     st.markdown("## 📚 Navigation")
     
-    # Global Timeline Picker at TOP of sidebar
+    # ============= MARKET SENTIMENT AT TOP =============
+    st.markdown("### 📊 Market Sentiment")
+    
+    # Calculate a simple Fear & Greed proxy based on S&P 500 momentum
+    try:
+        spy_data = get_historical_price("SPY", 1)
+        if not spy_data.empty and 'price' in spy_data.columns and len(spy_data) >= 20:
+            spy_data = spy_data.sort_values('date')
+            current_price = spy_data['price'].iloc[-1]
+            price_20d_ago = spy_data['price'].iloc[-20] if len(spy_data) >= 20 else spy_data['price'].iloc[0]
+            price_50d_ago = spy_data['price'].iloc[-50] if len(spy_data) >= 50 else spy_data['price'].iloc[0]
+            
+            # Calculate momentum (20-day return)
+            momentum_20d = ((current_price - price_20d_ago) / price_20d_ago) * 100
+            
+            # Map momentum to Fear/Greed scale (0-100)
+            if momentum_20d <= -10:
+                sentiment_score = max(0, 20 + momentum_20d)
+                sentiment_label = "Extreme Fear"
+                sentiment_color = "#FF0000"
+            elif momentum_20d <= -5:
+                sentiment_score = 20 + (momentum_20d + 10) * 4
+                sentiment_label = "Fear"
+                sentiment_color = "#FF6B6B"
+            elif momentum_20d <= 5:
+                sentiment_score = 40 + (momentum_20d + 5) * 2
+                sentiment_label = "Neutral"
+                sentiment_color = "#FFD700"
+            elif momentum_20d <= 10:
+                sentiment_score = 60 + (momentum_20d - 5) * 4
+                sentiment_label = "Greed"
+                sentiment_color = "#90EE90"
+            else:
+                sentiment_score = min(100, 80 + (momentum_20d - 10) * 2)
+                sentiment_label = "Extreme Greed"
+                sentiment_color = "#00C853"
+            
+            # Display gauge
+            st.markdown(f"""
+            <div style="text-align: center; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 10px;">
+                <div style="font-size: 2em; font-weight: bold; color: {sentiment_color};">{sentiment_score:.0f}</div>
+                <div style="font-size: 1.2em; color: {sentiment_color};">{sentiment_label}</div>
+                <div style="font-size: 0.8em; margin-top: 5px;">S&P 500 20-day: {momentum_20d:+.1f}%</div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            st.caption("Based on S&P 500 momentum. Not financial advice.")
+        else:
+            st.info("Market data loading...")
+    except Exception as e:
+        st.caption("Market sentiment unavailable")
+    
+    st.markdown("---")
+    
+    # Global Timeline Picker
     st.markdown("### ⏱️ Timeline")
     selected_timeline = st.slider(
         "Years of History:",
@@ -2954,64 +3030,6 @@ with st.sidebar:
     if 'analysis_view' not in st.session_state:
         st.session_state.analysis_view = "🌟 The Big Picture"
     
-    # ============= FEAR & GREED GAUGE =============
-    st.markdown("---")
-    st.markdown("### 📊 Market Sentiment")
-    
-    # Calculate a simple Fear & Greed proxy based on S&P 500 momentum
-    try:
-        spy_data = get_historical_price("SPY", 1)
-        if not spy_data.empty and 'price' in spy_data.columns and len(spy_data) >= 20:
-            spy_data = spy_data.sort_values('date')
-            current_price = spy_data['price'].iloc[-1]
-            price_20d_ago = spy_data['price'].iloc[-20] if len(spy_data) >= 20 else spy_data['price'].iloc[0]
-            price_50d_ago = spy_data['price'].iloc[-50] if len(spy_data) >= 50 else spy_data['price'].iloc[0]
-            
-            # Calculate momentum (20-day return)
-            momentum_20d = ((current_price - price_20d_ago) / price_20d_ago) * 100
-            
-            # Map momentum to Fear/Greed scale (0-100)
-            # -10% or worse = Extreme Fear (0-20)
-            # -5% to -10% = Fear (20-40)
-            # -5% to +5% = Neutral (40-60)
-            # +5% to +10% = Greed (60-80)
-            # +10% or better = Extreme Greed (80-100)
-            
-            if momentum_20d <= -10:
-                sentiment_score = max(0, 20 + momentum_20d)
-                sentiment_label = "Extreme Fear"
-                sentiment_color = "#FF0000"
-            elif momentum_20d <= -5:
-                sentiment_score = 20 + (momentum_20d + 10) * 4
-                sentiment_label = "Fear"
-                sentiment_color = "#FF6B6B"
-            elif momentum_20d <= 5:
-                sentiment_score = 40 + (momentum_20d + 5) * 2
-                sentiment_label = "Neutral"
-                sentiment_color = "#FFD700"
-            elif momentum_20d <= 10:
-                sentiment_score = 60 + (momentum_20d - 5) * 4
-                sentiment_label = "Greed"
-                sentiment_color = "#90EE90"
-            else:
-                sentiment_score = min(100, 80 + (momentum_20d - 10) * 2)
-                sentiment_label = "Extreme Greed"
-                sentiment_color = "#00C853"
-            
-            # Display gauge
-            st.markdown(f"""
-            <div style="text-align: center; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 10px;">
-                <div style="font-size: 2em; font-weight: bold; color: {sentiment_color};">{sentiment_score:.0f}</div>
-                <div style="font-size: 1.2em; color: {sentiment_color};">{sentiment_label}</div>
-                <div style="font-size: 0.8em; margin-top: 5px;">S&P 500 20-day: {momentum_20d:+.1f}%</div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            st.caption("Based on S&P 500 momentum. Not financial advice.")
-        else:
-            st.info("Market data loading...")
-    except Exception as e:
-        st.caption("Market sentiment unavailable")
     
     # ============= TOGGLE THEME AT BOTTOM OF SIDEBAR =============
     st.markdown("---")
