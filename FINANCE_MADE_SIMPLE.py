@@ -191,6 +191,31 @@ if st.session_state.theme == 'dark':
         color: #FFFFFF !important;
         font-weight: bold !important;
     }
+    }
+    
+    /* Sidebar Navigation Buttons - Different style from main action buttons */
+    [data-testid="stSidebar"] .stButton > button {
+        background: rgba(255,255,255,0.05) !important;
+        color: #FFFFFF !important;
+        border: 1px solid rgba(255,255,255,0.2) !important;
+        font-weight: normal !important;
+        text-align: left !important;
+        padding: 8px 12px !important;
+        transition: all 0.2s ease !important;
+    }
+    [data-testid="stSidebar"] .stButton > button:hover {
+        background: rgba(0, 217, 255, 0.2) !important;
+        border-color: #00D9FF !important;
+        transform: translateX(5px) !important;
+        box-shadow: none !important;
+    }
+    
+    /* Expander styling in sidebar */
+    [data-testid="stSidebar"] .streamlit-expanderHeader {
+        background: rgba(255,255,255,0.05) !important;
+        border-radius: 8px !important;
+        font-weight: bold !important;
+    }
     
     /* RED TEXT INPUT styling */
     input[type="text"],
@@ -2710,30 +2735,55 @@ with st.sidebar:
     st.session_state.years_of_history = selected_timeline
     
     st.markdown("---")
-    st.markdown("### 1. Start Here")
-    st.caption("Learn the basics")
-    st.markdown("### 2. The Analysis Group")
-    st.caption("The meat of the site")
-    st.markdown("### 3. The Action Group")
-    st.caption("Track your progress")
-    st.markdown("---")
     
-    selected_page = st.radio(
-        "Choose a tool:",
-        [
+    # Initialize selected page in session state if not exists
+    if 'selected_page' not in st.session_state:
+        st.session_state.selected_page = "🏠 Start Here"
+    
+    # 1. START HERE GROUP
+    with st.expander("### 1. 📖 Start Here", expanded=True):
+        st.caption("Learn the basics")
+        start_here_tools = [
             "🏠 Start Here",
             "📚 Finance 101",
-            "🧠 Risk Quiz",
+            "🧠 Risk Quiz"
+        ]
+        for tool in start_here_tools:
+            if st.button(tool, key=f"btn_{tool}", use_container_width=True):
+                st.session_state.selected_page = tool
+                st.rerun()
+    
+    # 2. THE ANALYSIS GROUP
+    with st.expander("### 2. 📊 The Analysis Group", expanded=False):
+        st.caption("The meat of the site")
+        analysis_tools = [
             "📊 Company Analysis",
             "📈 Financial Ratios",
             "📰 Market Intelligence",
-            "🌍 Sector Explorer",
+            "🌍 Sector Explorer"
+        ]
+        for tool in analysis_tools:
+            if st.button(tool, key=f"btn_{tool}", use_container_width=True):
+                st.session_state.selected_page = tool
+                st.rerun()
+    
+    # 3. THE ACTION GROUP
+    with st.expander("### 3. 🎯 The Action Group", expanded=False):
+        st.caption("Track your progress")
+        action_tools = [
             "📋 Investment Checklist",
             "💼 Paper Portfolio",
             "👤 Naman's Portfolio"
-        ],
-        index=0
-    )
+        ]
+        for tool in action_tools:
+            if st.button(tool, key=f"btn_{tool}", use_container_width=True):
+                st.session_state.selected_page = tool
+                st.rerun()
+    
+    # Get the selected page from session state
+    selected_page = st.session_state.selected_page
+    
+    st.markdown("---")
     
     if 'analysis_view' not in st.session_state:
         st.session_state.analysis_view = "🌟 The Big Picture"
