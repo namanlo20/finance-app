@@ -2251,11 +2251,27 @@ def render_live_ticker_bar():
     st.markdown(ticker_html, unsafe_allow_html=True)
 
 # ============= WELCOME POPUP =============
+import time
+
 def show_welcome_popup():
-    """Show welcome popup for first-time users with X button and 10-second auto-dismiss"""
+    """Show welcome popup for first-time users - dismisses on X click or after 10 seconds, never returns until refresh"""
+    # Initialize session state
     if 'welcome_seen' not in st.session_state:
         st.session_state.welcome_seen = False
     
+    # Check if popup was dismissed via query param (X button click or auto-dismiss)
+    # Note: st.query_params.get() may return a list in some Streamlit versions
+    dismiss_param = st.query_params.get("dismiss_welcome")
+    if isinstance(dismiss_param, (list, tuple)):
+        dismiss_param = dismiss_param[0] if dismiss_param else None
+    
+    if dismiss_param == "1":
+        st.session_state.welcome_seen = True
+        # Remove the query param
+        del st.query_params["dismiss_welcome"]
+        st.rerun()
+    
+    # Only show popup if not seen
     if not st.session_state.welcome_seen:
         st.markdown('''
         <style>
@@ -2306,6 +2322,7 @@ def show_welcome_popup():
             align-items: center;
             justify-content: center;
             transition: all 0.3s ease;
+            text-decoration: none;
         }
         .welcome-close-btn:hover {
             background: #FF4444;
@@ -2314,7 +2331,7 @@ def show_welcome_popup():
         </style>
         <div class="welcome-overlay" id="welcome-overlay">
             <div class="welcome-popup">
-                <button class="welcome-close-btn" onclick="document.getElementById('welcome-overlay').style.display='none';">✕</button>
+                <a href="?dismiss_welcome=1" class="welcome-close-btn">✕</a>
                 <h1 style="color: #00D9FF; margin-bottom: 20px;">Welcome to Finance Made Simple! 🚀</h1>
                 <p style="color: #FFFFFF; font-size: 16px; margin-bottom: 20px;">We've upgraded your experience:</p>
                 <ul style="color: #FFFFFF; font-size: 14px; line-height: 2.2; text-align: left; padding-left: 20px;">
@@ -2326,12 +2343,11 @@ def show_welcome_popup():
             </div>
         </div>
         <script>
-            // Auto-dismiss after 10 seconds
+            // Auto-dismiss after 10 seconds by navigating to dismiss URL
             setTimeout(function() {
-                var overlay = document.getElementById('welcome-overlay');
-                if (overlay) {
-                    overlay.style.display = 'none';
-                }
+                var url = new URL(window.location.href);
+                url.searchParams.set("dismiss_welcome", "1");
+                window.location.href = url.toString();
             }, 10000);
         </script>
         ''', unsafe_allow_html=True)
