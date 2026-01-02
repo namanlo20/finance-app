@@ -3,3 +3,4 @@ streamlit
    requests
    plotly
    numpy
+   supabase>=2.0.0
