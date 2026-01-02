@@ -2251,15 +2251,13 @@ def render_live_ticker_bar():
     st.markdown(ticker_html, unsafe_allow_html=True)
 
 # ============= WELCOME POPUP =============
-import time
-
 def show_welcome_popup():
     """Show welcome popup for first-time users - dismisses on X click or after 10 seconds, never returns until refresh"""
     # Initialize session state
     if 'welcome_seen' not in st.session_state:
         st.session_state.welcome_seen = False
     
-    # Check if popup was dismissed via query param (X button click or auto-dismiss)
+    # Check if popup was dismissed via query param (auto-dismiss via meta refresh)
     # Note: st.query_params.get() may return a list in some Streamlit versions
     dismiss_param = st.query_params.get("dismiss_welcome")
     if isinstance(dismiss_param, (list, tuple)):
@@ -2274,6 +2272,7 @@ def show_welcome_popup():
     
     # Only show popup if not seen
     if not st.session_state.welcome_seen:
+        # CSS for popup overlay and styling
         st.markdown('''
         <style>
         .welcome-overlay {
@@ -2287,11 +2286,6 @@ def show_welcome_popup():
             display: flex;
             justify-content: center;
             align-items: center;
-            animation: fadeIn 0.3s ease-out;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
         }
         .welcome-popup {
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
@@ -2301,38 +2295,36 @@ def show_welcome_popup():
             max-width: 500px;
             text-align: center;
             position: relative;
-            animation: slideUp 0.5s ease-out;
         }
-        @keyframes slideUp {
-            from { transform: translateY(50px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
+        /* Style the Streamlit X button to look like a close button */
+        div[data-testid="stButton"]:has(button[kind="secondary"]):first-of-type {
+            position: fixed !important;
+            top: 50% !important;
+            left: 50% !important;
+            transform: translate(200px, -180px) !important;
+            z-index: 10001 !important;
         }
-        .welcome-close-btn {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            background: transparent;
-            border: 2px solid #FF4444;
-            color: #FF4444;
-            font-size: 20px;
-            width: 35px;
-            height: 35px;
-            border-radius: 50%;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.3s ease;
+        div[data-testid="stButton"]:has(button[kind="secondary"]):first-of-type button {
+            background: transparent !important;
+            border: 2px solid #FF4444 !important;
+            color: #FF4444 !important;
+            border-radius: 50% !important;
+            width: 35px !important;
+            height: 35px !important;
+            padding: 0 !important;
+            min-height: 0 !important;
+            font-size: 18px !important;
         }
-        .welcome-close-btn:hover {
-            background: #FF4444;
-            color: #FFFFFF;
+        div[data-testid="stButton"]:has(button[kind="secondary"]):first-of-type button:hover {
+            background: #FF4444 !important;
+            color: #FFFFFF !important;
         }
         </style>
-        <div class="welcome-overlay" id="welcome-overlay">
+        <!-- Auto-dismiss after 10 seconds using meta refresh (no JS needed, works in same tab) -->
+        <meta http-equiv="refresh" content="10;url=?dismiss_welcome=1">
+        <div class="welcome-overlay">
             <div class="welcome-popup">
-                <button class="welcome-close-btn" onclick="dismissWelcomePopup()">✕</button>
-                <h1 style="color: #00D9FF; margin-bottom: 20px;">Welcome to Finance Made Simple! 🚀</h1>
+                <h1 style="color: #00D9FF; margin-bottom: 20px;">Welcome to Finance Made Simple!</h1>
                 <p style="color: #FFFFFF; font-size: 16px; margin-bottom: 20px;">We've upgraded your experience:</p>
                 <ul style="color: #FFFFFF; font-size: 14px; line-height: 2.2; text-align: left; padding-left: 20px;">
                     <li><strong>Market Mood:</strong> Check the speedometer to see if the market is fearful or greedy.</li>
@@ -2342,22 +2334,14 @@ def show_welcome_popup():
                 </ul>
             </div>
         </div>
-        <script>
-            function dismissWelcomePopup() {
-                // Hide overlay immediately for instant UX
-                document.getElementById('welcome-overlay').style.display = 'none';
-                // Navigate in SAME TAB to set query param and trigger Streamlit rerun
-                var url = new URL(window.location.href);
-                url.searchParams.set("dismiss_welcome", "1");
-                window.location.replace(url.toString());
-            }
-            // Auto-dismiss after 10 seconds
-            setTimeout(function() {
-                dismissWelcomePopup();
-            }, 10000);
-        </script>
         ''', unsafe_allow_html=True)
         
+        # X button using Streamlit native button (CSS positions it over the popup)
+        if st.button("X", key="welcome_close_btn", type="secondary"):
+            st.session_state.welcome_seen = True
+            st.rerun()
+        
+        # "Let's Get Started" button
         if st.button("Let's Get Started", key="welcome_btn", type="primary"):
             st.session_state.welcome_seen = True
             st.rerun()
