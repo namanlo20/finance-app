@@ -172,6 +172,44 @@ if st.session_state.theme == 'dark':
         box-shadow: 0 4px 15px rgba(255, 68, 68, 0.4) !important;
     }
     
+    /* VIP BUTTON - Gold styling */
+    button[data-testid="baseButton-secondary"]:has(div:contains("👑 Become a VIP")),
+    button:has(p:contains("👑 Become a VIP")) {
+        background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%) !important;
+        color: #000000 !important;
+        border: 2px solid #FFD700 !important;
+        font-weight: bold !important;
+        box-shadow: 0 4px 15px rgba(255, 215, 0, 0.5) !important;
+    }
+    button[data-testid="baseButton-secondary"]:has(div:contains("👑 Become a VIP")):hover,
+    button:has(p:contains("👑 Become a VIP")):hover {
+        background: linear-gradient(135deg, #FFED4E 0%, #FFB520 100%) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 20px rgba(255, 215, 0, 0.6) !important;
+    }
+    
+    /* SIGN UP BUTTON - Green styling */
+    button:has(p:contains("📝 Sign Up")) {
+        background: linear-gradient(135deg, #00C853 0%, #00A843 100%) !important;
+        color: #FFFFFF !important;
+        border: none !important;
+    }
+    button:has(p:contains("📝 Sign Up")):hover {
+        background: linear-gradient(135deg, #00E676 0%, #00C853 100%) !important;
+        box-shadow: 0 4px 15px rgba(0, 200, 83, 0.4) !important;
+    }
+    
+    /* SIGN IN BUTTON - Blue styling */
+    button:has(p:contains("🔐 Sign In")) {
+        background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%) !important;
+        color: #FFFFFF !important;
+        border: none !important;
+    }
+    button:has(p:contains("🔐 Sign In")):hover {
+        background: linear-gradient(135deg, #42A5F5 0%, #2196F3 100%) !important;
+        box-shadow: 0 4px 15px rgba(33, 150, 243, 0.4) !important;
+    }
+    
     /* RED SELECT/DROPDOWN styling */
     div[data-baseweb="select"] {
         background: #FF4444 !important;
@@ -490,6 +528,44 @@ else:
         background: linear-gradient(135deg, #FF6666 0%, #EE0000 100%) !important;
         transform: translateY(-2px) !important;
         box-shadow: 0 4px 15px rgba(255, 68, 68, 0.4) !important;
+    }
+    
+    /* VIP BUTTON - Gold styling */
+    button[data-testid="baseButton-secondary"]:has(div:contains("👑 Become a VIP")),
+    button:has(p:contains("👑 Become a VIP")) {
+        background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%) !important;
+        color: #000000 !important;
+        border: 2px solid #FFD700 !important;
+        font-weight: bold !important;
+        box-shadow: 0 4px 15px rgba(255, 215, 0, 0.5) !important;
+    }
+    button[data-testid="baseButton-secondary"]:has(div:contains("👑 Become a VIP")):hover,
+    button:has(p:contains("👑 Become a VIP")):hover {
+        background: linear-gradient(135deg, #FFED4E 0%, #FFB520 100%) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 20px rgba(255, 215, 0, 0.6) !important;
+    }
+    
+    /* SIGN UP BUTTON - Green styling */
+    button:has(p:contains("📝 Sign Up")) {
+        background: linear-gradient(135deg, #00C853 0%, #00A843 100%) !important;
+        color: #FFFFFF !important;
+        border: none !important;
+    }
+    button:has(p:contains("📝 Sign Up")):hover {
+        background: linear-gradient(135deg, #00E676 0%, #00C853 100%) !important;
+        box-shadow: 0 4px 15px rgba(0, 200, 83, 0.4) !important;
+    }
+    
+    /* SIGN IN BUTTON - Blue styling */
+    button:has(p:contains("🔐 Sign In")) {
+        background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%) !important;
+        color: #FFFFFF !important;
+        border: none !important;
+    }
+    button:has(p:contains("🔐 Sign In")):hover {
+        background: linear-gradient(135deg, #42A5F5 0%, #2196F3 100%) !important;
+        box-shadow: 0 4px 15px rgba(33, 150, 243, 0.4) !important;
     }
     
     /* RED SELECT/DROPDOWN styling */
@@ -2776,6 +2852,23 @@ render_live_ticker_bar()
 show_welcome_popup()
 
 # ============= HEADER =============
+# Top-right buttons (Sign Up, Sign In, Become a VIP) - absolute top position
+top_right_col1, top_right_col2, top_right_col3, top_right_col4 = st.columns([2, 1, 1, 1])
+with top_right_col1:
+    st.write("")  # Empty space
+with top_right_col2:
+    if st.button("📝 Sign Up", key="signup_btn", use_container_width=True):
+        st.info("Sign Up functionality coming soon!")
+with top_right_col3:
+    if st.button("🔐 Sign In", key="signin_btn", use_container_width=True):
+        st.info("Sign In functionality coming soon!")
+with top_right_col4:
+    # VIP button with GOLD styling
+    if st.button("👑 Become a VIP", key="vip_header_btn", use_container_width=True):
+        st.session_state.selected_page = "👑 Become a VIP"
+        st.rerun()
+
+# Main header section
 col1, col2, col3 = st.columns([4, 1.5, 1])
 with col1:
     st.title("💰 Finance Made Simple")
@@ -2784,12 +2877,7 @@ with col2:
     st.markdown("### 🤖 AI-Ready")
     st.caption("FMP Premium")
 with col3:
-    # Become a VIP button - higher position with less top margin
-    st.markdown("<div style='margin-top: -15px;'></div>", unsafe_allow_html=True)
-    if st.button("👑 Become a VIP", key="vip_header_btn", use_container_width=True, type="primary"):
-        st.session_state.selected_page = "👑 Become a VIP"
-        st.rerun()
-    # Toggle Theme button below VIP
+    # Toggle Theme button
     if st.button("🌓 Toggle Theme", use_container_width=True):
         st.session_state.theme = 'light' if st.session_state.theme == 'dark' else 'dark'
         st.rerun()
@@ -2852,8 +2940,7 @@ with st.sidebar:
         action_tools = [
             "📋 Investment Checklist",
             "💼 Paper Portfolio",
-            "👤 Naman's Portfolio",
-            "👑 Become a VIP"
+            "👤 Naman's Portfolio"
         ]
         for tool in action_tools:
             if st.button(tool, key=f"btn_{tool}", use_container_width=True):
