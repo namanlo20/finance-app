@@ -2267,8 +2267,9 @@ def show_welcome_popup():
     
     if dismiss_param == "1":
         st.session_state.welcome_seen = True
-        # Remove the query param
-        del st.query_params["dismiss_welcome"]
+        # Remove the query param (guard against KeyError)
+        if "dismiss_welcome" in st.query_params:
+            del st.query_params["dismiss_welcome"]
         st.rerun()
     
     # Only show popup if not seen
@@ -2322,7 +2323,6 @@ def show_welcome_popup():
             align-items: center;
             justify-content: center;
             transition: all 0.3s ease;
-            text-decoration: none;
         }
         .welcome-close-btn:hover {
             background: #FF4444;
@@ -2331,7 +2331,7 @@ def show_welcome_popup():
         </style>
         <div class="welcome-overlay" id="welcome-overlay">
             <div class="welcome-popup">
-                <a href="?dismiss_welcome=1" class="welcome-close-btn">✕</a>
+                <button class="welcome-close-btn" onclick="dismissWelcomePopup()">✕</button>
                 <h1 style="color: #00D9FF; margin-bottom: 20px;">Welcome to Finance Made Simple! 🚀</h1>
                 <p style="color: #FFFFFF; font-size: 16px; margin-bottom: 20px;">We've upgraded your experience:</p>
                 <ul style="color: #FFFFFF; font-size: 14px; line-height: 2.2; text-align: left; padding-left: 20px;">
@@ -2343,11 +2343,17 @@ def show_welcome_popup():
             </div>
         </div>
         <script>
-            // Auto-dismiss after 10 seconds by navigating to dismiss URL
-            setTimeout(function() {
+            function dismissWelcomePopup() {
+                // Hide overlay immediately for instant UX
+                document.getElementById('welcome-overlay').style.display = 'none';
+                // Navigate in SAME TAB to set query param and trigger Streamlit rerun
                 var url = new URL(window.location.href);
                 url.searchParams.set("dismiss_welcome", "1");
-                window.location.href = url.toString();
+                window.location.replace(url.toString());
+            }
+            // Auto-dismiss after 10 seconds
+            setTimeout(function() {
+                dismissWelcomePopup();
             }, 10000);
         </script>
         ''', unsafe_allow_html=True)
