@@ -2852,8 +2852,9 @@ render_live_ticker_bar()
 show_welcome_popup()
 
 # ============= HEADER =============
-# Top-right buttons (Sign Up, Sign In, Become a VIP) - absolute top position
-top_right_col1, top_right_col2, top_right_col3, top_right_col4 = st.columns([2, 1, 1, 1])
+# Top-right buttons (Sign Up, Sign In, Become a VIP) - ABSOLUTE TOP with no margin
+st.markdown("<div style='margin-top: -50px;'></div>", unsafe_allow_html=True)
+top_right_col1, top_right_col2, top_right_col3, top_right_col4 = st.columns([1.5, 1, 1, 1])
 with top_right_col1:
     st.write("")  # Empty space
 with top_right_col2:
@@ -2868,19 +2869,16 @@ with top_right_col4:
         st.session_state.selected_page = "👑 Become a VIP"
         st.rerun()
 
+st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
+
 # Main header section
-col1, col2, col3 = st.columns([4, 1.5, 1])
+col1, col2 = st.columns([3, 1])
 with col1:
     st.title("💰 Finance Made Simple")
     st.caption("AI-Powered Stock Analysis for Everyone")
 with col2:
     st.markdown("### 🤖 AI-Ready")
     st.caption("FMP Premium")
-with col3:
-    # Toggle Theme button
-    if st.button("🌓 Toggle Theme", use_container_width=True):
-        st.session_state.theme = 'light' if st.session_state.theme == 'dark' else 'dark'
-        st.rerun()
 
 
 
@@ -3013,6 +3011,12 @@ with st.sidebar:
             st.info("Market data loading...")
     except Exception as e:
         st.caption("Market sentiment unavailable")
+    
+    # ============= TOGGLE THEME AT BOTTOM OF SIDEBAR =============
+    st.markdown("---")
+    if st.button("🌓 Toggle Theme", key="sidebar_theme_toggle", use_container_width=True):
+        st.session_state.theme = 'light' if st.session_state.theme == 'dark' else 'dark'
+        st.rerun()
 
 # ============= PAGE CONTENT =============
 
