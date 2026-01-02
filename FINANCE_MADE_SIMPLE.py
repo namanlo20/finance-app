@@ -2258,29 +2258,21 @@ def show_welcome_popup():
     # Initialize session state
     if 'welcome_seen' not in st.session_state:
         st.session_state.welcome_seen = False
-    if 'welcome_first_shown' not in st.session_state:
-        st.session_state.welcome_first_shown = None
     
-    # Check if popup was dismissed via query param (X button click)
-    query_params = st.query_params
-    if query_params.get("dismiss_welcome") == "1":
+    # Check if popup was dismissed via query param (X button click or auto-dismiss)
+    # Note: st.query_params.get() may return a list in some Streamlit versions
+    dismiss_param = st.query_params.get("dismiss_welcome")
+    if isinstance(dismiss_param, (list, tuple)):
+        dismiss_param = dismiss_param[0] if dismiss_param else None
+    
+    if dismiss_param == "1":
         st.session_state.welcome_seen = True
-        # Clear the query param so refresh shows popup again
-        st.query_params.clear()
+        # Remove the query param
+        del st.query_params["dismiss_welcome"]
         st.rerun()
-    
-    # Check if 10 seconds have passed since first shown
-    if st.session_state.welcome_first_shown is not None:
-        elapsed = time.time() - st.session_state.welcome_first_shown
-        if elapsed >= 10:
-            st.session_state.welcome_seen = True
     
     # Only show popup if not seen
     if not st.session_state.welcome_seen:
-        # Record when popup was first shown
-        if st.session_state.welcome_first_shown is None:
-            st.session_state.welcome_first_shown = time.time()
-        
         st.markdown('''
         <style>
         .welcome-overlay {
@@ -2350,6 +2342,14 @@ def show_welcome_popup():
                 </ul>
             </div>
         </div>
+        <script>
+            // Auto-dismiss after 10 seconds by navigating to dismiss URL
+            setTimeout(function() {
+                var url = new URL(window.location.href);
+                url.searchParams.set("dismiss_welcome", "1");
+                window.location.href = url.toString();
+            }, 10000);
+        </script>
         ''', unsafe_allow_html=True)
         
         if st.button("Let's Get Started", key="welcome_btn", type="primary"):
