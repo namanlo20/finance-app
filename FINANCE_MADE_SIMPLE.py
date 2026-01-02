@@ -2845,15 +2845,22 @@ if 'homepage_stock1' not in st.session_state:
 if 'homepage_stock2' not in st.session_state:
     st.session_state.homepage_stock2 = "AMC"
 
-# ============= LIVE TICKER BAR =============
-render_live_ticker_bar()
+# ============= TOP NAVIGATION BUTTONS =============
+# ABSOLUTE TOP - Sign Up, Sign In, Become a VIP
+st.markdown("""
+<style>
+.top-nav-container {
+    position: fixed;
+    top: 0;
+    right: 0;
+    z-index: 999999;
+    padding: 10px 20px;
+    display: flex;
+    gap: 10px;
+}
+</style>
+""", unsafe_allow_html=True)
 
-# ============= WELCOME POPUP FOR FIRST-TIME USERS =============
-show_welcome_popup()
-
-# ============= HEADER =============
-# Top-right buttons (Sign Up, Sign In, Become a VIP) - ABSOLUTE TOP with no margin
-st.markdown("<div style='margin-top: -50px;'></div>", unsafe_allow_html=True)
 top_right_col1, top_right_col2, top_right_col3, top_right_col4 = st.columns([1.5, 1, 1, 1])
 with top_right_col1:
     st.write("")  # Empty space
@@ -2869,9 +2876,13 @@ with top_right_col4:
         st.session_state.selected_page = "👑 Become a VIP"
         st.rerun()
 
-st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
+# ============= LIVE TICKER BAR =============
+render_live_ticker_bar()
 
-# Main header section
+# ============= WELCOME POPUP FOR FIRST-TIME USERS =============
+show_welcome_popup()
+
+# ============= HEADER =============
 col1, col2 = st.columns([3, 1])
 with col1:
     st.title("💰 Finance Made Simple")
