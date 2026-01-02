@@ -500,6 +500,47 @@ else:
         box-shadow: 0 0 10px rgba(255, 68, 68, 0.3) !important;
     }
     
+    /* Sidebar Navigation Buttons - Different style from main action buttons */
+    [data-testid="stSidebar"] .stButton > button {
+        background: rgba(0,0,0,0.05) !important;
+        color: #1e1e1e !important;
+        border: 1px solid rgba(0,0,0,0.2) !important;
+        font-weight: normal !important;
+        text-align: left !important;
+        padding: 8px 12px !important;
+        transition: all 0.2s ease !important;
+    }
+    [data-testid="stSidebar"] .stButton > button:hover {
+        background: rgba(0, 150, 255, 0.2) !important;
+        border-color: #0096FF !important;
+        transform: translateX(5px) !important;
+        box-shadow: none !important;
+    }
+    
+    /* Expander styling in sidebar */
+    [data-testid="stSidebar"] .streamlit-expanderHeader {
+        background: rgba(0,0,0,0.05) !important;
+        border-radius: 8px !important;
+        font-weight: bold !important;
+    }
+    
+    /* Fix text visibility on dark backgrounds in light mode - VIP pricing cards */
+    div[style*="background: #1a1a1a"] {
+        color: #FFFFFF !important;
+    }
+    div[style*="background: #1a1a1a"] h3,
+    div[style*="background: #1a1a1a"] p,
+    div[style*="background: #1a1a1a"] strong {
+        color: #FFFFFF !important;
+    }
+    div[style*="background: linear-gradient(135deg, #1a1a2e"] {
+        color: #FFFFFF !important;
+    }
+    div[style*="background: linear-gradient(135deg, #1a1a2e"] h2,
+    div[style*="background: linear-gradient(135deg, #1a1a2e"] p {
+        color: #FFFFFF !important;
+    }
+    
     p, div, span, li { color: #1e1e1e !important; }
     </style>
     """, unsafe_allow_html=True)
@@ -2703,7 +2744,7 @@ render_live_ticker_bar()
 show_welcome_popup()
 
 # ============= HEADER =============
-col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
+col1, col2, col3 = st.columns([4, 1, 1])
 with col1:
     st.title("💰 Finance Made Simple")
     st.caption("AI-Powered Stock Analysis for Everyone")
@@ -2711,13 +2752,12 @@ with col2:
     st.markdown("### 🤖 AI-Ready")
     st.caption("FMP Premium")
 with col3:
-    # Become a VIP button - larger and prominent
-    st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
+    # Become a VIP button - top right position
     if st.button("👑 Become a VIP", key="vip_header_btn", use_container_width=True, type="primary"):
         st.session_state.selected_page = "👑 Become a VIP"
         st.rerun()
-with col4:
-    if st.button("🌓 Toggle Theme"):
+    # Toggle Theme button below VIP
+    if st.button("🌓 Toggle Theme", use_container_width=True):
         st.session_state.theme = 'light' if st.session_state.theme == 'dark' else 'dark'
         st.rerun()
 
