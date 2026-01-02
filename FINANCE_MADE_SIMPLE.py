@@ -34,11 +34,11 @@ if st.session_state.theme == 'dark':
     st.markdown("""
     <style>
     /* DARK MODE - Pure Black Background with White Text */
-    .main { background: #000000 !important; padding-top: 60px !important; }
+    .main { background: #000000 !important; padding-top: 80px !important; }
     .stApp { background: #000000 !important; }
-    [data-testid="stAppViewContainer"] { background: #000000 !important; padding-top: 60px !important; }
+    [data-testid="stAppViewContainer"] { background: #000000 !important; padding-top: 80px !important; }
     [data-testid="stHeader"] { background: #000000 !important; }
-    [data-testid="stSidebar"] { background: #0a0a0a !important; }
+    [data-testid="stSidebar"] { background: #0a0a0a !important; padding-top: 80px !important; }
     
     /* CRITICAL: Force white text on dark background */
     html, body, .stApp, [data-testid="stAppViewContainer"], 
@@ -416,11 +416,11 @@ else:
     st.markdown("""
     <style>
     /* LIGHT MODE - White Background with Black Text */
-    .main { background: #FFFFFF !important; padding-top: 60px !important; }
+    .main { background: #FFFFFF !important; padding-top: 80px !important; }
     .stApp { background: #FFFFFF !important; }
-    [data-testid="stAppViewContainer"] { background: #FFFFFF !important; padding-top: 60px !important; }
+    [data-testid="stAppViewContainer"] { background: #FFFFFF !important; padding-top: 80px !important; }
     [data-testid="stHeader"] { background: #FFFFFF !important; }
-    [data-testid="stSidebar"] { background: #F5F5F5 !important; }
+    [data-testid="stSidebar"] { background: #F5F5F5 !important; padding-top: 80px !important; }
     
     /* Force black text on white background */
     html, body, .stApp, [data-testid="stAppViewContainer"], 
@@ -2846,25 +2846,43 @@ if 'homepage_stock2' not in st.session_state:
     st.session_state.homepage_stock2 = "AMC"
 
 # ============= TOP NAVIGATION BUTTONS =============
-# ABSOLUTE TOP - Sign Up, Sign In, Become a VIP
-st.markdown("<div style='margin-top: -80px; margin-bottom: 20px;'></div>", unsafe_allow_html=True)
+# FROZEN TOP BAR - Sign Up, Sign In, Become a VIP (stays fixed while scrolling)
+st.markdown("""
+<style>
+/* Container for frozen top buttons */
+.frozen-top-bar {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 100%;
+    z-index: 999999;
+    background: #000000;
+    padding: 10px 20px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+}
+</style>
+""", unsafe_allow_html=True)
 
-top_right_col1, top_right_col2, top_right_col3, top_right_col4 = st.columns([1.5, 1, 1, 1])
-with top_right_col1:
-    st.write("")  # Empty space
-with top_right_col2:
+# Use container_width for buttons
+cols = st.columns([2, 1, 1, 1])
+with cols[0]:
+    st.write("")  # Spacer
+with cols[1]:
     if st.button("📝 Sign Up", key="signup_btn", use_container_width=True):
         st.info("Sign Up functionality coming soon!")
-with top_right_col3:
+with cols[2]:
     if st.button("🔐 Sign In", key="signin_btn", use_container_width=True):
         st.info("Sign In functionality coming soon!")
-with top_right_col4:
-    # VIP button with GOLD styling
+with cols[3]:
     if st.button("👑 Become a VIP", key="vip_header_btn", use_container_width=True):
         st.session_state.selected_page = "👑 Become a VIP"
         st.rerun()
 
-st.markdown("<div style='margin-bottom: 30px;'></div>", unsafe_allow_html=True)
+# Add spacing so content doesn't hide under frozen buttons
+st.markdown("<div style='margin-bottom: 20px;'></div>", unsafe_allow_html=True)
 
 # ============= LIVE TICKER BAR =============
 render_live_ticker_bar()
@@ -2887,7 +2905,7 @@ with col2:
 with st.sidebar:
     st.markdown("## 📚 Navigation")
     
-    # Global Timeline Picker at TOP of sidebar
+    # Global Timeline Picker
     st.markdown("### ⏱️ Timeline")
     selected_timeline = st.slider(
         "Years of History:",
@@ -2951,11 +2969,7 @@ with st.sidebar:
     
     st.markdown("---")
     
-    if 'analysis_view' not in st.session_state:
-        st.session_state.analysis_view = "🌟 The Big Picture"
-    
-    # ============= FEAR & GREED GAUGE =============
-    st.markdown("---")
+    # ============= MARKET SENTIMENT (Below Action Group) =============
     st.markdown("### 📊 Market Sentiment")
     
     # Calculate a simple Fear & Greed proxy based on S&P 500 momentum
@@ -2971,12 +2985,6 @@ with st.sidebar:
             momentum_20d = ((current_price - price_20d_ago) / price_20d_ago) * 100
             
             # Map momentum to Fear/Greed scale (0-100)
-            # -10% or worse = Extreme Fear (0-20)
-            # -5% to -10% = Fear (20-40)
-            # -5% to +5% = Neutral (40-60)
-            # +5% to +10% = Greed (60-80)
-            # +10% or better = Extreme Greed (80-100)
-            
             if momentum_20d <= -10:
                 sentiment_score = max(0, 20 + momentum_20d)
                 sentiment_label = "Extreme Fear"
@@ -3012,6 +3020,12 @@ with st.sidebar:
             st.info("Market data loading...")
     except Exception as e:
         st.caption("Market sentiment unavailable")
+    
+    st.markdown("---")
+    
+    if 'analysis_view' not in st.session_state:
+        st.session_state.analysis_view = "🌟 The Big Picture"
+    
     
     # ============= TOGGLE THEME AT BOTTOM OF SIDEBAR =============
     st.markdown("---")
