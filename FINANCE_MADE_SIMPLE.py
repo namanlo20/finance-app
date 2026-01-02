@@ -34,9 +34,9 @@ if st.session_state.theme == 'dark':
     st.markdown("""
     <style>
     /* DARK MODE - Pure Black Background with White Text */
-    .main { background: #000000 !important; }
+    .main { background: #000000 !important; padding-top: 60px !important; }
     .stApp { background: #000000 !important; }
-    [data-testid="stAppViewContainer"] { background: #000000 !important; }
+    [data-testid="stAppViewContainer"] { background: #000000 !important; padding-top: 60px !important; }
     [data-testid="stHeader"] { background: #000000 !important; }
     [data-testid="stSidebar"] { background: #0a0a0a !important; }
     
@@ -416,9 +416,9 @@ else:
     st.markdown("""
     <style>
     /* LIGHT MODE - White Background with Black Text */
-    .main { background: #FFFFFF !important; }
+    .main { background: #FFFFFF !important; padding-top: 60px !important; }
     .stApp { background: #FFFFFF !important; }
-    [data-testid="stAppViewContainer"] { background: #FFFFFF !important; }
+    [data-testid="stAppViewContainer"] { background: #FFFFFF !important; padding-top: 60px !important; }
     [data-testid="stHeader"] { background: #FFFFFF !important; }
     [data-testid="stSidebar"] { background: #F5F5F5 !important; }
     
@@ -2847,19 +2847,7 @@ if 'homepage_stock2' not in st.session_state:
 
 # ============= TOP NAVIGATION BUTTONS =============
 # ABSOLUTE TOP - Sign Up, Sign In, Become a VIP
-st.markdown("""
-<style>
-.top-nav-container {
-    position: fixed;
-    top: 0;
-    right: 0;
-    z-index: 999999;
-    padding: 10px 20px;
-    display: flex;
-    gap: 10px;
-}
-</style>
-""", unsafe_allow_html=True)
+st.markdown("<div style='margin-top: -80px; margin-bottom: 20px;'></div>", unsafe_allow_html=True)
 
 top_right_col1, top_right_col2, top_right_col3, top_right_col4 = st.columns([1.5, 1, 1, 1])
 with top_right_col1:
@@ -2875,6 +2863,8 @@ with top_right_col4:
     if st.button("👑 Become a VIP", key="vip_header_btn", use_container_width=True):
         st.session_state.selected_page = "👑 Become a VIP"
         st.rerun()
+
+st.markdown("<div style='margin-bottom: 30px;'></div>", unsafe_allow_html=True)
 
 # ============= LIVE TICKER BAR =============
 render_live_ticker_bar()
