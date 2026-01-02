@@ -2970,6 +2970,20 @@ if 'show_signup_popup' not in st.session_state:
 # ============= TOP NAVIGATION BUTTONS =============
 # FROZEN TOP BAR
 st.markdown(f"""
+<style>
+/* Hide trigger button container */
+.trigger-container {{
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    width: 0 !important;
+    overflow: hidden !important;
+    position: absolute !important;
+    left: -99999px !important;
+    top: -99999px !important;
+}}
+</style>
+
 <div style="position: fixed; top: 0; right: 0; left: 0; z-index: 9999999; 
             background: {'#000000' if st.session_state.theme == 'dark' else '#FFFFFF'}; 
             padding: 10px 20px; display: flex; justify-content: flex-end; gap: 15px;
@@ -2987,20 +3001,6 @@ st.markdown(f"""
             color: white; padding: 10px 24px; border-radius: 8px; border: none;
             font-weight: bold; cursor: pointer;">👑 Become a VIP</button>
 </div>
-
-<style>
-/* Hide trigger button container */
-.trigger-container {
-    display: none !important;
-    visibility: hidden !important;
-    height: 0 !important;
-    width: 0 !important;
-    overflow: hidden !important;
-    position: absolute !important;
-    left: -99999px !important;
-    top: -99999px !important;
-}
-</style>
 """, unsafe_allow_html=True)
 
 # Add spacing
