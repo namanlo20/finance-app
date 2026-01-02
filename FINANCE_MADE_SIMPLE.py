@@ -2627,8 +2627,9 @@ def show_welcome_popup():
 
 # ============= SIGN UP POPUP =============
 def show_signup_popup():
-    """Show sign up popup when triggered"""
+    """Show sign up popup when triggered - HTML overlay like welcome popup"""
     if st.session_state.show_signup_popup:
+        # HTML-based popup overlay (similar to welcome popup)
         st.markdown('''
         <style>
         .signup-overlay {
@@ -2637,7 +2638,7 @@ def show_signup_popup():
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(0, 0, 0, 0.9);
+            background: rgba(0, 0, 0, 0.95);
             z-index: 10001;
             display: flex;
             justify-content: center;
@@ -2651,11 +2652,17 @@ def show_signup_popup():
             max-width: 500px;
             width: 90%;
             position: relative;
+            max-height: 90vh;
+            overflow-y: auto;
         }
-        .signup-close-btn {
+        .signup-close-form {
             position: absolute;
             top: 15px;
             right: 15px;
+            margin: 0;
+            padding: 0;
+        }
+        .signup-close-btn {
             background: transparent;
             border: 2px solid #FF4444;
             color: #FF4444;
@@ -2665,83 +2672,92 @@ def show_signup_popup():
             border-radius: 50%;
             cursor: pointer;
             transition: all 0.3s ease;
+            padding: 0;
+            line-height: 1;
         }
         .signup-close-btn:hover {
             background: #FF4444;
             color: #FFFFFF;
         }
         </style>
+        <div class="signup-overlay">
+            <div class="signup-popup">
+                <form class="signup-close-form" method="get">
+                    <button class="signup-close-btn" type="submit" name="close_signup" value="1">×</button>
+                </form>
+                <h2 style="color: #FF4444; text-align: center; margin-bottom: 10px;">📝 Create Your Account</h2>
+                <p style="color: #FFFFFF; text-align: center; margin-bottom: 20px;">Join Investing Made Simple today!</p>
+            </div>
+        </div>
         ''', unsafe_allow_html=True)
         
-        # Create overlay
-        with st.container():
-            st.markdown('<div class="signup-overlay">', unsafe_allow_html=True)
-            st.markdown('<div class="signup-popup">', unsafe_allow_html=True)
+        # Check if popup was closed
+        close_param = st.query_params.get("close_signup")
+        if isinstance(close_param, (list, tuple)):
+            close_param = close_param[0] if close_param else None
+        
+        if close_param == "1":
+            st.session_state.show_signup_popup = False
+            if "close_signup" in st.query_params:
+                del st.query_params["close_signup"]
+            st.rerun()
+        
+        # Streamlit form below the HTML overlay
+        with st.form("signup_form"):
+            st.markdown("<div style='color: #FFFFFF;'>", unsafe_allow_html=True)
+            name = st.text_input("Full Name", placeholder="John Doe", label_visibility="visible")
+            email = st.text_input("Email Address", placeholder="john@example.com")
+            phone = st.text_input("Phone Number", placeholder="+1 (555) 123-4567")
+            age = st.number_input("Age", min_value=18, max_value=120, value=25)
+            password = st.text_input("Create Password", type="password", placeholder="Enter a strong password")
+            password_confirm = st.text_input("Confirm Password", type="password", placeholder="Re-enter your password")
+            st.markdown("</div>", unsafe_allow_html=True)
             
-            # Close button
-            if st.button("×", key="close_signup"):
-                st.session_state.show_signup_popup = False
-                st.rerun()
+            submitted = st.form_submit_button("Create Account", use_container_width=True)
             
-            st.markdown("<h2 style='color: #FF4444; text-align: center;'>📝 Create Your Account</h2>", unsafe_allow_html=True)
-            st.markdown("<p style='color: #FFFFFF; text-align: center;'>Join Investing Made Simple today!</p>", unsafe_allow_html=True)
-            
-            # Sign up form
-            with st.form("signup_form"):
-                name = st.text_input("Full Name", placeholder="John Doe")
-                email = st.text_input("Email Address", placeholder="john@example.com")
-                phone = st.text_input("Phone Number", placeholder="+1 (555) 123-4567")
-                age = st.number_input("Age", min_value=18, max_value=120, value=25)
-                password = st.text_input("Create Password", type="password", placeholder="Enter a strong password")
-                password_confirm = st.text_input("Confirm Password", type="password", placeholder="Re-enter your password")
-                
-                submitted = st.form_submit_button("Create Account", use_container_width=True)
-                
-                if submitted:
-                    # Validation
-                    if not all([name, email, phone, password, password_confirm]):
-                        st.error("❌ Please fill in all fields")
-                    elif password != password_confirm:
-                        st.error("❌ Passwords don't match")
-                    elif len(password) < 8:
-                        st.error("❌ Password must be at least 8 characters")
-                    elif "@" not in email or "." not in email:
-                        st.error("❌ Please enter a valid email address")
-                    else:
-                        # Sign up with Supabase
-                        if SUPABASE_ENABLED:
-                            try:
-                                # Create user with Supabase Auth
-                                response = supabase.auth.sign_up({
-                                    "email": email,
-                                    "password": password,
-                                    "options": {
-                                        "data": {
-                                            "name": name,
-                                            "phone": phone,
-                                            "age": age
-                                        }
+            if submitted:
+                # Validation
+                if not all([name, email, phone, password, password_confirm]):
+                    st.error("❌ Please fill in all fields")
+                elif password != password_confirm:
+                    st.error("❌ Passwords don't match")
+                elif len(password) < 8:
+                    st.error("❌ Password must be at least 8 characters")
+                elif "@" not in email or "." not in email:
+                    st.error("❌ Please enter a valid email address")
+                else:
+                    # Sign up with Supabase
+                    if SUPABASE_ENABLED:
+                        try:
+                            # Create user with Supabase Auth
+                            response = supabase.auth.sign_up({
+                                "email": email,
+                                "password": password,
+                                "options": {
+                                    "data": {
+                                        "name": name,
+                                        "phone": phone,
+                                        "age": age
                                     }
-                                })
-                                
-                                if response.user:
-                                    st.success("✅ Account created successfully! Please check your email to verify.")
-                                    st.balloons()
-                                    st.session_state.show_signup_popup = False
-                                    st.rerun()
-                                else:
-                                    st.error("❌ Error creating account. Please try again.")
-                            except Exception as e:
-                                error_msg = str(e)
-                                if "already registered" in error_msg.lower():
-                                    st.error("❌ This email is already registered. Please sign in instead.")
-                                else:
-                                    st.error(f"❌ Error: {error_msg}")
-                        else:
-                            st.error("❌ Authentication service not available. Please contact support.")
-            
-            st.markdown('</div>', unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
+                                }
+                            })
+                            
+                            if response.user:
+                                st.success("✅ Account created successfully! Please check your email to verify.")
+                                st.balloons()
+                                st.session_state.show_signup_popup = False
+                                st.rerun()
+                            else:
+                                st.error("❌ Error creating account. Please try again.")
+                        except Exception as e:
+                            error_msg = str(e)
+                            if "already registered" in error_msg.lower():
+                                st.error("❌ This email is already registered. Please sign in instead.")
+                            else:
+                                st.error(f"❌ Error: {error_msg}")
+                    else:
+                        st.error("❌ Authentication service not available. Please contact support.")
+
 
 # ============= COFFEE COMPARISON CALCULATOR =============
 def calculate_coffee_investment(ticker, weekly_amount, years=5):
@@ -2982,14 +2998,13 @@ if 'show_signup_popup' not in st.session_state:
     st.session_state.show_signup_popup = False
 
 # ============= TOP NAVIGATION BUTTONS =============
-# FROZEN TOP BAR - Using JavaScript for same-tab navigation
+# FROZEN TOP BAR
 st.markdown(f"""
 <div style="position: fixed; top: 0; right: 0; left: 0; z-index: 9999999; 
             background: {'#000000' if st.session_state.theme == 'dark' else '#FFFFFF'}; 
             padding: 10px 20px; display: flex; justify-content: flex-end; gap: 15px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.3);">
-    <button onclick="window.parent.postMessage({{type: 'streamlit:setComponentValue', data: {{event: 'signup'}}}}, '*')" 
-            id="signup_frozen_btn"
+    <button onclick="var btns = parent.document.querySelectorAll('button'); for(var i=0; i<btns.length; i++){{ if(btns[i].innerText.includes('signup_trigger')){{ btns[i].click(); break; }} }}" 
             style="background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%); 
             color: white; padding: 10px 24px; border-radius: 8px; border: none;
             font-weight: bold; cursor: pointer;">📝 Sign Up</button>
@@ -2997,47 +3012,18 @@ st.markdown(f"""
             style="background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%); 
             color: white; padding: 10px 24px; border-radius: 8px; border: none;
             font-weight: bold; cursor: pointer;">🔐 Sign In</button>
-    <button onclick="window.parent.postMessage({{type: 'streamlit:setComponentValue', data: {{event: 'vip'}}}}, '*')" 
-            id="vip_frozen_btn"
+    <button onclick="var btns = parent.document.querySelectorAll('button'); for(var i=0; i<btns.length; i++){{ if(btns[i].innerText.includes('vip_trigger')){{ btns[i].click(); break; }} }}" 
             style="background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%); 
             color: white; padding: 10px 24px; border-radius: 8px; border: none;
             font-weight: bold; cursor: pointer;">👑 Become a VIP</button>
 </div>
-
-<script>
-// Trigger Streamlit buttons when frozen buttons are clicked
-document.getElementById('signup_frozen_btn').addEventListener('click', function() {{
-    const signupBtn = window.parent.document.querySelector('[data-testid="baseButton-secondary"]');
-    if (signupBtn && signupBtn.textContent.includes('signup_trigger')) {{
-        signupBtn.click();
-    }}
-}});
-
-document.getElementById('vip_frozen_btn').addEventListener('click', function() {{
-    const vipBtn = window.parent.document.querySelector('[data-testid="baseButton-secondary"]');
-    if (vipBtn && vipBtn.textContent.includes('vip_trigger')) {{
-        vipBtn.click();
-    }}
-}});
-</script>
 """, unsafe_allow_html=True)
 
-# Hidden trigger buttons - COMPLETELY HIDDEN with display:none
-st.markdown("""
-<style>
-/* Hide trigger buttons completely */
-button:has(p:contains("signup_trigger")),
-button:has(p:contains("vip_trigger")),
-[data-testid*="signup_trigger"],
-[data-testid*="vip_trigger"] {
-    display: none !important;
-    visibility: hidden !important;
-    position: absolute !important;
-    left: -9999px !important;
-}
-</style>
-""", unsafe_allow_html=True)
+# Add spacing
+st.markdown("<div style='margin-bottom: 80px;'></div>", unsafe_allow_html=True)
 
+# Hidden trigger buttons - positioned WAY off screen
+st.markdown("<div style='position: absolute; left: -99999px; top: -99999px;'>", unsafe_allow_html=True)
 col1, col2 = st.columns(2)
 with col1:
     if st.button("signup_trigger", key="signup_trigger"):
@@ -3047,9 +3033,7 @@ with col2:
     if st.button("vip_trigger", key="vip_trigger"):
         st.session_state.selected_page = "👑 Become a VIP"
         st.rerun()
-
-# Add spacing for content below frozen bar
-st.markdown("<div style='margin-bottom: 30px;'></div>", unsafe_allow_html=True)
+st.markdown("</div>", unsafe_allow_html=True)
 
 # ============= LIVE TICKER BAR =============
 render_live_ticker_bar()
