@@ -174,10 +174,40 @@ if st.session_state.theme == 'dark':
     
     /* RED SELECT/DROPDOWN styling */
     div[data-baseweb="select"] {
+        background: #FF4444 !important;
         border: 2px solid #FF4444 !important;
         border-radius: 8px !important;
     }
     div[data-baseweb="select"]:hover {
+        background: #FF6666 !important;
+        border-color: #FF6666 !important;
+        box-shadow: 0 0 10px rgba(255, 68, 68, 0.3) !important;
+    }
+    div[data-baseweb="select"] > div,
+    div[data-baseweb="select"] input,
+    div[data-baseweb="select"] span,
+    div[data-baseweb="select"] [role="button"] {
+        background: #FF4444 !important;
+        color: #FFFFFF !important;
+        font-weight: bold !important;
+    }
+    
+    /* RED TEXT INPUT styling */
+    input[type="text"],
+    input[type="number"],
+    .stTextInput input,
+    .stNumberInput input {
+        background: #FF4444 !important;
+        color: #FFFFFF !important;
+        font-weight: bold !important;
+        border: 2px solid #FF4444 !important;
+        border-radius: 8px !important;
+    }
+    input[type="text"]:focus,
+    input[type="number"]:focus,
+    .stTextInput input:focus,
+    .stNumberInput input:focus {
+        background: #FF6666 !important;
         border-color: #FF6666 !important;
         box-shadow: 0 0 10px rgba(255, 68, 68, 0.3) !important;
     }
@@ -390,6 +420,61 @@ else:
         font-size: 1em;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
+    
+    /* RED BUTTONS - Global styling for Analyze buttons */
+    .stButton > button {
+        background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%) !important;
+        color: #FFFFFF !important;
+        border: none !important;
+        font-weight: bold !important;
+        transition: all 0.3s ease !important;
+    }
+    .stButton > button:hover {
+        background: linear-gradient(135deg, #FF6666 0%, #EE0000 100%) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 4px 15px rgba(255, 68, 68, 0.4) !important;
+    }
+    
+    /* RED SELECT/DROPDOWN styling */
+    div[data-baseweb="select"] {
+        background: #FF4444 !important;
+        border: 2px solid #FF4444 !important;
+        border-radius: 8px !important;
+    }
+    div[data-baseweb="select"]:hover {
+        background: #FF6666 !important;
+        border-color: #FF6666 !important;
+        box-shadow: 0 0 10px rgba(255, 68, 68, 0.3) !important;
+    }
+    div[data-baseweb="select"] > div,
+    div[data-baseweb="select"] input,
+    div[data-baseweb="select"] span,
+    div[data-baseweb="select"] [role="button"] {
+        background: #FF4444 !important;
+        color: #FFFFFF !important;
+        font-weight: bold !important;
+    }
+    
+    /* RED TEXT INPUT styling */
+    input[type="text"],
+    input[type="number"],
+    .stTextInput input,
+    .stNumberInput input {
+        background: #FF4444 !important;
+        color: #FFFFFF !important;
+        font-weight: bold !important;
+        border: 2px solid #FF4444 !important;
+        border-radius: 8px !important;
+    }
+    input[type="text"]:focus,
+    input[type="number"]:focus,
+    .stTextInput input:focus,
+    .stNumberInput input:focus {
+        background: #FF6666 !important;
+        border-color: #FF6666 !important;
+        box-shadow: 0 0 10px rgba(255, 68, 68, 0.3) !important;
+    }
+    
     p, div, span, li { color: #1e1e1e !important; }
     </style>
     """, unsafe_allow_html=True)
