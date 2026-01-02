@@ -377,9 +377,33 @@ if st.session_state.theme == 'dark':
 else:
     st.markdown("""
     <style>
-    .main { background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); }
-    h1, h2, h3 { color: #1e1e1e !important; }
-    .stMetric { background: rgba(255,255,255,0.9); padding: 15px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    /* LIGHT MODE - White Background with Black Text */
+    .main { background: #FFFFFF !important; }
+    .stApp { background: #FFFFFF !important; }
+    [data-testid="stAppViewContainer"] { background: #FFFFFF !important; }
+    [data-testid="stHeader"] { background: #FFFFFF !important; }
+    [data-testid="stSidebar"] { background: #F5F5F5 !important; }
+    
+    /* Force black text on white background */
+    html, body, .stApp, [data-testid="stAppViewContainer"], 
+    [data-testid="stSidebar"], p, span, div, label, li, td, th,
+    .stMarkdown, .stText, [data-testid="stMarkdownContainer"],
+    .element-container, .stRadio label, .stSelectbox label,
+    .stTextInput label, .stSlider label, .stCheckbox label {
+        color: #000000 !important;
+    }
+    
+    h1, h2, h3, h4, h5, h6 { color: #000000 !important; }
+    a { color: #0066CC !important; }
+    
+    .stMetric { background: rgba(240,240,240,0.9); padding: 15px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .stMetric label, .stMetric [data-testid="stMetricValue"], .stMetric [data-testid="stMetricDelta"] {
+        color: #000000 !important;
+    }
+    
+    /* Dataframe/Table text */
+    .stDataFrame, .dataframe, table, tr, td, th { color: #000000 !important; }
+    
     .why-box { 
         background: rgba(255,255,255,0.9); 
         padding: 20px; 
@@ -387,6 +411,7 @@ else:
         border-left: 5px solid #00D9FF;
         margin: 10px 0;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        color: #000000 !important;
     }
     .personal-budget {
         background: rgba(255,235,180,0.9);
@@ -394,6 +419,7 @@ else:
         border-radius: 10px;
         border-left: 5px solid #FFD700;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        color: #000000 !important;
     }
     .risk-warning {
         background: rgba(255,200,200,0.9);
@@ -401,6 +427,7 @@ else:
         border-radius: 10px;
         border-left: 5px solid #FF0000;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        color: #000000 !important;
     }
     .risk-good {
         background: rgba(200,255,200,0.9);
@@ -408,6 +435,7 @@ else:
         border-radius: 10px;
         border-left: 5px solid #00FF00;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        color: #000000 !important;
     }
     .roast-box {
         background: rgba(255,220,220,0.9);
@@ -417,6 +445,7 @@ else:
         margin: 15px 0;
         font-size: 1.1em;
         box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        color: #000000 !important;
     }
     .metric-explain {
         background: rgba(240,248,255,0.95);
@@ -426,6 +455,7 @@ else:
         font-size: 0.9em;
         border-left: 3px solid #00D9FF;
         box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        color: #000000 !important;
     }
     .sector-info {
         background: rgba(255,250,205,0.95);
@@ -435,6 +465,7 @@ else:
         font-size: 0.85em;
         border-left: 3px solid #FFD700;
         box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        color: #000000 !important;
     }
     .growth-note {
         background: rgba(200,255,220,0.95);
@@ -444,6 +475,7 @@ else:
         margin: 10px 0;
         font-size: 1em;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        color: #000000 !important;
     }
     
     /* RED BUTTONS - Global styling for Analyze buttons */
@@ -541,7 +573,7 @@ else:
         color: #FFFFFF !important;
     }
     
-    p, div, span, li { color: #1e1e1e !important; }
+    p, div, span, li { color: #000000 !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -2744,7 +2776,7 @@ render_live_ticker_bar()
 show_welcome_popup()
 
 # ============= HEADER =============
-col1, col2, col3 = st.columns([4, 1, 1])
+col1, col2, col3 = st.columns([4, 1.5, 1])
 with col1:
     st.title("💰 Finance Made Simple")
     st.caption("AI-Powered Stock Analysis for Everyone")
@@ -2752,7 +2784,8 @@ with col2:
     st.markdown("### 🤖 AI-Ready")
     st.caption("FMP Premium")
 with col3:
-    # Become a VIP button - top right position
+    # Become a VIP button - higher position with less top margin
+    st.markdown("<div style='margin-top: -15px;'></div>", unsafe_allow_html=True)
     if st.button("👑 Become a VIP", key="vip_header_btn", use_container_width=True, type="primary"):
         st.session_state.selected_page = "👑 Become a VIP"
         st.rerun()
