@@ -2988,7 +2988,8 @@ st.markdown(f"""
             background: {'#000000' if st.session_state.theme == 'dark' else '#FFFFFF'}; 
             padding: 10px 20px; display: flex; justify-content: flex-end; gap: 15px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.3);">
-    <button onclick="document.getElementById('signup_trigger').click()" 
+    <button onclick="window.parent.postMessage({{type: 'streamlit:setComponentValue', data: {{event: 'signup'}}}}, '*')" 
+            id="signup_frozen_btn"
             style="background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%); 
             color: white; padding: 10px 24px; border-radius: 8px; border: none;
             font-weight: bold; cursor: pointer;">📝 Sign Up</button>
@@ -2996,14 +2997,47 @@ st.markdown(f"""
             style="background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%); 
             color: white; padding: 10px 24px; border-radius: 8px; border: none;
             font-weight: bold; cursor: pointer;">🔐 Sign In</button>
-    <button onclick="document.getElementById('vip_trigger').click()" 
+    <button onclick="window.parent.postMessage({{type: 'streamlit:setComponentValue', data: {{event: 'vip'}}}}, '*')" 
+            id="vip_frozen_btn"
             style="background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%); 
             color: white; padding: 10px 24px; border-radius: 8px; border: none;
             font-weight: bold; cursor: pointer;">👑 Become a VIP</button>
 </div>
+
+<script>
+// Trigger Streamlit buttons when frozen buttons are clicked
+document.getElementById('signup_frozen_btn').addEventListener('click', function() {{
+    const signupBtn = window.parent.document.querySelector('[data-testid="baseButton-secondary"]');
+    if (signupBtn && signupBtn.textContent.includes('signup_trigger')) {{
+        signupBtn.click();
+    }}
+}});
+
+document.getElementById('vip_frozen_btn').addEventListener('click', function() {{
+    const vipBtn = window.parent.document.querySelector('[data-testid="baseButton-secondary"]');
+    if (vipBtn && vipBtn.textContent.includes('vip_trigger')) {{
+        vipBtn.click();
+    }}
+}});
+</script>
 """, unsafe_allow_html=True)
 
-# Hidden trigger buttons for Streamlit functionality
+# Hidden trigger buttons - COMPLETELY HIDDEN with display:none
+st.markdown("""
+<style>
+/* Hide trigger buttons completely */
+button:has(p:contains("signup_trigger")),
+button:has(p:contains("vip_trigger")),
+[data-testid*="signup_trigger"],
+[data-testid*="vip_trigger"] {
+    display: none !important;
+    visibility: hidden !important;
+    position: absolute !important;
+    left: -9999px !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
 col1, col2 = st.columns(2)
 with col1:
     if st.button("signup_trigger", key="signup_trigger"):
@@ -3013,16 +3047,6 @@ with col2:
     if st.button("vip_trigger", key="vip_trigger"):
         st.session_state.selected_page = "👑 Become a VIP"
         st.rerun()
-
-# Hide the trigger buttons with CSS
-st.markdown("""
-<style>
-button[kind="secondary"][data-testid*="signup_trigger"],
-button[kind="secondary"][data-testid*="vip_trigger"] {
-    display: none !important;
-}
-</style>
-""", unsafe_allow_html=True)
 
 # Add spacing for content below frozen bar
 st.markdown("<div style='margin-bottom: 30px;'></div>", unsafe_allow_html=True)
