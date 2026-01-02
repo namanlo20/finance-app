@@ -2272,7 +2272,7 @@ def show_welcome_popup():
     
     # Only show popup if not seen
     if not st.session_state.welcome_seen:
-        # CSS for popup overlay and styling
+        # CSS for popup overlay and styling + HTML with form-based X button
         st.markdown('''
         <style>
         .welcome-overlay {
@@ -2296,34 +2296,60 @@ def show_welcome_popup():
             text-align: center;
             position: relative;
         }
-        /* Style the Streamlit X button to look like a close button */
-        div[data-testid="stButton"]:has(button[kind="secondary"]):first-of-type {
-            position: fixed !important;
-            top: 50% !important;
-            left: 50% !important;
-            transform: translate(200px, -180px) !important;
-            z-index: 10001 !important;
+        .welcome-close-form {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            margin: 0;
+            padding: 0;
         }
-        div[data-testid="stButton"]:has(button[kind="secondary"]):first-of-type button {
-            background: transparent !important;
-            border: 2px solid #FF4444 !important;
-            color: #FF4444 !important;
-            border-radius: 50% !important;
-            width: 35px !important;
-            height: 35px !important;
-            padding: 0 !important;
-            min-height: 0 !important;
-            font-size: 18px !important;
+        .welcome-close-btn {
+            background: transparent;
+            border: 2px solid #FF4444;
+            color: #FF4444;
+            font-size: 20px;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            padding: 0;
+            line-height: 1;
         }
-        div[data-testid="stButton"]:has(button[kind="secondary"]):first-of-type button:hover {
-            background: #FF4444 !important;
-            color: #FFFFFF !important;
+        .welcome-close-btn:hover {
+            background: #FF4444;
+            color: #FFFFFF;
+        }
+        .welcome-start-form {
+            margin-top: 20px;
+        }
+        .welcome-start-btn {
+            background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%);
+            border: none;
+            color: #FFFFFF;
+            font-size: 18px;
+            font-weight: bold;
+            padding: 15px 40px;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .welcome-start-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(255, 68, 68, 0.5);
         }
         </style>
         <!-- Auto-dismiss after 10 seconds using meta refresh (no JS needed, works in same tab) -->
         <meta http-equiv="refresh" content="10;url=?dismiss_welcome=1">
         <div class="welcome-overlay">
             <div class="welcome-popup">
+                <!-- X button using HTML form GET submit (works in same tab, no JS needed) -->
+                <form class="welcome-close-form" method="get">
+                    <button class="welcome-close-btn" type="submit" name="dismiss_welcome" value="1">×</button>
+                </form>
                 <h1 style="color: #00D9FF; margin-bottom: 20px;">Welcome to Finance Made Simple!</h1>
                 <p style="color: #FFFFFF; font-size: 16px; margin-bottom: 20px;">We've upgraded your experience:</p>
                 <ul style="color: #FFFFFF; font-size: 14px; line-height: 2.2; text-align: left; padding-left: 20px;">
@@ -2332,19 +2358,13 @@ def show_welcome_popup():
                     <li><strong>Simpler Metrics:</strong> Hover over any number for a 'Sweet & Simple' explanation.</li>
                     <li><strong>Live Updates:</strong> Watch the top ticker for real-time prices.</li>
                 </ul>
+                <!-- Let's Get Started button using HTML form GET submit -->
+                <form class="welcome-start-form" method="get">
+                    <button class="welcome-start-btn" type="submit" name="dismiss_welcome" value="1">Let's Get Started</button>
+                </form>
             </div>
         </div>
         ''', unsafe_allow_html=True)
-        
-        # X button using Streamlit native button (CSS positions it over the popup)
-        if st.button("X", key="welcome_close_btn", type="secondary"):
-            st.session_state.welcome_seen = True
-            st.rerun()
-        
-        # "Let's Get Started" button
-        if st.button("Let's Get Started", key="welcome_btn", type="primary"):
-            st.session_state.welcome_seen = True
-            st.rerun()
 
 # ============= COFFEE COMPARISON CALCULATOR =============
 def calculate_coffee_investment(ticker, weekly_amount, years=5):
