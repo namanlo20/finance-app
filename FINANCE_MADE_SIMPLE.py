@@ -2703,7 +2703,7 @@ render_live_ticker_bar()
 show_welcome_popup()
 
 # ============= HEADER =============
-col1, col2, col3 = st.columns([4, 1, 1])
+col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
 with col1:
     st.title("💰 Finance Made Simple")
     st.caption("AI-Powered Stock Analysis for Everyone")
@@ -2711,6 +2711,12 @@ with col2:
     st.markdown("### 🤖 AI-Ready")
     st.caption("FMP Premium")
 with col3:
+    # Become a VIP button - larger and prominent
+    st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
+    if st.button("👑 Become a VIP", key="vip_header_btn", use_container_width=True, type="primary"):
+        st.session_state.selected_page = "👑 Become a VIP"
+        st.rerun()
+with col4:
     if st.button("🌓 Toggle Theme"):
         st.session_state.theme = 'light' if st.session_state.theme == 'dark' else 'dark'
         st.rerun()
@@ -2773,7 +2779,8 @@ with st.sidebar:
         action_tools = [
             "📋 Investment Checklist",
             "💼 Paper Portfolio",
-            "👤 Naman's Portfolio"
+            "👤 Naman's Portfolio",
+            "👑 Become a VIP"
         ]
         for tool in action_tools:
             if st.button(tool, key=f"btn_{tool}", use_container_width=True):
@@ -5535,111 +5542,14 @@ elif selected_page == "👤 Naman's Portfolio":
         {"ticker": "SPGI", "name": "S&P Global", "sector": "Financials", "weight": 10.53},
     ]
     
-    # Initialize selected tier in session state
+    # Initialize selected tier in session state (still needed for compatibility)
     if 'selected_tier' not in st.session_state:
         st.session_state.selected_tier = "Free"
     
-    # ============= TIERED PRICING COMPARISON TABLE =============
-    st.markdown("### 🔐 Choose Your Access Tier")
-    st.markdown("*All 3 tiers are always visible. Click to select your tier.*")
-    
-    # Create 3 columns for the tier cards
-    col_free, col_pro, col_ultimate = st.columns(3)
-    
-    with col_free:
-        # Highlight if selected
-        border_color = "#00C853" if st.session_state.selected_tier == "Free" else "#333"
-        shadow = "0 0 20px rgba(0,200,83,0.5)" if st.session_state.selected_tier == "Free" else "none"
-        st.markdown(f"""
-        <div style="background: #1a1a1a; border: 3px solid {border_color}; border-radius: 15px; 
-                    padding: 20px; text-align: center; box-shadow: {shadow};">
-            <h3 style="color: #00C853; margin-bottom: 10px;">Free</h3>
-            <p style="color: #888; font-size: 24px; margin: 10px 0;"><strong>$0</strong>/mo</p>
-            <p style="color: #FFFFFF; font-size: 14px;">Preview Access</p>
-        </div>
-        """, unsafe_allow_html=True)
-        if st.button("Select Free", key="select_free", use_container_width=True):
-            st.session_state.selected_tier = "Free"
-            st.rerun()
-    
-    with col_pro:
-        border_color = "#9D4EDD" if st.session_state.selected_tier == "Pro" else "#333"
-        shadow = "0 0 20px rgba(157,78,221,0.5)" if st.session_state.selected_tier == "Pro" else "none"
-        st.markdown(f"""
-        <div style="background: #1a1a1a; border: 3px solid {border_color}; border-radius: 15px; 
-                    padding: 20px; text-align: center; box-shadow: {shadow};">
-            <h3 style="color: #9D4EDD; margin-bottom: 10px;">Pro</h3>
-            <p style="color: #888; font-size: 24px; margin: 10px 0;"><strong>$10</strong>/mo</p>
-            <p style="color: #FFFFFF; font-size: 14px;">Full Portfolio Access</p>
-        </div>
-        """, unsafe_allow_html=True)
-        if st.button("Select Pro", key="select_pro", use_container_width=True):
-            st.session_state.selected_tier = "Pro"
-            st.rerun()
-    
-    with col_ultimate:
-        border_color = "#FFD700" if st.session_state.selected_tier == "Ultimate" else "#333"
-        shadow = "0 0 20px rgba(255,215,0,0.5)" if st.session_state.selected_tier == "Ultimate" else "none"
-        st.markdown(f"""
-        <div style="background: #1a1a1a; border: 3px solid {border_color}; border-radius: 15px; 
-                    padding: 20px; text-align: center; box-shadow: {shadow};">
-            <h3 style="color: #FFD700; margin-bottom: 10px;">Ultimate</h3>
-            <p style="color: #888; font-size: 24px; margin: 10px 0;"><strong>$25</strong>/mo</p>
-            <p style="color: #FFFFFF; font-size: 14px;">VIP Access + Support</p>
-        </div>
-        """, unsafe_allow_html=True)
-        if st.button("Select Ultimate", key="select_ultimate", use_container_width=True):
-            st.session_state.selected_tier = "Ultimate"
-            st.rerun()
-    
-    # Feature Comparison Table
-    st.markdown("---")
-    st.markdown("### Feature Comparison")
-    
-    # Create feature comparison table with HTML for better styling
-    st.markdown("""
-    <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-        <thead>
-            <tr style="background: #1a1a1a;">
-                <th style="padding: 15px; text-align: left; border-bottom: 2px solid #333; color: #FFFFFF;">Feature</th>
-                <th style="padding: 15px; text-align: center; border-bottom: 2px solid #333; color: #00C853;">Free</th>
-                <th style="padding: 15px; text-align: center; border-bottom: 2px solid #333; color: #9D4EDD;">Pro</th>
-                <th style="padding: 15px; text-align: center; border-bottom: 2px solid #333; color: #FFD700;">Ultimate</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr style="background: #0a0a0a;">
-                <td style="padding: 12px; border-bottom: 1px solid #222; color: #FFFFFF;">Basic Ratios</td>
-                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #00C853; font-size: 20px;">&#10003;</td>
-                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #00C853; font-size: 20px;">&#10003;</td>
-                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #00C853; font-size: 20px;">&#10003;</td>
-            </tr>
-            <tr style="background: #1a1a1a;">
-                <td style="padding: 12px; border-bottom: 1px solid #222; color: #FFFFFF;">Trade Alerts</td>
-                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #FF4444; font-size: 20px;">&#10007;</td>
-                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #00C853; font-size: 20px;">&#10003;</td>
-                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #00C853; font-size: 20px;">&#10003;</td>
-            </tr>
-            <tr style="background: #0a0a0a;">
-                <td style="padding: 12px; border-bottom: 1px solid #222; color: #FFFFFF;">Naman's Portfolio</td>
-                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #FF4444; font-size: 20px;">&#10007;</td>
-                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #00C853; font-size: 20px;">&#10003;</td>
-                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #00C853; font-size: 20px;">&#10003;</td>
-            </tr>
-            <tr style="background: #1a1a1a;">
-                <td style="padding: 12px; border-bottom: 1px solid #222; color: #FFFFFF;">1-on-1 Support</td>
-                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #FF4444; font-size: 20px;">&#10007;</td>
-                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #FF4444; font-size: 20px;">&#10007;</td>
-                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #00C853; font-size: 20px;">&#10003;</td>
-            </tr>
-        </tbody>
-    </table>
-    """, unsafe_allow_html=True)
-    
-    st.markdown("---")
-    
-    # Set access_tier based on selected_tier for backward compatibility
+    # Set access_tier for backward compatibility
     access_tier = st.session_state.selected_tier
+    
+    # ============= PORTFOLIO CONTENT STARTS HERE =============
     
     # ============= WAITLIST OVERLAY FOR PRO/ULTIMATE =============
     if access_tier != "Free":
@@ -5781,8 +5691,159 @@ elif selected_page == "👤 Naman's Portfolio":
     }
     st.dataframe(pd.DataFrame(spgi_data), use_container_width=True, hide_index=True)
     
+    # ============= BECOME A VIP CTA =============
+    st.markdown("---")
+    st.markdown("### 👑 Want to see the full portfolio?")
+    st.markdown("Unlock all holdings, advanced metrics, and exclusive investment insights with VIP access.")
+    
+    if st.button("👑 Become a VIP →", type="primary", use_container_width=True):
+        st.session_state.selected_page = "👑 Become a VIP"
+        st.rerun()
+    
     st.markdown("---")
     st.caption("*Portfolio weightings as of December 2025. Subject to change based on market conditions. This is not financial advice.*")
+
+
+elif selected_page == "👑 Become a VIP":
+    st.header("👑 Become a VIP")
+    st.markdown("**Unlock Premium Features & Exclusive Insights**")
+    
+    # Initialize selected tier in session state
+    if 'selected_tier' not in st.session_state:
+        st.session_state.selected_tier = "Free"
+    
+    # ============= TIERED PRICING COMPARISON TABLE =============
+    st.markdown("### 🔐 Choose Your Access Tier")
+    st.markdown("*All 3 tiers are always visible. Click to select your tier.*")
+    
+    # Create 3 columns for the tier cards
+    col_free, col_pro, col_ultimate = st.columns(3)
+    
+    with col_free:
+        # Highlight if selected
+        border_color = "#00C853" if st.session_state.selected_tier == "Free" else "#333"
+        shadow = "0 0 20px rgba(0,200,83,0.5)" if st.session_state.selected_tier == "Free" else "none"
+        st.markdown(f"""
+        <div style="background: #1a1a1a; border: 3px solid {border_color}; border-radius: 15px; 
+                    padding: 20px; text-align: center; box-shadow: {shadow};">
+            <h3 style="color: #00C853; margin-bottom: 10px;">Free</h3>
+            <p style="color: #888; font-size: 24px; margin: 10px 0;"><strong>$0</strong>/mo</p>
+            <p style="color: #FFFFFF; font-size: 14px;">Preview Access</p>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("Select Free", key="select_free_vip", use_container_width=True):
+            st.session_state.selected_tier = "Free"
+            st.rerun()
+    
+    with col_pro:
+        border_color = "#9D4EDD" if st.session_state.selected_tier == "Pro" else "#333"
+        shadow = "0 0 20px rgba(157,78,221,0.5)" if st.session_state.selected_tier == "Pro" else "none"
+        st.markdown(f"""
+        <div style="background: #1a1a1a; border: 3px solid {border_color}; border-radius: 15px; 
+                    padding: 20px; text-align: center; box-shadow: {shadow};">
+            <h3 style="color: #9D4EDD; margin-bottom: 10px;">Pro</h3>
+            <p style="color: #888; font-size: 24px; margin: 10px 0;"><strong>$10</strong>/mo</p>
+            <p style="color: #FFFFFF; font-size: 14px;">Full Portfolio Access</p>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("Select Pro", key="select_pro_vip", use_container_width=True):
+            st.session_state.selected_tier = "Pro"
+            st.rerun()
+    
+    with col_ultimate:
+        border_color = "#FFD700" if st.session_state.selected_tier == "Ultimate" else "#333"
+        shadow = "0 0 20px rgba(255,215,0,0.5)" if st.session_state.selected_tier == "Ultimate" else "none"
+        st.markdown(f"""
+        <div style="background: #1a1a1a; border: 3px solid {border_color}; border-radius: 15px; 
+                    padding: 20px; text-align: center; box-shadow: {shadow};">
+            <h3 style="color: #FFD700; margin-bottom: 10px;">Ultimate</h3>
+            <p style="color: #888; font-size: 24px; margin: 10px 0;"><strong>$25</strong>/mo</p>
+            <p style="color: #FFFFFF; font-size: 14px;">VIP Access + Support</p>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("Select Ultimate", key="select_ultimate_vip", use_container_width=True):
+            st.session_state.selected_tier = "Ultimate"
+            st.rerun()
+    
+    # Feature Comparison Table
+    st.markdown("---")
+    st.markdown("### Feature Comparison")
+    
+    # Create feature comparison table with HTML for better styling
+    st.markdown("""
+    <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+        <thead>
+            <tr style="background: #1a1a1a;">
+                <th style="padding: 15px; text-align: left; border-bottom: 2px solid #333; color: #FFFFFF;">Feature</th>
+                <th style="padding: 15px; text-align: center; border-bottom: 2px solid #333; color: #00C853;">Free</th>
+                <th style="padding: 15px; text-align: center; border-bottom: 2px solid #333; color: #9D4EDD;">Pro</th>
+                <th style="padding: 15px; text-align: center; border-bottom: 2px solid #333; color: #FFD700;">Ultimate</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr style="background: #0a0a0a;">
+                <td style="padding: 12px; border-bottom: 1px solid #222; color: #FFFFFF;">Basic Ratios</td>
+                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #00C853; font-size: 20px;">&#10003;</td>
+                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #00C853; font-size: 20px;">&#10003;</td>
+                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #00C853; font-size: 20px;">&#10003;</td>
+            </tr>
+            <tr style="background: #1a1a1a;">
+                <td style="padding: 12px; border-bottom: 1px solid #222; color: #FFFFFF;">Trade Alerts</td>
+                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #FF4444; font-size: 20px;">&#10007;</td>
+                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #00C853; font-size: 20px;">&#10003;</td>
+                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #00C853; font-size: 20px;">&#10003;</td>
+            </tr>
+            <tr style="background: #0a0a0a;">
+                <td style="padding: 12px; border-bottom: 1px solid #222; color: #FFFFFF;">Naman's Portfolio</td>
+                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #FF4444; font-size: 20px;">&#10007;</td>
+                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #00C853; font-size: 20px;">&#10003;</td>
+                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #00C853; font-size: 20px;">&#10003;</td>
+            </tr>
+            <tr style="background: #1a1a1a;">
+                <td style="padding: 12px; border-bottom: 1px solid #222; color: #FFFFFF;">1-on-1 Support</td>
+                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #FF4444; font-size: 20px;">&#10007;</td>
+                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #FF4444; font-size: 20px;">&#10007;</td>
+                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #00C853; font-size: 20px;">&#10003;</td>
+            </tr>
+        </tbody>
+    </table>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # Set access_tier based on selected_tier
+    access_tier = st.session_state.selected_tier
+    
+    # ============= WAITLIST OVERLAY FOR PRO/ULTIMATE =============
+    if access_tier != "Free":
+        st.markdown("---")
+        st.markdown("""
+        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
+                    border: 2px solid #9D4EDD; border-radius: 15px; padding: 40px; 
+                    text-align: center; margin: 20px 0;">
+            <h2 style="color: #FFD700; margin-bottom: 20px;">🎉 Join the Waitlist</h2>
+            <p style="color: #FFFFFF; font-size: 18px; margin-bottom: 30px;">
+                Be among the first to access premium features when they launch!
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            waitlist_email = st.text_input("Enter your email:", placeholder="your@email.com", key="waitlist_email_vip")
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("Join Waitlist", key="join_waitlist_vip"):
+                if waitlist_email and "@" in waitlist_email:
+                    st.success(f"You're on the list! We'll notify {waitlist_email} when spots open.")
+                else:
+                    st.error("Please enter a valid email address.")
+        
+        st.info("**Current waitlist:** 127 people ahead of you. Pro spots open monthly.")
+    else:
+        st.success("✅ You're currently on the Free tier. Enjoy exploring!")
+    
+    st.markdown("---")
+    st.caption("*Pricing subject to change. No credit card required for waitlist. This is not financial advice.*")
 
 
 elif selected_page == "📋 Investment Checklist":
