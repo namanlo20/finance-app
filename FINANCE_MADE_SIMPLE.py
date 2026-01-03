@@ -49,6 +49,15 @@ if st.session_state.theme == 'dark':
         color: #FFFFFF !important;
     }
     
+    /* Sidebar expander titles and captions */
+    [data-testid="stSidebar"] .stExpander summary, 
+    [data-testid="stSidebar"] .stExpander p,
+    [data-testid="stSidebar"] .stCaption,
+    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, 
+    [data-testid="stSidebar"] h3, [data-testid="stSidebar"] h4 {
+        color: #FFFFFF !important;
+    }
+    
     h1, h2, h3, h4, h5, h6 { color: #FFFFFF !important; }
     a { color: #00D9FF !important; }
     
@@ -2643,37 +2652,12 @@ def show_signup_popup():
         # Create centered popup container
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
-            # Popup styling
-            st.markdown('''
-            <style>
-            .signup-popup-container {
-                background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-                border: 2px solid #FF4444;
-                border-radius: 20px;
-                padding: 40px;
-                margin-top: 100px;
-                position: relative;
-            }
-            </style>
-            ''', unsafe_allow_html=True)
-            
-            st.markdown('<div class="signup-popup-container">', unsafe_allow_html=True)
-            
-            # Close button form
-            st.markdown('''
-            <form method="get" style="position: absolute; top: 15px; right: 15px; margin: 0; padding: 0;">
-                <button type="submit" name="close_signup" value="1" 
-                        style="background: transparent; border: 2px solid #FF4444; color: #FF4444;
-                        font-size: 20px; width: 35px; height: 35px; border-radius: 50%;
-                        cursor: pointer; transition: all 0.3s ease;">×</button>
-            </form>
-            ''', unsafe_allow_html=True)
-            
-            st.markdown("<h2 style='color: #FF4444; text-align: center; margin-bottom: 10px;'>📝 Create Your Account</h2>", unsafe_allow_html=True)
+            st.markdown("<h2 style='color: #FF4444; text-align: center; margin-top: 100px; margin-bottom: 10px;'>📝 Create Your Account</h2>", unsafe_allow_html=True)
             st.markdown("<p style='color: #FFFFFF; text-align: center; margin-bottom: 20px;'>Join Investing Made Simple today!</p>", unsafe_allow_html=True)
             
-            # Streamlit form
+            # Streamlit form with visible labels
             with st.form("signup_form"):
+                st.markdown("<style>.stTextInput label, .stNumberInput label { color: #FFFFFF !important; }</style>", unsafe_allow_html=True)
                 name = st.text_input("Full Name", placeholder="John Doe")
                 email = st.text_input("Email Address", placeholder="john@example.com")
                 phone = st.text_input("Phone Number", placeholder="+1 (555) 123-4567")
@@ -2725,8 +2709,6 @@ def show_signup_popup():
                                     st.error(f"❌ Error: {error_msg}")
                         else:
                             st.error("❌ Authentication service not available. Please contact support.")
-            
-            st.markdown('</div>', unsafe_allow_html=True)
 
 
 # ============= COFFEE COMPARISON CALCULATOR =============
