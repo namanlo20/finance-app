@@ -2649,82 +2649,58 @@ def show_signup_popup():
                 del st.query_params["close_signup"]
             st.rerun()
         
-        # Full screen overlay popup (like welcome popup)
+        # Popup overlay styling
         st.markdown('''
         <style>
-        .signup-overlay {
+        /* Full screen dark overlay */
+        .stApp::before {
+            content: "";
             position: fixed;
             top: 0;
             left: 0;
             right: 0;
             bottom: 0;
             background: rgba(0, 0, 0, 0.95);
-            z-index: 10001;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            z-index: 10000;
         }
-        .signup-popup {
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            border: 2px solid #FF4444;
-            border-radius: 20px;
-            padding: 40px;
-            max-width: 500px;
-            width: 90%;
-            position: relative;
-            max-height: 90vh;
-            overflow-y: auto;
-        }
-        .signup-close-form {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            margin: 0;
-            padding: 0;
-        }
-        .signup-close-btn {
-            background: transparent;
-            border: 2px solid #FF4444;
-            color: #FF4444;
-            font-size: 20px;
-            width: 35px;
-            height: 35px;
-            border-radius: 50%;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        .signup-close-btn:hover {
-            background: #FF4444;
-            color: #FFFFFF;
-        }
-        /* Make form labels visible in red */
-        .signup-popup .stTextInput label,
-        .signup-popup .stNumberInput label {
+        /* Make form labels RED and visible */
+        .stTextInput label,
+        .stNumberInput label {
             color: #FF4444 !important;
             font-weight: bold !important;
+            font-size: 14px !important;
         }
         </style>
-        <div class="signup-overlay">
-            <div class="signup-popup">
-                <form class="signup-close-form" method="get">
-                    <button class="signup-close-btn" type="submit" name="close_signup" value="1">×</button>
+        ''', unsafe_allow_html=True)
+        
+        # Create centered popup
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            st.markdown('''
+            <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                        border: 2px solid #FF4444; border-radius: 20px; padding: 40px;
+                        margin-top: 100px; position: relative; z-index: 10001;">
+                <form method="get" style="position: absolute; top: 15px; right: 15px; margin: 0; padding: 0;">
+                    <button type="submit" name="close_signup" value="1" 
+                            style="background: transparent; border: 2px solid #FF4444; color: #FF4444;
+                            font-size: 20px; width: 35px; height: 35px; border-radius: 50%;
+                            cursor: pointer; transition: all 0.3s ease;">×</button>
                 </form>
                 <h2 style="color: #FF4444; text-align: center; margin-bottom: 10px;">📝 Create Your Account</h2>
                 <p style="color: #FFFFFF; text-align: center; margin-bottom: 20px;">Join Investing Made Simple today!</p>
             </div>
-        </div>
-        ''', unsafe_allow_html=True)
-        
-        # Streamlit form
-        with st.form("signup_form"):
-            name = st.text_input("Full Name", placeholder="John Doe")
-            email = st.text_input("Email Address", placeholder="john@example.com")
-            phone = st.text_input("Phone Number", placeholder="+1 (555) 123-4567")
-            age = st.number_input("Age", min_value=18, max_value=120, value=25)
-            password = st.text_input("Create Password", type="password", placeholder="Enter a strong password")
-            password_confirm = st.text_input("Confirm Password", type="password", placeholder="Re-enter your password")
+            ''', unsafe_allow_html=True)
             
-            submitted = st.form_submit_button("Create Account", use_container_width=True)
+            # Streamlit form INSIDE the column
+            with st.form("signup_form"):
+                name = st.text_input("Full Name", placeholder="John Doe")
+                email = st.text_input("Email Address", placeholder="john@example.com")
+                phone = st.text_input("Phone Number", placeholder="+1 (555) 123-4567")
+                age = st.number_input("Age", min_value=18, max_value=120, value=25)
+                password = st.text_input("Create Password", type="password", placeholder="Enter a strong password")
+                password_confirm = st.text_input("Confirm Password", type="password", placeholder="Re-enter your password")
+                
+                submitted = st.form_submit_button("Create Account", use_container_width=True)
             
             if submitted:
                 # Validation
