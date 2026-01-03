@@ -2516,6 +2516,12 @@ def show_welcome_popup():
     if 'welcome_seen' not in st.session_state:
         st.session_state.welcome_seen = False
     
+    # DON'T show popup if user is navigating to another page
+    nav_action = st.query_params.get("nav_action")
+    if nav_action:
+        st.session_state.welcome_seen = True
+        return
+    
     # Check if popup was dismissed via query param (auto-dismiss via meta refresh)
     # Note: st.query_params.get() may return a list in some Streamlit versions
     dismiss_param = st.query_params.get("dismiss_welcome")
