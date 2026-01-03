@@ -2968,53 +2968,48 @@ if 'show_signup_popup' not in st.session_state:
     st.session_state.show_signup_popup = False
 
 # ============= TOP NAVIGATION BUTTONS =============
-# Initialize button click states
-if 'signup_clicked' not in st.session_state:
-    st.session_state.signup_clicked = False
-if 'vip_clicked' not in st.session_state:
-    st.session_state.vip_clicked = False
+# Check for button clicks via query params (BEFORE rendering buttons)
+action_param = st.query_params.get("nav_action")
+if isinstance(action_param, (list, tuple)):
+    action_param = action_param[0] if action_param else None
 
-# Check if frozen buttons were clicked via query params
-signup_param = st.query_params.get("signup_clicked")
-if isinstance(signup_param, (list, tuple)):
-    signup_param = signup_param[0] if signup_param else None
-if signup_param == "1":
+if action_param == "signup":
     st.session_state.show_signup_popup = True
-    if "signup_clicked" in st.query_params:
-        del st.query_params["signup_clicked"]
+    if "nav_action" in st.query_params:
+        del st.query_params["nav_action"]
     st.rerun()
-
-vip_param = st.query_params.get("vip_clicked")
-if isinstance(vip_param, (list, tuple)):
-    vip_param = vip_param[0] if vip_param else None
-if vip_param == "1":
+elif action_param == "vip":
     st.session_state.selected_page = "👑 Become a VIP"
-    if "vip_clicked" in st.query_params:
-        del st.query_params["vip_clicked"]
+    if "nav_action" in st.query_params:
+        del st.query_params["nav_action"]
     st.rerun()
 
-# FROZEN TOP BAR
+# Frozen HTML buttons using forms (like welcome popup X button)
 st.markdown(f"""
 <div style="position: fixed; top: 0; right: 0; left: 0; z-index: 9999999; 
             background: {'#000000' if st.session_state.theme == 'dark' else '#FFFFFF'}; 
             padding: 10px 20px; display: flex; justify-content: flex-end; gap: 15px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.3);">
-    <button onclick="window.location.href='?signup_clicked=1'" 
-            style="background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%); 
-            color: white; padding: 10px 24px; border-radius: 8px; border: none;
-            font-weight: bold; cursor: pointer;">📝 Sign Up</button>
+    <form method="get" style="margin: 0; padding: 0; display: inline;">
+        <button type="submit" name="nav_action" value="signup"
+                style="background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%); 
+                color: white; padding: 10px 24px; border-radius: 8px; border: none;
+                font-weight: bold; cursor: pointer;">📝 Sign Up</button>
+    </form>
     <button onclick="alert('Sign In coming soon!')" 
             style="background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%); 
             color: white; padding: 10px 24px; border-radius: 8px; border: none;
             font-weight: bold; cursor: pointer;">🔐 Sign In</button>
-    <button onclick="window.location.href='?vip_clicked=1'" 
-            style="background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%); 
-            color: white; padding: 10px 24px; border-radius: 8px; border: none;
-            font-weight: bold; cursor: pointer;">👑 Become a VIP</button>
+    <form method="get" style="margin: 0; padding: 0; display: inline;">
+        <button type="submit" name="nav_action" value="vip"
+                style="background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%); 
+                color: white; padding: 10px 24px; border-radius: 8px; border: none;
+                font-weight: bold; cursor: pointer;">👑 Become a VIP</button>
+    </form>
 </div>
 """, unsafe_allow_html=True)
 
-# Add spacing
+# Add spacing for frozen bar
 st.markdown("<div style='margin-bottom: 80px;'></div>", unsafe_allow_html=True)
 
 # ============= LIVE TICKER BAR =============
