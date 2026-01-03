@@ -69,6 +69,81 @@ if st.session_state.theme == 'dark':
     /* Dataframe/Table text */
     .stDataFrame, .dataframe, table, tr, td, th { color: #FFFFFF !important; }
     
+    /* UI CONTRAST AUDIT - Ensure all text is readable */
+    /* Form labels and inputs */
+    .stTextInput > label, .stNumberInput > label, .stSelectbox > label,
+    .stMultiSelect > label, .stSlider > label, .stCheckbox > label,
+    .stRadio > label, .stTextArea > label, .stDateInput > label,
+    .stTimeInput > label, .stFileUploader > label {
+        color: #FFFFFF !important;
+        font-weight: 500 !important;
+    }
+    
+    /* Placeholder text */
+    input::placeholder, textarea::placeholder {
+        color: rgba(255, 255, 255, 0.6) !important;
+    }
+    
+    /* Info, warning, error, success boxes */
+    .stAlert, [data-testid="stAlert"] {
+        color: #FFFFFF !important;
+    }
+    .stAlert p, [data-testid="stAlert"] p {
+        color: #FFFFFF !important;
+    }
+    
+    /* Expander content */
+    .streamlit-expanderContent, [data-testid="stExpanderContent"] {
+        color: #FFFFFF !important;
+    }
+    .streamlit-expanderContent p, [data-testid="stExpanderContent"] p,
+    .streamlit-expanderContent span, [data-testid="stExpanderContent"] span {
+        color: #FFFFFF !important;
+    }
+    
+    /* Tab labels */
+    .stTabs [data-baseweb="tab-list"] button {
+        color: #FFFFFF !important;
+    }
+    .stTabs [data-baseweb="tab-list"] button[aria-selected="true"] {
+        color: #00D9FF !important;
+        border-bottom-color: #00D9FF !important;
+    }
+    
+    /* Caption text */
+    .stCaption, [data-testid="stCaption"] {
+        color: rgba(255, 255, 255, 0.7) !important;
+    }
+    
+    /* Code blocks */
+    code, pre {
+        color: #00D9FF !important;
+        background: rgba(255, 255, 255, 0.1) !important;
+    }
+    
+    /* Markdown text in various containers */
+    [data-testid="stMarkdownContainer"] p,
+    [data-testid="stMarkdownContainer"] li,
+    [data-testid="stMarkdownContainer"] span {
+        color: #FFFFFF !important;
+    }
+    
+    /* Number input arrows */
+    .stNumberInput button {
+        color: #FFFFFF !important;
+    }
+    
+    /* Select dropdown options */
+    [data-baseweb="menu"] {
+        background: #1a1a2e !important;
+    }
+    [data-baseweb="menu"] li {
+        color: #FFFFFF !important;
+    }
+    [data-baseweb="menu"] li:hover {
+        background: rgba(0, 217, 255, 0.2) !important;
+    }
+    
     .why-box { 
         background: rgba(255,255,255,0.1); 
         padding: 20px; 
@@ -2247,6 +2322,215 @@ def parse_ai_risk_response(content):
     
     return result
 
+# ============= AI CONTEXT BUILDER (SINGLE SOURCE OF TRUTH) =============
+def build_ai_context(user_tier="free", risk_profile=None, time_horizon=5, ticker=None, page_context=None):
+    """
+    Build unified AI context for all AI calls.
+    All AI features must go through this context builder.
+    
+    Args:
+        user_tier: "free", "pro", or "ultimate"
+        risk_profile: dict with risk quiz results (score, label, etc.)
+        time_horizon: investment time horizon in years
+        ticker: selected stock ticker
+        page_context: current page/intent
+    
+    Returns:
+        dict with all context needed for AI calls
+    """
+    # Get market sentiment from single source of truth (will be populated at runtime)
+    # Note: get_global_market_sentiment() is defined later in the file
+    market_sentiment_data = None
+    try:
+        # This will work at runtime when the function is available
+        market_sentiment_data = get_global_market_sentiment()
+    except:
+        market_sentiment_data = {"score": 50, "label": "Neutral (Steady)", "color": "#FFFF44"}
+    
+    context = {
+        "user_tier": user_tier,
+        "risk_profile": risk_profile or {"score": 50, "label": "Moderate", "description": "Balanced approach"},
+        "time_horizon": time_horizon,
+        "ticker": ticker,
+        "page_context": page_context,
+        "market_sentiment": market_sentiment_data,
+        "timestamp": datetime.now().isoformat()
+    }
+    
+    if ticker:
+        quote = get_quote(ticker)
+        profile = get_profile(ticker)
+        if quote:
+            context["stock_data"] = {
+                "price": quote.get("price"),
+                "change_percent": quote.get("changesPercentage"),
+                "market_cap": quote.get("marketCap"),
+                "pe_ratio": quote.get("pe"),
+                "sector": profile.get("sector") if profile else None
+            }
+    
+    if 'paper_portfolio' in st.session_state:
+        context["portfolio_snapshot"] = {
+            "holdings_count": len(st.session_state.paper_portfolio.get("holdings", [])),
+            "total_value": st.session_state.paper_portfolio.get("total_value", 10000)
+        }
+    
+    return context
+
+# ============= AI OUTPUT SCHEMAS =============
+def get_investment_verdict_schema():
+    """Fixed schema for Investment Verdict AI output"""
+    return {
+        "verdict": "BUY | HOLD | SELL",
+        "confidence": "0-100",
+        "reasoning": ["list of reasons"],
+        "risks": ["list of risks"],
+        "fair_value_range": ["low", "high"]
+    }
+
+def get_scenario_analysis_schema():
+    """Fixed schema for Scenario Analysis AI output"""
+    return {
+        "scenario": "scenario name",
+        "portfolio_impact": "Positive | Neutral | Negative",
+        "key_drivers": ["list of drivers"],
+        "vulnerabilities": ["list of vulnerabilities"],
+        "assumptions": ["list of assumptions"]
+    }
+
+# ============= AI GUARDRAILS =============
+AI_GUARDRAILS = """
+IMPORTANT GUIDELINES:
+- Never provide specific financial advice or exact price predictions
+- Use ranges and scenarios instead of exact numbers
+- Express uncertainty explicitly when appropriate
+- Sometimes respond with "I can't answer that" for inappropriate questions
+- Focus on education and analysis, not recommendations
+- Always remind users this is not financial advice
+"""
+
+@st.cache_data(ttl=3600)
+def call_ai_with_context(task_name, context, prompt_template):
+    """
+    Unified AI call function with caching and guardrails.
+    All AI calls should go through this function.
+    
+    Args:
+        task_name: identifier for the task (for caching)
+        context: dict from build_ai_context()
+        prompt_template: the prompt to send to AI
+    
+    Returns:
+        AI response or None if error
+    """
+    if not USE_AI_ANALYSIS or not PERPLEXITY_API_KEY:
+        return None
+    
+    cache_key = f"{task_name}_{context.get('ticker')}_{context.get('user_tier')}_{context.get('risk_profile', {}).get('label')}"
+    
+    try:
+        url = "https://api.perplexity.ai/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        
+        system_prompt = f"""You are an AI financial analyst assistant. 
+User Context:
+- Tier: {context.get('user_tier', 'free')}
+- Risk Profile: {context.get('risk_profile', {}).get('label', 'Moderate')}
+- Time Horizon: {context.get('time_horizon', 5)} years
+- Current Page: {context.get('page_context', 'general')}
+
+{AI_GUARDRAILS}
+
+Respond in JSON format when asked for structured output."""
+
+        payload = {
+            "model": "sonar",
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt_template}
+            ],
+            "temperature": 0.3,
+            "max_tokens": 1000
+        }
+        
+        response = requests.post(url, headers=headers, json=payload, timeout=30)
+        
+        if response.status_code == 200:
+            data = response.json()
+            content = data.get('choices', [{}])[0].get('message', {}).get('content', '')
+            return content
+        else:
+            return None
+    except Exception as e:
+        return None
+
+def get_ai_investment_verdict(ticker, context):
+    """Get AI investment verdict using unified context and schema"""
+    if context.get('user_tier') == 'free':
+        return {"error": "Investment verdicts require Pro or Ultimate tier"}
+    
+    prompt = f"""Analyze {ticker} and provide an investment verdict.
+
+Return your analysis in this exact JSON format:
+{{
+    "verdict": "BUY" or "HOLD" or "SELL",
+    "confidence": number from 0-100,
+    "reasoning": ["reason 1", "reason 2", "reason 3"],
+    "risks": ["risk 1", "risk 2"],
+    "fair_value_range": [low_price, high_price]
+}}
+
+Consider the user's risk profile ({context.get('risk_profile', {}).get('label', 'Moderate')}) and time horizon ({context.get('time_horizon', 5)} years).
+Use ranges, not exact predictions. This is educational analysis, not financial advice."""
+
+    response = call_ai_with_context("investment_verdict", context, prompt)
+    
+    if response:
+        try:
+            import re
+            json_match = re.search(r'\{[\s\S]*\}', response)
+            if json_match:
+                return json.loads(json_match.group())
+        except:
+            pass
+    
+    return None
+
+def get_ai_scenario_analysis(scenario_name, context):
+    """Get AI scenario analysis using unified context and schema (Ultimate tier only)"""
+    if context.get('user_tier') != 'ultimate':
+        return {"error": "Scenario analysis requires Ultimate tier"}
+    
+    prompt = f"""Analyze how the "{scenario_name}" scenario would impact the user's portfolio.
+
+Return your analysis in this exact JSON format:
+{{
+    "scenario": "{scenario_name}",
+    "portfolio_impact": "Positive" or "Neutral" or "Negative",
+    "key_drivers": ["driver 1", "driver 2", "driver 3"],
+    "vulnerabilities": ["vulnerability 1", "vulnerability 2"],
+    "assumptions": ["assumption 1", "assumption 2"]
+}}
+
+Consider the user's risk profile ({context.get('risk_profile', {}).get('label', 'Moderate')}) and holdings.
+Use educational language. This is not financial advice."""
+
+    response = call_ai_with_context("scenario_analysis", context, prompt)
+    
+    if response:
+        try:
+            import re
+            json_match = re.search(r'\{[\s\S]*\}', response)
+            if json_match:
+                return json.loads(json_match.group())
+        except:
+            pass
+    
+    return None
+
 # ============= FOUR SCENARIOS INVESTMENT CALCULATOR =============
 @st.cache_data(ttl=3600)
 def get_historical_adjusted_prices(ticker, years=10):
@@ -2518,6 +2802,238 @@ def render_live_ticker_bar():
     '''
     st.markdown(ticker_html, unsafe_allow_html=True)
 
+def render_right_side_ticker():
+    """Render the vertical scrolling stock ticker on the right side (desktop only)"""
+    ticker_data = get_live_ticker_data()
+    if not ticker_data:
+        return
+    
+    ticker_items = ""
+    for item in ticker_data:
+        change_class = "change-up" if item["change_pct"] >= 0 else "change-down"
+        change_sign = "+" if item["change_pct"] >= 0 else ""
+        ticker_items += f'''
+            <div class="right-ticker-item" onclick="window.location.href='?ticker={item["symbol"]}'">
+                <span class="right-ticker-symbol">{item["symbol"]}</span>
+                <span class="right-ticker-price">${item["price"]:.2f}</span>
+                <span class="right-ticker-change {change_class}">{change_sign}{item["change_pct"]:.2f}%</span>
+            </div>
+        '''
+    
+    ticker_html = f'''
+    <style>
+    /* Right-side vertical ticker - desktop only */
+    @media (min-width: 1200px) {{
+        .right-ticker-rail {{
+            position: fixed;
+            top: 80px;
+            right: 0;
+            width: 180px;
+            height: calc(100vh - 80px);
+            background: linear-gradient(180deg, #0a0a0a 0%, #1a1a2e 50%, #0a0a0a 100%);
+            border-left: 1px solid #333;
+            z-index: 9998;
+            overflow: hidden;
+        }}
+        .right-ticker-content {{
+            animation: scroll-up 120s linear infinite;
+        }}
+        .right-ticker-rail:hover .right-ticker-content {{
+            animation-play-state: paused;
+        }}
+        @keyframes scroll-up {{
+            0% {{ transform: translateY(0); }}
+            100% {{ transform: translateY(-50%); }}
+        }}
+        .right-ticker-item {{
+            display: flex;
+            flex-direction: column;
+            padding: 12px 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }}
+        .right-ticker-item:hover {{
+            background: rgba(0, 217, 255, 0.1);
+        }}
+        .right-ticker-symbol {{
+            font-weight: bold;
+            color: #00D9FF;
+            font-size: 14px;
+        }}
+        .right-ticker-price {{
+            color: #FFFFFF;
+            font-size: 13px;
+            margin-top: 2px;
+        }}
+        .right-ticker-change {{
+            font-size: 12px;
+            margin-top: 2px;
+        }}
+        .right-ticker-change.change-up {{
+            color: #00FF00;
+        }}
+        .right-ticker-change.change-down {{
+            color: #FF4444;
+        }}
+        /* Adjust main content to make room for right ticker */
+        .main .block-container {{
+            padding-right: 200px !important;
+        }}
+    }}
+    @media (max-width: 1199px) {{
+        .right-ticker-rail {{
+            display: none !important;
+        }}
+    }}
+    </style>
+    <div class="right-ticker-rail">
+        <div class="right-ticker-header" style="padding: 10px; background: #FF4444; color: white; font-weight: bold; text-align: center;">
+            LIVE PRICES
+        </div>
+        <div class="right-ticker-content">
+            {ticker_items}
+            {ticker_items}
+        </div>
+    </div>
+    '''
+    st.markdown(ticker_html, unsafe_allow_html=True)
+
+def render_ai_chatbot():
+    """Render the AI chatbot floating button and chat interface (bottom-right)"""
+    if 'chatbot_open' not in st.session_state:
+        st.session_state.chatbot_open = False
+    if 'chat_messages' not in st.session_state:
+        st.session_state.chat_messages = []
+    
+    chatbot_html = '''
+    <style>
+    /* AI Chatbot - floating button and chat window */
+    .chatbot-button {{
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        width: 60px;
+        height: 60px;
+        background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        z-index: 10000;
+        box-shadow: 0 4px 20px rgba(255, 68, 68, 0.5);
+        transition: all 0.3s ease;
+    }}
+    .chatbot-button:hover {{
+        transform: scale(1.1);
+        box-shadow: 0 6px 25px rgba(255, 68, 68, 0.7);
+    }}
+    .chatbot-icon {{
+        font-size: 28px;
+        color: white;
+    }}
+    .chatbot-window {{
+        position: fixed;
+        bottom: 100px;
+        right: 30px;
+        width: 350px;
+        height: 450px;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        border: 2px solid #FF4444;
+        border-radius: 15px;
+        z-index: 10001;
+        display: none;
+        flex-direction: column;
+        overflow: hidden;
+    }}
+    .chatbot-window.open {{
+        display: flex;
+    }}
+    .chatbot-header {{
+        background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%);
+        color: white;
+        padding: 15px;
+        font-weight: bold;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }}
+    .chatbot-close {{
+        cursor: pointer;
+        font-size: 20px;
+    }}
+    .chatbot-messages {{
+        flex: 1;
+        padding: 15px;
+        overflow-y: auto;
+        color: white;
+    }}
+    .chatbot-input-area {{
+        padding: 15px;
+        border-top: 1px solid rgba(255,255,255,0.1);
+        display: flex;
+        gap: 10px;
+    }}
+    .chatbot-input {{
+        flex: 1;
+        padding: 10px;
+        border: 1px solid #FF4444;
+        border-radius: 8px;
+        background: rgba(255,255,255,0.1);
+        color: white;
+    }}
+    .chatbot-send {{
+        padding: 10px 15px;
+        background: #FF4444;
+        border: none;
+        border-radius: 8px;
+        color: white;
+        cursor: pointer;
+    }}
+    .chat-message {{
+        margin-bottom: 10px;
+        padding: 10px;
+        border-radius: 8px;
+    }}
+    .chat-message.user {{
+        background: rgba(255, 68, 68, 0.2);
+        text-align: right;
+    }}
+    .chat-message.ai {{
+        background: rgba(0, 217, 255, 0.2);
+    }}
+    @media (max-width: 768px) {{
+        .chatbot-window {{
+            width: calc(100% - 40px);
+            right: 20px;
+            left: 20px;
+        }}
+    }}
+    </style>
+    <div class="chatbot-button" onclick="document.querySelector('.chatbot-window').classList.toggle('open')">
+        <span class="chatbot-icon">🤖</span>
+    </div>
+    <div class="chatbot-window">
+        <div class="chatbot-header">
+            <span>AI Investment Assistant</span>
+            <span class="chatbot-close" onclick="document.querySelector('.chatbot-window').classList.remove('open')">×</span>
+        </div>
+        <div class="chatbot-messages">
+            <div class="chat-message ai">
+                👋 Hi! I'm your AI investment assistant. Ask me anything about stocks, investing, or financial analysis. 
+                <br><br>
+                <em>Note: Sign in to unlock personalized insights based on your risk profile!</em>
+            </div>
+        </div>
+        <div class="chatbot-input-area">
+            <input type="text" class="chatbot-input" placeholder="Ask me anything..." />
+            <button class="chatbot-send">Send</button>
+        </div>
+    </div>
+    '''
+    st.markdown(chatbot_html, unsafe_allow_html=True)
+
 # ============= WELCOME POPUP =============
 def show_welcome_popup():
     """Show welcome popup for first-time users - dismisses on X click or after 10 seconds, never returns until refresh"""
@@ -2693,7 +3209,7 @@ def show_signup_popup():
                 name = st.text_input("Full Name", placeholder="John Doe")
                 email = st.text_input("Email Address", placeholder="john@example.com")
                 phone = st.text_input("Phone Number", placeholder="+1 (555) 123-4567")
-                age = st.number_input("Age", min_value=18, max_value=120, value=25)
+                age = st.number_input("Age", min_value=1, max_value=120, value=25)
                 password = st.text_input("Create Password", type="password", placeholder="Enter a strong password")
                 password_confirm = st.text_input("Confirm Password", type="password", placeholder="Re-enter your password")
                 submitted = st.form_submit_button("Create Account", use_container_width=True)
@@ -2702,6 +3218,8 @@ def show_signup_popup():
                 # Validation
                 if not all([name, email, phone, password, password_confirm]):
                     st.error("❌ Please fill in all fields")
+                elif age < 18:
+                    st.warning("🎂 You must be 18 or older to create an account. Please come back when you're old enough to invest! In the meantime, check out our Finance 101 section to learn about investing.")
                 elif password != password_confirm:
                     st.error("❌ Passwords don't match")
                 elif len(password) < 8:
@@ -2892,6 +3410,56 @@ def get_market_sentiment_label(score):
     else:
         return "Extreme Greed (Over-hyped)", "#44FF44"
 
+@st.cache_data(ttl=300)
+def get_global_market_sentiment():
+    """
+    SINGLE SOURCE OF TRUTH for market sentiment.
+    All components (sidebar, gauge, AI) must use this function.
+    Cached for 5 minutes to ensure consistency across the app.
+    """
+    try:
+        spy_data = get_historical_price("SPY", 1)
+        if not spy_data.empty and 'price' in spy_data.columns and len(spy_data) >= 20:
+            spy_data = spy_data.sort_values('date')
+            current_price = spy_data['price'].iloc[-1]
+            price_20d_ago = spy_data['price'].iloc[-20] if len(spy_data) >= 20 else spy_data['price'].iloc[0]
+            
+            momentum_20d = ((current_price - price_20d_ago) / price_20d_ago) * 100
+            
+            if momentum_20d <= -10:
+                sentiment_score = 10
+            elif momentum_20d <= -5:
+                sentiment_score = 25
+            elif momentum_20d <= -2:
+                sentiment_score = 40
+            elif momentum_20d <= 2:
+                sentiment_score = 50
+            elif momentum_20d <= 5:
+                sentiment_score = 65
+            elif momentum_20d <= 10:
+                sentiment_score = 80
+            else:
+                sentiment_score = 90
+            
+            label, color = get_market_sentiment_label(sentiment_score)
+            return {
+                "score": sentiment_score,
+                "label": label,
+                "color": color,
+                "momentum_20d": momentum_20d,
+                "spy_price": current_price
+            }
+    except:
+        pass
+    
+    return {
+        "score": 50,
+        "label": "Neutral (Steady)",
+        "color": "#FFFF44",
+        "momentum_20d": 0,
+        "spy_price": None
+    }
+
 # ============= METRIC EXPLANATIONS =============
 METRIC_EXPLANATIONS = {
     "FCF after Stock Comp": "The 'True Cash' left after paying employees in stock. This is the real money the company keeps.",
@@ -3032,6 +3600,12 @@ st.markdown("<div style='margin-bottom: 80px;'></div>", unsafe_allow_html=True)
 # ============= LIVE TICKER BAR =============
 render_live_ticker_bar()
 
+# ============= RIGHT-SIDE VERTICAL TICKER (DESKTOP ONLY) =============
+render_right_side_ticker()
+
+# ============= AI CHATBOT (BOTTOM-RIGHT) =============
+render_ai_chatbot()
+
 # ============= WELCOME POPUP FOR FIRST-TIME USERS =============
 show_welcome_popup()
 
@@ -3090,7 +3664,7 @@ with st.sidebar:
         st.caption("The meat of the site")
         analysis_tools = [
             "📊 Company Analysis",
-            "📈 Financial Ratios",
+            "📈 Financial Health",
             "📰 Market Intelligence",
             "🌍 Sector Explorer"
         ]
@@ -4620,10 +5194,10 @@ elif selected_page == "📊 Company Analysis":
         st.markdown("## 💪 Financial Health")
         st.info("💡 **What is this?** See how healthy this company is financially - its profit margins, debt levels, and how it compares to others.")
         
-        health_tab1, health_tab2 = st.tabs(["📈 Financial Ratios", "🔀 Compare Stocks"])
+        health_tab1, health_tab2 = st.tabs(["📈 Financial Health", "🔀 Compare Stocks"])
         
         with health_tab1:
-            st.markdown("### 📈 Financial Ratios")
+            st.markdown("### 📈 Financial Health")
             st.caption("See how the company's key ratios compare to the S&P 500 average")
             
             ratios_df_health = get_financial_ratios(ticker, period, years*4 if period == 'quarter' else years)
@@ -4941,7 +5515,7 @@ elif selected_page == "📊 Company Analysis":
             else:
                 st.warning("Could not fetch data for one or both stocks")
     
-    elif view == "📈 Financial Ratios":
+    elif view == "📈 Financial Health":
         st.markdown("## 📊 Financial Ratios Over Time")
         
         st.info("💡 **Why I track these ratios:** They reveal profitability (margins), efficiency (ROE/ROA/ROCE), and safety (liquidity/leverage). Together they show if a company makes money efficiently and can survive tough times.")
@@ -5344,8 +5918,8 @@ elif selected_page == "🌍 Sector Explorer":
                     st.rerun()
 
 
-elif selected_page == "📈 Financial Ratios":
-    st.header("📈 Financial Ratios - Historical Trends")
+elif selected_page == "📈 Financial Health":
+    st.header("📈 Financial Health - Historical Trends")
     st.markdown("**Compare company ratios to S&P 500 averages and historical benchmarks**")
     
     # Ticker search
@@ -5630,59 +6204,9 @@ elif selected_page == "📈 Financial Ratios":
         if charts_displayed == 0:
             st.info("No ratio data available for this company")
         
-        # Market Intelligence Section
+        # Note: News has been moved to Market Intelligence page per page separation rules
         st.markdown("---")
-        st.markdown("### Market Intelligence")
-        st.caption("AI-powered news summary for this stock")
-        
-        # Fetch 10 news stories
-        news = get_stock_specific_news(ticker, 10)
-        if news:
-            st.markdown("**Latest Headlines:**")
-            for article in news[:10]:
-                title = article.get('title', 'No title')
-                published = article.get('publishedDate', '')[:10]
-                url = article.get('url', '')
-                if url:
-                    st.markdown(f"- [{title}]({url}) ({published})")
-                else:
-                    st.markdown(f"- **{title}** ({published})")
-            
-            # AI Summary using Perplexity (if API key available)
-            perplexity_api_key = os.environ.get('PERPLEXITY_API_KEY', '')
-            if perplexity_api_key:
-                try:
-                    headlines_text = " | ".join([a.get('title', '') for a in news[:5]])
-                    
-                    perplexity_url = "https://api.perplexity.ai/chat/completions"
-                    perplexity_headers = {
-                        "Authorization": f"Bearer {perplexity_api_key}",
-                        "Content-Type": "application/json"
-                    }
-                    perplexity_payload = {
-                        "model": "sonar",
-                        "messages": [
-                            {"role": "system", "content": "You are a financial analyst. Summarize the news in 2 sentences for a beginner investor."},
-                            {"role": "user", "content": f"Summarize these headlines about {ticker} ({company_name}): {headlines_text}"}
-                        ],
-                        "max_tokens": 150
-                    }
-                    
-                    response = requests.post(perplexity_url, headers=perplexity_headers, json=perplexity_payload, timeout=10)
-                    if response.status_code == 200:
-                        ai_summary = response.json().get('choices', [{}])[0].get('message', {}).get('content', '')
-                        if ai_summary:
-                            st.success(f"**AI Bottom Line:** {ai_summary}")
-                        else:
-                            st.info(f"**Quick Take:** {ticker} has been in the news recently. Check the headlines above for details.")
-                    else:
-                        st.info(f"**Quick Take:** {ticker} has been in the news recently. Check the headlines above for details.")
-                except:
-                    st.info(f"**Quick Take:** {ticker} has been in the news recently. Check the headlines above for details.")
-            else:
-                st.info(f"**Quick Take:** {ticker} has been in the news recently. Check the headlines above for details.")
-        else:
-            st.info(f"No recent news found for {ticker}")
+        st.info("📰 **Looking for news?** Check out the **Market Intelligence** tab in the sidebar for AI-powered news analysis and market insights!")
         
         # Disclaimer at bottom of page
         st.markdown("---")
