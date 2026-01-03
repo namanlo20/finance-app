@@ -2636,7 +2636,7 @@ def show_welcome_popup():
 
 # ============= SIGN UP POPUP =============
 def show_signup_popup():
-    """Show sign up popup when triggered - dismissible overlay like welcome popup"""
+    """Show sign up popup when triggered - dismissible overlay"""
     if st.session_state.show_signup_popup:
         # Check if popup was closed via X button
         close_param = st.query_params.get("close_signup")
@@ -2645,54 +2645,50 @@ def show_signup_popup():
         
         if close_param == "1":
             st.session_state.show_signup_popup = False
-            st.session_state.selected_page = "🏠 Start Here"  # Take to Start Here page
+            st.session_state.selected_page = "🏠 Start Here"
             if "close_signup" in st.query_params:
                 del st.query_params["close_signup"]
             st.rerun()
         
-        # Popup overlay styling
+        # Overlay and styling
         st.markdown('''
         <style>
-        /* Full screen dark overlay */
-        .stApp::before {
-            content: "";
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.95);
-            z-index: 10000;
+        div[data-testid="stVerticalBlock"] > div:has(form[data-testid="stForm"]) {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%) !important;
+            border: 2px solid #FF4444 !important;
+            border-radius: 20px !important;
+            padding: 40px !important;
+            margin-top: 100px !important;
+            position: relative !important;
+            z-index: 10001 !important;
         }
-        /* Make form labels RED and visible */
-        .stTextInput label,
-        .stNumberInput label {
+        .stTextInput label, .stNumberInput label {
             color: #FF4444 !important;
             font-weight: bold !important;
-            font-size: 14px !important;
+            font-size: 16px !important;
         }
         </style>
         ''', unsafe_allow_html=True)
         
-        # Create centered popup
+        # Dark background
+        st.markdown('<div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.95); z-index: 10000;"></div>', unsafe_allow_html=True)
+        
+        # Popup content
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
+            # X button
             st.markdown('''
-            <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-                        border: 2px solid #FF4444; border-radius: 20px; padding: 40px;
-                        margin-top: 100px; position: relative; z-index: 10001;">
-                <form method="get" style="position: absolute; top: 15px; right: 15px; margin: 0; padding: 0;">
-                    <button type="submit" name="close_signup" value="1" 
-                            style="background: transparent; border: 2px solid #FF4444; color: #FF4444;
-                            font-size: 20px; width: 35px; height: 35px; border-radius: 50%;
-                            cursor: pointer; transition: all 0.3s ease;">×</button>
-                </form>
-                <h2 style="color: #FF4444; text-align: center; margin-bottom: 10px;">📝 Create Your Account</h2>
-                <p style="color: #FFFFFF; text-align: center; margin-bottom: 20px;">Join Investing Made Simple today!</p>
-            </div>
+            <form method="get" style="position: fixed; top: 115px; right: calc(50% - 250px); margin: 0; padding: 0; z-index: 10002;">
+                <button type="submit" name="close_signup" value="1" 
+                        style="background: transparent; border: 2px solid #FF4444; color: #FF4444;
+                        font-size: 20px; width: 35px; height: 35px; border-radius: 50%;
+                        cursor: pointer;">×</button>
+            </form>
             ''', unsafe_allow_html=True)
             
-            # Streamlit form INSIDE the column
+            st.markdown("<h2 style='color: #FF4444; text-align: center;'>📝 Create Your Account</h2>", unsafe_allow_html=True)
+            st.markdown("<p style='color: #FFFFFF; text-align: center; margin-bottom: 20px;'>Join Investing Made Simple today!</p>", unsafe_allow_html=True)
+            
             with st.form("signup_form"):
                 name = st.text_input("Full Name", placeholder="John Doe")
                 email = st.text_input("Email Address", placeholder="john@example.com")
@@ -2700,7 +2696,6 @@ def show_signup_popup():
                 age = st.number_input("Age", min_value=18, max_value=120, value=25)
                 password = st.text_input("Create Password", type="password", placeholder="Enter a strong password")
                 password_confirm = st.text_input("Confirm Password", type="password", placeholder="Re-enter your password")
-                
                 submitted = st.form_submit_button("Create Account", use_container_width=True)
             
             if submitted:
