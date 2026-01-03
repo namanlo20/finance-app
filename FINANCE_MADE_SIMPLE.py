@@ -3059,22 +3059,159 @@ def render_right_side_ticker():
     '''
     st.markdown(ticker_html, unsafe_allow_html=True)
 
+def get_chatbot_response(user_message, context=None):
+    """Get AI response from Perplexity API for chatbot"""
+    if not PERPLEXITY_API_KEY:
+        return "I'm sorry, but the AI service is currently unavailable. Please try again later."
+    
+    # Build context-aware system prompt
+    system_prompt = """You are a friendly, knowledgeable AI investment assistant for "Investing Made Simple". 
+Your role is to help beginners understand investing concepts in simple terms.
+
+Guidelines:
+- Be concise and helpful (2-3 sentences max unless asked for detail)
+- Use simple language that beginners can understand
+- Never give specific financial advice or price predictions
+- Always remind users to do their own research
+- Be encouraging and supportive of their learning journey
+"""
+    
+    # Add context if available
+    if context:
+        if context.get('current_page'):
+            system_prompt += f"\nThe user is currently on the '{context['current_page']}' page."
+        if context.get('selected_ticker'):
+            system_prompt += f"\nThey are looking at {context['selected_ticker']} stock."
+        if context.get('user_name'):
+            system_prompt += f"\nThe user's name is {context['user_name']}."
+        if context.get('risk_profile'):
+            system_prompt += f"\nTheir risk profile is: {context['risk_profile']}."
+        if context.get('unhinged_mode'):
+            system_prompt += "\nUNHINGED MODE IS ON: Add some playful roast commentary to your responses. Be witty and sarcastic but still helpful. Make fun of common investing mistakes."
+    
+    try:
+        headers = {
+            "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "model": "llama-3.1-sonar-small-128k-online",
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_message}
+            ],
+            "max_tokens": 500,
+            "temperature": 0.7
+        }
+        
+        response = requests.post(
+            "https://api.perplexity.ai/chat/completions",
+            headers=headers,
+            json=payload,
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
+            return data.get("choices", [{}])[0].get("message", {}).get("content", "I couldn't generate a response. Please try again.")
+        else:
+            return f"I'm having trouble connecting right now. Please try again in a moment."
+    except Exception as e:
+        return "I'm experiencing technical difficulties. Please try again later."
+
+@st.dialog("🤖 AI Investment Assistant", width="large")
+def chatbot_dialog():
+    """AI Chatbot dialog using Streamlit's native dialog"""
+    st.markdown("""
+    <style>
+    [data-testid="stDialog"] {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%) !important;
+    }
+    [data-testid="stDialog"] [data-testid="stMarkdownContainer"] p {
+        color: #FFFFFF !important;
+    }
+    .chat-message-user {
+        background: rgba(255, 68, 68, 0.25);
+        padding: 10px 15px;
+        border-radius: 10px;
+        margin: 5px 0;
+        text-align: right;
+        color: white;
+    }
+    .chat-message-ai {
+        background: rgba(0, 217, 255, 0.2);
+        padding: 10px 15px;
+        border-radius: 10px;
+        margin: 5px 0;
+        color: white;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # Initialize chat messages if not exists
+    if 'chat_messages' not in st.session_state:
+        st.session_state.chat_messages = [
+            {"role": "assistant", "content": "👋 Hi! I'm your AI investment assistant. Ask me anything about stocks, investing, or financial analysis!\n\n*Tip: I'm context-aware - I know what page you're on and what stock you're looking at!*"}
+        ]
+    
+    # Display chat messages
+    chat_container = st.container(height=350)
+    with chat_container:
+        for msg in st.session_state.chat_messages:
+            if msg["role"] == "user":
+                st.markdown(f'<div class="chat-message-user">🧑 {msg["content"]}</div>', unsafe_allow_html=True)
+            else:
+                st.markdown(f'<div class="chat-message-ai">🤖 {msg["content"]}</div>', unsafe_allow_html=True)
+    
+    # Input area
+    col1, col2 = st.columns([4, 1])
+    with col1:
+        user_input = st.text_input("Ask me anything...", key="chatbot_input", label_visibility="collapsed", placeholder="Type your question here...")
+    with col2:
+        send_clicked = st.button("Send", use_container_width=True, type="primary")
+    
+    if send_clicked and user_input:
+        # Add user message
+        st.session_state.chat_messages.append({"role": "user", "content": user_input})
+        
+        # Build context
+        context = {
+            "current_page": st.session_state.get("selected_page", "Home"),
+            "selected_ticker": st.session_state.get("selected_ticker", None),
+            "user_name": st.session_state.get("user_name", None),
+            "risk_profile": st.session_state.get("risk_profile", None),
+            "unhinged_mode": st.session_state.get("unhinged_mode", False)
+        }
+        
+        # Get AI response
+        with st.spinner("Thinking..."):
+            response = get_chatbot_response(user_input, context)
+        
+        # Add AI response
+        st.session_state.chat_messages.append({"role": "assistant", "content": response})
+        st.rerun()
+    
+    # Close button
+    if st.button("❌ Close Chat", use_container_width=True):
+        st.session_state.chatbot_open = False
+        st.rerun()
+
 def render_ai_chatbot():
-    """Render the AI chatbot floating button and chat interface (bottom-right)"""
+    """Render the AI chatbot - uses clickable HTML form button and dialog"""
     if 'chatbot_open' not in st.session_state:
         st.session_state.chatbot_open = False
     if 'chat_messages' not in st.session_state:
         st.session_state.chat_messages = []
     
-    chatbot_html = '''
+    # Render clickable floating button using HTML form (no JS needed)
+    st.markdown("""
     <style>
-    /* AI Chatbot - FLOATING BUTTON BOTTOM-RIGHT - HIGH PRIORITY */
-    .ai-chatbot-floating-btn {
+    /* Floating chatbot button - CLICKABLE */
+    .chatbot-float-btn {
         position: fixed !important;
         bottom: 30px !important;
         right: 30px !important;
-        left: auto !important;
-        top: auto !important;
         width: 65px !important;
         height: 65px !important;
         background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%) !important;
@@ -3082,142 +3219,34 @@ def render_ai_chatbot():
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
-        cursor: pointer !important;
         z-index: 999999 !important;
         box-shadow: 0 4px 25px rgba(255, 68, 68, 0.6) !important;
-        transition: all 0.3s ease !important;
         border: 3px solid #FFFFFF !important;
+        font-size: 32px !important;
+        cursor: pointer !important;
+        transition: transform 0.2s ease !important;
     }
-    .ai-chatbot-floating-btn:hover {
-        transform: scale(1.15) !important;
+    .chatbot-float-btn:hover {
+        transform: scale(1.1) !important;
         box-shadow: 0 6px 30px rgba(255, 68, 68, 0.8) !important;
     }
-    .ai-chatbot-floating-btn .chatbot-icon {
-        font-size: 32px !important;
-        color: white !important;
-    }
-    
-    /* Chat window - also bottom-right */
-    .ai-chatbot-window {
+    .chatbot-form {
         position: fixed !important;
-        bottom: 110px !important;
+        bottom: 30px !important;
         right: 30px !important;
-        left: auto !important;
-        top: auto !important;
-        width: 380px !important;
-        height: 500px !important;
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%) !important;
-        border: 3px solid #FF4444 !important;
-        border-radius: 20px !important;
-        z-index: 999998 !important;
-        display: none !important;
-        flex-direction: column !important;
-        overflow: hidden !important;
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5) !important;
-    }
-    .ai-chatbot-window.open {
-        display: flex !important;
-    }
-    .ai-chatbot-header {
-        background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%) !important;
-        color: white !important;
-        padding: 18px !important;
-        font-weight: bold !important;
-        font-size: 16px !important;
-        display: flex !important;
-        justify-content: space-between !important;
-        align-items: center !important;
-    }
-    .ai-chatbot-close {
-        cursor: pointer !important;
-        font-size: 24px !important;
-        color: white !important;
-    }
-    .ai-chatbot-close:hover {
-        color: #FFD700 !important;
-    }
-    .ai-chatbot-messages {
-        flex: 1 !important;
-        padding: 20px !important;
-        overflow-y: auto !important;
-        color: white !important;
-    }
-    .ai-chatbot-input-area {
-        padding: 15px !important;
-        border-top: 1px solid rgba(255,255,255,0.2) !important;
-        display: flex !important;
-        gap: 10px !important;
-        background: rgba(0,0,0,0.2) !important;
-    }
-    .ai-chatbot-input {
-        flex: 1 !important;
-        padding: 12px !important;
-        border: 2px solid #FF4444 !important;
-        border-radius: 10px !important;
-        background: rgba(255,255,255,0.1) !important;
-        color: white !important;
-        font-size: 14px !important;
-    }
-    .ai-chatbot-send {
-        padding: 12px 20px !important;
-        background: #FF4444 !important;
-        border: none !important;
-        border-radius: 10px !important;
-        color: white !important;
-        cursor: pointer !important;
-        font-weight: bold !important;
-    }
-    .ai-chatbot-send:hover {
-        background: #FF6666 !important;
-    }
-    .ai-chat-message {
-        margin-bottom: 12px !important;
-        padding: 12px !important;
-        border-radius: 10px !important;
-        line-height: 1.5 !important;
-    }
-    .ai-chat-message.user {
-        background: rgba(255, 68, 68, 0.25) !important;
-        text-align: right !important;
-    }
-    .ai-chat-message.ai {
-        background: rgba(0, 217, 255, 0.2) !important;
-    }
-    @media (max-width: 768px) {
-        .ai-chatbot-window {
-            width: calc(100% - 40px) !important;
-            right: 20px !important;
-            left: 20px !important;
-            height: 60vh !important;
-        }
-        .ai-chatbot-floating-btn {
-            bottom: 20px !important;
-            right: 20px !important;
-        }
+        z-index: 999999 !important;
+        margin: 0 !important;
+        padding: 0 !important;
     }
     </style>
-    <div class="ai-chatbot-floating-btn" onclick="document.querySelector('.ai-chatbot-window').classList.toggle('open')">
-        <span class="chatbot-icon">🤖</span>
-    </div>
-    <div class="ai-chatbot-window">
-        <div class="ai-chatbot-header">
-            <span>🤖 AI Investment Assistant</span>
-            <span class="ai-chatbot-close" onclick="document.querySelector('.ai-chatbot-window').classList.remove('open')">×</span>
-        </div>
-        <div class="ai-chatbot-messages">
-            <div class="ai-chat-message ai">
-                👋 Hi! I'm your AI investment assistant. Ask me anything about stocks, investing, or financial analysis. 
-                <br><br>
-                <em>Note: Sign in to unlock personalized insights based on your risk profile!</em>
-            </div>
-        </div>
-        <div class="ai-chatbot-input-area">
-            <input type="text" class="ai-chatbot-input" placeholder="Ask me anything about investing..." />
-            <button class="ai-chatbot-send">Send</button>
-        </div>
-    </div>
-    '''
-    st.markdown(chatbot_html, unsafe_allow_html=True)
+    <form method="get" class="chatbot-form">
+        <button type="submit" name="open_chat" value="1" class="chatbot-float-btn">🤖</button>
+    </form>
+    """, unsafe_allow_html=True)
+    
+    # Show dialog if open
+    if st.session_state.chatbot_open:
+        chatbot_dialog()
 
 # ============= WELCOME POPUP =============
 def show_welcome_popup():
@@ -3335,165 +3364,109 @@ def show_welcome_popup():
         </div>
         ''', unsafe_allow_html=True)
 
-# ============= SIGN UP POPUP =============
-def show_signup_popup():
-    """Show sign up popup when triggered - proper modal overlay"""
-    if st.session_state.show_signup_popup:
-        # Check if popup was closed via X button
-        close_param = st.query_params.get("close_signup")
-        if isinstance(close_param, (list, tuple)):
-            close_param = close_param[0] if close_param else None
-        
-        if close_param == "1":
+# ============= SIGN UP POPUP USING ST.DIALOG =============
+@st.dialog("📝 Create Your Account", width="large")
+def signup_dialog():
+    """Sign up dialog using Streamlit's native dialog - form fields INSIDE the modal"""
+    st.markdown("""
+    <style>
+    /* Style the dialog */
+    [data-testid="stDialog"] {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%) !important;
+    }
+    [data-testid="stDialog"] [data-testid="stMarkdownContainer"] p,
+    [data-testid="stDialog"] label {
+        color: #FFFFFF !important;
+    }
+    [data-testid="stDialog"] h1, [data-testid="stDialog"] h2, [data-testid="stDialog"] h3 {
+        color: #FF4444 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("### Join Investing Made Simple today!")
+    st.markdown("*Start your journey to financial freedom*")
+    
+    # Form fields INSIDE the dialog
+    col1, col2 = st.columns(2)
+    with col1:
+        name = st.text_input("Full Name", placeholder="John Doe", key="signup_name")
+    with col2:
+        email = st.text_input("Email Address", placeholder="john@example.com", key="signup_email")
+    
+    col3, col4 = st.columns(2)
+    with col3:
+        phone = st.text_input("Phone Number", placeholder="+1 (555) 123-4567", key="signup_phone")
+    with col4:
+        age = st.number_input("Age", min_value=1, max_value=120, value=25, key="signup_age")
+    
+    password = st.text_input("Create Password", type="password", placeholder="Enter a strong password", key="signup_password")
+    password_confirm = st.text_input("Confirm Password", type="password", placeholder="Re-enter your password", key="signup_confirm")
+    
+    col_btn1, col_btn2 = st.columns(2)
+    with col_btn1:
+        if st.button("❌ Cancel", use_container_width=True, type="secondary"):
             st.session_state.show_signup_popup = False
-            st.session_state.selected_page = "🏠 Start Here"
-            if "close_signup" in st.query_params:
-                del st.query_params["close_signup"]
             st.rerun()
-        
-        # MODAL POPUP STYLING - Full screen overlay with centered modal
-        st.markdown('''
-        <style>
-        /* Full screen dark overlay */
-        .signup-modal-overlay {
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            right: 0 !important;
-            bottom: 0 !important;
-            width: 100vw !important;
-            height: 100vh !important;
-            background: rgba(0, 0, 0, 0.95) !important;
-            z-index: 99999 !important;
-            display: flex !important;
-            justify-content: center !important;
-            align-items: flex-start !important;
-            padding-top: 80px !important;
-        }
-        
-        /* Modal container */
-        .signup-modal-container {
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%) !important;
-            border: 3px solid #FF4444 !important;
-            border-radius: 20px !important;
-            padding: 40px !important;
-            max-width: 500px !important;
-            width: 90% !important;
-            position: relative !important;
-            box-shadow: 0 20px 60px rgba(255, 68, 68, 0.3) !important;
-        }
-        
-        /* X close button */
-        .signup-close-btn {
-            position: absolute !important;
-            top: 15px !important;
-            right: 15px !important;
-            background: transparent !important;
-            border: 2px solid #FF4444 !important;
-            color: #FF4444 !important;
-            font-size: 24px !important;
-            width: 40px !important;
-            height: 40px !important;
-            border-radius: 50% !important;
-            cursor: pointer !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            transition: all 0.3s ease !important;
-        }
-        .signup-close-btn:hover {
-            background: #FF4444 !important;
-            color: white !important;
-        }
-        
-        /* Form styling inside modal */
-        div[data-testid="stVerticalBlock"] > div:has(form[data-testid="stForm"]) {
-            background: transparent !important;
-            border: none !important;
-            padding: 0 !important;
-        }
-        .stTextInput label, .stNumberInput label {
-            color: #FF4444 !important;
-            font-weight: bold !important;
-            font-size: 16px !important;
-        }
-        .stTextInput input, .stNumberInput input {
-            background: rgba(255, 255, 255, 0.1) !important;
-            border: 1px solid #FF4444 !important;
-            color: #FFFFFF !important;
-        }
-        </style>
-        
-        <div class="signup-modal-overlay">
-            <div class="signup-modal-container">
-                <form method="get" style="position: absolute; top: 15px; right: 15px; margin: 0; padding: 0;">
-                    <button type="submit" name="close_signup" value="1" class="signup-close-btn">×</button>
-                </form>
-                <h2 style="color: #FF4444; text-align: center; margin-bottom: 10px;">📝 Create Your Account</h2>
-                <p style="color: #FFFFFF; text-align: center; margin-bottom: 20px;">Join Investing Made Simple today!</p>
-            </div>
-        </div>
-        ''', unsafe_allow_html=True)
-        
-        # Popup content - form rendered by Streamlit
-        col1, col2, col3 = st.columns([1, 2, 1])
-        with col2:
-            st.markdown("<h2 style='color: #FF4444; text-align: center;'>📝 Create Your Account</h2>", unsafe_allow_html=True)
-            st.markdown("<p style='color: #FFFFFF; text-align: center; margin-bottom: 20px;'>Join Investing Made Simple today!</p>", unsafe_allow_html=True)
-            
-            with st.form("signup_form"):
-                name = st.text_input("Full Name", placeholder="John Doe")
-                email = st.text_input("Email Address", placeholder="john@example.com")
-                phone = st.text_input("Phone Number", placeholder="+1 (555) 123-4567")
-                age = st.number_input("Age", min_value=1, max_value=120, value=25)
-                password = st.text_input("Create Password", type="password", placeholder="Enter a strong password")
-                password_confirm = st.text_input("Confirm Password", type="password", placeholder="Re-enter your password")
-                submitted = st.form_submit_button("Create Account", use_container_width=True)
-            
-            if submitted:
-                # Validation
-                if not all([name, email, phone, password, password_confirm]):
-                    st.error("❌ Please fill in all fields")
-                elif age < 18:
-                    st.warning("🎂 You must be 18 or older to create an account. Please come back when you're old enough to invest! In the meantime, check out our Finance 101 section to learn about investing.")
-                elif password != password_confirm:
-                    st.error("❌ Passwords don't match")
-                elif len(password) < 8:
-                    st.error("❌ Password must be at least 8 characters")
-                elif "@" not in email or "." not in email:
-                    st.error("❌ Please enter a valid email address")
-                else:
-                    # Sign up with Supabase
-                    if SUPABASE_ENABLED:
-                        try:
-                            # Create user with Supabase Auth
-                            response = supabase.auth.sign_up({
-                                "email": email,
-                                "password": password,
-                                "options": {
-                                    "data": {
-                                        "name": name,
-                                        "phone": phone,
-                                        "age": age
-                                    }
+    with col_btn2:
+        if st.button("✅ Create Account", use_container_width=True, type="primary"):
+            # Validation
+            if not all([name, email, phone, password, password_confirm]):
+                st.error("❌ Please fill in all fields")
+            elif age < 18:
+                st.warning("🎂 You must be 18 or older to create an account. Please come back when you're old enough to invest!")
+            elif password != password_confirm:
+                st.error("❌ Passwords don't match")
+            elif len(password) < 8:
+                st.error("❌ Password must be at least 8 characters")
+            elif "@" not in email or "." not in email:
+                st.error("❌ Please enter a valid email address")
+            else:
+                # Sign up with Supabase
+                if SUPABASE_ENABLED:
+                    try:
+                        response = supabase.auth.sign_up({
+                            "email": email,
+                            "password": password,
+                            "options": {
+                                "data": {
+                                    "name": name,
+                                    "phone": phone,
+                                    "age": age
                                 }
-                            })
-                            
-                            if response.user:
-                                st.success("✅ Account created successfully! Please check your email to verify.")
-                                st.balloons()
-                                st.session_state.show_signup_popup = False
-                                st.rerun()
-                            else:
-                                st.error("❌ Error creating account. Please try again.")
-                        except Exception as e:
-                            error_msg = str(e)
-                            if "already registered" in error_msg.lower():
-                                st.error("❌ This email is already registered. Please sign in instead.")
-                            else:
-                                st.error(f"❌ Error: {error_msg}")
-                    else:
-                        st.error("❌ Authentication service not available. Please contact support.")
+                            }
+                        })
+                        
+                        if response.user:
+                            st.success("✅ Account created successfully! Please check your email to verify.")
+                            st.balloons()
+                            # Store user info in session state
+                            st.session_state.user_id = response.user.id
+                            st.session_state.user_email = email
+                            st.session_state.user_name = name
+                            st.session_state.user_age = age
+                            st.session_state.is_logged_in = True
+                            st.session_state.show_signup_popup = False
+                            # Save user profile to profiles table
+                            save_user_profile(response.user.id, name, phone, age)
+                            # Save user progress
+                            save_user_progress()
+                            st.rerun()
+                        else:
+                            st.error("❌ Error creating account. Please try again.")
+                    except Exception as e:
+                        error_msg = str(e)
+                        if "already registered" in error_msg.lower():
+                            st.error("❌ This email is already registered. Please sign in instead.")
+                        else:
+                            st.error(f"❌ Error: {error_msg}")
+                else:
+                    st.error("❌ Authentication service not available. Please contact support.")
+
+def show_signup_popup():
+    """Show sign up popup when triggered - uses st.dialog for proper modal"""
+    if st.session_state.show_signup_popup:
+        signup_dialog()
 
 
 # ============= COFFEE COMPARISON CALCULATOR =============
@@ -3780,15 +3753,141 @@ except ImportError:
     SUPABASE_ENABLED = False
     st.warning("⚠️ Supabase not installed. Run: pip install supabase --break-system-packages")
 
+# ============= USER PROGRESS PERSISTENCE =============
+def save_user_progress():
+    """Save user progress to Supabase user_state table"""
+    if not SUPABASE_ENABLED:
+        return False
+    
+    user_id = st.session_state.get("user_id")
+    if not user_id:
+        return False
+    
+    try:
+        # Collect state to persist
+        state_data = {
+            "selected_ticker": st.session_state.get("selected_ticker", "GOOGL"),
+            "paper_portfolio": st.session_state.get("paper_portfolio", {}),
+            "risk_quiz_results": st.session_state.get("risk_quiz_results", {}),
+            "unhinged_mode": st.session_state.get("unhinged_mode", False),
+            "homepage_stock1": st.session_state.get("homepage_stock1", "GOOGL"),
+            "homepage_stock2": st.session_state.get("homepage_stock2", "AMC"),
+        }
+        
+        # Upsert to user_state table
+        supabase.table("user_state").upsert({
+            "user_id": user_id,
+            "state": json.dumps(state_data),
+            "updated_at": datetime.now().isoformat()
+        }).execute()
+        return True
+    except Exception as e:
+        # Silently fail - don't break the app if persistence fails
+        return False
+
+def load_user_progress():
+    """Load user progress from Supabase user_state table"""
+    if not SUPABASE_ENABLED:
+        return False
+    
+    user_id = st.session_state.get("user_id")
+    if not user_id:
+        return False
+    
+    try:
+        result = supabase.table("user_state").select("state").eq("user_id", user_id).execute()
+        if result.data and len(result.data) > 0:
+            state_data = json.loads(result.data[0].get("state", "{}"))
+            
+            # Restore state
+            if "selected_ticker" in state_data:
+                st.session_state.selected_ticker = state_data["selected_ticker"]
+            if "paper_portfolio" in state_data:
+                st.session_state.paper_portfolio = state_data["paper_portfolio"]
+            if "risk_quiz_results" in state_data:
+                st.session_state.risk_quiz_results = state_data["risk_quiz_results"]
+            if "unhinged_mode" in state_data:
+                st.session_state.unhinged_mode = state_data["unhinged_mode"]
+            if "homepage_stock1" in state_data:
+                st.session_state.homepage_stock1 = state_data["homepage_stock1"]
+            if "homepage_stock2" in state_data:
+                st.session_state.homepage_stock2 = state_data["homepage_stock2"]
+            return True
+    except Exception as e:
+        # Silently fail - don't break the app if loading fails
+        pass
+    return False
+
+def save_user_profile(user_id, name, phone, age):
+    """Save user profile to Supabase profiles table after signup"""
+    if not SUPABASE_ENABLED or not user_id:
+        return False
+    
+    try:
+        supabase.table("profiles").upsert({
+            "id": user_id,
+            "full_name": name,
+            "phone": phone,
+            "age": age,
+            "created_at": datetime.now().isoformat()
+        }).execute()
+        return True
+    except Exception as e:
+        # Silently fail - profile save is not critical
+        return False
+
+# ============= UNHINGED MODE ROASTS (10 safe roasts) =============
+UNHINGED_ROASTS = [
+    "Oh, you're looking at meme stocks? Bold strategy, Cotton. Let's see if it pays off.",
+    "Another day, another person thinking they can time the market. Spoiler: you can't.",
+    "I see you're interested in this stock. Have you considered just burning your money? It's faster.",
+    "Ah yes, the classic 'buy high, sell low' strategy. A true connoisseur.",
+    "You know what they say: past performance doesn't guarantee future results. But you'll ignore that anyway.",
+    "This stock has more red flags than a Soviet parade, but sure, let's analyze it.",
+    "I'm not saying this is a bad investment, but my Magic 8-Ball just said 'Outlook not so good'.",
+    "Diversification? Never heard of her. All in on one stock, baby!",
+    "The market can stay irrational longer than you can stay solvent. Just a friendly reminder.",
+    "Warren Buffett would be so proud... of your confidence, at least.",
+]
+
+def get_session_roast():
+    """Get a roast for this session (max 1 per session)"""
+    if st.session_state.get("roast_shown_this_session", False):
+        return None
+    if not st.session_state.get("unhinged_mode", False):
+        return None
+    # Check age restriction
+    user_age = st.session_state.get("user_age", 25)
+    if user_age < 18:
+        return None
+    
+    st.session_state.roast_shown_this_session = True
+    return random.choice(UNHINGED_ROASTS)
+
 # ============= SIGN UP POPUP STATE =============
 if 'show_signup_popup' not in st.session_state:
     st.session_state.show_signup_popup = False
+
+# ============= CHATBOT STATE =============
+if 'chatbot_open' not in st.session_state:
+    st.session_state.chatbot_open = False
 
 # ============= TOP NAVIGATION BUTTONS =============
 # Check for button clicks via query params (BEFORE rendering buttons)
 action_param = st.query_params.get("nav_action")
 if isinstance(action_param, (list, tuple)):
     action_param = action_param[0] if action_param else None
+
+# Check for chat button click via query param
+chat_param = st.query_params.get("open_chat")
+if isinstance(chat_param, (list, tuple)):
+    chat_param = chat_param[0] if chat_param else None
+
+if chat_param == "1":
+    st.session_state.chatbot_open = True
+    if "open_chat" in st.query_params:
+        del st.query_params["open_chat"]
+    st.rerun()
 
 # Set flag to prevent welcome popup when navigating
 if action_param:
@@ -3959,11 +4058,45 @@ with st.sidebar:
     if st.button("🌓 Toggle Theme", key="sidebar_theme_toggle", use_container_width=True):
         st.session_state.theme = 'light' if st.session_state.theme == 'dark' else 'dark'
         st.rerun()
+    
+    # ============= UNHINGED MODE TOGGLE =============
+    st.markdown("---")
+    st.markdown("### 🔥 Settings")
+    
+    # Initialize unhinged_mode if not exists
+    if 'unhinged_mode' not in st.session_state:
+        st.session_state.unhinged_mode = False
+    
+    # Check age restriction for unhinged mode
+    user_age = st.session_state.get("user_age", 25)
+    if user_age < 18:
+        st.caption("*Unhinged Mode requires age 18+*")
+        st.session_state.unhinged_mode = False
+    else:
+        unhinged_enabled = st.toggle(
+            "🔥 Unhinged Mode",
+            value=st.session_state.unhinged_mode,
+            key="unhinged_toggle",
+            help="Enable playful roast commentary. For entertainment only!"
+        )
+        if unhinged_enabled != st.session_state.unhinged_mode:
+            st.session_state.unhinged_mode = unhinged_enabled
+            # Save progress when toggle changes
+            save_user_progress()
+            st.rerun()
 
 # ============= PAGE CONTENT =============
 
 # ============= HOMEPAGE: START HERE =============
 if selected_page == "🏠 Start Here":
+    # Robinhood-style guidance
+    st.caption("*Welcome! This is your starting point. We'll guide you through the basics of smart investing.*")
+    
+    # Show roast if unhinged mode is on (max 1 per session)
+    roast = get_session_roast()
+    if roast:
+        st.info(f"🔥 *{roast}*")
+    
     # Progress Bar for Start Here page
     if 'start_here_progress' not in st.session_state:
         st.session_state.start_here_progress = 0
@@ -4559,6 +4692,9 @@ elif selected_page == "🧠 Risk Quiz":
 
 
 elif selected_page == "📊 Company Analysis":
+    # Robinhood-style guidance
+    st.caption("*Search for any company to see its financial health, growth trends, and AI-powered insights.*")
+    
     search = st.text_input(
         "🔍 Search by Company Name or Ticker:",
         st.session_state.selected_ticker,
