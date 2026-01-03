@@ -2645,6 +2645,7 @@ def show_signup_popup():
         
         if close_param == "1":
             st.session_state.show_signup_popup = False
+            st.session_state.selected_page = "🏠 Start Here"  # Take to Start Here page
             if "close_signup" in st.query_params:
                 del st.query_params["close_signup"]
             st.rerun()
