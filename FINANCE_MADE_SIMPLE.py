@@ -1795,17 +1795,23 @@ def resolve_company_to_ticker(query):
         return COMPANY_NAME_TO_TICKER[query_lower]
     
     # Check if it's already a valid ticker (uppercase)
+    # Support tickers with dots (BRK.B) and dashes (BRK-B)
     query_upper = query.strip().upper()
-    if len(query_upper) <= 5 and query_upper.isalpha():
-        return query_upper
+    query_clean = query_upper.replace('.', '').replace('-', '')
+    
+    # Valid ticker patterns: 1-5 letters, optionally followed by .X or -X (class shares)
+    # Examples: AAPL, MSFT, BRK.B, BRK-B, RDS.A
+    if len(query_clean) <= 6 and query_clean.isalpha():
+        # Normalize dash to dot for FMP API compatibility (BRK-B -> BRK.B)
+        return query_upper.replace('-', '.')
     
     # Fuzzy match - check if query is contained in any company name
     for name, ticker in COMPANY_NAME_TO_TICKER.items():
         if query_lower in name or name in query_lower:
             return ticker
     
-    # Default: return as-is (uppercase)
-    return query_upper
+    # Default: return as-is (uppercase), normalize dashes to dots
+    return query_upper.replace('-', '.')
 
 def smart_search_ticker(search_term):
     """Smart search with company name support"""
@@ -6611,12 +6617,9 @@ elif selected_page == "📰 Market Intelligence":
             else:
                 st.markdown(f"- {symbol_tag}**{title}** ({published})")
     else:
-        # This should rarely happen - show placeholder headlines
-        st.markdown("- **Markets await Fed decision on interest rates** (Loading...)")
-        st.markdown("- **Tech stocks lead market rally** (Loading...)")
-        st.markdown("- **Earnings season kicks off with major banks** (Loading...)")
-        st.markdown("- **Inflation data comes in below expectations** (Loading...)")
-        st.markdown("- **AI stocks continue momentum** (Loading...)")
+        # All API sources failed - show honest error message (not fake headlines)
+        st.warning("⚠️ Unable to load news headlines at this time. Please try again in a few moments.")
+        st.caption("This can happen if the news APIs are temporarily unavailable or rate-limited.")
     
     st.markdown("---")
     st.caption("*News powered by Perplexity AI and Financial Modeling Prep. This is not financial advice.*")
