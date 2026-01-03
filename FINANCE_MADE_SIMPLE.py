@@ -2968,27 +2968,38 @@ if 'show_signup_popup' not in st.session_state:
     st.session_state.show_signup_popup = False
 
 # ============= TOP NAVIGATION BUTTONS =============
+# Initialize button click states
+if 'signup_clicked' not in st.session_state:
+    st.session_state.signup_clicked = False
+if 'vip_clicked' not in st.session_state:
+    st.session_state.vip_clicked = False
+
+# Check if frozen buttons were clicked via query params
+signup_param = st.query_params.get("signup_clicked")
+if isinstance(signup_param, (list, tuple)):
+    signup_param = signup_param[0] if signup_param else None
+if signup_param == "1":
+    st.session_state.show_signup_popup = True
+    if "signup_clicked" in st.query_params:
+        del st.query_params["signup_clicked"]
+    st.rerun()
+
+vip_param = st.query_params.get("vip_clicked")
+if isinstance(vip_param, (list, tuple)):
+    vip_param = vip_param[0] if vip_param else None
+if vip_param == "1":
+    st.session_state.selected_page = "👑 Become a VIP"
+    if "vip_clicked" in st.query_params:
+        del st.query_params["vip_clicked"]
+    st.rerun()
+
 # FROZEN TOP BAR
 st.markdown(f"""
-<style>
-/* Hide trigger button container */
-.trigger-container {{
-    display: none !important;
-    visibility: hidden !important;
-    height: 0 !important;
-    width: 0 !important;
-    overflow: hidden !important;
-    position: absolute !important;
-    left: -99999px !important;
-    top: -99999px !important;
-}}
-</style>
-
 <div style="position: fixed; top: 0; right: 0; left: 0; z-index: 9999999; 
             background: {'#000000' if st.session_state.theme == 'dark' else '#FFFFFF'}; 
             padding: 10px 20px; display: flex; justify-content: flex-end; gap: 15px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.3);">
-    <button onclick="var btns = parent.document.querySelectorAll('button'); for(var i=0; i<btns.length; i++){{ if(btns[i].innerText.includes('signup_trigger')){{ btns[i].click(); break; }} }}" 
+    <button onclick="window.location.href='?signup_clicked=1'" 
             style="background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%); 
             color: white; padding: 10px 24px; border-radius: 8px; border: none;
             font-weight: bold; cursor: pointer;">📝 Sign Up</button>
@@ -2996,7 +3007,7 @@ st.markdown(f"""
             style="background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%); 
             color: white; padding: 10px 24px; border-radius: 8px; border: none;
             font-weight: bold; cursor: pointer;">🔐 Sign In</button>
-    <button onclick="var btns = parent.document.querySelectorAll('button'); for(var i=0; i<btns.length; i++){{ if(btns[i].innerText.includes('vip_trigger')){{ btns[i].click(); break; }} }}" 
+    <button onclick="window.location.href='?vip_clicked=1'" 
             style="background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%); 
             color: white; padding: 10px 24px; border-radius: 8px; border: none;
             font-weight: bold; cursor: pointer;">👑 Become a VIP</button>
@@ -3005,19 +3016,6 @@ st.markdown(f"""
 
 # Add spacing
 st.markdown("<div style='margin-bottom: 80px;'></div>", unsafe_allow_html=True)
-
-# Hidden trigger buttons wrapped in container
-st.markdown('<div class="trigger-container">', unsafe_allow_html=True)
-col1, col2 = st.columns(2)
-with col1:
-    if st.button("signup_trigger", key="signup_trigger"):
-        st.session_state.show_signup_popup = True
-        st.rerun()
-with col2:
-    if st.button("vip_trigger", key="vip_trigger"):
-        st.session_state.selected_page = "👑 Become a VIP"
-        st.rerun()
-st.markdown('</div>', unsafe_allow_html=True)
 
 # ============= LIVE TICKER BAR =============
 render_live_ticker_bar()
