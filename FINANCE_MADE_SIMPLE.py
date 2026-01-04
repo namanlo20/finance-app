@@ -4254,6 +4254,7 @@ with st.sidebar:
         st.caption("Learn the basics")
         start_here_tools = [
             "🏠 Start Here",
+            "📖 Basics",
             "📚 Finance 101",
             "🧠 Risk Quiz"
         ]
@@ -4679,6 +4680,143 @@ if selected_page == "🏠 Start Here":
     
     st.markdown("---")
     st.caption("💡 **Tip:** Use the Timeline picker in the sidebar to see how these metrics change over different time periods!")
+
+# ============= BASICS PAGE =============
+elif selected_page == "📖 Basics":
+    # Initialize basics progress tracking in session state
+    if 'basics_progress' not in st.session_state:
+        st.session_state.basics_progress = {
+            'completed_modules': [],
+            'current_module': 1,
+            'current_lesson': 1
+        }
+    
+    # Page Header
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 30px; border-radius: 15px; margin-bottom: 30px; text-align: center;">
+        <h1 style="color: #FFFFFF; margin: 0; font-size: 2.5em;">Basics</h1>
+        <p style="color: #B0B0B0; margin-top: 10px; font-size: 1.2em;">Learn how investing actually works — without the BS.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Create two cards side by side
+    col1, col2 = st.columns(2)
+    
+    # Card A: Start the Basics Course
+    with col1:
+        st.markdown("""
+        <div style="background: rgba(255,255,255,0.05); padding: 30px; border-radius: 15px; height: 250px; 
+                    border: 2px solid #00D9FF; text-align: center; display: flex; flex-direction: column; 
+                    justify-content: space-between;">
+            <div>
+                <div style="font-size: 48px; margin-bottom: 15px;">🎓</div>
+                <h3 style="color: #FFFFFF; margin: 10px 0;">Start the Basics Course</h3>
+                <p style="color: #B0B0B0;">Begin your investing journey from Module 1</p>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        if st.button("🚀 Start", key="start_basics_btn", type="primary", use_container_width=True):
+            # Reset progress to Module 1
+            st.session_state.basics_progress['current_module'] = 1
+            st.session_state.basics_progress['current_lesson'] = 1
+            # Scroll to Module 1 by setting expanded state
+            st.session_state.basics_show_module_1 = True
+            st.rerun()
+    
+    # Card B: Continue where you left off
+    with col2:
+        # Determine what to show based on progress
+        progress = st.session_state.basics_progress
+        
+        if len(progress['completed_modules']) == 0:
+            # No progress yet
+            continue_text = "Start Module 1"
+            continue_icon = "▶️"
+            progress_desc = "You haven't started yet. Begin with Module 1!"
+        else:
+            # Has progress
+            current_mod = progress['current_module']
+            current_les = progress['current_lesson']
+            continue_text = f"Continue Module {current_mod}, Lesson {current_les}"
+            continue_icon = "📚"
+            completed_count = len(progress['completed_modules'])
+            progress_desc = f"You've completed {completed_count} module(s). Keep going!"
+        
+        st.markdown(f"""
+        <div style="background: rgba(255,255,255,0.05); padding: 30px; border-radius: 15px; height: 250px; 
+                    border: 2px solid #FFD700; text-align: center; display: flex; flex-direction: column; 
+                    justify-content: space-between;">
+            <div>
+                <div style="font-size: 48px; margin-bottom: 15px;">{continue_icon}</div>
+                <h3 style="color: #FFFFFF; margin: 10px 0;">Continue where you left off</h3>
+                <p style="color: #B0B0B0;">{progress_desc}</p>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        if st.button(f"🎯 {continue_text}", key="continue_basics_btn", type="secondary", use_container_width=True):
+            # Set the current module to expand
+            st.session_state[f"basics_show_module_{progress['current_module']}"] = True
+            st.rerun()
+    
+    st.markdown("---")
+    
+    # Module 1 Placeholder (expandable section)
+    st.markdown("### 📚 Course Modules")
+    
+    with st.expander("Module 1: Introduction to Investing", 
+                     expanded=st.session_state.get('basics_show_module_1', False)):
+        st.markdown("""
+        #### Welcome to Module 1
+        
+        In this module, you'll learn:
+        - What investing really means
+        - The difference between investing and gambling
+        - Why you should start investing today
+        - Basic terminology every investor should know
+        
+        *Module content coming soon...*
+        """)
+        
+        if st.button("✅ Mark Module 1 as Complete", key="complete_module_1"):
+            if 1 not in st.session_state.basics_progress['completed_modules']:
+                st.session_state.basics_progress['completed_modules'].append(1)
+                st.session_state.basics_progress['current_module'] = 2
+                st.session_state.basics_progress['current_lesson'] = 1
+                st.success("🎉 Module 1 completed! Moving to Module 2...")
+                st.balloons()
+                st.rerun()
+    
+    with st.expander("Module 2: Understanding Risk & Returns", 
+                     expanded=st.session_state.get('basics_show_module_2', False)):
+        st.markdown("""
+        #### Module 2: Risk & Returns
+        
+        *This module will be unlocked after completing Module 1*
+        
+        Topics covered:
+        - Risk vs Reward fundamentals
+        - Diversification strategies
+        - Asset allocation basics
+        
+        *Module content coming soon...*
+        """)
+    
+    with st.expander("Module 3: Reading Financial Statements", 
+                     expanded=st.session_state.get('basics_show_module_3', False)):
+        st.markdown("""
+        #### Module 3: Financial Statements
+        
+        *This module will be unlocked after completing Module 2*
+        
+        Topics covered:
+        - Income Statement basics
+        - Balance Sheet fundamentals
+        - Cash Flow Statement essentials
+        
+        *Module content coming soon...*
+        """)
 
 elif selected_page == "📚 Finance 101":
     st.header("📚 Finance 101")
