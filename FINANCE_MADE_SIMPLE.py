@@ -4466,7 +4466,7 @@ if st.session_state.get('show_onboarding_quiz', False):
 try:
     col1, col2, col3 = st.columns([1, 1, 1])
     with col2:
-        st.image("logo.png", width=250)  # Smaller width
+        st.image("logo.png", width=500)  # Smaller width
 except:
     # Fallback text logo
     st.markdown("""
