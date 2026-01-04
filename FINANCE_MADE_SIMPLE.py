@@ -4896,6 +4896,40 @@ with st.sidebar:
             # Save progress when toggle changes
             save_user_progress()
             st.rerun()
+    
+    # ============= FOUNDER UNLOCK =============
+    st.markdown("---")
+    st.markdown("### 👑 Founder Access")
+    
+    # Initialize founder status
+    if 'is_founder' not in st.session_state:
+        st.session_state.is_founder = False
+    
+    if not st.session_state.is_founder:
+        # Show unlock input
+        founder_key_input = st.text_input(
+            "Founder unlock",
+            type="password",
+            placeholder="Enter founder key",
+            key="founder_key_input"
+        )
+        
+        if st.button("🔓 Unlock", key="founder_unlock_btn", use_container_width=True):
+            # Get server-side secret
+            FOUNDER_KEY = os.getenv("FOUNDER_KEY", "")
+            
+            if founder_key_input and founder_key_input == FOUNDER_KEY:
+                st.session_state.is_founder = True
+                st.success("✅ Founder mode enabled")
+                st.rerun()
+            else:
+                st.error("❌ Invalid founder key")
+    else:
+        # Already unlocked
+        st.success("✅ Founder mode enabled")
+        if st.button("🔒 Lock", key="founder_lock_btn", use_container_width=True):
+            st.session_state.is_founder = False
+            st.rerun()
 
 # ============= PAGE CONTENT =============
 
@@ -8400,8 +8434,8 @@ elif selected_page == "💼 Paper Portfolio":
     if 'pending_order' not in st.session_state:
         st.session_state.pending_order = None
     
-    # Check if user is owner
-    is_owner = st.session_state.get('user_email') == 'naman@example.com'  # Update with actual owner email
+    # Check if user is founder
+    is_founder = st.session_state.get('is_founder', False)
     
     # ============= HELPER FUNCTIONS =============
     def calculate_portfolio_value(portfolio, cash):
@@ -8848,7 +8882,7 @@ elif selected_page == "💼 Paper Portfolio":
     # ============= SECTION B: FOUNDER'S PAPER PORTFOLIO =============
     st.markdown("## 👑 Section B — Founder's Paper Portfolio")
     
-    if is_owner:
+    if is_founder:
         # Interactive founder panel for owner
         col_trade_f, col_chart_f = st.columns([1, 1])
         
