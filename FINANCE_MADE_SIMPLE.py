@@ -8364,44 +8364,414 @@ elif selected_page == "📋 Investment Checklist":
                 st.error("🚨 Many red flags")
 
 
+# NEW PAPER PORTFOLIO PAGE - Section 6 Implementation
+# This will replace lines 8367-8765 in the main file
+
 elif selected_page == "💼 Paper Portfolio":
-    
     st.header("💼 Paper Portfolio")
-    st.caption("*This shows how your decisions would have performed over time — compared to the market.*")
+    st.caption("*Practice trading with fake money. Track your performance vs the market.*")
     
-    # Initialize session state for portfolio
+    # ============= INITIALIZATION =============
+    # User portfolio
     if 'portfolio' not in st.session_state:
         st.session_state.portfolio = []
     if 'cash' not in st.session_state:
-        st.session_state.cash = 10000.0
+        st.session_state.cash = 50000.0  # Changed from 10k to 50k
     if 'transactions' not in st.session_state:
         st.session_state.transactions = []
     if 'realized_gains' not in st.session_state:
         st.session_state.realized_gains = 0.0
-    if 'reset_confirm' not in st.session_state:
-        st.session_state.reset_confirm = False
-    if 'first_buy_message_shown' not in st.session_state:
-        st.session_state.first_buy_message_shown = False
     if 'concentration_flags' not in st.session_state:
         st.session_state.concentration_flags = {}
     
-    # Founder's portfolio (read-only for users, editable for founder)
-    FOUNDER_PORTFOLIO = [
-        {'ticker': 'GOOGL', 'shares': 50, 'avg_price': 150.00},
-        {'ticker': 'META', 'shares': 30, 'avg_price': 280.00},
-        {'ticker': 'NFLX', 'shares': 20, 'avg_price': 400.00},
-        {'ticker': 'NVDA', 'shares': 25, 'avg_price': 450.00},
-        {'ticker': 'MSFT', 'shares': 40, 'avg_price': 350.00},
-    ]
+    # Founder portfolio (now real, not hardcoded)
+    if 'founder_portfolio' not in st.session_state:
+        st.session_state.founder_portfolio = []
+    if 'founder_cash' not in st.session_state:
+        st.session_state.founder_cash = 50000.0
+    if 'founder_transactions' not in st.session_state:
+        st.session_state.founder_transactions = []
+    if 'founder_realized_gains' not in st.session_state:
+        st.session_state.founder_realized_gains = 0.0
     
-    # Helper function to calculate portfolio metrics
-    def calculate_portfolio_metrics(portfolio_positions, starting_cash=10000.0):
-        total_value = starting_cash
-        total_cost_basis = 0
-        total_market_value = 0
-        positions_data = []
+    # Trade UI state
+    if 'show_order_modal' not in st.session_state:
+        st.session_state.show_order_modal = False
+    if 'pending_order' not in st.session_state:
+        st.session_state.pending_order = None
+    
+    # Check if user is owner
+    is_owner = st.session_state.get('user_email') == 'naman@example.com'  # Update with actual owner email
+    
+    # ============= HELPER FUNCTIONS =============
+    def calculate_portfolio_value(portfolio, cash):
+        """Calculate total portfolio value"""
+        total_value = cash
+        for pos in portfolio:
+            quote = get_quote(pos['ticker'])
+            if quote:
+                total_value += pos['shares'] * quote.get('price', 0)
+        return total_value
+    
+    def get_ytd_return(current_value, starting_value=50000.0):
+        """Calculate YTD return percentage"""
+        return ((current_value - starting_value) / starting_value) * 100
+    
+    def execute_trade(action, ticker, shares, price, portfolio_type='user'):
+        """Execute a buy or sell trade"""
+        if portfolio_type == 'user':
+            portfolio = st.session_state.portfolio
+            cash = st.session_state.cash
+            transactions = st.session_state.transactions
+            realized_gains_key = 'realized_gains'
+        else:  # founder
+            portfolio = st.session_state.founder_portfolio
+            cash = st.session_state.founder_cash
+            transactions = st.session_state.founder_transactions
+            realized_gains_key = 'founder_realized_gains'
         
-        for pos in portfolio_positions:
+        if action == "Buy":
+            total_cost = shares * price
+            if total_cost > cash:
+                return False, "Insufficient funds"
+            
+            # Find existing position
+            existing = None
+            for pos in portfolio:
+                if pos['ticker'] == ticker:
+                    existing = pos
+                    break
+            
+            if existing:
+                # Update average cost
+                total_shares = existing['shares'] + shares
+                total_cost_all = (existing['shares'] * existing['avg_price']) + total_cost
+                existing['avg_price'] = total_cost_all / total_shares
+                existing['shares'] = total_shares
+            else:
+                portfolio.append({
+                    'ticker': ticker,
+                    'shares': shares,
+                    'avg_price': price
+                })
+            
+            # Update cash
+            if portfolio_type == 'user':
+                st.session_state.cash -= total_cost
+            else:
+                st.session_state.founder_cash -= total_cost
+            
+            # Record transaction
+            transactions.append({
+                'date': datetime.now().strftime('%Y-%m-%d %H:%M'),
+                'type': 'BUY',
+                'ticker': ticker,
+                'shares': shares,
+                'price': price,
+                'total': total_cost
+            })
+            
+            return True, f"Bought {shares} shares of {ticker}"
+        
+        else:  # Sell
+            # Find position
+            pos_to_sell = None
+            pos_index = None
+            for i, pos in enumerate(portfolio):
+                if pos['ticker'] == ticker:
+                    pos_to_sell = pos
+                    pos_index = i
+                    break
+            
+            if not pos_to_sell:
+                return False, "Position not found"
+            
+            if shares > pos_to_sell['shares']:
+                return False, f"Cannot sell {shares} shares. You only have {pos_to_sell['shares']}"
+            
+            # Calculate proceeds and realized gain
+            proceeds = shares * price
+            cost_basis = shares * pos_to_sell['avg_price']
+            realized_gain = proceeds - cost_basis
+            
+            # Update position or remove if selling all
+            if shares == pos_to_sell['shares']:
+                portfolio.pop(pos_index)
+            else:
+                pos_to_sell['shares'] -= shares
+            
+            # Update cash and realized gains
+            if portfolio_type == 'user':
+                st.session_state.cash += proceeds
+                st.session_state.realized_gains += realized_gain
+            else:
+                st.session_state.founder_cash += proceeds
+                st.session_state.founder_realized_gains += realized_gain
+            
+            # Record transaction
+            transactions.append({
+                'date': datetime.now().strftime('%Y-%m-%d %H:%M'),
+                'type': 'SELL',
+                'ticker': ticker,
+                'shares': shares,
+                'price': price,
+                'total': proceeds,
+                'gain_loss': realized_gain
+            })
+            
+            return True, f"Sold {shares} shares of {ticker}"
+    
+    # ============= ORDER CONFIRMATION MODAL =============
+    @st.dialog("Confirm Order", width="medium")
+    def order_confirmation_modal():
+        order = st.session_state.pending_order
+        if not order:
+            return
+        
+        st.markdown(f"### {order['action']} {order['ticker']}")
+        
+        # Order details
+        st.markdown(f"""
+        **Shares:** {order['shares']:.4f}  
+        **Estimated Price:** ${order['price']:.2f}  
+        **Estimated Total:** ${order['total']:.2f}  
+        """)
+        
+        # Post-trade cash
+        post_cash = order['post_cash']
+        if post_cash < 0:
+            st.error(f"⚠️ **Insufficient Funds**  \nYou need ${abs(post_cash):,.2f} more")
+        else:
+            st.success(f"**Remaining Cash:** ${post_cash:,.2f}")
+        
+        # Concentration warning
+        if order['post_concentration'] > 0:
+            st.info(f"**Post-trade Concentration:** {order['post_concentration']:.1f}% in {order['ticker']}")
+            
+            # Show personalized warning if risk quiz taken
+            risk_tier = st.session_state.user_profile.get('risk_tier', 'unknown')
+            if risk_tier != 'unknown':
+                _, conc_msg = get_concentration_warning(order['ticker'], order['post_concentration'] / 100, risk_tier)
+                if conc_msg:
+                    st.warning(conc_msg)
+        
+        st.markdown("---")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if st.button("✅ Confirm", use_container_width=True, type="primary", disabled=(post_cash < 0)):
+                success, message = execute_trade(
+                    order['action'], 
+                    order['ticker'], 
+                    order['shares'], 
+                    order['price'],
+                    order['portfolio_type']
+                )
+                
+                if success:
+                    # Update concentration flags
+                    if order['portfolio_type'] == 'user':
+                        update_concentration_flags(st.session_state.portfolio)
+                    
+                    st.session_state.show_order_modal = False
+                    st.session_state.pending_order = None
+                    save_user_progress()
+                    st.success(message)
+                    st.rerun()
+                else:
+                    st.error(message)
+        
+        with col2:
+            if st.button("❌ Cancel", use_container_width=True, type="secondary"):
+                st.session_state.show_order_modal = False
+                st.session_state.pending_order = None
+                st.rerun()
+    
+    # Show modal if triggered
+    if st.session_state.show_order_modal:
+        order_confirmation_modal()
+    
+    # ============= TRADE PANEL COMPONENT =============
+    def render_trade_panel(portfolio_type='user'):
+        """Render the trade panel for user or founder"""
+        is_founder_panel = (portfolio_type == 'founder')
+        panel_title = "Trade Panel (Founder)" if is_founder_panel else "Trade Panel (User)"
+        
+        # Get portfolio data
+        if is_founder_panel:
+            portfolio = st.session_state.founder_portfolio
+            cash = st.session_state.founder_cash
+        else:
+            portfolio = st.session_state.portfolio
+            cash = st.session_state.cash
+        
+        st.markdown(f"### 🛒 {panel_title}")
+        
+        # Ticker input with name resolution
+        ticker_input = st.text_input(
+            "Stock (name or ticker)",
+            placeholder="AAPL or Apple",
+            key=f"ticker_input_{portfolio_type}"
+        ).strip()
+        
+        if ticker_input:
+            # Resolve ticker
+            resolved_ticker, company_name = smart_search_ticker(ticker_input)
+            
+            if resolved_ticker != ticker_input.upper():
+                st.caption(f"→ {company_name} ({resolved_ticker})")
+            
+            ticker = resolved_ticker
+            
+            # Get current price
+            quote = get_quote(ticker)
+            if not quote:
+                st.error("Invalid ticker")
+                return
+            
+            current_price = quote.get('price', 0)
+            st.metric("Current Price", f"${current_price:.2f}")
+            
+            # Action toggle
+            action = st.radio(
+                "Action",
+                ["Buy", "Sell"],
+                horizontal=True,
+                key=f"action_{portfolio_type}"
+            )
+            
+            # Input type toggle
+            input_mode = st.radio(
+                "Input Mode",
+                ["Shares", "Dollars"],
+                horizontal=True,
+                key=f"input_mode_{portfolio_type}"
+            )
+            
+            # Quantity input
+            if input_mode == "Shares":
+                shares = st.number_input(
+                    "Shares",
+                    min_value=0.01,
+                    value=1.0,
+                    step=0.01,
+                    key=f"shares_input_{portfolio_type}"
+                )
+                total_cost = shares * current_price
+            else:  # Dollars
+                dollars = st.number_input(
+                    "Dollars",
+                    min_value=1.0,
+                    value=1000.0,
+                    step=100.0,
+                    key=f"dollars_input_{portfolio_type}"
+                )
+                shares = dollars / current_price
+                total_cost = dollars
+            
+            # Live preview
+            st.markdown("---")
+            st.markdown("#### 📋 Preview")
+            
+            if action == "Buy":
+                post_cash = cash - total_cost
+                
+                # Simulate concentration
+                sim_portfolio = portfolio.copy()
+                existing_pos = None
+                for pos in sim_portfolio:
+                    if pos['ticker'] == ticker:
+                        existing_pos = pos
+                        break
+                
+                if existing_pos:
+                    existing_pos['shares'] += shares
+                else:
+                    sim_portfolio.append({'ticker': ticker, 'shares': shares, 'avg_price': current_price})
+                
+                sim_weights = compute_portfolio_concentration(sim_portfolio)
+                post_concentration = sim_weights.get(ticker, 0) * 100
+                
+                st.info(f"""
+                **Estimated Shares:** {shares:.4f}  
+                **Estimated Cost:** ${total_cost:.2f}  
+                **Remaining Cash:** ${post_cash:,.2f}  
+                **Post-trade {ticker}:** {post_concentration:.1f}% of portfolio
+                """)
+                
+                if post_cash < 0:
+                    st.error(f"⚠️ Insufficient funds! Need ${abs(post_cash):,.2f} more")
+            
+            else:  # Sell
+                # Check if position exists
+                existing_pos = None
+                for pos in portfolio:
+                    if pos['ticker'] == ticker:
+                        existing_pos = pos
+                        break
+                
+                if not existing_pos:
+                    st.error(f"You don't own any {ticker}")
+                    return
+                
+                if shares > existing_pos['shares']:
+                    st.error(f"Cannot sell {shares:.4f} shares. You only have {existing_pos['shares']:.4f}")
+                    return
+                
+                proceeds = shares * current_price
+                post_cash = cash + proceeds
+                
+                st.info(f"""
+                **Selling Shares:** {shares:.4f}  
+                **Estimated Proceeds:** ${proceeds:.2f}  
+                **Remaining Cash:** ${post_cash:,.2f}
+                """)
+            
+            # Review Order button
+            st.markdown("---")
+            
+            # Prepare order data
+            can_execute = True
+            if action == "Buy" and total_cost > cash:
+                can_execute = False
+            elif action == "Sell" and (not existing_pos or shares > existing_pos['shares']):
+                can_execute = False
+            
+            if st.button(
+                "📝 Review Order",
+                use_container_width=True,
+                type="primary",
+                key=f"review_order_{portfolio_type}",
+                disabled=not can_execute
+            ):
+                # Store order data and show modal
+                st.session_state.pending_order = {
+                    'action': action,
+                    'ticker': ticker,
+                    'shares': shares,
+                    'price': current_price,
+                    'total': total_cost if action == "Buy" else proceeds,
+                    'post_cash': post_cash,
+                    'post_concentration': post_concentration if action == "Buy" else 0,
+                    'portfolio_type': portfolio_type
+                }
+                st.session_state.show_order_modal = True
+                st.rerun()
+    
+    # ============= POSITIONS TABLE COMPONENT =============
+    def render_positions_table(portfolio, realized_gains, portfolio_type='user'):
+        """Render positions table with realized/unrealized G/L"""
+        if not portfolio:
+            st.info("No positions yet. Use the trade panel to buy your first stock!")
+            return
+        
+        # Update concentration flags
+        update_concentration_flags(portfolio)
+        concentration_flags = st.session_state.get('concentration_flags', {})
+        
+        positions_data = []
+        for pos in portfolio:
             quote = get_quote(pos['ticker'])
             if quote:
                 current_price = quote.get('price', 0)
@@ -8410,359 +8780,161 @@ elif selected_page == "💼 Paper Portfolio":
                 unrealized_gain = market_value - cost_basis
                 unrealized_gain_pct = (unrealized_gain / cost_basis * 100) if cost_basis > 0 else 0
                 
+                # Get concentration warning icon
+                conc_flag = concentration_flags.get(pos['ticker'], {})
+                severity = conc_flag.get('severity', 'none')
+                warning_icon = "🚨" if severity == "high" else "⚠️" if severity == "warning" else ""
+                
                 positions_data.append({
-                    'ticker': pos['ticker'],
-                    'shares': pos['shares'],
-                    'avg_cost': pos['avg_price'],
-                    'current_price': current_price,
-                    'market_value': market_value,
-                    'cost_basis': cost_basis,
-                    'unrealized_gain': unrealized_gain,
-                    'unrealized_gain_pct': unrealized_gain_pct
+                    '⚠': warning_icon,
+                    'Ticker': pos['ticker'],
+                    'Shares': f"{pos['shares']:.4f}",
+                    'Avg Cost': f"${pos['avg_price']:.2f}",
+                    'Price': f"${current_price:.2f}",
+                    'Value': f"${market_value:,.2f}",
+                    'Unrealized $': f"${unrealized_gain:,.2f}",
+                    'Unrealized %': f"{unrealized_gain_pct:+.2f}%"
                 })
-                
-                total_market_value += market_value
-                total_cost_basis += cost_basis
         
-        return positions_data, total_market_value, total_cost_basis
-    
-    # ============= SECTION A: PERFORMANCE COMPARISON (TOP) =============
-    st.markdown("## 📊 Section A — Performance Comparison")
-    st.caption("*Compare how your decisions stack up against the market.*")
-    
-    perf_col1, perf_col2 = st.columns(2)
-    
-    with perf_col1:
-        st.markdown("### 📈 Your Paper Portfolio")
-        user_positions, user_market_value, user_cost_basis = calculate_portfolio_metrics(
-            st.session_state.portfolio, st.session_state.cash
-        )
-        total_user_value = st.session_state.cash + user_market_value
-        user_total_gain = total_user_value - 10000.0
-        user_total_gain_pct = (user_total_gain / 10000.0) * 100
-        
-        st.metric("Portfolio Value", f"${total_user_value:,.2f}", f"{user_total_gain_pct:+.2f}%")
-        
-        # Simple performance chart placeholder
-        if st.session_state.portfolio:
-            chart_data = pd.DataFrame({
-                'Day': list(range(1, 31)),
-                'Your Portfolio': [10000 + (user_total_gain / 30) * i for i in range(1, 31)]
-            })
-            st.line_chart(chart_data.set_index('Day'), color=['#FF4444'])
-        else:
-            st.info("Add positions to see your performance chart")
-    
-    with perf_col2:
-        st.markdown("### 📊 SPY Benchmark")
-        spy_quote = get_quote('SPY')
-        if spy_quote:
-            spy_change = spy_quote.get('changesPercentage', 0)
-            spy_price = spy_quote.get('price', 0)
-            st.metric("SPY Price", f"${spy_price:.2f}", f"{spy_change:+.2f}%")
+        if positions_data:
+            df = pd.DataFrame(positions_data)
+            st.dataframe(df, use_container_width=True, hide_index=True)
             
-            # SPY benchmark chart
-            chart_data = pd.DataFrame({
-                'Day': list(range(1, 31)),
-                'SPY Benchmark': [10000 * (1 + spy_change/100 * i/30) for i in range(1, 31)]
-            })
-            st.line_chart(chart_data.set_index('Day'), color=['#00AA00'])
-        else:
-            st.warning("Unable to load SPY data")
+            if any(row['⚠'] for row in positions_data):
+                st.caption("⚠️ = Concentration warning | 🚨 = High concentration risk")
+            
+            st.caption(f"**Total Realized G/L:** ${realized_gains:,.2f}")
     
-    st.divider()
+    # ============= SECTION A: YOUR PAPER PORTFOLIO =============
+    st.markdown("## 📊 Section A — Your Paper Portfolio")
     
-    # ============= SECTION B: USER PAPER PORTFOLIO =============
-    st.markdown("## 💼 Section B — Your Paper Portfolio")
+    col_trade, col_chart = st.columns([1, 1])
     
-    # Portfolio summary in sidebar
-    with st.sidebar:
-        st.markdown("### 📊 Portfolio Summary")
-        st.metric("Total Value", f"${total_user_value:,.2f}")
-        st.metric("Cash Available", f"${st.session_state.cash:,.2f}")
-        st.metric("Unrealized G/L", f"${user_market_value - user_cost_basis:,.2f}")
-        st.metric("Realized G/L", f"${st.session_state.realized_gains:,.2f}")
+    with col_trade:
+        render_trade_panel('user')
     
-    # Buy Stock Section
-    buy_col, positions_col = st.columns([1, 2])
-    
-    with buy_col:
-        st.markdown("### 🛒 Buy Stock")
-        buy_ticker = st.text_input("Ticker Symbol", placeholder="AAPL", key="buy_ticker_input").upper()
+    with col_chart:
+        st.markdown("### 📈 YTD Performance (User)")
         
-        if buy_ticker:
-            quote = get_quote(buy_ticker)
-            if quote:
-                current_price = quote.get('price', 0)
-                st.metric("Current Price", f"${current_price:.2f}")
-                
-                # Fit Check Panel
-                render_fit_check_panel(buy_ticker)
-                
-                buy_shares = st.number_input("Shares to Buy", min_value=1, value=10, step=1, key="buy_shares_input")
-                total_cost = buy_shares * current_price
-                
-                # Calculate what concentration would be after this purchase
-                simulated_portfolio = st.session_state.portfolio.copy()
-                existing_pos = None
-                for pos in simulated_portfolio:
-                    if pos['ticker'] == buy_ticker:
-                        existing_pos = pos
-                        break
-                
-                if existing_pos:
-                    existing_pos['shares'] += buy_shares
-                else:
-                    simulated_portfolio.append({
-                        'ticker': buy_ticker,
-                        'shares': buy_shares,
-                        'avg_price': current_price
-                    })
-                
-                # Show concentration warning for what it WILL be after purchase
-                if simulated_portfolio:
-                    sim_weights = compute_portfolio_concentration(simulated_portfolio)
-                    sim_weight = sim_weights.get(buy_ticker, 0)
-                    risk_tier = st.session_state.user_profile.get("risk_tier", "unknown")
-                    conc_severity, conc_message = get_concentration_warning(buy_ticker, sim_weight, risk_tier)
-                    
-                    if conc_severity == "high":
-                        st.error(conc_message)
-                    elif conc_severity == "warning":
-                        st.warning(conc_message)
-                
-                st.info(f"**Total Cost:** ${total_cost:,.2f}")
-                
-                if total_cost > st.session_state.cash:
-                    st.error(f"Insufficient funds! Need ${total_cost - st.session_state.cash:,.2f} more.")
-                else:
-                    if st.button("Buy", use_container_width=True, type="primary", key="buy_btn"):
-                        existing = None
-                        for pos in st.session_state.portfolio:
-                            if pos['ticker'] == buy_ticker:
-                                existing = pos
-                                break
-                        
-                        if existing:
-                            total_shares = existing['shares'] + buy_shares
-                            total_cost_all = (existing['shares'] * existing['avg_price']) + total_cost
-                            new_avg = total_cost_all / total_shares
-                            existing['shares'] = total_shares
-                            existing['avg_price'] = new_avg
-                        else:
-                            st.session_state.portfolio.append({
-                                'ticker': buy_ticker,
-                                'shares': buy_shares,
-                                'avg_price': current_price
-                            })
-                        
-                        st.session_state.cash -= total_cost
-                        st.session_state.transactions.append({
-                            'date': datetime.now().strftime('%Y-%m-%d %H:%M'),
-                            'type': 'BUY',
-                            'ticker': buy_ticker,
-                            'shares': buy_shares,
-                            'price': current_price,
-                            'total': total_cost
-                        })
-                        
-                        # Show first buy success dialog (A5)
-                        if not st.session_state.first_paper_trade_done:
-                            st.session_state.first_paper_trade_done = True
-                            st.session_state.show_first_buy_success = True
-                            set_active_ticker(buy_ticker)
-                        else:
-                            st.success(f"Bought {buy_shares} shares of {buy_ticker}!")
-                        
-                        # Update concentration flags
-                        update_concentration_flags(st.session_state.portfolio)
-                        
-                        save_user_progress()
-                        st.rerun()
-            else:
-                st.error("Invalid ticker symbol")
-    
-    with positions_col:
-        st.markdown("### 📈 Your Positions")
+        # Calculate metrics
+        user_total_value = calculate_portfolio_value(st.session_state.portfolio, st.session_state.cash)
+        user_ytd_return = get_ytd_return(user_total_value, 50000.0)
         
-        if not st.session_state.portfolio:
-            # Empty state with guidance
-            st.info("**Start with one company you recognize.** This is paper trading — no real money.")
-            if st.button("Add your first stock", type="primary", key="add_first_stock_btn"):
-                st.info("Enter a ticker symbol in the Buy Stock section to get started!")
-        else:
-            # Update concentration flags for current portfolio
-            update_concentration_flags(st.session_state.portfolio)
-            concentration_flags = st.session_state.get('concentration_flags', {})
-            
-            # Positions table
-            positions_data = []
-            for i, pos in enumerate(st.session_state.portfolio):
-                quote = get_quote(pos['ticker'])
-                if quote:
-                    current_price = quote.get('price', 0)
-                    market_value = pos['shares'] * current_price
-                    cost_basis = pos['shares'] * pos['avg_price']
-                    unrealized_gain = market_value - cost_basis
-                    unrealized_gain_pct = (unrealized_gain / cost_basis * 100) if cost_basis > 0 else 0
-                    
-                    # Get concentration warning icon
-                    ticker = pos['ticker']
-                    conc_flag = concentration_flags.get(ticker, {})
-                    severity = conc_flag.get('severity', 'none')
-                    
-                    warning_icon = ""
-                    if severity == "high":
-                        warning_icon = "🚨"
-                    elif severity == "warning":
-                        warning_icon = "⚠️"
-                    
-                    positions_data.append({
-                        '⚠': warning_icon,
-                        'Ticker': ticker,
-                        'Avg Cost': f"${pos['avg_price']:.2f}",
-                        'Shares': pos['shares'],
-                        'Price': f"${current_price:.2f}",
-                        'Value': f"${market_value:,.2f}",
-                        'G/L ($)': f"${unrealized_gain:,.2f}",
-                        'G/L (%)': f"{unrealized_gain_pct:+.2f}%"
-                    })
-            
-            if positions_data:
-                df = pd.DataFrame(positions_data)
-                st.dataframe(df, use_container_width=True, hide_index=True)
-                
-                # Explanation for warning icons
-                if any(row['⚠'] for row in positions_data):
-                    st.caption("⚠️ = Concentration warning | 🚨 = High concentration risk")
-            
-            # Action buttons for each position
-            st.markdown("#### Actions")
-            for i, pos in enumerate(st.session_state.portfolio):
-                ticker = pos['ticker']
-                shares = pos['shares']
-                
-                col_a, col_b, col_c = st.columns([2, 1, 1])
-                
-                with col_a:
-                    st.write(f"**{ticker}** ({shares} shares)")
-                
-                with col_b:
-                    if st.button(f"Analyze", key=f"analyze_{ticker}_{i}", type="primary"):
-                        st.session_state.selected_ticker = ticker
-                        save_user_progress()
-                        st.switch_page("FINANCE_MADE_SIMPLE.py") if hasattr(st, 'switch_page') else st.rerun()
-                
-                with col_c:
-                    quote = get_quote(ticker)
-                    if quote:
-                        current_price = quote.get('price', 0)
-                        
-                        if st.button(f"Sell", key=f"sell_{ticker}_{i}", type="secondary"):
-                            sale_value = shares * current_price
-                            cost_basis = shares * pos['avg_price']
-                            realized_gain = sale_value - cost_basis
-                            
-                            st.session_state.cash += sale_value
-                            st.session_state.realized_gains += realized_gain
-                            st.session_state.transactions.append({
-                                'date': datetime.now().strftime('%Y-%m-%d %H:%M'),
-                                'type': 'SELL',
-                                'ticker': ticker,
-                                'shares': shares,
-                                'price': current_price,
-                                'total': sale_value,
-                                'gain_loss': realized_gain
-                            })
-                            st.session_state.portfolio.pop(i)
-                            
-                            # Update concentration flags
-                            update_concentration_flags(st.session_state.portfolio)
-                            
-                            save_user_progress()
-                            st.rerun()
+        # KPI card
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Starting", "$50,000")
+        col2.metric("Current", f"${user_total_value:,.2f}")
+        col3.metric("YTD Return", f"{user_ytd_return:+.2f}%")
+        
+        # Simple line chart placeholder
+        # TODO: Implement actual YTD chart with historical data
+        st.caption("📈 Chart: YTD performance tracking coming soon")
+    
+    # User positions table
+    st.markdown("---")
+    st.markdown("### 📋 Your Positions")
+    render_positions_table(st.session_state.portfolio, st.session_state.realized_gains, 'user')
     
     # Transaction history
-    if st.session_state.transactions:
-        with st.expander("📜 Transaction History", expanded=False):
+    with st.expander("📜 Transaction History", expanded=False):
+        if st.session_state.transactions:
             for txn in reversed(st.session_state.transactions[-20:]):
-                type_emoji = "🟢" if txn['type'] == 'BUY' else "🔴"
-                gain_text = f" | G/L: ${txn.get('gain_loss', 0):,.2f}" if 'gain_loss' in txn else ""
-                st.markdown(f"{type_emoji} **{txn['type']}** {txn['shares']} {txn['ticker']} @ ${txn['price']:.2f} = ${txn['total']:,.2f}{gain_text}")
-                st.caption(txn['date'])
-    
-    # Reset Portfolio with confirmation modal
-    st.divider()
-    
-    if st.session_state.reset_confirm:
-        st.warning("Are you sure you want to reset your portfolio? This will clear ALL positions, transactions, and performance data.")
-        col_yes, col_no = st.columns(2)
-        with col_yes:
-            if st.button("Yes, Reset Everything", type="primary", key="confirm_reset"):
-                st.session_state.portfolio = []
-                st.session_state.cash = 10000.0
-                st.session_state.transactions = []
-                st.session_state.realized_gains = 0.0
-                st.session_state.first_buy_message_shown = False
-                st.session_state.reset_confirm = False
-                
-                # Clear concentration flags
-                st.session_state.concentration_flags = {}
-                
-                save_user_progress()
-                st.success("Portfolio reset! You have $10,000 to start fresh.")
-                st.rerun()
-        with col_no:
-            if st.button("Cancel", type="secondary", key="cancel_reset"):
-                st.session_state.reset_confirm = False
-                st.rerun()
-    else:
-        if st.button("Reset Portfolio (Start Over)", type="secondary", key="reset_portfolio_btn"):
-            st.session_state.reset_confirm = True
-            st.rerun()
+                st.caption(f"{txn['date']} | {txn['type']} {txn['shares']} {txn['ticker']} @ ${txn['price']:.2f}")
+        else:
+            st.caption("No transactions yet")
     
     st.divider()
     
-    # ============= SECTION C: FOUNDER'S PAPER PORTFOLIO =============
-    st.markdown("## 🏆 Section C — Founder's Paper Portfolio (Public)")
-    st.caption("*See how the founder's picks are performing. Read-only for all users.*")
+    # ============= SECTION B: FOUNDER'S PAPER PORTFOLIO =============
+    st.markdown("## 👑 Section B — Founder's Paper Portfolio")
     
-    founder_positions, founder_market_value, founder_cost_basis = calculate_portfolio_metrics(FOUNDER_PORTFOLIO, 0)
-    founder_total_gain = founder_market_value - founder_cost_basis
-    founder_total_gain_pct = (founder_total_gain / founder_cost_basis * 100) if founder_cost_basis > 0 else 0
-    
-    founder_col1, founder_col2 = st.columns([2, 1])
-    
-    with founder_col1:
-        # Founder positions table
-        if founder_positions:
-            founder_df = pd.DataFrame([{
-                'Ticker': p['ticker'],
-                'Avg Cost': f"${p['avg_cost']:.2f}",
-                'Shares': p['shares'],
-                'Price': f"${p['current_price']:.2f}",
-                'Value': f"${p['market_value']:,.2f}",
-                'G/L ($)': f"${p['unrealized_gain']:,.2f}",
-                'G/L (%)': f"{p['unrealized_gain_pct']:+.2f}%"
-            } for p in founder_positions])
-            st.dataframe(founder_df, use_container_width=True, hide_index=True)
-    
-    with founder_col2:
-        st.metric("Total Value", f"${founder_market_value:,.2f}")
-        st.metric("Unrealized G/L", f"${founder_total_gain:,.2f}", f"{founder_total_gain_pct:+.2f}%")
+    if is_owner:
+        # Interactive founder panel for owner
+        col_trade_f, col_chart_f = st.columns([1, 1])
         
-        # Founder performance chart
-        if founder_positions:
-            chart_data = pd.DataFrame({
-                'Day': list(range(1, 31)),
-                'Founder Portfolio': [founder_cost_basis + (founder_total_gain / 30) * i for i in range(1, 31)]
-            })
-            st.line_chart(chart_data.set_index('Day'), color=['#FFD700'])
+        with col_trade_f:
+            render_trade_panel('founder')
+        
+        with col_chart_f:
+            st.markdown("### 📈 YTD Performance (Founder)")
+            
+            founder_total_value = calculate_portfolio_value(st.session_state.founder_portfolio, st.session_state.founder_cash)
+            founder_ytd_return = get_ytd_return(founder_total_value, 50000.0)
+            
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Starting", "$50,000")
+            col2.metric("Current", f"${founder_total_value:,.2f}")
+            col3.metric("YTD Return", f"{founder_ytd_return:+.2f}%")
+            
+            st.caption("📈 Chart: YTD performance tracking coming soon")
+        
+        st.markdown("---")
+        st.markdown("### 📋 Founder Positions")
+        render_positions_table(st.session_state.founder_portfolio, st.session_state.founder_realized_gains, 'founder')
+        
+        with st.expander("📜 Founder Transaction History", expanded=False):
+            if st.session_state.founder_transactions:
+                for txn in reversed(st.session_state.founder_transactions[-20:]):
+                    st.caption(f"{txn['date']} | {txn['type']} {txn['shares']} {txn['ticker']} @ ${txn['price']:.2f}")
+            else:
+                st.caption("No transactions yet")
     
-    # Signup encouragement (non-blocking)
-    if not st.session_state.get('is_logged_in', False):
-        st.info("**Create a free account** to save your progress and come back anytime.")
-
+    else:
+        # Read-only banner for non-owners
+        st.info("👑 **Founder portfolio is managed by the founder.**")
+    
+    st.divider()
+    
+    # ============= SECTION C: BENCHMARK & WHO'S WINNING =============
+    st.markdown("## 🏆 Section C — Benchmark & Who's Winning")
+    
+    # SPY benchmark
+    st.markdown("### 📊 SPY Benchmark")
+    
+    # Calculate SPY return (placeholder - would need actual SPY data)
+    spy_starting = 50000.0
+    spy_current = 52500.0  # Placeholder
+    spy_ytd_return = get_ytd_return(spy_current, spy_starting)
+    
+    col1, col2, col3 = st.columns(3)
+    col1.metric("SPY Starting", f"${spy_starting:,.2f}")
+    col2.metric("SPY Current", f"${spy_current:,.2f}")
+    col3.metric("SPY YTD", f"{spy_ytd_return:+.2f}%")
+    
+    # Summary
+    st.markdown("---")
+    st.markdown("### 🏁 Performance Summary")
+    
+    # Determine leader
+    performances = [
+        ("User", user_ytd_return),
+        ("Founder", get_ytd_return(calculate_portfolio_value(st.session_state.founder_portfolio, st.session_state.founder_cash), 50000.0)),
+        ("SPY", spy_ytd_return)
+    ]
+    leader = max(performances, key=lambda x: x[1])
+    
+    st.info(f"""
+    **YTD Returns:**  
+    User: {user_ytd_return:+.2f}%  
+    Founder: {performances[1][1]:+.2f}%  
+    SPY: {spy_ytd_return:+.2f}%  
+    
+    **Leader:** {leader[0]} ({leader[1]:+.2f}%)
+    """)
+    
+    st.caption("📊 Overlay chart (User vs Founder vs SPY) coming soon")
+    
+    # Reset option
+    st.divider()
+    if st.button("🔄 Reset Your Portfolio", type="secondary"):
+        st.session_state.portfolio = []
+        st.session_state.cash = 50000.0
+        st.session_state.transactions = []
+        st.session_state.realized_gains = 0.0
+        st.session_state.concentration_flags = {}
+        save_user_progress()
+        st.success("Portfolio reset! You have $50,000 to start fresh.")
+        st.rerun()
 elif selected_page == "✅ Portfolio Risk Analyzer":
     st.header("📈 Portfolio Risk Analyzer")
     st.write("Deep risk analysis with AI-powered roasts 😈")
