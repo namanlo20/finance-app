@@ -4195,8 +4195,102 @@ def get_fit_outcome(risk_tier, vol_tier):
     
     return (status, message)
 
+def get_concentration_thresholds(risk_tier):
+    """
+    Returns (warning_threshold, strong_threshold) for a given risk tier
+    """
+    thresholds = {
+        "Conservative": (0.15, 0.25),
+        "Moderate": (0.25, 0.40),
+        "Growth": (0.35, 0.55),
+        "Aggressive": (0.50, 0.70),
+        "unknown": (0.40, None)  # Warning only, no strong warning
+    }
+    return thresholds.get(risk_tier, (0.40, None))
+
+def compute_portfolio_concentration(portfolio_positions):
+    """
+    Compute weight of each position in portfolio
+    Returns dict: {ticker: weight (0-1)}
+    """
+    if not portfolio_positions:
+        return {}
+    
+    # Calculate total portfolio value
+    total_value = 0
+    position_values = {}
+    
+    for pos in portfolio_positions:
+        quote = get_quote(pos['ticker'])
+        if quote:
+            current_price = quote.get('price', 0)
+            position_value = pos['shares'] * current_price
+            position_values[pos['ticker']] = position_value
+            total_value += position_value
+    
+    if total_value == 0:
+        return {}
+    
+    # Calculate weights
+    weights = {}
+    for ticker, value in position_values.items():
+        weights[ticker] = value / total_value
+    
+    return weights
+
+def get_concentration_warning(ticker, weight, risk_tier):
+    """
+    Returns (severity, message)
+    severity in {"none", "warning", "high"}
+    """
+    if weight is None or weight == 0:
+        return ("none", "")
+    
+    warning_threshold, strong_threshold = get_concentration_thresholds(risk_tier)
+    weight_pct = round(weight * 100)
+    
+    # Unknown risk tier
+    if risk_tier == "unknown":
+        if weight >= warning_threshold:
+            return ("warning", f"ℹ️ This position is {weight_pct}% of your portfolio.\nTake the Risk Quiz to get personalized concentration warnings.")
+        return ("none", "")
+    
+    # Strong warning
+    if strong_threshold and weight >= strong_threshold:
+        message = f"""🚨 **Concentration risk:**
+This position is {weight_pct}% of your portfolio.
+Based on your Risk Quiz ({risk_tier}), this may feel extremely volatile during drawdowns.
+Consider diversifying or reducing position size."""
+        return ("high", message)
+    
+    # Caution warning
+    if weight >= warning_threshold:
+        message = f"""⚠️ **Concentration warning:**
+This position makes up {weight_pct}% of your portfolio.
+Based on your {risk_tier} risk profile, this could increase volatility."""
+        return ("warning", message)
+    
+    return ("none", "")
+
+def update_concentration_flags(portfolio_positions):
+    """
+    Update st.session_state.concentration_flags with current portfolio concentration
+    """
+    weights = compute_portfolio_concentration(portfolio_positions)
+    risk_tier = st.session_state.user_profile.get("risk_tier", "unknown")
+    
+    concentration_flags = {}
+    for ticker, weight in weights.items():
+        severity, _ = get_concentration_warning(ticker, weight, risk_tier)
+        concentration_flags[ticker] = {
+            "weight": weight,
+            "severity": severity
+        }
+    
+    st.session_state.concentration_flags = concentration_flags
+
 def render_fit_check_panel(ticker=None):
-    """Render Fit Check panel with real volatility-based fit assessment"""
+    """Render Fit Check panel with real volatility-based fit assessment and concentration warnings"""
     if not ticker:
         return
     
@@ -4211,22 +4305,56 @@ def render_fit_check_panel(ticker=None):
     # Get fit outcome
     status, message = get_fit_outcome(risk_tier, vol_tier)
     
-    # Display outcome based on status
-    if status == "unknown":
-        st.info(f"ℹ️ **{message}**")
-        if risk_tier == "unknown":
-            if st.button("Take Risk Quiz", key=f"fit_check_cta_{ticker}"):
-                st.session_state.selected_page = "🧠 Risk Quiz"
-                st.rerun()
-    elif status == "fits":
-        st.success(f"✅ **Fits your profile**")
-        st.caption(message)
-    elif status == "partial":
-        st.warning(f"⚠️ **Partially fits your profile**")
-        st.caption(message)
-    elif status == "mismatch":
-        st.error(f"🚨 **Does not fit your profile**")
-        st.caption(message)
+    # Check if user holds this stock in paper portfolio
+    portfolio = st.session_state.get('portfolio', [])
+    user_holds_stock = any(pos['ticker'] == ticker for pos in portfolio)
+    concentration_severity = "none"
+    concentration_message = ""
+    
+    if user_holds_stock:
+        # Compute concentration
+        weights = compute_portfolio_concentration(portfolio)
+        weight = weights.get(ticker, 0)
+        concentration_severity, concentration_message = get_concentration_warning(ticker, weight, risk_tier)
+    
+    # Display concentration warning first if high severity
+    if concentration_severity == "high":
+        st.error(concentration_message)
+        # Volatility becomes secondary
+        if status != "unknown":
+            st.caption(f"Volatility fit: {message}")
+    elif concentration_severity == "warning":
+        st.warning(concentration_message)
+        # Show volatility below
+        if status == "unknown":
+            st.info(f"ℹ️ **{message}**")
+            if risk_tier == "unknown":
+                if st.button("Take Risk Quiz", key=f"fit_check_cta_{ticker}"):
+                    st.session_state.selected_page = "🧠 Risk Quiz"
+                    st.rerun()
+        elif status == "fits":
+            st.caption(f"✅ Volatility: {message}")
+        elif status == "partial":
+            st.caption(f"⚠️ Volatility: {message}")
+        elif status == "mismatch":
+            st.caption(f"🚨 Volatility: {message}")
+    else:
+        # No concentration warning, show volatility normally
+        if status == "unknown":
+            st.info(f"ℹ️ **{message}**")
+            if risk_tier == "unknown":
+                if st.button("Take Risk Quiz", key=f"fit_check_cta_{ticker}"):
+                    st.session_state.selected_page = "🧠 Risk Quiz"
+                    st.rerun()
+        elif status == "fits":
+            st.success(f"✅ **Fits your profile**")
+            st.caption(message)
+        elif status == "partial":
+            st.warning(f"⚠️ **Partially fits your profile**")
+            st.caption(message)
+        elif status == "mismatch":
+            st.error(f"🚨 **Does not fit your profile**")
+            st.caption(message)
     
     # Display technical details (small text)
     st.caption(f"Risk tier: **{risk_tier}** | Volatility: **{vol_tier}** (method: {vol_method})")
@@ -8254,6 +8382,8 @@ elif selected_page == "💼 Paper Portfolio":
         st.session_state.reset_confirm = False
     if 'first_buy_message_shown' not in st.session_state:
         st.session_state.first_buy_message_shown = False
+    if 'concentration_flags' not in st.session_state:
+        st.session_state.concentration_flags = {}
     
     # Founder's portfolio (read-only for users, editable for founder)
     FOUNDER_PORTFOLIO = [
@@ -8372,6 +8502,35 @@ elif selected_page == "💼 Paper Portfolio":
                 buy_shares = st.number_input("Shares to Buy", min_value=1, value=10, step=1, key="buy_shares_input")
                 total_cost = buy_shares * current_price
                 
+                # Calculate what concentration would be after this purchase
+                simulated_portfolio = st.session_state.portfolio.copy()
+                existing_pos = None
+                for pos in simulated_portfolio:
+                    if pos['ticker'] == buy_ticker:
+                        existing_pos = pos
+                        break
+                
+                if existing_pos:
+                    existing_pos['shares'] += buy_shares
+                else:
+                    simulated_portfolio.append({
+                        'ticker': buy_ticker,
+                        'shares': buy_shares,
+                        'avg_price': current_price
+                    })
+                
+                # Show concentration warning for what it WILL be after purchase
+                if simulated_portfolio:
+                    sim_weights = compute_portfolio_concentration(simulated_portfolio)
+                    sim_weight = sim_weights.get(buy_ticker, 0)
+                    risk_tier = st.session_state.user_profile.get("risk_tier", "unknown")
+                    conc_severity, conc_message = get_concentration_warning(buy_ticker, sim_weight, risk_tier)
+                    
+                    if conc_severity == "high":
+                        st.error(conc_message)
+                    elif conc_severity == "warning":
+                        st.warning(conc_message)
+                
                 st.info(f"**Total Cost:** ${total_cost:,.2f}")
                 
                 if total_cost > st.session_state.cash:
@@ -8415,6 +8574,9 @@ elif selected_page == "💼 Paper Portfolio":
                         else:
                             st.success(f"Bought {buy_shares} shares of {buy_ticker}!")
                         
+                        # Update concentration flags
+                        update_concentration_flags(st.session_state.portfolio)
+                        
                         save_user_progress()
                         st.rerun()
             else:
@@ -8429,6 +8591,10 @@ elif selected_page == "💼 Paper Portfolio":
             if st.button("Add your first stock", type="primary", key="add_first_stock_btn"):
                 st.info("Enter a ticker symbol in the Buy Stock section to get started!")
         else:
+            # Update concentration flags for current portfolio
+            update_concentration_flags(st.session_state.portfolio)
+            concentration_flags = st.session_state.get('concentration_flags', {})
+            
             # Positions table
             positions_data = []
             for i, pos in enumerate(st.session_state.portfolio):
@@ -8440,8 +8606,20 @@ elif selected_page == "💼 Paper Portfolio":
                     unrealized_gain = market_value - cost_basis
                     unrealized_gain_pct = (unrealized_gain / cost_basis * 100) if cost_basis > 0 else 0
                     
+                    # Get concentration warning icon
+                    ticker = pos['ticker']
+                    conc_flag = concentration_flags.get(ticker, {})
+                    severity = conc_flag.get('severity', 'none')
+                    
+                    warning_icon = ""
+                    if severity == "high":
+                        warning_icon = "🚨"
+                    elif severity == "warning":
+                        warning_icon = "⚠️"
+                    
                     positions_data.append({
-                        'Ticker': pos['ticker'],
+                        '⚠': warning_icon,
+                        'Ticker': ticker,
                         'Avg Cost': f"${pos['avg_price']:.2f}",
                         'Shares': pos['shares'],
                         'Price': f"${current_price:.2f}",
@@ -8453,6 +8631,10 @@ elif selected_page == "💼 Paper Portfolio":
             if positions_data:
                 df = pd.DataFrame(positions_data)
                 st.dataframe(df, use_container_width=True, hide_index=True)
+                
+                # Explanation for warning icons
+                if any(row['⚠'] for row in positions_data):
+                    st.caption("⚠️ = Concentration warning | 🚨 = High concentration risk")
             
             # Action buttons for each position
             st.markdown("#### Actions")
@@ -8493,6 +8675,10 @@ elif selected_page == "💼 Paper Portfolio":
                                 'gain_loss': realized_gain
                             })
                             st.session_state.portfolio.pop(i)
+                            
+                            # Update concentration flags
+                            update_concentration_flags(st.session_state.portfolio)
+                            
                             save_user_progress()
                             st.rerun()
     
@@ -8519,6 +8705,10 @@ elif selected_page == "💼 Paper Portfolio":
                 st.session_state.realized_gains = 0.0
                 st.session_state.first_buy_message_shown = False
                 st.session_state.reset_confirm = False
+                
+                # Clear concentration flags
+                st.session_state.concentration_flags = {}
+                
                 save_user_progress()
                 st.success("Portfolio reset! You have $10,000 to start fresh.")
                 st.rerun()
