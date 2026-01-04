@@ -3776,6 +3776,18 @@ if 'homepage_stock1' not in st.session_state:
 if 'homepage_stock2' not in st.session_state:
     st.session_state.homepage_stock2 = "AMC"
 
+# Initialize user_profile (always exists, even if quizzes not taken)
+if 'user_profile' not in st.session_state:
+    from datetime import datetime
+    st.session_state.user_profile = {
+        "experience_level": "unknown",
+        "learning_style": "unknown",
+        "risk_tier": "unknown",
+        "risk_score": None,
+        "time_horizon": None,
+        "updated_at": datetime.now().isoformat()
+    }
+
 # ============= SUPABASE CONFIGURATION =============
 # Read from environment variables for security (set in Render dashboard)
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://gtrtubywtlexgekfqill.supabase.co")
@@ -3815,6 +3827,9 @@ def save_user_progress():
             "risk_tier": st.session_state.get("risk_tier"),
             "risk_score": st.session_state.get("risk_score"),
             "risk_quiz_completed_at": st.session_state.get("risk_quiz_completed_at"),
+            # Save user profile
+            "user_profile": st.session_state.get("user_profile", {}),
+            "onboarding_profile": st.session_state.get("onboarding_profile", {}),
         }
         
         # Upsert to user_state table
@@ -3866,6 +3881,12 @@ def load_user_progress():
             if "risk_quiz_completed_at" in state_data:
                 st.session_state.risk_quiz_completed_at = state_data["risk_quiz_completed_at"]
                 st.session_state.risk_quiz_submitted = True  # Mark as completed
+            # Restore user profile
+            if "user_profile" in state_data:
+                st.session_state.user_profile = state_data["user_profile"]
+            if "onboarding_profile" in state_data:
+                st.session_state.onboarding_profile = state_data["onboarding_profile"]
+                st.session_state.onboarding_completed = True
             return True
     except Exception as e:
         # Silently fail - don't break the app if loading fails
@@ -3955,6 +3976,9 @@ def save_onboarding_profile(profile_data):
     st.session_state.onboarding_profile = profile_data
     st.session_state.onboarding_completed = True
     
+    # Build unified user profile
+    build_user_profile()
+    
     # Save to Supabase if logged in
     if SUPABASE_ENABLED and st.session_state.get("user_id"):
         try:
@@ -3976,6 +4000,77 @@ def save_onboarding_profile(profile_data):
             }).execute()
         except:
             pass
+
+def build_user_profile():
+    """Build unified user_profile object from onboarding and risk quiz data"""
+    from datetime import datetime
+    
+    # Get onboarding data
+    onboarding = st.session_state.get("onboarding_profile", {})
+    
+    # Map onboarding knowledge to experience_level
+    knowledge_to_experience = {
+        "new": "beginner",
+        "some": "intermediate",
+        "confident": "advanced"
+    }
+    experience_level = knowledge_to_experience.get(onboarding.get("knowledge"), "unknown")
+    
+    # Map onboarding goal to learning_style
+    goal_to_learning = {
+        "learn": "educational",
+        "wealth": "practical",
+        "trading": "technical",
+        "exploring": "exploratory"
+    }
+    learning_style = goal_to_learning.get(onboarding.get("goal"), "unknown")
+    
+    # Get time horizon from onboarding
+    time_horizon = onboarding.get("horizon", None)
+    
+    # Get risk quiz data
+    risk_tier = st.session_state.get("risk_tier", "unknown")
+    risk_score = st.session_state.get("risk_score", None)
+    
+    # Build profile object
+    user_profile = {
+        "experience_level": experience_level if st.session_state.get("onboarding_completed") else "unknown",
+        "learning_style": learning_style if st.session_state.get("onboarding_completed") else "unknown",
+        "risk_tier": risk_tier,
+        "risk_score": risk_score,
+        "time_horizon": time_horizon,
+        "updated_at": datetime.now().isoformat()
+    }
+    
+    # Store in session state
+    st.session_state.user_profile = user_profile
+    
+    # Save to Supabase if logged in
+    if st.session_state.get("is_logged_in", False):
+        try:
+            save_user_progress()
+        except:
+            pass  # Silent fallback
+    
+    return user_profile
+
+def render_fit_check_panel(ticker=None):
+    """Render Fit Check panel - placeholder for volatility + concentration warnings"""
+    if not ticker:
+        return
+    
+    profile = st.session_state.user_profile
+    risk_tier = profile.get("risk_tier", "unknown")
+    
+    st.markdown("### 🎯 Fit Check")
+    
+    if risk_tier == "unknown":
+        st.info("ℹ️ **Want a better fit check?** Take the Risk Quiz so we can tailor warnings to you.")
+        if st.button("Take Risk Quiz", key=f"fit_check_cta_{ticker}"):
+            st.session_state.selected_page = "🧠 Risk Quiz"
+            st.rerun()
+    else:
+        st.success(f"✅ Fit check will appear here (volatility + concentration). Current risk tier: **{risk_tier}**")
 
 # ============= 60-SECOND SETUP ONBOARDING (A1/A2) =============
 @st.dialog("Let's personalize this in 60 seconds", width="large")
@@ -4711,6 +4806,27 @@ elif selected_page == "📖 Basics":
     </div>
     """, unsafe_allow_html=True)
     
+    # Profile Summary Chip
+    profile = st.session_state.user_profile
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.markdown(f"""
+        <div style="background: rgba(255,255,255,0.08); padding: 15px; border-radius: 10px; margin-bottom: 20px; border-left: 4px solid #00D9FF;">
+            <p style="color: #B0B0B0; margin: 0; font-size: 0.9em;">Your Profile</p>
+            <p style="color: #FFFFFF; margin: 5px 0 0 0;">
+                <strong>Experience:</strong> {profile['experience_level'].title()} 
+                &nbsp;&nbsp;|&nbsp;&nbsp; 
+                <strong>Risk:</strong> {profile['risk_tier'].title()} 
+                &nbsp;&nbsp;|&nbsp;&nbsp; 
+                <strong>Learning:</strong> {profile['learning_style'].title()}
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+    with col2:
+        if st.button("⚙️ Update Profile", use_container_width=True):
+            st.session_state.selected_page = "🏠 Start Here"
+            st.rerun()
+    
     # Global progress tracking
     total_lessons = 15
     completed_count = len(st.session_state.completed_lessons)
@@ -5218,6 +5334,9 @@ elif selected_page == "🧠 Risk Quiz":
             st.session_state.risk_quiz_completed_at = datetime.now().isoformat()
             st.session_state.risk_quiz_submitted = True
             
+            # Build unified user profile
+            build_user_profile()
+            
             # Save to Supabase if logged in
             if st.session_state.get('is_logged_in', False):
                 try:
@@ -5409,6 +5528,11 @@ elif selected_page == "📊 Company Analysis":
         company_name = ticker
         sector = "Unknown"
         st.subheader(f"{ticker}")
+    
+    # Fit Check Panel
+    render_fit_check_panel(ticker)
+    
+    st.markdown("---")
     
     income_df = get_income_statement(ticker, 'annual', 5)
     cash_df = get_cash_flow(ticker, 'annual', 5)
@@ -6948,6 +7072,11 @@ elif selected_page == "📈 Financial Health":
     if not ratios_df.empty:
         st.subheader(f"{company_name} ({ticker}) - Ratio Analysis")
         
+        # Fit Check Panel
+        render_fit_check_panel(ticker)
+        
+        st.markdown("---")
+        
         # S&P 500 benchmarks - PROFITABILITY FIRST, then valuation (user's "Profitability First" order)
         # Each tuple: (api_col, display_name, benchmark, comparison_type, short_desc, tooltip_definition, tooltip_example)
         all_ratios = [
@@ -7269,6 +7398,11 @@ elif selected_page == "📰 Market Intelligence":
     # Show resolved ticker if different from input
     if intel_input.strip() and intel_ticker and intel_ticker.upper() != intel_input.strip().upper():
         st.caption(f"Searching for: **{intel_ticker}**")
+    
+    # Fit Check Panel (only if ticker selected)
+    if intel_ticker:
+        render_fit_check_panel(intel_ticker)
+        st.markdown("---")
     
     # Function to get market news via Perplexity API
     def get_market_intelligence(ticker=None, is_mag7=False):
@@ -7935,6 +8069,9 @@ elif selected_page == "💼 Paper Portfolio":
             if quote:
                 current_price = quote.get('price', 0)
                 st.metric("Current Price", f"${current_price:.2f}")
+                
+                # Fit Check Panel
+                render_fit_check_panel(buy_ticker)
                 
                 buy_shares = st.number_input("Shares to Buy", min_value=1, value=10, step=1, key="buy_shares_input")
                 total_cost = buy_shares * current_price
