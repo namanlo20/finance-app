@@ -3467,8 +3467,16 @@ def signup_dialog():
                         })
                         
                         if response.user:
-                            st.success("✅ Account created successfully! Please check your email to verify.")
+                            # Check if user has Basics course progress to save
+                            completed_count = len(st.session_state.get("completed_lessons", set()))
+                            
+                            # Show success message with progress info
+                            if completed_count > 0:
+                                st.success(f"✅ Account created successfully! Your {completed_count} completed lesson(s) have been saved to your account.")
+                            else:
+                                st.success("✅ Account created successfully! Please check your email to verify.")
                             st.balloons()
+                            
                             # Store user info in session state
                             st.session_state.user_id = response.user.id
                             st.session_state.user_email = email
@@ -3478,7 +3486,7 @@ def signup_dialog():
                             st.session_state.show_signup_popup = False
                             # Save user profile to profiles table
                             save_user_profile(response.user.id, name, phone, age)
-                            # Save user progress
+                            # Save user progress (including Basics course)
                             save_user_progress()
                             st.rerun()
                         else:
@@ -3793,7 +3801,7 @@ def save_user_progress():
         return False
     
     try:
-        # Collect state to persist
+        # Collect state to persist (including Basics course progress)
         state_data = {
             "selected_ticker": st.session_state.get("selected_ticker", "GOOGL"),
             "paper_portfolio": st.session_state.get("paper_portfolio", {}),
@@ -3801,6 +3809,8 @@ def save_user_progress():
             "unhinged_mode": st.session_state.get("unhinged_mode", False),
             "homepage_stock1": st.session_state.get("homepage_stock1", "GOOGL"),
             "homepage_stock2": st.session_state.get("homepage_stock2", "AMC"),
+            # Save Basics course progress
+            "completed_lessons": list(st.session_state.get("completed_lessons", set())),
         }
         
         # Upsert to user_state table
@@ -3841,6 +3851,9 @@ def load_user_progress():
                 st.session_state.homepage_stock1 = state_data["homepage_stock1"]
             if "homepage_stock2" in state_data:
                 st.session_state.homepage_stock2 = state_data["homepage_stock2"]
+            # Restore Basics course progress
+            if "completed_lessons" in state_data:
+                st.session_state.completed_lessons = set(state_data["completed_lessons"])
             return True
     except Exception as e:
         # Silently fail - don't break the app if loading fails
@@ -4863,8 +4876,7 @@ elif selected_page == "📖 Basics":
                         # Falls back silently if user is not logged in - DOES NOT BLOCK UI
                         if st.session_state.get('is_logged_in', False):
                             try:
-                                # Placeholder for Supabase logic when authentication is added
-                                pass
+                                save_user_progress()
                             except:
                                 pass
                         st.rerun()
@@ -4890,8 +4902,7 @@ elif selected_page == "📖 Basics":
                         # Falls back silently if user is not logged in - DOES NOT BLOCK UI
                         if st.session_state.get('is_logged_in', False):
                             try:
-                                # Placeholder for Supabase logic when authentication is added
-                                pass
+                                save_user_progress()
                             except:
                                 pass
                         st.rerun()
