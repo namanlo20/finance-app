@@ -8414,4 +8414,4 @@ elif selected_page == "✅ Portfolio Risk Analyzer":
 # ============= FOOTER =============
 st.divider()
 st.caption("💡 Investing Made Simple | FMP Premium | Real-time data")
-st.caption("⚠️ Educational purposes only. Not financial advice."
+st.caption("⚠️ Educational purposes only. Not financial advice.")
