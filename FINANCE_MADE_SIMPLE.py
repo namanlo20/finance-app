@@ -3801,7 +3801,7 @@ def save_user_progress():
         return False
     
     try:
-        # Collect state to persist (including Basics course progress)
+        # Collect state to persist (including Basics course progress and risk quiz)
         state_data = {
             "selected_ticker": st.session_state.get("selected_ticker", "GOOGL"),
             "paper_portfolio": st.session_state.get("paper_portfolio", {}),
@@ -3811,6 +3811,10 @@ def save_user_progress():
             "homepage_stock2": st.session_state.get("homepage_stock2", "AMC"),
             # Save Basics course progress
             "completed_lessons": list(st.session_state.get("completed_lessons", set())),
+            # Save Risk Quiz results
+            "risk_tier": st.session_state.get("risk_tier"),
+            "risk_score": st.session_state.get("risk_score"),
+            "risk_quiz_completed_at": st.session_state.get("risk_quiz_completed_at"),
         }
         
         # Upsert to user_state table
@@ -3854,6 +3858,14 @@ def load_user_progress():
             # Restore Basics course progress
             if "completed_lessons" in state_data:
                 st.session_state.completed_lessons = set(state_data["completed_lessons"])
+            # Restore Risk Quiz results
+            if "risk_tier" in state_data:
+                st.session_state.risk_tier = state_data["risk_tier"]
+            if "risk_score" in state_data:
+                st.session_state.risk_score = state_data["risk_score"]
+            if "risk_quiz_completed_at" in state_data:
+                st.session_state.risk_quiz_completed_at = state_data["risk_quiz_completed_at"]
+                st.session_state.risk_quiz_submitted = True  # Mark as completed
             return True
     except Exception as e:
         # Silently fail - don't break the app if loading fails
@@ -5104,286 +5116,201 @@ elif selected_page == "🧠 Risk Quiz":
     st.info("💡 **This helps us understand how much volatility you're comfortable with.** We use this to give better warnings and guidance — not to block you from anything.")
     
     # Initialize session state for quiz
-    if 'quiz_submitted' not in st.session_state:
-        st.session_state.quiz_submitted = False
+    if 'risk_quiz_submitted' not in st.session_state:
+        st.session_state.risk_quiz_submitted = False
     
     with st.form("risk_quiz_form"):
-        st.markdown("### 📊 Your Investment Profile")
+        st.markdown("### 📊 Your Risk Tolerance")
         
-        # Question 1: Investment Goal
+        # Question 1: Worst-case drawdown tolerance
         q1 = st.radio(
-            "1. What's your primary investment goal?",
-            ["Preserve capital (safety first)", 
-             "Generate steady income (dividends/interest)",
-             "Balanced growth and income",
-             "Aggressive growth (maximize returns)",
-             "Speculative gains (high risk, high reward)"]
+            "1. If your account dropped 35% in a recession, what would you most likely do?",
+            ["Sell most positions immediately",
+             "Sell some to reduce stress",
+             "Hold and wait it out",
+             "Buy more over time"]
         )
         
-        # Question 2: Time Horizon
+        # Question 2: Volatility reality check
         q2 = st.radio(
-            "2. How long do you plan to hold investments?",
-            ["Less than 1 year",
-             "1-3 years",
-             "3-5 years", 
-             "5-10 years",
-             "10+ years (long-term)"]
+            "2. Which feels more painful?",
+            ["Losing $1,000 in a week",
+             "Missing a $1,000 gain",
+             "Both about the same",
+             "Neither bothers me much"]
         )
         
-        # Question 3: Market Drop Reaction
+        # Question 3: Concentration tolerance
         q3 = st.radio(
-            "3. If your portfolio dropped 20% in a month, you would:",
-            ["Sell everything immediately (too stressful)",
-             "Sell some to reduce risk",
-             "Hold and wait for recovery",
-             "Buy more (it's on sale!)",
-             "Go all-in with more money"]
+            "3. How comfortable are you with one stock being a large part of your portfolio?",
+            ["Not comfortable — I want diversification",
+             "A little is fine (10–20%)",
+             "I'm okay with big bets (30–50%)",
+             "I prefer concentrated bets (50%+)"]
         )
         
-        # Question 4: Risk Comfort
+        # Question 4: Time to recover
         q4 = st.radio(
-            "4. Maximum portfolio loss you can tolerate in a year:",
-            ["0-5% (very low risk)",
-             "5-10% (low risk)",
-             "10-20% (moderate risk)",
-             "20-30% (high risk)",
-             "30%+ (very high risk)"]
+            "4. If an investment is down, how long are you willing to wait to recover?",
+            ["Weeks",
+             "Months",
+             "1–3 years",
+             "3+ years"]
         )
         
-        # Question 5: Investment Knowledge
+        # Question 5: Reaction under uncertainty
         q5 = st.radio(
-            "5. Your investment knowledge level:",
-            ["Beginner (just starting)",
-             "Basic (understand stocks/bonds)",
-             "Intermediate (can read financial statements)",
-             "Advanced (active trader)",
-             "Expert (professional level)"]
+            "5. When you see scary headlines about your holdings, you usually…",
+            ["Sell quickly to avoid more loss",
+             "Watch closely and feel stressed",
+             "Do more research before acting",
+             "Ignore headlines and stick to the plan"]
         )
         
-        # Question 6: Income Stability
+        # Question 6: Income stability (risk capacity proxy)
         q6 = st.radio(
-            "6. Your income situation:",
-            ["Unstable or uncertain",
-             "Stable but limited",
-             "Stable with some savings",
-             "Very stable with good savings",
-             "Multiple income streams + significant savings"]
+            "6. How stable is your income right now?",
+            ["Unstable / uncertain",
+             "Somewhat stable",
+             "Stable",
+             "Very stable with strong savings"]
         )
         
-        # Question 7: Age
+        # Question 7: Knowledge + behavior check (guardrail)
         q7 = st.radio(
-            "7. Your age / investment timeline:",
-            ["Under 25 (40+ years to retirement)",
-             "25-35 (30-40 years to retirement)",
-             "35-50 (15-30 years to retirement)",
-             "50-60 (5-15 years to retirement)",
-             "60+ (in or near retirement)"]
+            "7. Which best describes how you choose investments?",
+            ["Tips / trends / social media",
+             "Mostly price charts and vibes",
+             "Mix of fundamentals + valuation",
+             "Long-term fundamentals + discipline"]
         )
         
-        # Question 8: Emergency Fund
-        q8 = st.radio(
-            "8. Do you have an emergency fund (3-6 months expenses)?",
-            ["No emergency fund",
-             "1-2 months saved",
-             "3-6 months saved",
-             "6-12 months saved",
-             "12+ months saved"]
-        )
-        
-        # Question 9: Investment Goal
-        q9 = st.radio(
-            "9. Your primary investment goal:",
-            ["Short-term profit (< 1 year)",
-             "Save for major purchase (house, car)",
-             "Build wealth over time",
-             "Retirement savings",
-             "Generate passive income (dividends)"]
-        )
-        
-        # Question 10: Sector Preference
-        q10 = st.radio(
-            "10. Preferred investment style:",
-            ["Individual stocks only",
-             "Mix of stocks and ETFs",
-             "Mostly ETFs for diversification",
-             "Index funds (S&P 500, Total Market)",
-             "Bonds and treasuries for safety"]
-        )
-        
-        submitted = st.form_submit_button("🎯 Get My Results & Stock Picks!", use_container_width=True)
+        submitted = st.form_submit_button("🎯 Get My Results", use_container_width=True, type="primary")
         
         if submitted:
-            st.session_state.quiz_submitted = True
-            
-            # Calculate risk score
-            scores = {
-                q1: [0, 1, 2, 3, 4],
-                q2: [0, 1, 2, 3, 4],
-                q3: [0, 1, 2, 3, 4],
-                q4: [0, 1, 2, 3, 4],
-                q5: [0, 1, 2, 3, 4],
-                q6: [0, 1, 2, 3, 4],
-                q7: [4, 3, 2, 1, 0],  # Younger = more risk capacity
-                q8: [0, 1, 2, 3, 4],  # More savings = more risk capacity
-                q9: [0, 1, 2, 3, 4],  # Different goals have different risk needs
-                q10: [4, 3, 2, 1, 0]  # Stocks = higher risk, bonds = lower
+            # Calculate risk score (1-4 points per question)
+            score_map = {
+                q1: {"Sell most positions immediately": 1, "Sell some to reduce stress": 2, "Hold and wait it out": 3, "Buy more over time": 4},
+                q2: {"Losing $1,000 in a week": 1, "Missing a $1,000 gain": 2, "Both about the same": 3, "Neither bothers me much": 4},
+                q3: {"Not comfortable — I want diversification": 1, "A little is fine (10–20%)": 2, "I'm okay with big bets (30–50%)": 3, "I prefer concentrated bets (50%+)": 4},
+                q4: {"Weeks": 1, "Months": 2, "1–3 years": 3, "3+ years": 4},
+                q5: {"Sell quickly to avoid more loss": 1, "Watch closely and feel stressed": 2, "Do more research before acting": 3, "Ignore headlines and stick to the plan": 4},
+                q6: {"Unstable / uncertain": 1, "Somewhat stable": 2, "Stable": 3, "Very stable with strong savings": 4},
+                q7: {"Tips / trends / social media": 1, "Mostly price charts and vibes": 2, "Mix of fundamentals + valuation": 3, "Long-term fundamentals + discipline": 4}
             }
             
-            risk_score = sum([scores[q][i] for q, options in [(q1, q1), (q2, q2), (q3, q3), (q4, q4), (q5, q5), (q6, q6)] 
-                            for i, opt in enumerate([
-                            ["Preserve capital (safety first)", "Generate steady income (dividends/interest)", "Balanced growth and income", "Aggressive growth (maximize returns)", "Speculative gains (high risk, high reward)"],
-                            ["Less than 1 year", "1-3 years", "3-5 years", "5-10 years", "10+ years (long-term)"],
-                            ["Sell everything immediately (too stressful)", "Sell some to reduce risk", "Hold and wait for recovery", "Buy more (it's on sale!)", "Go all-in with more money"],
-                            ["0-5% (very low risk)", "5-10% (low risk)", "10-20% (moderate risk)", "20-30% (high risk)", "30%+ (very high risk)"],
-                            ["Beginner (just starting)", "Basic (understand stocks/bonds)", "Intermediate (can read financial statements)", "Advanced (active trader)", "Expert (professional level)"],
-                            ["Unstable or uncertain", "Stable but limited", "Stable with some savings", "Very stable with good savings", "Multiple income streams + significant savings"]
-                            ]) if options[i] == q])
+            risk_score = sum([score_map[q][q] for q in [q1, q2, q3, q4, q5, q6, q7]])
+            
+            # Map score to risk tier
+            if risk_score <= 12:
+                risk_tier = "Conservative"
+            elif risk_score <= 18:
+                risk_tier = "Moderate"
+            elif risk_score <= 23:
+                risk_tier = "Growth"
+            else:
+                risk_tier = "Aggressive"
+            
+            # Store results in session state
+            from datetime import datetime
+            st.session_state.risk_tier = risk_tier
+            st.session_state.risk_score = risk_score
+            st.session_state.risk_quiz_completed_at = datetime.now().isoformat()
+            st.session_state.risk_quiz_submitted = True
+            
+            # Save to Supabase if logged in
+            if st.session_state.get('is_logged_in', False):
+                try:
+                    save_user_progress()
+                except:
+                    pass  # Silent fallback to session state
+            
+            st.rerun()
     
-    if st.session_state.quiz_submitted:
+    # Show results if quiz completed
+    if st.session_state.get('risk_quiz_submitted', False):
         st.markdown("---")
-        st.markdown("## 🎯 Your Results")
-        st.caption("⚠️ Educational purposes only. Not personalized financial advice.")
         
-        # Determine risk profile
-        if risk_score <= 10:
-            profile = "Conservative"
-            color = "🟢"
-            description = "You prefer safety and stability. Focus on dividend stocks, bonds, and blue-chip companies."
-            stocks = [
-                ("JNJ", "Johnson & Johnson", "We chose this because it's a stable 'Blue Chip' company. JNJ has paid dividends for 60+ consecutive years and sells essential healthcare products that people need regardless of the economy. Perfect for investors who prioritize safety over growth."),
-                ("PG", "Procter & Gamble", "We chose this because it sells everyday essentials (Tide, Pampers, Gillette) that people buy in good times and bad. This 'recession-resistant' business model means steady profits even during market downturns - ideal for conservative investors.")
-            ]
-        elif risk_score <= 20:
-            profile = "Moderate"
-            color = "🟡"
-            description = "You want balanced growth with manageable risk. Mix of stable companies and growth stocks."
-            stocks = [
-                ("MSFT", "Microsoft", "We chose this because it combines growth potential with stability. Microsoft dominates enterprise software (Office, Azure cloud), pays growing dividends, and has a fortress balance sheet. It offers upside while being less volatile than pure growth stocks."),
-                ("V", "Visa", "We chose this because it profits from every card swipe without taking credit risk (banks do). As digital payments grow globally, Visa benefits from a 'toll booth' business model - consistent growth with lower risk than most tech stocks.")
-            ]
-        elif risk_score <= 30:
-            profile = "Growth-Oriented"
-            color = "🟠"
-            description = "You're comfortable with volatility for higher returns. Focus on growth stocks and emerging sectors."
-            stocks = [
-                ("NVDA", "NVIDIA", "We chose this because you can handle volatility for higher returns. NVIDIA dominates AI chips - the 'picks and shovels' of the AI gold rush. High growth potential but expect 30-50% swings. Only for investors comfortable with roller coaster rides."),
-                ("GOOGL", "Alphabet", "We chose this because it dominates search (90% market share), YouTube, and is a major cloud player. Strong cash generation funds AI investments. More stable than pure growth plays but still offers significant upside for growth-oriented investors.")
-            ]
-        else:
-            profile = "Aggressive"
-            color = "🔴"
-            description = "You're seeking maximum returns and can handle high volatility. High-growth and speculative plays."
-            stocks = [
-                ("TSLA", "Tesla", "We chose this because you're seeking maximum returns and can handle extreme volatility. Tesla is a high-conviction bet on EVs, energy storage, and AI robotics. Can double or halve in a year - only for investors with strong stomachs and long time horizons."),
-                ("COIN", "Coinbase", "We chose this because you want crypto exposure through a regulated company. Coinbase profits when crypto trading volume is high. Extremely volatile - can move 10%+ in a day. Only for aggressive investors who understand they could lose significant capital.")
-            ]
+        risk_tier = st.session_state.risk_tier
+        risk_score = st.session_state.risk_score
         
-        # Display profile
+        # Title
+        st.markdown(f"## 🎯 Your Risk Style: {risk_tier}")
+        
+        # Color-coded tier display
+        tier_colors = {
+            "Conservative": "🟢",
+            "Moderate": "🟡",
+            "Growth": "🟠",
+            "Aggressive": "🔴"
+        }
+        
         col1, col2 = st.columns([1, 2])
         with col1:
-            st.metric("Your Risk Profile", f"{color} {profile}", f"Score: {risk_score}/40")
+            st.metric("Risk Tier", f"{tier_colors.get(risk_tier, '')} {risk_tier}", f"Score: {risk_score}/28")
+        
+        # Interpretations (3 bullets)
+        interpretations = {
+            "Conservative": [
+                "You prioritize capital preservation over high returns",
+                "You prefer stability and are uncomfortable with large swings",
+                "You likely have a shorter time horizon or lower risk capacity"
+            ],
+            "Moderate": [
+                "You're comfortable with moderate volatility for reasonable growth",
+                "You can tolerate temporary losses but want some downside protection",
+                "You balance between safety and opportunity"
+            ],
+            "Growth": [
+                "You're willing to accept significant volatility for higher returns",
+                "You can handle drawdowns and stay focused on long-term goals",
+                "You have strong conviction and can wait years for recovery"
+            ],
+            "Aggressive": [
+                "You're seeking maximum returns and embrace high volatility",
+                "You view market crashes as buying opportunities, not panic signals",
+                "You have strong risk capacity (time, income, savings, discipline)"
+            ]
+        }
+        
         with col2:
-            st.info(description)
+            st.markdown("**What this means:**")
+            for bullet in interpretations.get(risk_tier, []):
+                st.markdown(f"• {bullet}")
         
         st.markdown("---")
-        st.markdown("### 🎁 Your FREE Stock Recommendations")
-        st.warning("⚠️ These are educational examples based on your risk profile, NOT personalized investment recommendations. Always do your own research and consult a financial advisor.")
         
-        for ticker, name, reason in stocks:
-            with st.expander(f"✨ {ticker} - {name}", expanded=True):
-                st.markdown(f"**Why this fits your profile:**  \n{reason}")
-                
-                # Quick stats
-                try:
-                    quote = get_quote(ticker)
-                    if quote:
-                        price = quote.get('price', 0)
-                        change_pct = quote.get('changesPercentage', 0)
-                        
-                        col1, col2, col3 = st.columns(3)
-                        col1.metric("Price", f"${price:.2f}")
-                        col2.metric("Change", f"{change_pct:+.2f}%")
-                        
-                        # Get PE ratio
-                        income_df = get_income_statement(ticker, 'annual', 1)
-                        if not income_df.empty and 'eps' in income_df.columns:
-                            eps = income_df['eps'].iloc[-1]
-                            if eps > 0:
-                                pe = price / eps
-                            col3.metric("P/E Ratio", f"{pe:.1f}")
-                        
-                        st.markdown(f"[📊 View Full Analysis](/?ticker={ticker})")
-                except:
-                    st.markdown(f"[📊 Analyze {ticker}](/?ticker={ticker})")
-        
-        
-        
-        st.markdown("---")
-        st.markdown("### 📦 Recommended ETFs for Your Profile")
-        st.info("⚠️ Educational suggestions only. ETFs provide instant diversification. Not personalized advice.")
-        
-        # ETF recommendations based on profile
-        if risk_score <= 10:
-            etfs = [
-                ("BND", "Vanguard Total Bond Market", "Safe bonds with ~4-5% yield"),
-                ("SCHD", "Schwab US Dividend Equity", "High-quality dividend stocks"),
-                ("JEPI", "JPMorgan Equity Premium Income", "Income-focused with downside protection")
-            ]
-        elif risk_score <= 20:
-            etfs = [
-                ("VOO", "Vanguard S&P 500", "Classic diversified S&P 500 index"),
-                ("VTI", "Vanguard Total Stock Market", "Entire U.S. stock market"),
-                ("SCHD", "Schwab US Dividend Equity", "Quality dividend growth")
-            ]
-        elif risk_score <= 30:
-            etfs = [
-                ("QQQ", "Invesco QQQ", "Nasdaq 100 tech growth"),
-                ("VUG", "Vanguard Growth", "U.S. growth stocks"),
-                ("SCHG", "Schwab U.S. Large-Cap Growth", "Growth-focused")
-            ]
-        else:
-            etfs = [
-                ("ARKK", "ARK Innovation", "Disruptive innovation (high risk)"),
-                ("TQQQ", "ProShares UltraPro QQQ", "3x leveraged Nasdaq (very risky)"),
-                ("SOXL", "Direxion Semiconductor Bull 3X", "3x leveraged chips (extreme risk)")
-            ]
-        
-        for ticker_etf, name, reason in etfs:
-            with st.expander(f"📦 {ticker_etf} - {name}"):
-                st.markdown(f"**Why:** {reason}")
-                try:
-                    quote_etf = get_quote(ticker_etf)
-                    if quote_etf:
-                        price_etf = quote_etf.get('price', 0)
-                        change_etf = quote_etf.get('changesPercentage', 0)
-                        st.metric("Price", f"${price_etf:.2f}", f"{change_etf:+.2f}%")
-                except:
-                    pass
-        
-        st.markdown("---")
-        st.markdown("### 🎮 Want to Practice First?")
-        st.success("✨ **Try our Paper Portfolio!** Practice trading with $10,000 fake money before risking real capital. Build confidence, test strategies, track performance.")
-        
-        if st.button("🚀 Start Paper Trading Now", use_container_width=True, type="primary"):
-            st.info("👉 Click the **'💼 Paper Portfolio'** tab above to get started!")
-        
-        st.caption("⚠️ Paper trading doesn't reflect real costs, slippage, or emotions. But it's a great way to learn!")
+        # "What this affects" box (exact copy)
+        st.info("""
+**What this changes in the app:**
+• The warnings you see (volatility + concentration)  
+• How the chatbot frames risk  
+• Suggested default examples in lessons  
 
-        st.markdown("---")
-        st.markdown("### 🔒 Want More?")
-        st.warning("""
-**Upgrade to Premium for:**
-- 10+ personalized stock picks for your profile
-- AI-powered portfolio optimization
-- Real-time risk monitoring
-- Sector-specific recommendations
-- Rebalancing alerts
+**What this does NOT change:**
+• It does not block you from anything  
+• It does not place trades for you
         """)
         
-        if st.button("🚀 Upgrade to Premium", use_container_width=True):
-            st.balloons()
-            st.success("Premium features coming soon! 🎉")
-
+        st.markdown("---")
+        
+        # Buttons
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("✅ Save Results", use_container_width=True, type="primary"):
+                if st.session_state.get('is_logged_in', False):
+                    try:
+                        save_user_progress()
+                        st.success("✅ Results saved to your account!")
+                    except:
+                        st.warning("⚠️ Could not save to account, but results are stored in this session.")
+                else:
+                    st.info("💡 Create an account to save your results permanently across devices.")
+        
+        with col2:
+            if st.button("🔄 Retake Quiz", use_container_width=True, type="secondary"):
+                st.session_state.risk_quiz_submitted = False
+                st.rerun()
 
 
 
@@ -8487,4 +8414,4 @@ elif selected_page == "✅ Portfolio Risk Analyzer":
 # ============= FOOTER =============
 st.divider()
 st.caption("💡 Investing Made Simple | FMP Premium | Real-time data")
-st.caption("⚠️ Educational purposes only. Not financial advice.")
+st.caption("⚠️ Educational purposes only. Not financial advice."
