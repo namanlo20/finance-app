@@ -4411,24 +4411,6 @@ if selected_page == "🏠 Start Here":
     if roast:
         st.info(f"🔥 *{roast}*")
     
-    # Progress Bar for Start Here page
-    if 'start_here_progress' not in st.session_state:
-        st.session_state.start_here_progress = 0
-    
-    # Calculate progress based on sections viewed
-    progress_items = ['viewed_narrative', 'viewed_comparison', 'viewed_truth_meter', 'viewed_next_steps']
-    completed = sum(1 for item in progress_items if st.session_state.get(item, False))
-    total_steps = len(progress_items)
-    
-    # Only show confetti once per session
-    if 'start_here_confetti_shown' not in st.session_state:
-        st.session_state.start_here_confetti_shown = False
-    
-    render_progress_bar(completed, total_steps, "Start Here Journey")
-    
-    # Mark narrative as viewed
-    st.session_state.viewed_narrative = True
-    
     # ============= THE HOOK & BATTLE SCARS NARRATIVE =============
     st.markdown("""
     ### 💔 It's painful to see your portfolio down.
