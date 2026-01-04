@@ -4093,6 +4093,33 @@ def get_stock_logo_url(ticker):
         pass
     return None
 
+# ============= CHECKPOINT QUIZ HELPER (G) =============
+def render_checkpoint_quiz(quiz_id, question, options, correct_idx, explanation):
+    """Render an optional checkpoint quiz - never blocks navigation"""
+    quiz_key = f"quiz_{quiz_id}_answered"
+    quiz_answer_key = f"quiz_{quiz_id}_answer"
+    
+    with st.expander(f"🧠 Quick Check: {question}", expanded=False):
+        if st.session_state.get(quiz_key, False):
+            # Already answered - show result
+            user_answer = st.session_state.get(quiz_answer_key, -1)
+            if user_answer == correct_idx:
+                st.success(f"Correct! {explanation}")
+            else:
+                st.error(f"Not quite. The answer is: **{options[correct_idx]}**")
+                st.info(explanation)
+        else:
+            # Show quiz
+            for i, option in enumerate(options):
+                if st.button(option, key=f"quiz_{quiz_id}_opt_{i}", use_container_width=True):
+                    st.session_state[quiz_key] = True
+                    st.session_state[quiz_answer_key] = i
+                    # Save to Supabase if logged in
+                    if st.session_state.get("user_id"):
+                        save_user_progress()
+                    st.rerun()
+            st.caption("Optional - skip anytime!")
+
 # ============= SIGN UP POPUP STATE =============
 if 'show_signup_popup' not in st.session_state:
     st.session_state.show_signup_popup = False
@@ -6019,6 +6046,21 @@ elif selected_page == "📊 Company Analysis":
                             exp = RATIO_EXPLANATIONS[selected_ratio]
                             st.markdown(f"**What it measures:** {exp.get('what', 'N/A')}")
                             st.markdown(f"**What's good:** {exp.get('good', 'N/A')}")
+                    
+                    # Checkpoint Quiz (G) - P/E understanding
+                    st.markdown("---")
+                    render_checkpoint_quiz(
+                        quiz_id="pe_ratio",
+                        question="What does a high P/E ratio typically indicate?",
+                        options=[
+                            "The stock is cheap",
+                            "Investors expect high future growth",
+                            "The company has low debt",
+                            "The company pays high dividends"
+                        ],
+                        correct_idx=1,
+                        explanation="A high P/E ratio usually means investors are willing to pay more per dollar of earnings because they expect the company to grow faster in the future. However, it could also mean the stock is overvalued."
+                    )
                 else:
                     st.warning("No ratio data available for this company")
             else:
@@ -6547,6 +6589,21 @@ elif selected_page == "📊 Company Analysis":
 
 **Best Practice:** Use this alongside financial ratios, company fundamentals, and your own research!
                 """)
+            
+            # Checkpoint Quiz (G) - Risk understanding
+            st.markdown("---")
+            render_checkpoint_quiz(
+                quiz_id="risk_portfolio",
+                question="Which portfolio is generally riskier?",
+                options=[
+                    "100% in one stock",
+                    "50% stocks, 50% bonds",
+                    "A diversified index fund (like SPY)",
+                    "10 different stocks across sectors"
+                ],
+                correct_idx=0,
+                explanation="Putting all your money in one stock is the riskiest because if that company fails, you lose everything. Diversification (spreading across many investments) reduces risk because not all investments will fail at once."
+            )
         else:
             st.warning("⚠️ AI analysis is currently unavailable. This could be due to API limits or connectivity issues.")
             st.info("💡 **Tip:** Try again in a few minutes, or check the Financial Ratios and Key Metrics tabs for data-driven insights!")
@@ -6555,9 +6612,16 @@ elif selected_page == "📊 Company Analysis":
         st.markdown(f"## 📈 Four Scenarios Investment Calculator")
         st.info(f"💡 **What is this?** Compare 4 different ways to invest $100 in {ticker} vs the S&P 500. See how 'Paycheck Investing' (adding $100 every 2 weeks) compares to investing all at once!")
         
-        col1, col2 = st.columns([1, 3])
-        with col1:
-            years = st.slider("Investment Timeline (Years):", 1, 10, 5, help="How many years to simulate")
+        # DCA Narrative (F) - Time in market beats timing
+        st.markdown("""
+        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 15px; border-radius: 10px; margin-bottom: 15px; border-left: 4px solid #00D9FF;">
+            <p style="color: #00D9FF; font-weight: bold; margin: 0 0 5px 0;">💡 The Golden Rule of Investing</p>
+            <p style="color: #E0E0E0; margin: 0; font-size: 14px;"><strong>Time in the market beats timing the market.</strong> Lump sum investing can look better historically, but it's rare to have a large sum available, emotionally hard to invest all at once, and not repeatable. DCA (Dollar Cost Averaging) lets you build wealth steadily with each paycheck.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Use the same years from sidebar (F - year-range correctness)
+        st.caption(f"📅 Using {years}-year timeline from sidebar settings")
         
         with st.spinner(f"📊 Calculating {years}-year scenarios..."):
             results = calculate_four_scenarios(ticker, years, 100)
@@ -6606,6 +6670,20 @@ elif selected_page == "📊 Company Analysis":
 - Past performance doesn't guarantee future results
 - This is for education only, not financial advice
                 """)
+            # Checkpoint Quiz (G) - DCA understanding
+            st.markdown("---")
+            render_checkpoint_quiz(
+                quiz_id="dca_understanding",
+                question="What does DCA (Dollar Cost Averaging) mean?",
+                options=[
+                    "Investing all your money at once",
+                    "Investing fixed amounts at regular intervals",
+                    "Only buying when prices are low",
+                    "Selling when prices drop"
+                ],
+                correct_idx=1,
+                explanation="DCA means investing a fixed amount regularly (like every paycheck), regardless of price. This reduces the impact of market timing and builds wealth steadily over time."
+            )
         else:
             st.warning(f"⚠️ Could not calculate scenarios for {ticker}. Historical price data may not be available.")
             st.info("💡 **Tip:** Try a major stock like AAPL, MSFT, or GOOGL")
