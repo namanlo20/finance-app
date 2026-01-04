@@ -4072,6 +4072,30 @@ def render_fit_check_panel(ticker=None):
     else:
         st.success(f"✅ Fit check will appear here (volatility + concentration). Current risk tier: **{risk_tier}**")
 
+def render_page_logo():
+    """Render the site logo at top of page - centered, not frozen"""
+    import base64
+    
+    # For deployment: User should add logo.png to their repo root
+    # For now, we'll use a placeholder or the uploaded image path
+    logo_path = "logo.png"  # User needs to add this file to their repo
+    
+    try:
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            st.image(logo_path, use_container_width=True)
+    except:
+        # Fallback if image not found - show text logo
+        st.markdown("""
+        <div style="text-align: center; padding: 20px 0; margin-bottom: 20px;">
+            <h2 style="color: #FF4444; margin: 0;">STOCKINVESTING.AI</h2>
+            <p style="color: #888; margin: 5px 0;">
+                <span style="color: #00D9FF;">LEARN</span> • 
+                <span style="color: #FFD700;">INVEST</span>
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
 # ============= 60-SECOND SETUP ONBOARDING (A1/A2) =============
 @st.dialog("Let's personalize this in 60 seconds", width="large")
 def onboarding_quiz_dialog():
@@ -4479,6 +4503,9 @@ with st.sidebar:
 
 # ============= HOMEPAGE: START HERE =============
 if selected_page == "🏠 Start Here":
+    # Render page logo
+    render_page_logo()
+    
     # Trigger onboarding modal if not completed (A1)
     if not st.session_state.get('onboarding_completed', False) and not st.session_state.get('onboarding_skipped', False):
         # Show "Start Setup" button
@@ -4790,6 +4817,9 @@ if selected_page == "🏠 Start Here":
 # Progress is stored in session_state for logged-out users
 # Progress is persisted to Supabase only for logged-in users
 elif selected_page == "📖 Basics":
+    # Render page logo
+    render_page_logo()
+    
     # Initialize completed lessons set in session state
     if 'completed_lessons' not in st.session_state:
         st.session_state.completed_lessons = set()
@@ -5022,6 +5052,9 @@ elif selected_page == "📖 Basics":
                 st.markdown("<br>", unsafe_allow_html=True)
 
 elif selected_page == "📚 Finance 101":
+    # Render page logo
+    render_page_logo()
+    
     st.header("📚 Finance 101")
     st.caption("*Learn the language of investing through visual cards and interactive examples.*")
     
@@ -5226,6 +5259,9 @@ elif selected_page == "📚 Finance 101":
 
 
 elif selected_page == "🧠 Risk Quiz":
+    # Render page logo
+    render_page_logo()
+    
     st.header("🎯 Investment Risk Analysis Quiz")
     st.markdown("### Understand your risk tolerance")
     
@@ -5434,6 +5470,9 @@ elif selected_page == "🧠 Risk Quiz":
 
 
 elif selected_page == "📊 Company Analysis":
+    # Render page logo
+    render_page_logo()
+    
     # Robinhood-style guidance
     st.caption("*This page explains how this company makes money and where the risks are.*")
     
@@ -6954,6 +6993,9 @@ elif selected_page == "📊 Company Analysis":
 
 
 elif selected_page == "🌍 Sector Explorer":
+    # Render page logo
+    render_page_logo()
+    
     st.header("🎯 Sector Explorer")
     
     # Default to Technology sector
@@ -7041,6 +7083,9 @@ elif selected_page == "🌍 Sector Explorer":
 
 
 elif selected_page == "📈 Financial Health":
+    # Render page logo
+    render_page_logo()
+    
     st.header("📈 Financial Health - Historical Trends")
     st.markdown("**Compare company ratios to S&P 500 averages and historical benchmarks**")
     
@@ -7345,6 +7390,9 @@ elif selected_page == "📈 Financial Health":
 
 # ============= MARKET INTELLIGENCE TAB =============
 elif selected_page == "📰 Market Intelligence":
+    # Render page logo
+    render_page_logo()
+    
     st.header("Market Intelligence")
     st.markdown("**AI-Powered Market News & Analysis**")
     
@@ -7942,6 +7990,9 @@ elif selected_page == "📋 Investment Checklist":
 
 
 elif selected_page == "💼 Paper Portfolio":
+    # Render page logo
+    render_page_logo()
+    
     st.header("💼 Paper Portfolio")
     st.caption("*This shows how your decisions would have performed over time — compared to the market.*")
     
