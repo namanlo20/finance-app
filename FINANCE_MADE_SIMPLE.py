@@ -3969,7 +3969,8 @@ def save_onboarding_profile(profile_data):
 @st.dialog("Let's personalize this in 60 seconds", width="large")
 def onboarding_quiz_dialog():
     """60-Second Setup onboarding quiz modal"""
-    st.markdown("Answer a few quick questions to personalize your experience.")
+    st.markdown("### Personalize your experience")
+    st.info("💡 **This helps us personalize how the site works for you.** It's not a test, and it doesn't affect what you can invest in.")
     
     # Question 1: Knowledge level
     knowledge = st.radio(
@@ -4377,6 +4378,7 @@ if selected_page == "🏠 Start Here":
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
             st.markdown("### Welcome to Investing Made Simple")
+            st.caption("Quick setup to personalize your experience (60 seconds)")
             if st.button("Start Setup (Recommended)", type="primary", use_container_width=True):
                 onboarding_quiz_dialog()
             if st.button("Skip Setup", type="secondary", use_container_width=True):
@@ -4684,8 +4686,8 @@ if selected_page == "🏠 Start Here":
     
     # Next Step Button - Direct link to Risk Quiz
     st.markdown("---")
-    st.markdown("### 🎯 Ready to discover your investor profile?")
-    st.markdown("Take our quick quiz to find stocks that match your risk tolerance.")
+    st.markdown("### 🎯 Understand your risk tolerance")
+    st.markdown("Take our quiz to understand how much volatility you're comfortable with. We'll use this to give you better warnings and guidance.")
     
     if st.button("🚀 Take the Risk Quiz →", type="primary", use_container_width=True):
         st.session_state.selected_page = "🧠 Risk Quiz"
@@ -5115,9 +5117,9 @@ elif selected_page == "📚 Finance 101":
 
 elif selected_page == "🧠 Risk Quiz":
     st.header("🎯 Investment Risk Analysis Quiz")
-    st.markdown("**Discover your investor profile and get personalized stock suggestions!**")
+    st.markdown("### Understand your risk tolerance")
     
-    st.info("💡 Answer these questions to understand your risk tolerance and investment style. You'll get 1-2 FREE stock recommendations based on your profile!")
+    st.info("💡 **This helps us understand how much volatility you're comfortable with.** We use this to give better warnings and guidance — not to block you from anything.")
     
     # Initialize session state for quiz
     if 'quiz_submitted' not in st.session_state:
