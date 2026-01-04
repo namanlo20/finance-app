@@ -3893,9 +3893,221 @@ def get_session_roast():
     st.session_state.roast_shown_this_session = True
     return random.choice(UNHINGED_ROASTS)
 
+# ============= GLOBAL TICKER CONSISTENCY (B) =============
+def set_active_ticker(ticker):
+    """Set the global active ticker - single source of truth for all pages"""
+    if ticker and isinstance(ticker, str):
+        ticker = ticker.upper().strip()
+        if ticker:
+            st.session_state.selected_ticker = ticker
+            # Save progress if logged in
+            if st.session_state.get("user_id"):
+                save_user_progress()
+            return True
+    return False
+
+def get_active_ticker():
+    """Get the current active ticker"""
+    return st.session_state.get("selected_ticker", "GOOGL")
+
+# ============= PERSONALIZATION PROFILE (A3) =============
+def get_personalization_profile():
+    """Get user's personalization profile based on onboarding quiz"""
+    profile = st.session_state.get("onboarding_profile", {})
+    return {
+        "knowledge": profile.get("knowledge", "new"),
+        "goal": profile.get("goal", "learn"),
+        "horizon": profile.get("horizon", "5-10"),
+        "drawdown": profile.get("drawdown", "uncomfortable"),
+        "tone": profile.get("tone", "calm"),
+        "simple_mode": profile.get("knowledge", "new") == "new",
+        "risk_averse": profile.get("drawdown", "uncomfortable") in ["panic", "uncomfortable"],
+        "unhinged_enabled": profile.get("tone", "calm") == "unhinged" and st.session_state.get("user_age", 25) >= 18
+    }
+
+def save_onboarding_profile(profile_data):
+    """Save onboarding profile to session state and Supabase"""
+    st.session_state.onboarding_profile = profile_data
+    st.session_state.onboarding_completed = True
+    
+    # Save to Supabase if logged in
+    if SUPABASE_ENABLED and st.session_state.get("user_id"):
+        try:
+            user_id = st.session_state.get("user_id")
+            state_data = {
+                "selected_ticker": st.session_state.get("selected_ticker", "GOOGL"),
+                "paper_portfolio": st.session_state.get("paper_portfolio", {}),
+                "risk_quiz_results": st.session_state.get("risk_quiz_results", {}),
+                "unhinged_mode": st.session_state.get("unhinged_mode", False),
+                "homepage_stock1": st.session_state.get("homepage_stock1", "GOOGL"),
+                "homepage_stock2": st.session_state.get("homepage_stock2", "AMC"),
+                "onboarding_profile": profile_data,
+                "onboarding_completed": True
+            }
+            supabase.table("user_state").upsert({
+                "user_id": user_id,
+                "state": json.dumps(state_data),
+                "updated_at": datetime.now().isoformat()
+            }).execute()
+        except:
+            pass
+
+# ============= 60-SECOND SETUP ONBOARDING (A1/A2) =============
+@st.dialog("Let's personalize this in 60 seconds", width="large")
+def onboarding_quiz_dialog():
+    """60-Second Setup onboarding quiz modal"""
+    st.markdown("Answer a few quick questions to personalize your experience.")
+    
+    # Question 1: Knowledge level
+    knowledge = st.radio(
+        "1. Your investment knowledge:",
+        ["New - Just getting started", "Some experience - Know the basics", "Confident - Can read financials"],
+        key="onboard_knowledge"
+    )
+    knowledge_map = {"New - Just getting started": "new", "Some experience - Know the basics": "some", "Confident - Can read financials": "confident"}
+    
+    # Question 2: Primary goal
+    goal = st.radio(
+        "2. What's your primary goal?",
+        ["Learn basics", "Build long-term wealth", "Trading / speculation", "Just exploring"],
+        key="onboard_goal"
+    )
+    goal_map = {"Learn basics": "learn", "Build long-term wealth": "wealth", "Trading / speculation": "trading", "Just exploring": "exploring"}
+    
+    # Question 3: Time horizon
+    horizon = st.radio(
+        "3. Your investment time horizon:",
+        ["Less than 1 year", "1-5 years", "5-10 years", "10+ years"],
+        key="onboard_horizon"
+    )
+    horizon_map = {"Less than 1 year": "<1", "1-5 years": "1-5", "5-10 years": "5-10", "10+ years": "10+"}
+    
+    # Question 4: Drawdown comfort
+    drawdown = st.radio(
+        "4. If your portfolio dropped 20%, you would:",
+        ["Panic and sell", "Feel uncomfortable but hold", "Be fine with it", "Buy more (it's on sale!)"],
+        key="onboard_drawdown"
+    )
+    drawdown_map = {"Panic and sell": "panic", "Feel uncomfortable but hold": "uncomfortable", "Be fine with it": "fine", "Buy more (it's on sale!)": "buy_more"}
+    
+    # Question 5: Tone mode (optional)
+    tone = st.radio(
+        "5. Preferred tone (optional):",
+        ["Calm (default)", "Data-driven", "Unhinged (roast commentary)"],
+        key="onboard_tone"
+    )
+    tone_map = {"Calm (default)": "calm", "Data-driven": "data", "Unhinged (roast commentary)": "unhinged"}
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Complete Setup", type="primary", use_container_width=True):
+            profile = {
+                "knowledge": knowledge_map.get(knowledge, "new"),
+                "goal": goal_map.get(goal, "learn"),
+                "horizon": horizon_map.get(horizon, "5-10"),
+                "drawdown": drawdown_map.get(drawdown, "uncomfortable"),
+                "tone": tone_map.get(tone, "calm")
+            }
+            save_onboarding_profile(profile)
+            st.session_state.show_mission_1 = True
+            st.rerun()
+    
+    with col2:
+        if st.button("Skip", type="secondary", use_container_width=True):
+            st.session_state.onboarding_skipped = True
+            st.session_state.onboarding_completed = True
+            st.rerun()
+
+# ============= MISSION 1 CARD (A4) =============
+@st.dialog("Mission 1: Add Your First Paper Position", width="large")
+def mission_1_dialog():
+    """Post-quiz Mission 1 card"""
+    profile = get_personalization_profile()
+    
+    st.markdown("### Your first mission: Buy a stock (with fake money)")
+    st.markdown("Paper trading lets you practice without risking real money.")
+    
+    # Suggest tickers based on profile
+    if profile["knowledge"] == "new" or profile["risk_averse"]:
+        st.markdown("**Recommended for beginners:**")
+        suggestions = [("SPY", "S&P 500 ETF - Own 500 companies at once"), 
+                      ("AAPL", "Apple - Tech giant, stable growth"),
+                      ("MSFT", "Microsoft - Enterprise software leader")]
+    else:
+        st.markdown("**Popular picks:**")
+        suggestions = [("GOOGL", "Alphabet - Search, AI, Cloud"),
+                      ("NVDA", "NVIDIA - AI chip leader"),
+                      ("META", "Meta - Social media, VR")]
+    
+    for ticker, desc in suggestions:
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.markdown(f"**{ticker}** - {desc}")
+        with col2:
+            if st.button(f"Add {ticker}", key=f"mission1_{ticker}"):
+                set_active_ticker(ticker)
+                st.session_state.selected_page = "💼 Paper Portfolio"
+                st.session_state.show_mission_1 = False
+                st.session_state.mission_1_completed = True
+                st.rerun()
+    
+    st.markdown("---")
+    if st.button("Skip for now", type="secondary"):
+        st.session_state.show_mission_1 = False
+        st.rerun()
+
+# ============= SUCCESS FEEDBACK MODAL (A5) =============
+@st.dialog("Congratulations!", width="small")
+def first_buy_success_dialog():
+    """Success feedback after first paper trade"""
+    st.markdown("### You just bought a business, not a lottery ticket.")
+    st.markdown("Every share represents ownership in a real company.")
+    
+    ticker = get_active_ticker()
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        if st.button("Understand this company", type="primary", use_container_width=True):
+            st.session_state.selected_page = "📊 Company Analysis"
+            st.session_state.show_first_buy_success = False
+            st.rerun()
+    with col2:
+        if st.button("Check my risk fit", type="secondary", use_container_width=True):
+            st.session_state.selected_page = "🧠 Risk Quiz"
+            st.session_state.show_first_buy_success = False
+            st.rerun()
+    with col3:
+        if st.button("Add another", type="secondary", use_container_width=True):
+            st.session_state.show_first_buy_success = False
+            st.rerun()
+
+# ============= STOCK LOGO HELPER (H2) =============
+@st.cache_data(ttl=86400)
+def get_stock_logo_url(ticker):
+    """Get stock logo URL from FMP profile - cached for 24 hours"""
+    try:
+        profile = get_profile(ticker)
+        if profile and 'image' in profile:
+            return profile['image']
+    except:
+        pass
+    return None
+
 # ============= SIGN UP POPUP STATE =============
 if 'show_signup_popup' not in st.session_state:
     st.session_state.show_signup_popup = False
+
+# Initialize onboarding state
+if 'onboarding_completed' not in st.session_state:
+    st.session_state.onboarding_completed = False
+if 'onboarding_skipped' not in st.session_state:
+    st.session_state.onboarding_skipped = False
+if 'show_mission_1' not in st.session_state:
+    st.session_state.show_mission_1 = False
+if 'show_first_buy_success' not in st.session_state:
+    st.session_state.show_first_buy_success = False
+if 'first_paper_trade_done' not in st.session_state:
+    st.session_state.first_paper_trade_done = False
 
 # ============= CHATBOT STATE =============
 if 'chatbot_open' not in st.session_state:
@@ -4118,6 +4330,36 @@ with st.sidebar:
 
 # ============= HOMEPAGE: START HERE =============
 if selected_page == "🏠 Start Here":
+    # Trigger onboarding modal if not completed (A1)
+    if not st.session_state.get('onboarding_completed', False) and not st.session_state.get('onboarding_skipped', False):
+        # Show "Start Setup" button
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            st.markdown("### Welcome to Investing Made Simple")
+            if st.button("Start Setup (Recommended)", type="primary", use_container_width=True):
+                onboarding_quiz_dialog()
+            if st.button("Skip Setup", type="secondary", use_container_width=True):
+                st.session_state.onboarding_skipped = True
+                st.session_state.onboarding_completed = True
+                st.rerun()
+    
+    # Show Mission 1 dialog if triggered
+    if st.session_state.get('show_mission_1', False):
+        mission_1_dialog()
+    
+    # Show first buy success dialog if triggered
+    if st.session_state.get('show_first_buy_success', False):
+        first_buy_success_dialog()
+    
+    # Hero Visual (H3) - Bull vs Bear theme
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 30px; border-radius: 15px; margin-bottom: 20px; text-align: center;">
+        <div style="font-size: 60px; margin-bottom: 10px;">🐂 vs 🐻</div>
+        <h2 style="color: #FFFFFF; margin: 0;">Learn to Invest Like a Pro</h2>
+        <p style="color: #B0B0B0; margin-top: 10px;">Understand the market. Build wealth. Avoid the traps.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
     # Robinhood-style guidance
     st.caption("*Welcome! This is your starting point. We'll guide you through the basics of smart investing.*")
     
@@ -4413,7 +4655,192 @@ if selected_page == "🏠 Start Here":
 
 elif selected_page == "📚 Finance 101":
     st.header("📚 Finance 101")
-    st.write("Learn key financial terms")
+    st.caption("*Learn the language of investing through visual cards and interactive examples.*")
+    
+    # ============= TOP 5 METRICS SECTION (C - moved from Company Analysis) =============
+    st.markdown("---")
+    st.markdown("## 🏆 The 5 Metrics That Actually Matter")
+    st.markdown("*These are the numbers that separate winners from losers.*")
+    
+    # Top 5 Metrics as visual cards (D1)
+    metrics_data = [
+        {"icon": "📈", "name": "Net Income Growth", "definition": "Bottom line profit after all expenses.", 
+         "why": "If this isn't growing, nothing else matters.", "example": "Apple: +15% annually = healthy business"},
+        {"icon": "⚙️", "name": "Operating Income Growth", "definition": "Profit from core business operations.", 
+         "why": "Shows if the business model works before financial tricks.", "example": "Microsoft: +20% = strong operations"},
+        {"icon": "💵", "name": "Free Cash Flow Growth", "definition": "Cash left after running the business.", 
+         "why": "Cash is king. Earnings can be manipulated, cash can't.", "example": "Google: $60B FCF = cash machine"},
+        {"icon": "📊", "name": "Revenue Growth", "definition": "Total money coming in from sales.", 
+         "why": "Top line tells you if customers want the product.", "example": "NVIDIA: +100% = massive demand"},
+        {"icon": "🛡️", "name": "Quick Ratio", "definition": "Can the company pay bills without selling inventory?", 
+         "why": "Rising liquidity = safety in a crisis.", "example": "Ratio > 1 = can survive a storm"}
+    ]
+    
+    # Display as cards in a grid
+    col1, col2 = st.columns(2)
+    for i, metric in enumerate(metrics_data):
+        with col1 if i % 2 == 0 else col2:
+            st.markdown(f"""
+            <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 20px; border-radius: 12px; margin-bottom: 15px; border-left: 4px solid #FF4444;">
+                <div style="font-size: 28px; margin-bottom: 8px;">{metric['icon']}</div>
+                <h4 style="color: #FFFFFF; margin: 0 0 8px 0;">#{i+1}: {metric['name']}</h4>
+                <p style="color: #B0B0B0; margin: 0 0 8px 0; font-size: 14px;">{metric['definition']}</p>
+                <p style="color: #FF6B6B; margin: 0 0 8px 0; font-size: 13px;"><strong>Why it matters:</strong> {metric['why']}</p>
+                <p style="color: #4ECDC4; margin: 0; font-size: 12px;"><em>{metric['example']}</em></p>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    # Micro-quiz for Top 5 Metrics (E)
+    with st.expander("📝 Quick Quiz: Test Your Knowledge"):
+        quiz_answer = st.radio(
+            "Which metric is hardest to manipulate?",
+            ["Net Income", "Revenue", "Free Cash Flow", "Operating Income"],
+            key="finance101_quiz1"
+        )
+        if st.button("Check Answer", key="check_quiz1"):
+            if quiz_answer == "Free Cash Flow":
+                st.success("Correct! Cash is king - you either have it or you don't.")
+            else:
+                st.error("Not quite. Free Cash Flow is the answer - cash can't be faked like accounting earnings.")
+    
+    # ============= VISUAL DIAGRAMS (D2) =============
+    st.markdown("---")
+    st.markdown("## 📊 How Money Flows Through a Business")
+    
+    # Revenue to Profit diagram
+    st.markdown("""
+    <div style="background: #1a1a2e; padding: 25px; border-radius: 12px; margin-bottom: 20px;">
+        <h4 style="color: #FFFFFF; text-align: center; margin-bottom: 20px;">The Profit Waterfall</h4>
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+            <div style="text-align: center; flex: 1; min-width: 100px;">
+                <div style="background: #4ECDC4; padding: 15px; border-radius: 8px; margin-bottom: 5px;">
+                    <span style="color: #000; font-weight: bold;">Revenue</span>
+                </div>
+                <span style="color: #888; font-size: 12px;">$100</span>
+            </div>
+            <div style="color: #888; font-size: 20px;">→</div>
+            <div style="text-align: center; flex: 1; min-width: 100px;">
+                <div style="background: #FFD93D; padding: 15px; border-radius: 8px; margin-bottom: 5px;">
+                    <span style="color: #000; font-weight: bold;">Gross Profit</span>
+                </div>
+                <span style="color: #888; font-size: 12px;">$60 (- costs)</span>
+            </div>
+            <div style="color: #888; font-size: 20px;">→</div>
+            <div style="text-align: center; flex: 1; min-width: 100px;">
+                <div style="background: #FF6B6B; padding: 15px; border-radius: 8px; margin-bottom: 5px;">
+                    <span style="color: #FFF; font-weight: bold;">Operating Income</span>
+                </div>
+                <span style="color: #888; font-size: 12px;">$30 (- expenses)</span>
+            </div>
+            <div style="color: #888; font-size: 20px;">→</div>
+            <div style="text-align: center; flex: 1; min-width: 100px;">
+                <div style="background: #9D4EDD; padding: 15px; border-radius: 8px; margin-bottom: 5px;">
+                    <span style="color: #FFF; font-weight: bold;">Net Income</span>
+                </div>
+                <span style="color: #888; font-size: 12px;">$20 (- taxes)</span>
+            </div>
+            <div style="color: #888; font-size: 20px;">→</div>
+            <div style="text-align: center; flex: 1; min-width: 100px;">
+                <div style="background: #00C853; padding: 15px; border-radius: 8px; margin-bottom: 5px;">
+                    <span style="color: #000; font-weight: bold;">Free Cash Flow</span>
+                </div>
+                <span style="color: #888; font-size: 12px;">$15 (actual cash)</span>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Stock = slice of business diagram
+    st.markdown("""
+    <div style="background: #1a1a2e; padding: 25px; border-radius: 12px; margin-bottom: 20px;">
+        <h4 style="color: #FFFFFF; text-align: center; margin-bottom: 15px;">What is a Stock?</h4>
+        <div style="display: flex; align-items: center; justify-content: center; gap: 20px; flex-wrap: wrap;">
+            <div style="text-align: center;">
+                <div style="font-size: 50px;">🏢</div>
+                <p style="color: #888; margin: 5px 0;">Company</p>
+            </div>
+            <div style="font-size: 30px; color: #888;">=</div>
+            <div style="text-align: center;">
+                <div style="font-size: 50px;">🍕🍕🍕🍕</div>
+                <p style="color: #888; margin: 5px 0;">Millions of Slices</p>
+            </div>
+            <div style="font-size: 30px; color: #888;">→</div>
+            <div style="text-align: center;">
+                <div style="font-size: 50px;">🍕</div>
+                <p style="color: #4ECDC4; margin: 5px 0; font-weight: bold;">1 Share = 1 Slice</p>
+            </div>
+        </div>
+        <p style="color: #B0B0B0; text-align: center; margin-top: 15px; font-size: 14px;">When you buy a stock, you own a tiny piece of a real business.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Risk spectrum meter
+    st.markdown("""
+    <div style="background: #1a1a2e; padding: 25px; border-radius: 12px; margin-bottom: 20px;">
+        <h4 style="color: #FFFFFF; text-align: center; margin-bottom: 15px;">Risk Spectrum</h4>
+        <div style="display: flex; justify-content: space-between; align-items: center; background: linear-gradient(90deg, #00C853 0%, #FFD93D 50%, #FF4444 100%); padding: 15px; border-radius: 8px;">
+            <div style="text-align: center;">
+                <span style="color: #000; font-weight: bold;">Treasury Bonds</span><br>
+                <span style="color: #000; font-size: 12px;">~4% return</span>
+            </div>
+            <div style="text-align: center;">
+                <span style="color: #000; font-weight: bold;">S&P 500 ETF</span><br>
+                <span style="color: #000; font-size: 12px;">~10% avg</span>
+            </div>
+            <div style="text-align: center;">
+                <span style="color: #FFF; font-weight: bold;">Individual Stocks</span><br>
+                <span style="color: #FFF; font-size: 12px;">Varies wildly</span>
+            </div>
+            <div style="text-align: center;">
+                <span style="color: #FFF; font-weight: bold;">Meme Stocks</span><br>
+                <span style="color: #FFF; font-size: 12px;">Casino 🎰</span>
+            </div>
+        </div>
+        <p style="color: #B0B0B0; text-align: center; margin-top: 10px; font-size: 13px;">Higher potential returns = Higher risk of loss</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # ============= INTERACTIVE WIDGETS (D3) =============
+    st.markdown("---")
+    st.markdown("## 🎮 Try It: Interactive Learning")
+    
+    # What if price drops widget
+    st.markdown("### What if the price drops?")
+    drop_pct = st.slider("Simulate a price drop:", 0, 50, 20, 5, key="price_drop_slider")
+    initial_value = 10000
+    new_value = initial_value * (1 - drop_pct / 100)
+    recovery_needed = ((initial_value / new_value) - 1) * 100
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Starting Value", f"${initial_value:,.0f}")
+    with col2:
+        st.metric("After Drop", f"${new_value:,.0f}", f"-{drop_pct}%")
+    with col3:
+        st.metric("Recovery Needed", f"+{recovery_needed:.1f}%", help="To get back to your starting value")
+    
+    st.caption(f"*If your portfolio drops {drop_pct}%, you need a {recovery_needed:.1f}% gain just to break even. This is why avoiding big losses matters!*")
+    
+    # Compound interest widget
+    st.markdown("### The Power of Compounding")
+    years_compound = st.slider("Years invested:", 1, 30, 10, key="compound_years")
+    annual_return = st.slider("Annual return (%):", 1, 20, 8, key="compound_return")
+    
+    initial_invest = 10000
+    final_value = initial_invest * ((1 + annual_return / 100) ** years_compound)
+    total_gain = final_value - initial_invest
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("Initial Investment", f"${initial_invest:,.0f}")
+    with col2:
+        st.metric(f"After {years_compound} Years", f"${final_value:,.0f}", f"+${total_gain:,.0f}")
+    
+    st.caption(f"*At {annual_return}% annual return, your money grows {final_value/initial_invest:.1f}x in {years_compound} years. Time is your biggest advantage!*")
+    
+    # ============= GLOSSARY SECTION =============
+    st.markdown("---")
+    st.markdown("## 📖 Full Glossary")
     
     col1, col2 = st.columns(2)
     
@@ -5024,24 +5451,7 @@ elif selected_page == "📊 Company Analysis":
                 st.caption("Risk-free baseline return")
             
             st.markdown("---")
-            st.markdown("### 🏆 My Top 5 Metrics")
-            
-            with st.expander("#1: Net Income Growth"):
-                st.caption("Bottom line profit. If this isn't growing, nothing else matters.")
-            
-            with st.expander("#2: Operating Income Growth"):
-                st.caption("Shows if the core business is healthy, before financial engineering.")
-            
-            with st.expander("#3: Free Cash Flow Growth"):
-                st.caption("Cash is king. A company can manipulate earnings, but cash flow doesn't lie.")
-            
-            with st.expander("#4: Revenue Growth"):
-                st.caption("Top line tells you if customers want the product.")
-            
-            with st.expander("#5: Quick Ratio Growth"):
-                st.caption("Can they handle a crisis? Rising liquidity = safety.")
-
-            st.markdown("---")
+            st.caption("📚 *Learn about key metrics in [Finance 101](#)*")
             
         with col_left_main:
             # Stock Price Chart with Timeframe Toggles
@@ -7346,11 +7756,11 @@ elif selected_page == "💼 Paper Portfolio":
                             'total': total_cost
                         })
                         
-                        # Show first buy message
-                        if not st.session_state.first_buy_message_shown:
-                            st.session_state.first_buy_message_shown = True
-                            st.success(f"You just made your first paper trade! Let's understand what you bought.")
-                            st.info(f"**Suggested action:** Analyze {buy_ticker}")
+                        # Show first buy success dialog (A5)
+                        if not st.session_state.first_paper_trade_done:
+                            st.session_state.first_paper_trade_done = True
+                            st.session_state.show_first_buy_success = True
+                            set_active_ticker(buy_ticker)
                         else:
                             st.success(f"Bought {buy_shares} shares of {buy_ticker}!")
                         
