@@ -3830,6 +3830,9 @@ def save_user_progress():
             # Save user profile
             "user_profile": st.session_state.get("user_profile", {}),
             "onboarding_profile": st.session_state.get("onboarding_profile", {}),
+            # Save onboarding state
+            "setup_prompt_dismissed": st.session_state.get("setup_prompt_dismissed", False),
+            "onboarding_completed": st.session_state.get("onboarding_completed", False),
         }
         
         # Upsert to user_state table
@@ -3887,6 +3890,11 @@ def load_user_progress():
             if "onboarding_profile" in state_data:
                 st.session_state.onboarding_profile = state_data["onboarding_profile"]
                 st.session_state.onboarding_completed = True
+            # Restore onboarding state
+            if "setup_prompt_dismissed" in state_data:
+                st.session_state.setup_prompt_dismissed = state_data["setup_prompt_dismissed"]
+            if "onboarding_completed" in state_data:
+                st.session_state.onboarding_completed = state_data["onboarding_completed"]
             return True
     except Exception as e:
         # Silently fail - don't break the app if loading fails
@@ -4072,29 +4080,53 @@ def render_fit_check_panel(ticker=None):
     else:
         st.success(f"✅ Fit check will appear here (volatility + concentration). Current risk tier: **{risk_tier}**")
 
-def render_page_logo():
-    """Render the site logo at top of page - centered, not frozen"""
+    """Render the site logo at top of page - centered, smaller size"""
     import base64
     
     # For deployment: User should add logo.png to their repo root
-    # For now, we'll use a placeholder or the uploaded image path
-    logo_path = "logo.png"  # User needs to add this file to their repo
+    logo_path = "logo.png"
     
     try:
-        col1, col2, col3 = st.columns([1, 2, 1])
+        col1, col2, col3 = st.columns([1, 1, 1])
         with col2:
-            st.image(logo_path, use_container_width=True)
+            st.image(logo_path, width=300)  # Fixed width for smaller size
     except:
         # Fallback if image not found - show text logo
         st.markdown("""
-        <div style="text-align: center; padding: 20px 0; margin-bottom: 20px;">
-            <h2 style="color: #FF4444; margin: 0;">STOCKINVESTING.AI</h2>
-            <p style="color: #888; margin: 5px 0;">
+        <div style="text-align: center; padding: 10px 0; margin-bottom: 10px;">
+            <h3 style="color: #FF4444; margin: 0;">STOCKINVESTING.AI</h3>
+            <p style="color: #888; margin: 5px 0; font-size: 0.9em;">
                 <span style="color: #00D9FF;">LEARN</span> • 
                 <span style="color: #FFD700;">INVEST</span>
             </p>
         </div>
         """, unsafe_allow_html=True)
+
+def render_setup_nudge():
+    """Render non-blocking setup nudge card"""
+    if not st.session_state.get('onboarding_completed', False) and not st.session_state.get('setup_prompt_dismissed', False):
+        st.markdown("""
+        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 20px; border-radius: 10px; margin-bottom: 20px; border-left: 4px solid #00D9FF;">
+            <h3 style="color: #FFFFFF; margin: 0 0 5px 0;">Quick setup (60 seconds)</h3>
+            <p style="color: #B0B0B0; margin: 0;">Personalize the site (not a test).</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("🚀 Start Setup", use_container_width=True, type="primary", key="nudge_start_setup"):
+                st.session_state.show_onboarding_quiz = True
+                st.rerun()
+        with col2:
+            if st.button("Skip for now", use_container_width=True, type="secondary", key="nudge_skip"):
+                st.session_state.setup_prompt_dismissed = True
+                # Save to Supabase if logged in
+                if st.session_state.get('is_logged_in', False):
+                    try:
+                        save_user_progress()
+                    except:
+                        pass
+                st.rerun()
 
 # ============= 60-SECOND SETUP ONBOARDING (A1/A2) =============
 @st.dialog("Let's personalize this in 60 seconds", width="large")
@@ -4154,6 +4186,7 @@ def onboarding_quiz_dialog():
                 "tone": tone_map.get(tone, "calm")
             }
             save_onboarding_profile(profile)
+            st.session_state.show_onboarding_quiz = False
             st.session_state.show_mission_1 = True
             st.rerun()
     
@@ -4161,7 +4194,61 @@ def onboarding_quiz_dialog():
         if st.button("Skip", type="secondary", use_container_width=True):
             st.session_state.onboarding_skipped = True
             st.session_state.onboarding_completed = True
+            st.session_state.setup_prompt_dismissed = True
+            st.session_state.show_onboarding_quiz = False
+            # Save to Supabase if logged in
+            if st.session_state.get('is_logged_in', False):
+                try:
+                    save_user_progress()
+                except:
+                    pass
             st.rerun()
+
+# ============= UPDATE PROFILE MODAL =============
+@st.dialog("Update Your Profile", width="medium")
+def update_profile_dialog():
+    """Modal to choose which quiz to retake"""
+    st.markdown("### Choose what to update")
+    st.caption("Retake a quiz to refresh your personalized experience")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("""
+        <div style="text-align: center; padding: 20px; background: rgba(0,217,255,0.1); border-radius: 10px; margin-bottom: 10px;">
+            <div style="font-size: 40px; margin-bottom: 10px;">📋</div>
+            <h4 style="color: #FFFFFF; margin: 0;">Setup Quiz</h4>
+            <p style="color: #B0B0B0; font-size: 0.9em;">60 seconds</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        if st.button("Retake Setup Quiz", use_container_width=True, type="primary", key="retake_setup"):
+            st.session_state.show_update_profile = False
+            st.session_state.show_onboarding_quiz = True
+            st.session_state.onboarding_completed = False
+            st.session_state.onboarding_skipped = False
+            st.rerun()
+    
+    with col2:
+        st.markdown("""
+        <div style="text-align: center; padding: 20px; background: rgba(255,68,68,0.1); border-radius: 10px; margin-bottom: 10px;">
+            <div style="font-size: 40px; margin-bottom: 10px;">🎯</div>
+            <h4 style="color: #FFFFFF; margin: 0;">Risk Quiz</h4>
+            <p style="color: #B0B0B0; font-size: 0.9em;">7 questions</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        if st.button("Retake Risk Quiz", use_container_width=True, type="secondary", key="retake_risk"):
+            st.session_state.show_update_profile = False
+            st.session_state.selected_page = "🧠 Risk Quiz"
+            st.session_state.risk_quiz_submitted = False
+            st.rerun()
+    
+    st.markdown("---")
+    
+    if st.button("Cancel", use_container_width=True, key="cancel_update"):
+        st.session_state.show_update_profile = False
+        st.rerun()
 
 # ============= MISSION 1 CARD (A4) =============
 @st.dialog("Mission 1: Add Your First Paper Position", width="large")
@@ -4274,12 +4361,18 @@ if 'onboarding_completed' not in st.session_state:
     st.session_state.onboarding_completed = False
 if 'onboarding_skipped' not in st.session_state:
     st.session_state.onboarding_skipped = False
+if 'setup_prompt_dismissed' not in st.session_state:
+    st.session_state.setup_prompt_dismissed = False
 if 'show_mission_1' not in st.session_state:
     st.session_state.show_mission_1 = False
 if 'show_first_buy_success' not in st.session_state:
     st.session_state.show_first_buy_success = False
 if 'first_paper_trade_done' not in st.session_state:
     st.session_state.first_paper_trade_done = False
+if 'show_update_profile' not in st.session_state:
+    st.session_state.show_update_profile = False
+if 'show_onboarding_quiz' not in st.session_state:
+    st.session_state.show_onboarding_quiz = False
 
 # ============= CHATBOT STATE =============
 if 'chatbot_open' not in st.session_state:
@@ -4359,6 +4452,32 @@ show_welcome_popup()
 
 # ============= SIGN UP POPUP =============
 show_signup_popup()
+
+# ============= UPDATE PROFILE MODAL =============
+if st.session_state.get('show_update_profile', False):
+    update_profile_dialog()
+
+# ============= ONBOARDING QUIZ MODAL (USER-INITIATED) =============
+if st.session_state.get('show_onboarding_quiz', False):
+    onboarding_quiz_dialog()
+
+# ============= LOGO =============
+# Logo positioned above "Investing Made Simple" title, below top icons
+try:
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col2:
+        st.image("logo.png", width=250)  # Smaller width
+except:
+    # Fallback text logo
+    st.markdown("""
+    <div style="text-align: center; padding: 10px 0; margin-bottom: 15px;">
+        <h3 style="color: #FF4444; margin: 0; font-size: 1.5em;">STOCKINVESTING.AI</h3>
+        <p style="color: #888; margin: 5px 0; font-size: 0.85em;">
+            <span style="color: #00D9FF;">LEARN</span> • 
+            <span style="color: #FFD700;">INVEST</span>
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
 # ============= HEADER =============
 col1, col2 = st.columns([3, 1])
@@ -4503,22 +4622,11 @@ with st.sidebar:
 
 # ============= HOMEPAGE: START HERE =============
 if selected_page == "🏠 Start Here":
-    # Render page logo
-    render_page_logo()
+    # Debug status line (temporary)
+    st.caption(f"🔍 Debug: onboarding_completed={st.session_state.get('onboarding_completed', False)} | setup_prompt_dismissed={st.session_state.get('setup_prompt_dismissed', False)} | logged_in={st.session_state.get('is_logged_in', False)}")
     
-    # Trigger onboarding modal if not completed (A1)
-    if not st.session_state.get('onboarding_completed', False) and not st.session_state.get('onboarding_skipped', False):
-        # Show "Start Setup" button
-        col1, col2, col3 = st.columns([1, 2, 1])
-        with col2:
-            st.markdown("### Welcome to Investing Made Simple")
-            st.caption("Quick setup to personalize your experience (60 seconds)")
-            if st.button("Start Setup (Recommended)", type="primary", use_container_width=True):
-                onboarding_quiz_dialog()
-            if st.button("Skip Setup", type="secondary", use_container_width=True):
-                st.session_state.onboarding_skipped = True
-                st.session_state.onboarding_completed = True
-                st.rerun()
+    # Non-blocking setup nudge card
+    render_setup_nudge()
     
     # Show Mission 1 dialog if triggered
     if st.session_state.get('show_mission_1', False):
@@ -4817,9 +4925,6 @@ if selected_page == "🏠 Start Here":
 # Progress is stored in session_state for logged-out users
 # Progress is persisted to Supabase only for logged-in users
 elif selected_page == "📖 Basics":
-    # Render page logo
-    render_page_logo()
-    
     # Initialize completed lessons set in session state
     if 'completed_lessons' not in st.session_state:
         st.session_state.completed_lessons = set()
@@ -4827,6 +4932,9 @@ elif selected_page == "📖 Basics":
     # Initialize expanded lesson tracking
     if 'expanded_lesson' not in st.session_state:
         st.session_state.expanded_lesson = None
+    
+    # Non-blocking setup nudge card (optional on Basics)
+    render_setup_nudge()
     
     # Page Header
     st.markdown("""
@@ -4854,7 +4962,7 @@ elif selected_page == "📖 Basics":
         """, unsafe_allow_html=True)
     with col2:
         if st.button("⚙️ Update Profile", use_container_width=True):
-            st.session_state.selected_page = "🏠 Start Here"
+            st.session_state.show_update_profile = True
             st.rerun()
     
     # Global progress tracking
@@ -5052,8 +5160,6 @@ elif selected_page == "📖 Basics":
                 st.markdown("<br>", unsafe_allow_html=True)
 
 elif selected_page == "📚 Finance 101":
-    # Render page logo
-    render_page_logo()
     
     st.header("📚 Finance 101")
     st.caption("*Learn the language of investing through visual cards and interactive examples.*")
@@ -5259,8 +5365,6 @@ elif selected_page == "📚 Finance 101":
 
 
 elif selected_page == "🧠 Risk Quiz":
-    # Render page logo
-    render_page_logo()
     
     st.header("🎯 Investment Risk Analysis Quiz")
     st.markdown("### Understand your risk tolerance")
@@ -5470,8 +5574,6 @@ elif selected_page == "🧠 Risk Quiz":
 
 
 elif selected_page == "📊 Company Analysis":
-    # Render page logo
-    render_page_logo()
     
     # Robinhood-style guidance
     st.caption("*This page explains how this company makes money and where the risks are.*")
@@ -6993,8 +7095,6 @@ elif selected_page == "📊 Company Analysis":
 
 
 elif selected_page == "🌍 Sector Explorer":
-    # Render page logo
-    render_page_logo()
     
     st.header("🎯 Sector Explorer")
     
@@ -7083,8 +7183,6 @@ elif selected_page == "🌍 Sector Explorer":
 
 
 elif selected_page == "📈 Financial Health":
-    # Render page logo
-    render_page_logo()
     
     st.header("📈 Financial Health - Historical Trends")
     st.markdown("**Compare company ratios to S&P 500 averages and historical benchmarks**")
@@ -7390,8 +7488,6 @@ elif selected_page == "📈 Financial Health":
 
 # ============= MARKET INTELLIGENCE TAB =============
 elif selected_page == "📰 Market Intelligence":
-    # Render page logo
-    render_page_logo()
     
     st.header("Market Intelligence")
     st.markdown("**AI-Powered Market News & Analysis**")
@@ -7990,8 +8086,6 @@ elif selected_page == "📋 Investment Checklist":
 
 
 elif selected_page == "💼 Paper Portfolio":
-    # Render page logo
-    render_page_logo()
     
     st.header("💼 Paper Portfolio")
     st.caption("*This shows how your decisions would have performed over time — compared to the market.*")
