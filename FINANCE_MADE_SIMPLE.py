@@ -4683,13 +4683,13 @@ if selected_page == "🏠 Start Here":
 
 # ============= BASICS PAGE =============
 elif selected_page == "📖 Basics":
-    # Initialize basics progress tracking in session state
-    if 'basics_progress' not in st.session_state:
-        st.session_state.basics_progress = {
-            'completed_modules': [],
-            'current_module': 1,
-            'current_lesson': 1
-        }
+    # Initialize completed lessons set in session state
+    if 'completed_lessons' not in st.session_state:
+        st.session_state.completed_lessons = set()
+    
+    # Initialize expanded lesson tracking
+    if 'expanded_lesson' not in st.session_state:
+        st.session_state.expanded_lesson = None
     
     # Page Header
     st.markdown("""
@@ -4699,124 +4699,187 @@ elif selected_page == "📖 Basics":
     </div>
     """, unsafe_allow_html=True)
     
-    # Create two cards side by side
-    col1, col2 = st.columns(2)
+    # Global progress tracking
+    total_lessons = 15
+    completed_count = len(st.session_state.completed_lessons)
+    progress_percentage = (completed_count / total_lessons) * 100
     
-    # Card A: Start the Basics Course
-    with col1:
-        st.markdown("""
-        <div style="background: rgba(255,255,255,0.05); padding: 30px; border-radius: 15px; height: 250px; 
-                    border: 2px solid #00D9FF; text-align: center; display: flex; flex-direction: column; 
-                    justify-content: space-between;">
-            <div>
-                <div style="font-size: 48px; margin-bottom: 15px;">🎓</div>
-                <h3 style="color: #FFFFFF; margin: 10px 0;">Start the Basics Course</h3>
-                <p style="color: #B0B0B0;">Begin your investing journey from Module 1</p>
-            </div>
+    st.markdown(f"""
+    <div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+        <p style="color: #FFFFFF; margin: 0;">You've completed {completed_count} of {total_lessons} lessons.</p>
+        <div style="background: rgba(255,255,255,0.2); height: 20px; border-radius: 10px; margin-top: 10px; overflow: hidden;">
+            <div style="background: linear-gradient(90deg, #00D9FF, #0099FF); height: 100%; width: {progress_percentage}%; transition: width 0.3s;"></div>
         </div>
-        """, unsafe_allow_html=True)
-        
-        if st.button("🚀 Start", key="start_basics_btn", type="primary", use_container_width=True):
-            # Reset progress to Module 1
-            st.session_state.basics_progress['current_module'] = 1
-            st.session_state.basics_progress['current_lesson'] = 1
-            # Scroll to Module 1 by setting expanded state
-            st.session_state.basics_show_module_1 = True
-            st.rerun()
+    </div>
+    """, unsafe_allow_html=True)
     
-    # Card B: Continue where you left off
-    with col2:
-        # Determine what to show based on progress
-        progress = st.session_state.basics_progress
-        
-        if len(progress['completed_modules']) == 0:
-            # No progress yet
-            continue_text = "Start Module 1"
-            continue_icon = "▶️"
-            progress_desc = "You haven't started yet. Begin with Module 1!"
-        else:
-            # Has progress
-            current_mod = progress['current_module']
-            current_les = progress['current_lesson']
-            continue_text = f"Continue Module {current_mod}, Lesson {current_les}"
-            continue_icon = "📚"
-            completed_count = len(progress['completed_modules'])
-            progress_desc = f"You've completed {completed_count} module(s). Keep going!"
-        
+    # Define all lessons structure
+    lessons_structure = {
+        "1": {
+            "title": "Stocks Are Businesses",
+            "lessons": [
+                {"id": "1.1", "title": "What You Own When You Buy a Stock"},
+                {"id": "1.2", "title": "Price ≠ Value"},
+                {"id": "1.3", "title": "Why Investing Feels Scary"}
+            ]
+        },
+        "2": {
+            "title": "The Investment Thesis",
+            "lessons": [
+                {"id": "2.1", "title": "What a Thesis Means"},
+                {"id": "2.2", "title": "When It's OK to Sell"},
+                {"id": "2.3", "title": "When It's NOT OK to Sell"}
+            ]
+        },
+        "3": {
+            "title": "Valuation Matters",
+            "lessons": [
+                {"id": "3.1", "title": "Great Company, Bad Buy"},
+                {"id": "3.2", "title": "P/E and P/S (Simple)"},
+                {"id": "3.3", "title": "Using History as Guardrails"}
+            ]
+        },
+        "4": {
+            "title": "Losing Money (Risk & Psychology)",
+            "lessons": [
+                {"id": "4.1", "title": "Everyone Takes Losses"},
+                {"id": "4.2", "title": "Cutting Losses vs Panic Selling"},
+                {"id": "4.3", "title": "Hope Is Not a Strategy"}
+            ]
+        },
+        "5": {
+            "title": "Time Is the Cheat Code",
+            "lessons": [
+                {"id": "5.1", "title": "Time in Market > Timing"},
+                {"id": "5.2", "title": "Lump Sum vs DCA"},
+                {"id": "5.3", "title": "Why SPY Beats Most People"}
+            ]
+        }
+    }
+    
+    # Find first incomplete lesson
+    first_incomplete = None
+    for module_num in ["1", "2", "3", "4", "5"]:
+        for lesson in lessons_structure[module_num]["lessons"]:
+            if lesson["id"] not in st.session_state.completed_lessons:
+                first_incomplete = lesson
+                break
+        if first_incomplete:
+            break
+    
+    # "Continue where you left off" card
+    if completed_count < total_lessons:
+        # Case 1: Incomplete lessons
         st.markdown(f"""
-        <div style="background: rgba(255,255,255,0.05); padding: 30px; border-radius: 15px; height: 250px; 
-                    border: 2px solid #FFD700; text-align: center; display: flex; flex-direction: column; 
-                    justify-content: space-between;">
-            <div>
-                <div style="font-size: 48px; margin-bottom: 15px;">{continue_icon}</div>
-                <h3 style="color: #FFFFFF; margin: 10px 0;">Continue where you left off</h3>
-                <p style="color: #B0B0B0;">{progress_desc}</p>
-            </div>
+        <div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 15px; border: 2px solid #FFD700; margin-bottom: 20px;">
+            <p style="color: #B0B0B0; margin: 0;">Next up:</p>
+            <h3 style="color: #FFFFFF; margin: 10px 0;">{first_incomplete["id"]} {first_incomplete["title"]}</h3>
         </div>
         """, unsafe_allow_html=True)
         
-        if st.button(f"🎯 {continue_text}", key="continue_basics_btn", type="secondary", use_container_width=True):
-            # Set the current module to expand
-            st.session_state[f"basics_show_module_{progress['current_module']}"] = True
+        if st.button("Continue", key="continue_lesson_btn", type="primary"):
+            st.session_state.expanded_lesson = first_incomplete["id"]
+            st.rerun()
+    else:
+        # Case 2: All lessons completed
+        st.markdown("""
+        <div style="background: rgba(0,255,0,0.1); padding: 20px; border-radius: 15px; border: 2px solid #00FF00; margin-bottom: 20px; text-align: center;">
+            <h3 style="color: #FFFFFF; margin: 0;">You've completed the Basics course 🎉</h3>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        if st.button("Review lessons", key="review_lessons_btn", type="secondary"):
+            st.session_state.expanded_lesson = None
             st.rerun()
     
     st.markdown("---")
     
-    # Module 1 Placeholder (expandable section)
-    st.markdown("### 📚 Course Modules")
-    
-    with st.expander("Module 1: Introduction to Investing", 
-                     expanded=st.session_state.get('basics_show_module_1', False)):
-        st.markdown("""
-        #### Welcome to Module 1
+    # Render 5 modules
+    for module_num in ["1", "2", "3", "4", "5"]:
+        module_data = lessons_structure[module_num]
+        module_title = module_data["title"]
+        module_lessons = module_data["lessons"]
         
-        In this module, you'll learn:
-        - What investing really means
-        - The difference between investing and gambling
-        - Why you should start investing today
-        - Basic terminology every investor should know
+        # Calculate module progress
+        module_completed = sum(1 for lesson in module_lessons if lesson["id"] in st.session_state.completed_lessons)
+        module_total = len(module_lessons)
         
-        *Module content coming soon...*
-        """)
-        
-        if st.button("✅ Mark Module 1 as Complete", key="complete_module_1"):
-            if 1 not in st.session_state.basics_progress['completed_modules']:
-                st.session_state.basics_progress['completed_modules'].append(1)
-                st.session_state.basics_progress['current_module'] = 2
-                st.session_state.basics_progress['current_lesson'] = 1
-                st.success("🎉 Module 1 completed! Moving to Module 2...")
-                st.balloons()
-                st.rerun()
-    
-    with st.expander("Module 2: Understanding Risk & Returns", 
-                     expanded=st.session_state.get('basics_show_module_2', False)):
-        st.markdown("""
-        #### Module 2: Risk & Returns
-        
-        *This module will be unlocked after completing Module 1*
-        
-        Topics covered:
-        - Risk vs Reward fundamentals
-        - Diversification strategies
-        - Asset allocation basics
-        
-        *Module content coming soon...*
-        """)
-    
-    with st.expander("Module 3: Reading Financial Statements", 
-                     expanded=st.session_state.get('basics_show_module_3', False)):
-        st.markdown("""
-        #### Module 3: Financial Statements
-        
-        *This module will be unlocked after completing Module 2*
-        
-        Topics covered:
-        - Income Statement basics
-        - Balance Sheet fundamentals
-        - Cash Flow Statement essentials
-        
-        *Module content coming soon...*
-        """)
+        # Module header with progress
+        with st.expander(f"Module {module_num}: {module_title} ({module_completed} / {module_total} completed)", 
+                         expanded=True):
+            
+            # Render each lesson card
+            for lesson in module_lessons:
+                lesson_id = lesson["id"]
+                lesson_title = lesson["title"]
+                is_completed = lesson_id in st.session_state.completed_lessons
+                is_expanded = st.session_state.expanded_lesson == lesson_id
+                
+                # Lesson card
+                status_text = "Completed" if is_completed else "Not started"
+                status_color = "#00FF00" if is_completed else "#B0B0B0"
+                border_color = "#00D9FF" if is_expanded else "rgba(255,255,255,0.2)"
+                
+                st.markdown(f"""
+                <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px; 
+                            border: 2px solid {border_color}; margin-bottom: 15px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <h4 style="color: #FFFFFF; margin: 0;">{lesson_id} {lesson_title}</h4>
+                            <p style="color: {status_color}; margin: 5px 0 0 0; font-size: 0.9em;">{status_text}</p>
+                        </div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Lesson controls
+                col1, col2 = st.columns([1, 1])
+                
+                with col1:
+                    if st.button("Start lesson", key=f"start_{lesson_id}", use_container_width=True):
+                        st.session_state.expanded_lesson = lesson_id
+                        st.rerun()
+                
+                with col2:
+                    if st.button("Mark complete" if not is_completed else "Completed ✓", 
+                                key=f"complete_{lesson_id}", 
+                                use_container_width=True,
+                                disabled=is_completed):
+                        st.session_state.completed_lessons.add(lesson_id)
+                        # Attempt Supabase persistence for logged-in users
+                        # Fall back silently if fails - do not block UI
+                        try:
+                            # Placeholder for Supabase logic when authentication is added
+                            pass
+                        except:
+                            pass
+                        st.rerun()
+                
+                # Expanded lesson panel
+                if is_expanded:
+                    st.markdown("""
+                    <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 10px; margin-top: 10px;">
+                        <p style="color: #FFFFFF;">Lesson content coming soon.</p>
+                        <ul style="color: #B0B0B0;">
+                            <li>• Placeholder bullet</li>
+                            <li>• Placeholder bullet</li>
+                            <li>• Placeholder bullet</li>
+                        </ul>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    if st.button("Mark complete", key=f"complete_expanded_{lesson_id}", type="primary"):
+                        st.session_state.completed_lessons.add(lesson_id)
+                        st.session_state.expanded_lesson = None
+                        # Attempt Supabase persistence for logged-in users
+                        try:
+                            # Placeholder for Supabase logic when authentication is added
+                            pass
+                        except:
+                            pass
+                        st.rerun()
+                
+                st.markdown("<br>", unsafe_allow_html=True)
 
 elif selected_page == "📚 Finance 101":
     st.header("📚 Finance 101")
