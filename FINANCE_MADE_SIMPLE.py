@@ -4062,8 +4062,141 @@ def build_user_profile():
     
     return user_profile
 
+def get_stock_volatility_tier(ticker):
+    """
+    Returns (volatility_tier, volatility_method)
+    volatility_tier in {"low", "medium", "high", "unknown"}
+    volatility_method in {"realized_returns", "market_cap_proxy", "unknown"}
+    """
+    from datetime import datetime, timedelta
+    import numpy as np
+    
+    # Initialize vol_cache in session state if not exists
+    if 'vol_cache' not in st.session_state:
+        st.session_state.vol_cache = {}
+    
+    # Check cache (reuse if < 1 hour old)
+    if ticker in st.session_state.vol_cache:
+        cached = st.session_state.vol_cache[ticker]
+        cached_time = datetime.fromisoformat(cached['updated_at'])
+        if datetime.now() - cached_time < timedelta(hours=1):
+            return (cached['tier'], cached['method'])
+    
+    # Try realized returns method (preferred)
+    try:
+        # Get ~1 year of daily price data (252 trading days)
+        price_df = get_historical_adjusted_prices(ticker, years=1)
+        
+        if not price_df.empty and len(price_df) >= 60:
+            # Compute daily returns
+            prices = price_df['price'].values
+            returns = np.diff(prices) / prices[:-1]
+            
+            # Compute standard deviation of daily returns
+            std_dev = np.std(returns)
+            
+            # Map to tiers using fixed thresholds
+            if std_dev < 0.018:
+                tier = "low"
+            elif std_dev < 0.032:
+                tier = "medium"
+            else:
+                tier = "high"
+            
+            method = "realized_returns"
+            
+            # Cache result
+            st.session_state.vol_cache[ticker] = {
+                'tier': tier,
+                'method': method,
+                'updated_at': datetime.now().isoformat()
+            }
+            
+            return (tier, method)
+    except:
+        pass
+    
+    # Fallback to market cap proxy
+    try:
+        profile = get_profile(ticker)
+        if profile and 'mktCap' in profile:
+            market_cap = profile['mktCap']
+            
+            if market_cap >= 200e9:
+                tier = "low"
+            elif market_cap >= 10e9:
+                tier = "medium"
+            else:
+                tier = "high"
+            
+            method = "market_cap_proxy"
+            
+            # Cache result
+            st.session_state.vol_cache[ticker] = {
+                'tier': tier,
+                'method': method,
+                'updated_at': datetime.now().isoformat()
+            }
+            
+            return (tier, method)
+    except:
+        pass
+    
+    # If neither works, return unknown
+    return ("unknown", "unknown")
+
+def get_fit_outcome(risk_tier, vol_tier):
+    """
+    Returns (status, message)
+    status in {"fits", "partial", "mismatch", "unknown"}
+    """
+    # If risk_tier unknown
+    if risk_tier == "unknown":
+        return ("unknown", "Want a better fit check? Take the Risk Quiz so we can tailor warnings to you.")
+    
+    # If vol_tier unknown
+    if vol_tier == "unknown":
+        return ("unknown", "Fit check unavailable (insufficient volatility data).")
+    
+    # Fit matrix
+    fit_matrix = {
+        "Conservative": {
+            "low": "fits",
+            "medium": "partial",
+            "high": "mismatch"
+        },
+        "Moderate": {
+            "low": "fits",
+            "medium": "fits",
+            "high": "partial"
+        },
+        "Growth": {
+            "low": "fits",
+            "medium": "fits",
+            "high": "fits"
+        },
+        "Aggressive": {
+            "low": "fits",
+            "medium": "fits",
+            "high": "fits"
+        }
+    }
+    
+    status = fit_matrix.get(risk_tier, {}).get(vol_tier, "unknown")
+    
+    # Message templates
+    messages = {
+        "fits": "This generally matches your risk profile.",
+        "partial": "This may still work for you, but expect bigger swings than your profile suggests.",
+        "mismatch": "This may feel too volatile for your risk profile. Consider smaller sizing or diversification."
+    }
+    
+    message = messages.get(status, "Fit check unavailable.")
+    
+    return (status, message)
+
 def render_fit_check_panel(ticker=None):
-    """Render Fit Check panel - placeholder for volatility + concentration warnings"""
+    """Render Fit Check panel with real volatility-based fit assessment"""
     if not ticker:
         return
     
@@ -4072,13 +4205,31 @@ def render_fit_check_panel(ticker=None):
     
     st.markdown("### 🎯 Fit Check")
     
-    if risk_tier == "unknown":
-        st.info("ℹ️ **Want a better fit check?** Take the Risk Quiz so we can tailor warnings to you.")
-        if st.button("Take Risk Quiz", key=f"fit_check_cta_{ticker}"):
-            st.session_state.selected_page = "🧠 Risk Quiz"
-            st.rerun()
-    else:
-        st.success(f"✅ Fit check will appear here (volatility + concentration). Current risk tier: **{risk_tier}**")
+    # Get volatility tier
+    vol_tier, vol_method = get_stock_volatility_tier(ticker)
+    
+    # Get fit outcome
+    status, message = get_fit_outcome(risk_tier, vol_tier)
+    
+    # Display outcome based on status
+    if status == "unknown":
+        st.info(f"ℹ️ **{message}**")
+        if risk_tier == "unknown":
+            if st.button("Take Risk Quiz", key=f"fit_check_cta_{ticker}"):
+                st.session_state.selected_page = "🧠 Risk Quiz"
+                st.rerun()
+    elif status == "fits":
+        st.success(f"✅ **Fits your profile**")
+        st.caption(message)
+    elif status == "partial":
+        st.warning(f"⚠️ **Partially fits your profile**")
+        st.caption(message)
+    elif status == "mismatch":
+        st.error(f"🚨 **Does not fit your profile**")
+        st.caption(message)
+    
+    # Display technical details (small text)
+    st.caption(f"Risk tier: **{risk_tier}** | Volatility: **{vol_tier}** (method: {vol_method})")
 
     """Render the site logo at top of page - centered, smaller size"""
     import base64
@@ -4466,7 +4617,7 @@ if st.session_state.get('show_onboarding_quiz', False):
 try:
     col1, col2, col3 = st.columns([1, 1, 1])
     with col2:
-        st.image("logo.png", width=500)  # Smaller width
+        st.image("logo.png", width=600)  # Logo width
 except:
     # Fallback text logo
     st.markdown("""
