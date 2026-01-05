@@ -3402,6 +3402,20 @@ def show_welcome_popup():
         </div>
         ''', unsafe_allow_html=True)
 
+# ============= LOGOUT HELPER =============
+def do_logout():
+    """Logout helper function to sign out and clear session state"""
+    try:
+        if SUPABASE_ENABLED:
+            supabase.auth.sign_out()
+    except:
+        pass
+    
+    # Clear all auth-related session state
+    for k in ["user_id", "user_email", "is_logged_in", "is_founder", "first_name"]:
+        st.session_state.pop(k, None)
+    st.rerun()
+
 # ============= LOGIN DIALOG =============
 @st.dialog("🔐 Sign In", width="large")
 def login_dialog():
@@ -3444,11 +3458,21 @@ def login_dialog():
             try:
                 res = supabase.auth.sign_in_with_password({"email": email, "password": password})
                 if res and res.user:
-                    st.session_state.user_id = res.user.id
+                    uid = res.user.id
+                    st.session_state.user_id = uid
                     st.session_state.user_email = res.user.email
-                    st.session_state.user_name = res.user.user_metadata.get("name", "User")
-                    st.session_state.user_age = res.user.user_metadata.get("age", 25)
                     st.session_state.is_logged_in = True
+                    
+                    # Fetch first name from profiles table
+                    try:
+                        profile = supabase.table("profiles").select("first_name").eq("id", uid).single().execute()
+                        st.session_state.first_name = (profile.data or {}).get("first_name") or ""
+                    except:
+                        st.session_state.first_name = ""
+                    
+                    # Fallback if missing
+                    if not st.session_state.first_name:
+                        st.session_state.first_name = (res.user.email or "").split("@")[0]
                     
                     # Founder flag derived from email
                     FOUNDER_EMAIL = (os.getenv("FOUNDER_EMAIL") or "").strip().lower()
@@ -3457,7 +3481,7 @@ def login_dialog():
                     # Load user progress
                     load_user_progress()
                     
-                    st.success(f"✅ Welcome back, {st.session_state.user_name}!")
+                    st.success(f"✅ Welcome back, {st.session_state.first_name}!")
                     st.session_state.show_login_popup = False
                     st.rerun()
                 else:
@@ -3493,11 +3517,8 @@ def signup_dialog():
     st.markdown("### Join Investing Made Simple today!")
     st.markdown("*Start your journey to financial freedom*")
     
-    col1, col2 = st.columns(2)
-    with col1:
-        name = st.text_input("Full Name", placeholder="John Doe", key="signup_name")
-    with col2:
-        email = st.text_input("Email Address", placeholder="john@example.com", key="signup_email")
+    first_name = st.text_input("First Name", placeholder="John", key="signup_first_name")
+    email = st.text_input("Email Address", placeholder="john@example.com", key="signup_email")
     
     col3, col4 = st.columns(2)
     with col3:
@@ -3516,7 +3537,7 @@ def signup_dialog():
     with col_btn2:
         if st.button("✅ Create Account", use_container_width=True, type="primary", key="signup_submit"):
             # Validation
-            if not all([name, email, phone, password, password_confirm]):
+            if not all([first_name, email, phone, password, password_confirm]):
                 st.error("❌ Please fill in all fields")
             elif age < 18:
                 st.warning("🎂 You must be 18 or older to create an account.")
@@ -3534,7 +3555,7 @@ def signup_dialog():
                             "password": password,
                             "options": {
                                 "data": {
-                                    "name": name,
+                                    "first_name": first_name,
                                     "phone": phone,
                                     "age": age
                                 }
@@ -3542,15 +3563,18 @@ def signup_dialog():
                         })
                         
                         if response.user:
-                            # Save user profile
-                            save_user_profile(response.user.id, name, phone, age)
+                            uid = response.user.id
+                            # Save first name to profiles table
+                            supabase.table("profiles").upsert({
+                                "id": uid,
+                                "first_name": first_name
+                            }).execute()
                             
                             if response.session:
                                 # Email verification disabled - log in immediately
-                                st.session_state.user_id = response.user.id
+                                st.session_state.user_id = uid
                                 st.session_state.user_email = email
-                                st.session_state.user_name = name
-                                st.session_state.user_age = age
+                                st.session_state.first_name = first_name
                                 st.session_state.is_logged_in = True
                                 
                                 # Founder flag
@@ -3561,7 +3585,7 @@ def signup_dialog():
                                 st.success("✅ Account created successfully!")
                                 st.balloons()
                             else:
-                                # Email verification required
+                                # Email verification required - still save profile
                                 st.success("✅ Account created! Check your email to verify, then sign in.")
                                 st.info("📧 Check inbox/spam for verification link.")
                             
@@ -3981,7 +4005,7 @@ def load_user_progress():
         pass
     return False
 
-def save_user_profile(user_id, name, phone, age):
+def save_user_profile(user_id, first_name):
     """Save user profile to Supabase profiles table after signup"""
     if not SUPABASE_ENABLED or not user_id:
         return False
@@ -3989,9 +4013,7 @@ def save_user_profile(user_id, name, phone, age):
     try:
         supabase.table("profiles").upsert({
             "id": user_id,
-            "full_name": name,
-            "phone": phone,
-            "age": age,
+            "first_name": first_name,
             "created_at": datetime.now().isoformat()
         }).execute()
         return True
@@ -4776,32 +4798,56 @@ elif action_param == "vip":
         del st.query_params["nav_action"]
     st.rerun()
 
-# Frozen HTML buttons using forms (like welcome popup X button)
+# Top header with auth buttons (conditional based on login status)
 st.markdown(f"""
-<div style="position: fixed; top: 0; right: 0; left: 0; z-index: 9999999; 
-            background: {'#000000' if st.session_state.theme == 'dark' else '#FFFFFF'}; 
-            padding: 10px 20px; display: flex; justify-content: flex-end; gap: 15px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.3);">
-    <form method="get" style="margin: 0; padding: 0; display: inline;">
-        <button type="submit" name="nav_action" value="signup"
-                style="background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%); 
-                color: white; padding: 10px 24px; border-radius: 8px; border: none;
-                font-weight: bold; cursor: pointer;">📝 Sign Up</button>
-    </form>
-    <form method="get" style="margin: 0; padding: 0; display: inline;">
-        <button type="submit" name="nav_action" value="login"
-                style="background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%); 
-                color: white; padding: 10px 24px; border-radius: 8px; border: none;
-                font-weight: bold; cursor: pointer;">🔐 Sign In</button>
-    </form>
-    <form method="get" style="margin: 0; padding: 0; display: inline;">
-        <button type="submit" name="nav_action" value="vip"
-                style="background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%); 
-                color: white; padding: 10px 24px; border-radius: 8px; border: none;
-                font-weight: bold; cursor: pointer;">👑 Become a VIP</button>
-    </form>
-</div>
+<style>
+.top-header {{
+    position: fixed;
+    top: 0;
+    right: 0;
+    left: 0;
+    z-index: 9999999;
+    background: {'#000000' if st.session_state.theme == 'dark' else '#FFFFFF'};
+    padding: 10px 20px;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 15px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+}}
+</style>
 """, unsafe_allow_html=True)
+
+# Create columns for header buttons at the top
+header_cols = st.columns([6, 1, 1, 1] if not st.session_state.get("is_logged_in") else [7, 1.5, 1])
+with header_cols[-1]:
+    # VIP button always visible
+    if st.button("👑 Become a VIP", key="header_vip_btn", use_container_width=True):
+        st.session_state.selected_page = "👑 Become a VIP"
+        st.rerun()
+
+if st.session_state.get("is_logged_in"):
+    # Logged in: show account dropdown
+    with header_cols[-2]:
+        first_name = st.session_state.get("first_name") or "Account"
+        choice = st.selectbox(
+            "",
+            [f"👤 Hi, {first_name}", "Log out"],
+            key="account_menu",
+            label_visibility="collapsed"
+        )
+        if choice == "Log out":
+            do_logout()
+else:
+    # Logged out: show Sign Up and Sign In buttons
+    with header_cols[-3]:
+        if st.button("📝 Sign Up", key="header_signup_btn", use_container_width=True):
+            st.session_state.show_signup_popup = True
+            st.rerun()
+    with header_cols[-2]:
+        if st.button("🔐 Sign In", key="header_login_btn", use_container_width=True):
+            st.session_state.show_login_popup = True
+            st.rerun()
 
 # Add spacing for frozen bar
 st.markdown("<div style='margin-bottom: 80px;'></div>", unsafe_allow_html=True)
@@ -4996,10 +5042,10 @@ with st.sidebar:
     # Check if logged in
     if st.session_state.get("is_logged_in", False):
         # Show user info and logout
-        user_name = st.session_state.get("user_name", "User")
+        first_name = st.session_state.get("first_name", "User")
         user_email = st.session_state.get("user_email", "")
         
-        st.success(f"👤 {user_name}")
+        st.success(f"👤 {first_name}")
         st.caption(f"{user_email}")
         
         # Show founder badge if applicable
@@ -5007,16 +5053,7 @@ with st.sidebar:
             st.info("👑 Founder Access")
         
         if st.button("🚪 Log Out", use_container_width=True, type="secondary", key="sidebar_logout_btn"):
-            try:
-                if SUPABASE_ENABLED:
-                    supabase.auth.sign_out()
-            except:
-                pass
-            
-            # Clear session state
-            for k in ["user_id", "user_email", "user_name", "user_age", "is_logged_in", "is_founder"]:
-                st.session_state.pop(k, None)
-            st.rerun()
+            do_logout()
     else:
         # Show sign in / sign up buttons
         col1, col2 = st.columns(2)
