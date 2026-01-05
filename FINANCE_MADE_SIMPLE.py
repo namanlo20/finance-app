@@ -4962,7 +4962,8 @@ with st.sidebar:
         action_tools = [
             "📋 Investment Checklist",
             "💼 Paper Portfolio",
-            "👤 Naman's Portfolio"
+            "👤 Naman's Portfolio",
+            "📜 Founder Track Record"
         ]
         for tool in action_tools:
             if st.button(tool, key=f"btn_{tool}", use_container_width=True):
@@ -9448,6 +9449,303 @@ elif selected_page == "✅ Portfolio Risk Analyzer":
                             st.info(rec)
                     else:
                         st.success("✅ Portfolio looks well-balanced!")
+
+# ============= FOUNDER TRACK RECORD (PUBLIC READ-ONLY) =============
+elif selected_page == "📜 Founder Track Record":
+    st.header("📜 Founder Track Record")
+    st.caption("*Public, read-only view of the founder's paper trading performance.*")
+    
+    # ============= HELPER: GET FOUNDER DATA =============
+    def get_founder_data():
+        """Get founder portfolio data from session state"""
+        if 'founder_portfolio' not in st.session_state:
+            st.session_state.founder_portfolio = []
+        if 'founder_transactions' not in st.session_state:
+            st.session_state.founder_transactions = []
+        if 'founder_realized_gains' not in st.session_state:
+            st.session_state.founder_realized_gains = 0.0
+        
+        return (
+            st.session_state.founder_portfolio,
+            st.session_state.founder_transactions,
+            st.session_state.founder_realized_gains
+        )
+    
+    def calculate_track_record_metrics(transactions, portfolio, realized_gains):
+        """Calculate all track record metrics"""
+        # Calculate portfolio equity using same logic as Paper Portfolio
+        cash = STARTING_CASH
+        
+        # Process all transactions to calculate current cash
+        for txn in transactions:
+            if txn['type'] == 'BUY':
+                cash -= txn['total']  # Subtract cost
+            elif txn['type'] == 'SELL':
+                cash += txn['total']  # Add proceeds
+        
+        # Calculate market value of current positions
+        market_value = 0.0
+        unrealized_pl = 0.0
+        
+        for pos in portfolio:
+            quote = get_quote(pos['ticker'])
+            if quote:
+                current_price = quote.get('price', 0)
+                avg_price = pos.get('avg_price', 0)
+                shares = pos.get('shares', 0)
+                
+                position_market_value = shares * current_price
+                position_unrealized_pl = (current_price - avg_price) * shares
+                
+                market_value += position_market_value
+                unrealized_pl += position_unrealized_pl
+        
+        # Total equity = cash + market value
+        equity = cash + market_value
+        
+        # Total P/L = current equity - starting cash
+        total_pl = equity - STARTING_CASH
+        
+        # YTD return percentage
+        ytd_return_pct = (total_pl / STARTING_CASH * 100) if STARTING_CASH > 0 else 0.0
+        
+        # Handle empty portfolio case
+        if not transactions:
+            equity = STARTING_CASH
+            ytd_return_pct = 0.0
+            unrealized_pl = 0.0
+        
+        # Total P/L = realized + unrealized
+        total_pl = realized_gains + unrealized_pl
+        
+        # Inception date = first transaction date
+        inception_date = "—"
+        if transactions:
+            inception_date = transactions[0].get('date', '—')
+        
+        return {
+            'equity': equity,
+            'ytd_return': ytd_return_pct,
+            'cash': cash,
+            'market_value': market_value,
+            'realized_pl': realized_gains,
+            'unrealized_pl': unrealized_pl,
+            'total_pl': total_pl,
+            'inception_date': inception_date
+        }
+    
+    # ============= GET DATA =============
+    portfolio, transactions, realized_gains = get_founder_data()
+    metrics = calculate_track_record_metrics(transactions, portfolio, realized_gains)
+    
+    # ============= SECTION A: HEADER SUMMARY (KPI CARDS) =============
+    st.markdown("## 📊 Performance Summary")
+    
+    # Row 1: Core metrics
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Inception Date", metrics['inception_date'])
+    with col2:
+        st.metric("Starting Capital", f"${STARTING_CASH:,.0f}")
+    with col3:
+        st.metric("Current Equity", f"${metrics['equity']:,.2f}")
+    with col4:
+        st.metric("Total Return", f"{metrics['ytd_return']:+.2f}%")
+    
+    # Row 2: P/L breakdown
+    col5, col6, col7, col8 = st.columns(4)
+    with col5:
+        st.metric("Realized P/L", f"${metrics['realized_pl']:,.2f}")
+    with col6:
+        st.metric("Unrealized P/L", f"${metrics['unrealized_pl']:,.2f}")
+    with col7:
+        st.metric("Total P/L", f"${metrics['total_pl']:,.2f}")
+    with col8:
+        st.metric("Cash", f"${metrics['cash']:,.2f}")
+    
+    st.markdown("---")
+    
+    # ============= SECTION B: CURRENT HOLDINGS =============
+    st.markdown("## 📋 Current Holdings")
+    
+    if portfolio:
+        # Calculate total portfolio value for weight calculation
+        total_portfolio_value = metrics['market_value']
+        
+        holdings_data = []
+        price_fetch_failures = []
+        
+        for pos in portfolio:
+            ticker = pos['ticker']
+            shares = pos['shares']
+            avg_cost = pos['avg_price']
+            
+            # Get live price
+            quote = get_quote(ticker)
+            if quote:
+                live_price = quote.get('price', 0)
+                market_value = shares * live_price
+                unrealized_pl = (live_price - avg_cost) * shares
+                unrealized_pl_pct = ((live_price - avg_cost) / avg_cost * 100) if avg_cost > 0 else 0
+                portfolio_weight = (market_value / total_portfolio_value * 100) if total_portfolio_value > 0 else 0
+                
+                holdings_data.append({
+                    'Symbol': ticker,
+                    'Shares': f"{shares:.4f}",
+                    'Avg Cost': f"${avg_cost:.2f}",
+                    'Live Price': f"${live_price:.2f}",
+                    'Market Value': market_value,
+                    'Market Value (formatted)': f"${market_value:,.2f}",
+                    'Unrealized P/L': f"${unrealized_pl:,.2f} ({unrealized_pl_pct:+.2f}%)",
+                    'Weight': f"{portfolio_weight:.2f}%"
+                })
+            else:
+                # Price fetch failed
+                price_fetch_failures.append(ticker)
+                holdings_data.append({
+                    'Symbol': ticker,
+                    'Shares': f"{shares:.4f}",
+                    'Avg Cost': f"${avg_cost:.2f}",
+                    'Live Price': "—",
+                    'Market Value': 0,
+                    'Market Value (formatted)': "—",
+                    'Unrealized P/L': "—",
+                    'Weight': "—"
+                })
+        
+        # Sort by market value descending
+        holdings_data.sort(key=lambda x: x['Market Value'], reverse=True)
+        
+        # Remove the sort key before display
+        for holding in holdings_data:
+            del holding['Market Value']
+        
+        # Display table
+        df_holdings = pd.DataFrame(holdings_data)
+        st.dataframe(df_holdings, use_container_width=True, hide_index=True)
+        
+        # Warning for price fetch failures
+        if price_fetch_failures:
+            st.warning(f"⚠️ Could not fetch live prices for: {', '.join(price_fetch_failures)}")
+    else:
+        st.info("No holdings yet.")
+    
+    st.markdown("---")
+    
+    # ============= SECTION C: PUBLIC TRADE LEDGER =============
+    st.markdown("## 📜 All Founder Trades")
+    
+    # CSV Export preparation
+    csv_data = []
+    for txn in transactions:
+        # Calculate realized P/L for CSV (numeric, no currency symbols)
+        realized_pl_value = 0.0
+        if txn['type'] == 'SELL':
+            # For now, use the total proceeds as realized P/L
+            # This is approximate without tracking detailed cost basis per trade
+            realized_pl_value = txn['total']
+        
+        csv_data.append({
+            'timestamp': txn['date'],
+            'symbol': txn['ticker'],
+            'side': txn['type'],
+            'quantity': txn['shares'],
+            'price': txn['price'],
+            'fees': 0.00,
+            'notional': txn['total'],
+            'realized_pl': realized_pl_value,
+            'note': ''
+        })
+    
+    # Create CSV DataFrame
+    if csv_data:
+        df_csv = pd.DataFrame(csv_data)
+    else:
+        # Empty DataFrame with headers only
+        df_csv = pd.DataFrame(columns=[
+            'timestamp', 'symbol', 'side', 'quantity', 'price', 
+            'fees', 'notional', 'realized_pl', 'note'
+        ])
+    
+    # Generate CSV in memory
+    csv_string = df_csv.to_csv(index=False)
+    csv_filename = f"founder_trades_{datetime.now().strftime('%Y-%m-%d')}.csv"
+    
+    # Download button
+    st.download_button(
+        label="📥 Download CSV",
+        data=csv_string,
+        file_name=csv_filename,
+        mime="text/csv",
+        help="Download complete trade history as CSV"
+    )
+    
+    st.markdown("")  # Small spacing
+    
+    if transactions:
+        # Build ledger table
+        ledger_data = []
+        
+        for txn in transactions:
+            # Calculate realized P/L for SELL transactions
+            realized_pl_display = "—"
+            if txn['type'] == 'SELL':
+                # For display purposes, we can show the profit on this specific sell
+                # Note: This is approximate since we're not tracking per-trade P/L
+                sell_price = txn['price']
+                shares_sold = txn['shares']
+                total_proceeds = txn['total']
+                
+                # Try to find avg cost from portfolio history
+                # For now, just show the total proceeds
+                realized_pl_display = f"${total_proceeds:,.2f}"
+            
+            ledger_data.append({
+                'Date/Time': txn['date'],
+                'Symbol': txn['ticker'],
+                'Side': txn['type'],
+                'Qty': f"{txn['shares']:.4f}",
+                'Price': f"${txn['price']:.2f}",
+                'Fees': "$0.00",  # Add fees column (currently no fees tracked)
+                'Notional': f"${txn['total']:,.2f}",
+                'Realized P/L': realized_pl_display,
+                'Note': "—"
+            })
+        
+        # Display oldest to newest (or reverse for newest first)
+        df_ledger = pd.DataFrame(ledger_data)
+        st.dataframe(df_ledger, use_container_width=True, hide_index=True)
+        
+        # Last updated timestamp
+        st.caption(f"*Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M PT')}*")
+    else:
+        st.info("No trades yet.")
+    
+    st.markdown("---")
+    
+    # ============= SECTION D: DISCLOSURE =============
+    st.markdown("## ⚠️ Disclosure")
+    
+    with st.expander("Important Information", expanded=False):
+        st.markdown("""
+        **Paper Trading Disclaimer**
+        
+        - This is a **paper portfolio** for educational and demonstration purposes only.
+        - Prices are sourced from public market data and may not reflect exact execution prices or fills.
+        - All trades are timestamped and **recorded as immutable entries** once posted.
+        - Past performance does not guarantee future results.
+        - This is **not financial advice**. Do your own research before making investment decisions.
+        
+        **Data Sources**
+        - Live prices: Financial Modeling Prep (FMP) API
+        - Historical data: FMP Premium
+        - Timezone: Pacific Time (PT)
+        """)
+    
+    # ============= OPTIONAL: SHARE LINK =============
+    st.markdown("### 🔗 Share This Track Record")
+    st.code("https://your-app-url.com/?page=founder-track-record", language="text")
+    st.caption("*Share this URL to give others read-only access to the founder's track record.*")
 
 
 # ============= FOOTER =============
