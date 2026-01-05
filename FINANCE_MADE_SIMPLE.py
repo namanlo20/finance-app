@@ -12,6 +12,10 @@ import numpy as np
 # ============= CONFIGURATION =============
 import os
 import json
+import time
+
+# Build stamp for deploy verification
+BUILD_STAMP = os.getenv("RENDER_GIT_COMMIT", "")[:7] or str(int(time.time()))
 
 # API Keys - Use environment variables (set these in Render dashboard)
 # FMP_API_KEY: Your Financial Modeling Prep API key
@@ -3393,192 +3397,6 @@ def show_welcome_popup():
         </div>
         ''', unsafe_allow_html=True)
 
-# ============= LOGIN DIALOG =============
-@st.dialog("🔐 Sign In", width="large")
-def login_dialog():
-    """Sign in dialog for existing users"""
-    st.markdown("""
-    <style>
-    [data-testid="stDialog"] {
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%) !important;
-    }
-    [data-testid="stDialog"] [data-testid="stMarkdownContainer"] p,
-    [data-testid="stDialog"] label {
-        color: #FFFFFF !important;
-    }
-    [data-testid="stDialog"] h1, [data-testid="stDialog"] h2, [data-testid="stDialog"] h3 {
-        color: #FF4444 !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-    
-    st.markdown("### Welcome back!")
-    st.markdown("*Sign in to access your saved progress*")
-    
-    email = st.text_input("Email Address", placeholder="john@example.com", key="login_email")
-    password = st.text_input("Password", type="password", placeholder="Enter your password", key="login_password")
-    
-    col_btn1, col_btn2 = st.columns(2)
-    with col_btn1:
-        if st.button("❌ Cancel", use_container_width=True, type="secondary", key="login_cancel_btn"):
-            st.session_state.show_login_popup = False
-            st.rerun()
-    with col_btn2:
-        if st.button("✅ Sign In", use_container_width=True, type="primary", key="login_submit_btn"):
-            if not SUPABASE_ENABLED:
-                st.error("❌ Authentication service not available.")
-                return
-            if not email or not password:
-                st.error("❌ Please enter email and password.")
-                return
-            
-            try:
-                res = supabase.auth.sign_in_with_password({"email": email, "password": password})
-                if res and res.user:
-                    st.session_state.user_id = res.user.id
-                    st.session_state.user_email = res.user.email
-                    st.session_state.user_name = res.user.user_metadata.get("name", "User")
-                    st.session_state.user_age = res.user.user_metadata.get("age", 25)
-                    st.session_state.is_logged_in = True
-                    
-                    # Founder flag is derived from email match
-                    FOUNDER_EMAIL = (os.getenv("FOUNDER_EMAIL") or "").strip().lower()
-                    st.session_state.is_founder = (res.user.email or "").strip().lower() == FOUNDER_EMAIL
-                    
-                    # Load user progress
-                    load_user_progress()
-                    
-                    st.success(f"✅ Welcome back, {st.session_state.user_name}!")
-                    st.session_state.show_login_popup = False
-                    st.rerun()
-                else:
-                    st.error("❌ Invalid credentials.")
-            except Exception as e:
-                msg = str(e)
-                if "not confirmed" in msg.lower() or "email not confirmed" in msg.lower():
-                    st.error("❌ Please verify your email first (check inbox), then sign in.")
-                elif "invalid" in msg.lower() or "credentials" in msg.lower():
-                    st.error("❌ Invalid email or password.")
-                else:
-                    st.error(f"❌ Login error: {msg}")
-
-# ============= SIGN UP POPUP USING ST.DIALOG =============
-@st.dialog("📝 Create Your Account", width="large")
-def signup_dialog():
-    """Sign up dialog using Streamlit's native dialog - form fields INSIDE the modal"""
-    st.markdown("""
-    <style>
-    /* Style the dialog */
-    [data-testid="stDialog"] {
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%) !important;
-    }
-    [data-testid="stDialog"] [data-testid="stMarkdownContainer"] p,
-    [data-testid="stDialog"] label {
-        color: #FFFFFF !important;
-    }
-    [data-testid="stDialog"] h1, [data-testid="stDialog"] h2, [data-testid="stDialog"] h3 {
-        color: #FF4444 !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-    
-    st.markdown("### Join Investing Made Simple today!")
-    st.markdown("*Start your journey to financial freedom*")
-    
-    # Form fields INSIDE the dialog
-    col1, col2 = st.columns(2)
-    with col1:
-        name = st.text_input("Full Name", placeholder="John Doe", key="signup_name")
-    with col2:
-        email = st.text_input("Email Address", placeholder="john@example.com", key="signup_email")
-    
-    col3, col4 = st.columns(2)
-    with col3:
-        phone = st.text_input("Phone Number", placeholder="+1 (555) 123-4567", key="signup_phone")
-    with col4:
-        age = st.number_input("Age", min_value=1, max_value=120, value=25, key="signup_age")
-    
-    password = st.text_input("Create Password", type="password", placeholder="Enter a strong password", key="signup_password")
-    password_confirm = st.text_input("Confirm Password", type="password", placeholder="Re-enter your password", key="signup_confirm")
-    
-    col_btn1, col_btn2 = st.columns(2)
-    with col_btn1:
-        if st.button("❌ Cancel", use_container_width=True, type="secondary"):
-            st.session_state.show_signup_popup = False
-            st.rerun()
-    with col_btn2:
-        if st.button("✅ Create Account", use_container_width=True, type="primary"):
-            # Validation
-            if not all([name, email, phone, password, password_confirm]):
-                st.error("❌ Please fill in all fields")
-            elif age < 18:
-                st.warning("🎂 You must be 18 or older to create an account. Please come back when you're old enough to invest!")
-            elif password != password_confirm:
-                st.error("❌ Passwords don't match")
-            elif len(password) < 8:
-                st.error("❌ Password must be at least 8 characters")
-            elif "@" not in email or "." not in email:
-                st.error("❌ Please enter a valid email address")
-            else:
-                # Sign up with Supabase
-                if SUPABASE_ENABLED:
-                    try:
-                        response = supabase.auth.sign_up({
-                            "email": email,
-                            "password": password,
-                            "options": {
-                                "data": {
-                                    "name": name,
-                                    "phone": phone,
-                                    "age": age
-                                }
-                            }
-                        })
-                        
-                        if response.user:
-                            # Save user profile to profiles table
-                            save_user_profile(response.user.id, name, phone, age)
-                            
-                            # Check if session exists (email verification disabled) or if email confirmation required
-                            if response.session:
-                                # Email verification disabled - log them in immediately
-                                st.session_state.user_id = response.user.id
-                                st.session_state.user_email = email
-                                st.session_state.user_name = name
-                                st.session_state.user_age = age
-                                st.session_state.is_logged_in = True
-                                
-                                # Founder flag derived from email
-                                FOUNDER_EMAIL = (os.getenv("FOUNDER_EMAIL") or "").strip().lower()
-                                st.session_state.is_founder = (email or "").strip().lower() == FOUNDER_EMAIL
-                                
-                                # Save user progress
-                                save_user_progress()
-                                st.success("✅ Account created successfully!")
-                                st.balloons()
-                            else:
-                                # Email verification required - don't log in yet
-                                st.success("✅ Account created! Check your email to verify, then sign in.")
-                                st.info("📧 Please check your inbox (and spam folder) for a verification link.")
-                            
-                            st.session_state.show_signup_popup = False
-                            st.rerun()
-                        else:
-                            st.error("❌ Error creating account. Please try again.")
-                    except Exception as e:
-                        error_msg = str(e)
-                        if "already registered" in error_msg.lower():
-                            st.error("❌ This email is already registered. Please sign in instead.")
-                        else:
-                            st.error(f"❌ Error: {error_msg}")
-                else:
-                    st.error("❌ Authentication service not available. Please contact support.")
-
-def show_signup_popup():
-    """Show sign up popup when triggered - uses st.dialog for proper modal"""
-    if st.session_state.show_signup_popup:
-        signup_dialog()
-
 
 # ============= COFFEE COMPARISON CALCULATOR =============
 def calculate_coffee_investment(ticker, weekly_amount, years=5):
@@ -4730,12 +4548,6 @@ if 'show_update_profile' not in st.session_state:
 if 'show_onboarding_quiz' not in st.session_state:
     st.session_state.show_onboarding_quiz = False
 
-# Initialize auth popup state
-if 'show_login_popup' not in st.session_state:
-    st.session_state.show_login_popup = False
-if 'show_signup_popup' not in st.session_state:
-    st.session_state.show_signup_popup = False
-
 # ============= CHATBOT STATE =============
 if 'chatbot_open' not in st.session_state:
     st.session_state.chatbot_open = False
@@ -4762,7 +4574,12 @@ if action_param:
     st.session_state.welcome_seen = True
 
 if action_param == "signup":
-    st.session_state.show_signup_popup = True
+    st.session_state.auth_mode = "signup"
+    if "nav_action" in st.query_params:
+        del st.query_params["nav_action"]
+    st.rerun()
+elif action_param == "login":
+    st.session_state.auth_mode = "login"
     if "nav_action" in st.query_params:
         del st.query_params["nav_action"]
     st.rerun()
@@ -4784,10 +4601,12 @@ st.markdown(f"""
                 color: white; padding: 10px 24px; border-radius: 8px; border: none;
                 font-weight: bold; cursor: pointer;">📝 Sign Up</button>
     </form>
-    <button onclick="alert('Sign In coming soon!')" 
-            style="background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%); 
-            color: white; padding: 10px 24px; border-radius: 8px; border: none;
-            font-weight: bold; cursor: pointer;">🔐 Sign In</button>
+    <form method="get" style="margin: 0; padding: 0; display: inline;">
+        <button type="submit" name="nav_action" value="login"
+                style="background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%); 
+                color: white; padding: 10px 24px; border-radius: 8px; border: none;
+                font-weight: bold; cursor: pointer;">🔐 Sign In</button>
+    </form>
     <form method="get" style="margin: 0; padding: 0; display: inline;">
         <button type="submit" name="nav_action" value="vip"
                 style="background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%); 
@@ -4981,6 +4800,10 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("### 🔐 Account")
     
+    # Initialize auth mode
+    if 'auth_mode' not in st.session_state:
+        st.session_state.auth_mode = None  # None | "login" | "signup"
+    
     # Check if logged in
     if st.session_state.get("is_logged_in", False):
         # Show user info and logout
@@ -5002,7 +4825,7 @@ with st.sidebar:
                 pass
             
             # Clear session state
-            for k in ["user_id", "user_email", "user_name", "user_age", "is_logged_in", "is_founder"]:
+            for k in ["user_id", "user_email", "user_name", "user_age", "is_logged_in", "is_founder", "auth_mode"]:
                 st.session_state.pop(k, None)
             st.rerun()
     else:
@@ -5010,20 +4833,163 @@ with st.sidebar:
         col1, col2 = st.columns(2)
         with col1:
             if st.button("📝 Sign Up", use_container_width=True, type="primary", key="sidebar_signup_btn"):
-                st.session_state.show_signup_popup = True
+                st.sidebar.warning("SIGNUP CLICK REGISTERED")  # Debug
+                st.session_state.auth_mode = "signup"
                 st.rerun()
         with col2:
             if st.button("🔐 Sign In", use_container_width=True, type="secondary", key="sidebar_login_btn"):
-                st.session_state.show_login_popup = True
+                st.sidebar.warning("LOGIN CLICK REGISTERED")  # Debug
+                st.session_state.auth_mode = "login"
                 st.rerun()
+        
+        # Render login form (no dialogs)
+        if st.session_state.auth_mode == "login":
+            with st.expander("🔐 Sign In", expanded=True):
+                with st.form("login_form"):
+                    email = st.text_input("Email", key="login_email_form")
+                    password = st.text_input("Password", type="password", key="login_password_form")
+                    col_submit, col_cancel = st.columns(2)
+                    with col_submit:
+                        submitted = st.form_submit_button("✅ Sign In", use_container_width=True)
+                    with col_cancel:
+                        cancel = st.form_submit_button("❌ Cancel", use_container_width=True)
+                
+                if cancel:
+                    st.session_state.auth_mode = None
+                    st.rerun()
+                
+                if submitted:
+                    if not SUPABASE_ENABLED:
+                        st.error("❌ Auth unavailable.")
+                    elif not email or not password:
+                        st.error("❌ Enter email + password.")
+                    else:
+                        try:
+                            res = supabase.auth.sign_in_with_password({"email": email, "password": password})
+                            if res and res.user:
+                                st.session_state.user_id = res.user.id
+                                st.session_state.user_email = res.user.email
+                                st.session_state.user_name = res.user.user_metadata.get("name", "User")
+                                st.session_state.user_age = res.user.user_metadata.get("age", 25)
+                                st.session_state.is_logged_in = True
+                                
+                                # Founder flag derived from email
+                                FOUNDER_EMAIL = (os.getenv("FOUNDER_EMAIL") or "").strip().lower()
+                                st.session_state.is_founder = (res.user.email or "").strip().lower() == FOUNDER_EMAIL
+                                
+                                # Load user progress
+                                load_user_progress()
+                                
+                                st.session_state.auth_mode = None
+                                st.success("✅ Signed in!")
+                                st.rerun()
+                            else:
+                                st.error("❌ Invalid credentials.")
+                        except Exception as e:
+                            msg = str(e)
+                            if "not confirmed" in msg.lower():
+                                st.error("❌ Please verify your email first, then sign in.")
+                            else:
+                                st.error(f"❌ Login error: {msg}")
+        
+        # Render signup form (no dialogs)
+        elif st.session_state.auth_mode == "signup":
+            with st.expander("📝 Sign Up", expanded=True):
+                with st.form("signup_form"):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        name = st.text_input("Full Name", key="signup_name_form")
+                    with col2:
+                        email = st.text_input("Email", key="signup_email_form")
+                    
+                    col3, col4 = st.columns(2)
+                    with col3:
+                        phone = st.text_input("Phone", key="signup_phone_form")
+                    with col4:
+                        age = st.number_input("Age", min_value=1, max_value=120, value=25, key="signup_age_form")
+                    
+                    password = st.text_input("Password", type="password", key="signup_password_form")
+                    password_confirm = st.text_input("Confirm Password", type="password", key="signup_confirm_form")
+                    
+                    col_submit, col_cancel = st.columns(2)
+                    with col_submit:
+                        submitted = st.form_submit_button("✅ Create Account", use_container_width=True)
+                    with col_cancel:
+                        cancel = st.form_submit_button("❌ Cancel", use_container_width=True)
+                
+                if cancel:
+                    st.session_state.auth_mode = None
+                    st.rerun()
+                
+                if submitted:
+                    # Validation
+                    if not all([name, email, phone, password, password_confirm]):
+                        st.error("❌ Fill in all fields")
+                    elif age < 18:
+                        st.warning("🎂 Must be 18+")
+                    elif password != password_confirm:
+                        st.error("❌ Passwords don't match")
+                    elif len(password) < 8:
+                        st.error("❌ Password must be 8+ characters")
+                    elif "@" not in email or "." not in email:
+                        st.error("❌ Invalid email")
+                    else:
+                        if SUPABASE_ENABLED:
+                            try:
+                                response = supabase.auth.sign_up({
+                                    "email": email,
+                                    "password": password,
+                                    "options": {
+                                        "data": {
+                                            "name": name,
+                                            "phone": phone,
+                                            "age": age
+                                        }
+                                    }
+                                })
+                                
+                                if response.user:
+                                    # Save profile
+                                    save_user_profile(response.user.id, name, phone, age)
+                                    
+                                    if response.session:
+                                        # Email verification disabled - log in
+                                        st.session_state.user_id = response.user.id
+                                        st.session_state.user_email = email
+                                        st.session_state.user_name = name
+                                        st.session_state.user_age = age
+                                        st.session_state.is_logged_in = True
+                                        
+                                        # Founder flag
+                                        FOUNDER_EMAIL = (os.getenv("FOUNDER_EMAIL") or "").strip().lower()
+                                        st.session_state.is_founder = (email or "").strip().lower() == FOUNDER_EMAIL
+                                        
+                                        save_user_progress()
+                                        st.success("✅ Account created!")
+                                        st.balloons()
+                                    else:
+                                        # Email verification required
+                                        st.success("✅ Account created! Check email to verify, then sign in.")
+                                        st.info("📧 Check inbox/spam for verification link.")
+                                    
+                                    st.session_state.auth_mode = None
+                                    st.rerun()
+                                else:
+                                    st.error("❌ Error creating account.")
+                            except Exception as e:
+                                error_msg = str(e)
+                                if "already registered" in error_msg.lower():
+                                    st.error("❌ Email already registered. Sign in instead.")
+                                else:
+                                    st.error(f"❌ Error: {error_msg}")
+                        else:
+                            st.error("❌ Auth service unavailable.")
+    
+    # ============= BUILD STAMP =============
+    st.markdown("---")
+    st.caption(f"🔧 build: {BUILD_STAMP}")
 
 # ============= PAGE CONTENT =============
-
-# ============= AUTHENTICATION DIALOGS =============
-if st.session_state.get('show_signup_popup', False):
-    signup_dialog()
-if st.session_state.get('show_login_popup', False):
-    login_dialog()
 
 # ============= HOMEPAGE: START HERE =============
 if selected_page == "🏠 Start Here":
