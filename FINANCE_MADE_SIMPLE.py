@@ -3420,11 +3420,11 @@ def login_dialog():
     
     col_btn1, col_btn2 = st.columns(2)
     with col_btn1:
-        if st.button("❌ Cancel", use_container_width=True, type="secondary"):
+        if st.button("❌ Cancel", use_container_width=True, type="secondary", key="login_cancel_btn"):
             st.session_state.show_login_popup = False
             st.rerun()
     with col_btn2:
-        if st.button("✅ Sign In", use_container_width=True, type="primary"):
+        if st.button("✅ Sign In", use_container_width=True, type="primary", key="login_submit_btn"):
             if not SUPABASE_ENABLED:
                 st.error("❌ Authentication service not available.")
                 return
@@ -4730,6 +4730,12 @@ if 'show_update_profile' not in st.session_state:
 if 'show_onboarding_quiz' not in st.session_state:
     st.session_state.show_onboarding_quiz = False
 
+# Initialize auth popup state
+if 'show_login_popup' not in st.session_state:
+    st.session_state.show_login_popup = False
+if 'show_signup_popup' not in st.session_state:
+    st.session_state.show_signup_popup = False
+
 # ============= CHATBOT STATE =============
 if 'chatbot_open' not in st.session_state:
     st.session_state.chatbot_open = False
@@ -4975,12 +4981,6 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("### 🔐 Account")
     
-    # Initialize popup states
-    if 'show_login_popup' not in st.session_state:
-        st.session_state.show_login_popup = False
-    if 'show_signup_popup' not in st.session_state:
-        st.session_state.show_signup_popup = False
-    
     # Check if logged in
     if st.session_state.get("is_logged_in", False):
         # Show user info and logout
@@ -4994,7 +4994,7 @@ with st.sidebar:
         if st.session_state.get("is_founder", False):
             st.info("👑 Founder Access")
         
-        if st.button("🚪 Log Out", use_container_width=True, type="secondary"):
+        if st.button("🚪 Log Out", use_container_width=True, type="secondary", key="sidebar_logout_btn"):
             try:
                 if SUPABASE_ENABLED:
                     supabase.auth.sign_out()
@@ -5009,11 +5009,11 @@ with st.sidebar:
         # Show sign in / sign up buttons
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("📝 Sign Up", use_container_width=True, type="primary"):
+            if st.button("📝 Sign Up", use_container_width=True, type="primary", key="sidebar_signup_btn"):
                 st.session_state.show_signup_popup = True
                 st.rerun()
         with col2:
-            if st.button("🔐 Sign In", use_container_width=True, type="secondary"):
+            if st.button("🔐 Sign In", use_container_width=True, type="secondary", key="sidebar_login_btn"):
                 st.session_state.show_login_popup = True
                 st.rerun()
 
