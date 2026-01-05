@@ -3393,6 +3393,75 @@ def show_welcome_popup():
         </div>
         ''', unsafe_allow_html=True)
 
+# ============= LOGIN DIALOG =============
+@st.dialog("🔐 Sign In", width="large")
+def login_dialog():
+    """Sign in dialog for existing users"""
+    st.markdown("""
+    <style>
+    [data-testid="stDialog"] {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%) !important;
+    }
+    [data-testid="stDialog"] [data-testid="stMarkdownContainer"] p,
+    [data-testid="stDialog"] label {
+        color: #FFFFFF !important;
+    }
+    [data-testid="stDialog"] h1, [data-testid="stDialog"] h2, [data-testid="stDialog"] h3 {
+        color: #FF4444 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("### Welcome back!")
+    st.markdown("*Sign in to access your saved progress*")
+    
+    email = st.text_input("Email Address", placeholder="john@example.com", key="login_email")
+    password = st.text_input("Password", type="password", placeholder="Enter your password", key="login_password")
+    
+    col_btn1, col_btn2 = st.columns(2)
+    with col_btn1:
+        if st.button("❌ Cancel", use_container_width=True, type="secondary"):
+            st.session_state.show_login_popup = False
+            st.rerun()
+    with col_btn2:
+        if st.button("✅ Sign In", use_container_width=True, type="primary"):
+            if not SUPABASE_ENABLED:
+                st.error("❌ Authentication service not available.")
+                return
+            if not email or not password:
+                st.error("❌ Please enter email and password.")
+                return
+            
+            try:
+                res = supabase.auth.sign_in_with_password({"email": email, "password": password})
+                if res and res.user:
+                    st.session_state.user_id = res.user.id
+                    st.session_state.user_email = res.user.email
+                    st.session_state.user_name = res.user.user_metadata.get("name", "User")
+                    st.session_state.user_age = res.user.user_metadata.get("age", 25)
+                    st.session_state.is_logged_in = True
+                    
+                    # Founder flag is derived from email match
+                    FOUNDER_EMAIL = (os.getenv("FOUNDER_EMAIL") or "").strip().lower()
+                    st.session_state.is_founder = (res.user.email or "").strip().lower() == FOUNDER_EMAIL
+                    
+                    # Load user progress
+                    load_user_progress()
+                    
+                    st.success(f"✅ Welcome back, {st.session_state.user_name}!")
+                    st.session_state.show_login_popup = False
+                    st.rerun()
+                else:
+                    st.error("❌ Invalid credentials.")
+            except Exception as e:
+                msg = str(e)
+                if "not confirmed" in msg.lower() or "email not confirmed" in msg.lower():
+                    st.error("❌ Please verify your email first (check inbox), then sign in.")
+                elif "invalid" in msg.lower() or "credentials" in msg.lower():
+                    st.error("❌ Invalid email or password.")
+                else:
+                    st.error(f"❌ Login error: {msg}")
+
 # ============= SIGN UP POPUP USING ST.DIALOG =============
 @st.dialog("📝 Create Your Account", width="large")
 def signup_dialog():
@@ -3467,27 +3536,32 @@ def signup_dialog():
                         })
                         
                         if response.user:
-                            # Check if user has Basics course progress to save
-                            completed_count = len(st.session_state.get("completed_lessons", set()))
-                            
-                            # Show success message with progress info
-                            if completed_count > 0:
-                                st.success(f"✅ Account created successfully! Your {completed_count} completed lesson(s) have been saved to your account.")
-                            else:
-                                st.success("✅ Account created successfully! Please check your email to verify.")
-                            st.balloons()
-                            
-                            # Store user info in session state
-                            st.session_state.user_id = response.user.id
-                            st.session_state.user_email = email
-                            st.session_state.user_name = name
-                            st.session_state.user_age = age
-                            st.session_state.is_logged_in = True
-                            st.session_state.show_signup_popup = False
                             # Save user profile to profiles table
                             save_user_profile(response.user.id, name, phone, age)
-                            # Save user progress (including Basics course)
-                            save_user_progress()
+                            
+                            # Check if session exists (email verification disabled) or if email confirmation required
+                            if response.session:
+                                # Email verification disabled - log them in immediately
+                                st.session_state.user_id = response.user.id
+                                st.session_state.user_email = email
+                                st.session_state.user_name = name
+                                st.session_state.user_age = age
+                                st.session_state.is_logged_in = True
+                                
+                                # Founder flag derived from email
+                                FOUNDER_EMAIL = (os.getenv("FOUNDER_EMAIL") or "").strip().lower()
+                                st.session_state.is_founder = (email or "").strip().lower() == FOUNDER_EMAIL
+                                
+                                # Save user progress
+                                save_user_progress()
+                                st.success("✅ Account created successfully!")
+                                st.balloons()
+                            else:
+                                # Email verification required - don't log in yet
+                                st.success("✅ Account created! Check your email to verify, then sign in.")
+                                st.info("📧 Please check your inbox (and spam folder) for a verification link.")
+                            
+                            st.session_state.show_signup_popup = False
                             st.rerun()
                         else:
                             st.error("❌ Error creating account. Please try again.")
@@ -4638,10 +4712,6 @@ def render_checkpoint_quiz(quiz_id, question, options, correct_idx, explanation)
                     st.rerun()
             st.caption("Optional - skip anytime!")
 
-# ============= SIGN UP POPUP STATE =============
-if 'show_signup_popup' not in st.session_state:
-    st.session_state.show_signup_popup = False
-
 # Initialize onboarding state
 if 'onboarding_completed' not in st.session_state:
     st.session_state.onboarding_completed = False
@@ -4735,9 +4805,6 @@ render_ai_chatbot()
 
 # ============= WELCOME POPUP FOR FIRST-TIME USERS =============
 show_welcome_popup()
-
-# ============= SIGN UP POPUP =============
-show_signup_popup()
 
 # ============= UPDATE PROFILE MODAL =============
 if st.session_state.get('show_update_profile', False):
@@ -4904,41 +4971,59 @@ with st.sidebar:
             save_user_progress()
             st.rerun()
     
-    # ============= FOUNDER UNLOCK =============
+    # ============= AUTHENTICATION =============
     st.markdown("---")
-    st.markdown("### 👑 Founder Access")
+    st.markdown("### 🔐 Account")
     
-    # Initialize founder status
-    if 'is_founder' not in st.session_state:
-        st.session_state.is_founder = False
+    # Initialize popup states
+    if 'show_login_popup' not in st.session_state:
+        st.session_state.show_login_popup = False
+    if 'show_signup_popup' not in st.session_state:
+        st.session_state.show_signup_popup = False
     
-    if not st.session_state.is_founder:
-        # Show unlock input
-        founder_key_input = st.text_input(
-            "Founder unlock",
-            type="password",
-            placeholder="Enter founder key",
-            key="founder_key_input"
-        )
+    # Check if logged in
+    if st.session_state.get("is_logged_in", False):
+        # Show user info and logout
+        user_name = st.session_state.get("user_name", "User")
+        user_email = st.session_state.get("user_email", "")
         
-        if st.button("🔓 Unlock", key="founder_unlock_btn", use_container_width=True):
-            # Get server-side secret
-            FOUNDER_KEY = os.getenv("FOUNDER_KEY", "")
+        st.success(f"👤 {user_name}")
+        st.caption(f"{user_email}")
+        
+        # Show founder badge if applicable
+        if st.session_state.get("is_founder", False):
+            st.info("👑 Founder Access")
+        
+        if st.button("🚪 Log Out", use_container_width=True, type="secondary"):
+            try:
+                if SUPABASE_ENABLED:
+                    supabase.auth.sign_out()
+            except:
+                pass
             
-            if founder_key_input and founder_key_input == FOUNDER_KEY:
-                st.session_state.is_founder = True
-                st.success("✅ Founder mode enabled")
-                st.rerun()
-            else:
-                st.error("❌ Invalid founder key")
-    else:
-        # Already unlocked
-        st.success("✅ Founder mode enabled")
-        if st.button("🔒 Lock", key="founder_lock_btn", use_container_width=True):
-            st.session_state.is_founder = False
+            # Clear session state
+            for k in ["user_id", "user_email", "user_name", "user_age", "is_logged_in", "is_founder"]:
+                st.session_state.pop(k, None)
             st.rerun()
+    else:
+        # Show sign in / sign up buttons
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("📝 Sign Up", use_container_width=True, type="primary"):
+                st.session_state.show_signup_popup = True
+                st.rerun()
+        with col2:
+            if st.button("🔐 Sign In", use_container_width=True, type="secondary"):
+                st.session_state.show_login_popup = True
+                st.rerun()
 
 # ============= PAGE CONTENT =============
+
+# ============= AUTHENTICATION DIALOGS =============
+if st.session_state.get('show_signup_popup', False):
+    signup_dialog()
+if st.session_state.get('show_login_popup', False):
+    login_dialog()
 
 # ============= HOMEPAGE: START HERE =============
 if selected_page == "🏠 Start Here":
@@ -8441,8 +8526,13 @@ elif selected_page == "💼 Paper Portfolio":
     if 'pending_order' not in st.session_state:
         st.session_state.pending_order = None
     
-    # Check if user is founder
-    is_founder = st.session_state.get('is_founder', False)
+    # Check if user is founder (derived from email match)
+    FOUNDER_EMAIL = (os.getenv("FOUNDER_EMAIL") or "").strip().lower()
+    user_email = (st.session_state.get("user_email") or "").strip().lower()
+    is_founder = bool(user_email) and (user_email == FOUNDER_EMAIL)
+    
+    # Update session state for consistency
+    st.session_state.is_founder = is_founder
     
     # ============= HELPER FUNCTIONS =============
     def calculate_portfolio_value(portfolio, cash):
