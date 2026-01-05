@@ -29,6 +29,15 @@ USE_AI_ANALYSIS = bool(PERPLEXITY_API_KEY)
 
 st.set_page_config(page_title="Investing Made Simple", layout="wide", page_icon="💰")
 
+# ============= BUILD STAMP - VISIBLE ON EVERY PAGE =============
+# This MUST be at the top to verify deploys
+st.sidebar.caption(f"🔧 build: {BUILD_STAMP}")
+st.caption(f"🔧 build: {BUILD_STAMP}")
+
+# ============= AUTH MODE INITIALIZATION =============
+if "auth_mode" not in st.session_state:
+    st.session_state.auth_mode = None
+
 # ============= DARK/LIGHT MODE =============
 if 'theme' not in st.session_state:
     st.session_state.theme = 'dark'
@@ -4800,10 +4809,6 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("### 🔐 Account")
     
-    # Initialize auth mode
-    if 'auth_mode' not in st.session_state:
-        st.session_state.auth_mode = None  # None | "login" | "signup"
-    
     # Check if logged in
     if st.session_state.get("is_logged_in", False):
         # Show user info and logout
@@ -4984,10 +4989,6 @@ with st.sidebar:
                                     st.error(f"❌ Error: {error_msg}")
                         else:
                             st.error("❌ Auth service unavailable.")
-    
-    # ============= BUILD STAMP =============
-    st.markdown("---")
-    st.caption(f"🔧 build: {BUILD_STAMP}")
 
 # ============= PAGE CONTENT =============
 
