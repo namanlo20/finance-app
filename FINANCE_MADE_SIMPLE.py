@@ -27,12 +27,10 @@ BASE_URL = "https://financialmodelingprep.com/stable"
 PERPLEXITY_API_KEY = os.environ.get("PERPLEXITY_API_KEY", "")
 USE_AI_ANALYSIS = bool(PERPLEXITY_API_KEY)
 
-st.set_page_config(page_title="Investing Made Simple", layout="wide", page_icon="💰")
+# Portfolio Configuration - Starting cash for paper trading
+STARTING_CASH = float(os.environ.get("STARTING_CASH", "100000"))
 
-# ============= BUILD STAMP - VISIBLE ON EVERY PAGE =============
-# This MUST be at the top to verify deploys
-st.sidebar.caption(f"🔧 build: {BUILD_STAMP}")
-st.caption(f"🔧 build: {BUILD_STAMP}")
+st.set_page_config(page_title="Investing Made Simple", layout="wide", page_icon="💰")
 
 # ============= DARK/LIGHT MODE =============
 if 'theme' not in st.session_state:
@@ -8545,7 +8543,7 @@ elif selected_page == "💼 Paper Portfolio":
     if 'portfolio' not in st.session_state:
         st.session_state.portfolio = []
     if 'cash' not in st.session_state:
-        st.session_state.cash = 50000.0  # Changed from 10k to 50k
+        st.session_state.cash = STARTING_CASH
     if 'transactions' not in st.session_state:
         st.session_state.transactions = []
     if 'realized_gains' not in st.session_state:
@@ -8557,7 +8555,7 @@ elif selected_page == "💼 Paper Portfolio":
     if 'founder_portfolio' not in st.session_state:
         st.session_state.founder_portfolio = []
     if 'founder_cash' not in st.session_state:
-        st.session_state.founder_cash = 50000.0
+        st.session_state.founder_cash = STARTING_CASH
     if 'founder_transactions' not in st.session_state:
         st.session_state.founder_transactions = []
     if 'founder_realized_gains' not in st.session_state:
@@ -8578,8 +8576,43 @@ elif selected_page == "💼 Paper Portfolio":
     st.session_state.is_founder = is_founder
     
     # ============= HELPER FUNCTIONS =============
+    def calculate_portfolio_equity(transactions, portfolio, realized_gains):
+        """Calculate portfolio equity from trade history"""
+        # Calculate cash from starting position and all transactions
+        cash = STARTING_CASH
+        
+        # Process all transactions to calculate current cash
+        for txn in transactions:
+            if txn['type'] == 'BUY':
+                cash -= txn['total']  # Subtract cost
+            elif txn['type'] == 'SELL':
+                cash += txn['total']  # Add proceeds
+        
+        # Calculate market value of current positions
+        market_value = 0.0
+        for pos in portfolio:
+            quote = get_quote(pos['ticker'])
+            if quote:
+                market_value += pos['shares'] * quote.get('price', 0)
+        
+        # Total equity = cash + market value
+        equity = cash + market_value
+        
+        # Total P/L = current equity - starting cash
+        total_pl = equity - STARTING_CASH
+        
+        # YTD return percentage
+        ytd_return_pct = (total_pl / STARTING_CASH * 100) if STARTING_CASH > 0 else 0.0
+        
+        # Handle empty portfolio case
+        if not transactions:
+            equity = STARTING_CASH
+            ytd_return_pct = 0.0
+        
+        return equity, ytd_return_pct, cash, market_value
+    
     def calculate_portfolio_value(portfolio, cash):
-        """Calculate total portfolio value"""
+        """Calculate total portfolio value (legacy function for compatibility)"""
         total_value = cash
         for pos in portfolio:
             quote = get_quote(pos['ticker'])
@@ -8587,8 +8620,12 @@ elif selected_page == "💼 Paper Portfolio":
                 total_value += pos['shares'] * quote.get('price', 0)
         return total_value
     
-    def get_ytd_return(current_value, starting_value=50000.0):
+    def get_ytd_return(current_value, starting_value=None):
         """Calculate YTD return percentage"""
+        if starting_value is None:
+            starting_value = STARTING_CASH
+        if starting_value == 0:
+            return 0.0
         return ((current_value - starting_value) / starting_value) * 100
     
     def execute_trade(action, ticker, shares, price, portfolio_type='user'):
@@ -8990,14 +9027,17 @@ elif selected_page == "💼 Paper Portfolio":
     with col_chart:
         st.markdown("### 📈 YTD Performance (User)")
         
-        # Calculate metrics
-        user_total_value = calculate_portfolio_value(st.session_state.portfolio, st.session_state.cash)
-        user_ytd_return = get_ytd_return(user_total_value, 50000.0)
+        # Calculate metrics using real equity calculation
+        user_equity, user_ytd_return, user_cash, user_market_value = calculate_portfolio_equity(
+            st.session_state.transactions,
+            st.session_state.portfolio,
+            st.session_state.realized_gains
+        )
         
         # KPI card
         col1, col2, col3 = st.columns(3)
-        col1.metric("Starting", "$50,000")
-        col2.metric("Current", f"${user_total_value:,.2f}")
+        col1.metric("Starting", f"${STARTING_CASH:,.0f}")
+        col2.metric("Current", f"${user_equity:,.2f}")
         col3.metric("YTD Return", f"{user_ytd_return:+.2f}%")
         
         # Simple line chart placeholder
@@ -9032,12 +9072,16 @@ elif selected_page == "💼 Paper Portfolio":
         with col_chart_f:
             st.markdown("### 📈 YTD Performance (Founder)")
             
-            founder_total_value = calculate_portfolio_value(st.session_state.founder_portfolio, st.session_state.founder_cash)
-            founder_ytd_return = get_ytd_return(founder_total_value, 50000.0)
+            # Calculate metrics using real equity calculation
+            founder_equity, founder_ytd_return, founder_cash, founder_market_value = calculate_portfolio_equity(
+                st.session_state.founder_transactions,
+                st.session_state.founder_portfolio,
+                st.session_state.founder_realized_gains
+            )
             
             col1, col2, col3 = st.columns(3)
-            col1.metric("Starting", "$50,000")
-            col2.metric("Current", f"${founder_total_value:,.2f}")
+            col1.metric("Starting", f"${STARTING_CASH:,.0f}")
+            col2.metric("Current", f"${founder_equity:,.2f}")
             col3.metric("YTD Return", f"{founder_ytd_return:+.2f}%")
             
             st.caption("📈 Chart: YTD performance tracking coming soon")
@@ -9054,8 +9098,34 @@ elif selected_page == "💼 Paper Portfolio":
                 st.caption("No transactions yet")
     
     else:
-        # Read-only banner for non-owners
-        st.info("👑 **Founder portfolio is managed by the founder.**")
+        # Read-only view for non-founders
+        st.info("👑 **Founder portfolio is read-only. Only the founder can trade here.**")
+        
+        # Show founder portfolio stats
+        st.markdown("### 📈 YTD Performance (Founder)")
+        
+        # Calculate metrics using real equity calculation
+        founder_equity, founder_ytd_return, founder_cash, founder_market_value = calculate_portfolio_equity(
+            st.session_state.founder_transactions,
+            st.session_state.founder_portfolio,
+            st.session_state.founder_realized_gains
+        )
+        
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Starting", f"${STARTING_CASH:,.0f}")
+        col2.metric("Current", f"${founder_equity:,.2f}")
+        col3.metric("YTD Return", f"{founder_ytd_return:+.2f}%")
+        
+        st.markdown("---")
+        st.markdown("### 📋 Founder Positions")
+        render_positions_table(st.session_state.founder_portfolio, st.session_state.founder_realized_gains, 'founder')
+        
+        with st.expander("📜 Founder Transaction History", expanded=False):
+            if st.session_state.founder_transactions:
+                for txn in reversed(st.session_state.founder_transactions[-20:]):
+                    st.caption(f"{txn['date']} | {txn['type']} {txn['shares']} {txn['ticker']} @ ${txn['price']:.2f}")
+            else:
+                st.caption("No transactions yet")
     
     st.divider()
     
