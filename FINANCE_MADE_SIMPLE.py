@@ -3790,17 +3790,24 @@ if 'user_profile' not in st.session_state:
 
 # ============= SUPABASE CONFIGURATION =============
 # Read from environment variables for security (set in Render dashboard)
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://gtrtubywtlexgekfqill.supabase.co")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd0cnR1Ynl3dGxleGdla2ZxaWxsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzU3ODIzMjIsImV4cCI6MjA1MTM1ODMyMn0.ZziAh5dfith28xppSOv8_g_MOaJAgZQ")
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY")
 
-# Initialize Supabase client
-try:
-    from supabase import create_client, Client
-    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-    SUPABASE_ENABLED = True
-except ImportError:
+# Initialize Supabase client only if credentials are available
+if SUPABASE_URL and SUPABASE_ANON_KEY:
+    try:
+        from supabase import create_client, Client
+        supabase: Client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+        SUPABASE_ENABLED = True
+    except ImportError:
+        SUPABASE_ENABLED = False
+        st.warning("⚠️ Supabase library not installed. Run: pip install supabase")
+    except Exception as e:
+        SUPABASE_ENABLED = False
+        st.error(f"⚠️ Supabase initialization failed: {str(e)}")
+else:
     SUPABASE_ENABLED = False
-    st.warning("⚠️ Supabase not installed. Run: pip install supabase --break-system-packages")
+    # Don't show warning - app works without authentication
 
 # ============= USER PROGRESS PERSISTENCE =============
 def save_user_progress():
