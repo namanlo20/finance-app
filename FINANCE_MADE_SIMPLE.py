@@ -3866,7 +3866,7 @@ def get_universe_list():
         return []
     
     # Use FMP Stock Screener - returns list with basic info
-    screener_url = f"{BASE_URL}/stock-screener?marketCapMoreThan=100000000&volumeMoreThan=50000&limit=5000&apikey={FMP_API_KEY}"
+    screener_url = f"{BASE_URL}/stock-screener?limit=5000&apikey={FMP_API_KEY}"
     
     try:
         response = requests.get(screener_url, timeout=30)
