@@ -4946,6 +4946,7 @@ with st.sidebar:
     with st.expander("### 2. 📊 The Analysis Group", expanded=False):
         st.caption("The meat of the site")
         analysis_tools = [
+            "🔍 Market Overview",
             "📊 Company Analysis",
             "📈 Financial Health",
             "📰 Market Intelligence",
@@ -6019,15 +6020,353 @@ elif selected_page == "🧠 Risk Quiz":
                 st.rerun()
 
 
+# ============= MARKET OVERVIEW PAGE =============
+elif selected_page == "🔍 Market Overview":
+    st.header("🔍 Market Overview")
+    st.caption("*Screen major public companies by market cap, sector, and analyst upside*")
+    
+    # ============= STOCK UNIVERSE =============
+    # Major stocks to screen (top companies by market cap across sectors)
+    STOCK_UNIVERSE = [
+        # Technology
+        'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NVDA', 'TSLA', 'AVGO', 'ORCL', 'ADBE',
+        'CRM', 'CSCO', 'INTC', 'AMD', 'QCOM', 'TXN', 'AMAT', 'MU', 'NOW', 'INTU',
+        # Financials
+        'BRK.B', 'JPM', 'V', 'MA', 'BAC', 'WFC', 'GS', 'MS', 'AXP', 'BLK', 'SCHW', 'C',
+        # Healthcare
+        'UNH', 'JNJ', 'LLY', 'ABBV', 'MRK', 'PFE', 'TMO', 'ABT', 'DHR', 'BMY', 'AMGN',
+        # Consumer
+        'WMT', 'PG', 'COST', 'HD', 'MCD', 'NKE', 'SBUX', 'TGT', 'LOW', 'TJX',
+        # Energy
+        'XOM', 'CVX', 'COP', 'SLB', 'EOG', 'PXD', 'MPC', 'PSX',
+        # Industrials
+        'BA', 'CAT', 'GE', 'UNP', 'HON', 'RTX', 'LMT', 'UPS', 'DE', 'MMM',
+        # Communications
+        'DIS', 'CMCSA', 'NFLX', 'VZ', 'T', 'TMUS',
+        # Consumer Discretionary
+        'TSLA', 'AMZN', 'HD', 'NKE', 'MCD', 'SBUX',
+        # Materials
+        'LIN', 'APD', 'SHW', 'ECL', 'NEM',
+        # Real Estate
+        'AMT', 'PLD', 'CCI', 'EQIX', 'SPG',
+        # Utilities
+        'NEE', 'DUK', 'SO', 'D', 'AEP'
+    ]
+    
+    # Remove duplicates and sort
+    STOCK_UNIVERSE = sorted(list(set(STOCK_UNIVERSE)))
+    
+    # ============= SECTOR MAPPING =============
+    SECTOR_MAPPING = {
+        'Technology': 'Technology',
+        'Financial Services': 'Financials',
+        'Healthcare': 'Healthcare',
+        'Consumer Cyclical': 'Consumer',
+        'Consumer Defensive': 'Consumer',
+        'Communication Services': 'Communications',
+        'Energy': 'Energy',
+        'Industrials': 'Industrials',
+        'Basic Materials': 'Materials',
+        'Real Estate': 'Real Estate',
+        'Utilities': 'Utilities'
+    }
+    
+    # ============= DATA FETCHING =============
+    @st.cache_data(ttl=3600)
+    def fetch_market_data():
+        """Fetch data for all stocks in universe"""
+        data = []
+        
+        with st.spinner(f"Loading data for {len(STOCK_UNIVERSE)} companies..."):
+            for ticker in STOCK_UNIVERSE:
+                try:
+                    # Get quote and profile
+                    quote = get_quote(ticker)
+                    profile = get_profile(ticker)
+                    
+                    if not quote or not profile:
+                        continue
+                    
+                    # Get price target
+                    price_target_data = get_price_target(ticker)
+                    avg_target = price_target_data.get('targetConsensus', None) if price_target_data else None
+                    
+                    # Calculate implied upside
+                    current_price = quote.get('price', 0)
+                    upside = None
+                    if avg_target and current_price and current_price > 0:
+                        upside = ((avg_target - current_price) / current_price) * 100
+                    
+                    # Get market cap
+                    market_cap = profile.get('mktCap', 0)
+                    
+                    # Get sector
+                    raw_sector = profile.get('sector', 'Other')
+                    sector = SECTOR_MAPPING.get(raw_sector, 'Other')
+                    
+                    # Get PE ratio
+                    pe = quote.get('pe', None)
+                    
+                    # Store data
+                    data.append({
+                        'ticker': ticker,
+                        'name': profile.get('companyName', ticker),
+                        'sector': sector,
+                        'market_cap': market_cap,
+                        'price': current_price,
+                        'target': avg_target,
+                        'upside': upside,
+                        'pe': pe,
+                        'raw_sector': raw_sector
+                    })
+                except Exception as e:
+                    # Skip stocks that fail
+                    continue
+        
+        return data
+    
+    # Fetch data
+    market_data = fetch_market_data()
+    
+    if not market_data:
+        st.error("Unable to load market data. Please try again later.")
+        st.stop()
+    
+    # Convert to DataFrame
+    df = pd.DataFrame(market_data)
+    
+    # ============= FILTERS =============
+    st.markdown("### 🔎 Filters")
+    
+    col_filter1, col_filter2, col_filter3 = st.columns(3)
+    
+    with col_filter1:
+        # Sector filter
+        all_sectors = sorted(df['sector'].unique().tolist())
+        selected_sectors = st.multiselect(
+            "Sector",
+            options=all_sectors,
+            default=all_sectors,
+            key="sector_filter"
+        )
+    
+    with col_filter2:
+        # Market cap filter
+        market_cap_buckets = st.multiselect(
+            "Market Cap",
+            options=[
+                "Mega-cap ($200B+)",
+                "Large-cap ($10B-$200B)",
+                "Mid-cap ($2B-$10B)"
+            ],
+            default=[
+                "Mega-cap ($200B+)",
+                "Large-cap ($10B-$200B)",
+                "Mid-cap ($2B-$10B)"
+            ],
+            key="market_cap_filter"
+        )
+    
+    with col_filter3:
+        # Upside threshold
+        min_upside = st.number_input(
+            "Min Upside %",
+            min_value=-100.0,
+            max_value=500.0,
+            value=-100.0,
+            step=5.0,
+            key="upside_filter",
+            help="Show stocks with at least this much implied upside"
+        )
+    
+    # ============= APPLY FILTERS =============
+    filtered_df = df.copy()
+    
+    # Filter by sector
+    if selected_sectors:
+        filtered_df = filtered_df[filtered_df['sector'].isin(selected_sectors)]
+    
+    # Filter by market cap
+    def get_market_cap_bucket(market_cap):
+        if market_cap >= 200_000_000_000:
+            return "Mega-cap ($200B+)"
+        elif market_cap >= 10_000_000_000:
+            return "Large-cap ($10B-$200B)"
+        elif market_cap >= 2_000_000_000:
+            return "Mid-cap ($2B-$10B)"
+        else:
+            return "Small-cap"
+    
+    filtered_df['market_cap_bucket'] = filtered_df['market_cap'].apply(get_market_cap_bucket)
+    
+    if market_cap_buckets:
+        filtered_df = filtered_df[filtered_df['market_cap_bucket'].isin(market_cap_buckets)]
+    
+    # Filter by upside
+    filtered_df = filtered_df[
+        (filtered_df['upside'].isna()) | (filtered_df['upside'] >= min_upside)
+    ]
+    
+    # ============= SORTING =============
+    col_sort1, col_sort2 = st.columns([1, 3])
+    
+    with col_sort1:
+        sort_by = st.selectbox(
+            "Sort By",
+            options=["Market Cap", "Upside %", "Price"],
+            index=0,
+            key="sort_by"
+        )
+    
+    with col_sort2:
+        sort_direction = st.radio(
+            "Direction",
+            options=["Descending", "Ascending"],
+            horizontal=True,
+            index=0,
+            key="sort_direction"
+        )
+    
+    # Apply sorting
+    sort_col_map = {
+        "Market Cap": "market_cap",
+        "Upside %": "upside",
+        "Price": "price"
+    }
+    
+    sort_col = sort_col_map[sort_by]
+    ascending = (sort_direction == "Ascending")
+    
+    filtered_df = filtered_df.sort_values(
+        by=sort_col,
+        ascending=ascending,
+        na_position='last'
+    )
+    
+    # ============= DISPLAY TABLE =============
+    st.markdown("---")
+    st.markdown(f"### 📊 Results ({len(filtered_df)} companies)")
+    
+    if filtered_df.empty:
+        st.info("No companies match your filters. Try adjusting the criteria.")
+    else:
+        # Format data for display
+        display_df = filtered_df.copy()
+        
+        # Format columns
+        display_df['Market Cap'] = display_df['market_cap'].apply(
+            lambda x: f"${x/1e9:.2f}B" if x >= 1e9 else f"${x/1e6:.2f}M"
+        )
+        display_df['Price'] = display_df['price'].apply(lambda x: f"${x:.2f}" if pd.notna(x) else "—")
+        display_df['Target'] = display_df['target'].apply(lambda x: f"${x:.2f}" if pd.notna(x) else "—")
+        display_df['Upside %'] = display_df['upside'].apply(
+            lambda x: f"{x:+.1f}%" if pd.notna(x) else "—"
+        )
+        display_df['P/E'] = display_df['pe'].apply(lambda x: f"{x:.1f}" if pd.notna(x) and x > 0 else "—")
+        
+        # Select and order columns for display
+        display_columns = [
+            'ticker',
+            'name',
+            'sector',
+            'Market Cap',
+            'Price',
+            'Target',
+            'Upside %',
+            'P/E'
+        ]
+        
+        display_df = display_df[display_columns]
+        display_df.columns = ['Ticker', 'Company', 'Sector', 'Market Cap', 'Price', 'Avg Target', 'Upside %', 'P/E']
+        
+        # Display table
+        st.dataframe(
+            display_df,
+            use_container_width=True,
+            hide_index=True,
+            height=600
+        )
+        
+        # ============= QUICK ANALYSIS NAVIGATION =============
+        st.markdown("---")
+        st.markdown("### 🔍 Analyze a Company")
+        
+        col_nav1, col_nav2 = st.columns([3, 1])
+        
+        with col_nav1:
+            # Create ticker options with company names
+            ticker_options = [
+                f"{row['ticker']} - {row['name'][:40]}{'...' if len(row['name']) > 40 else ''}"
+                for _, row in filtered_df.iterrows()
+            ]
+            
+            selected_option = st.selectbox(
+                "Select a company to analyze:",
+                options=ticker_options,
+                key="company_selector",
+                help="Choose a company from the filtered results to view detailed analysis"
+            )
+        
+        with col_nav2:
+            st.markdown("<br>", unsafe_allow_html=True)  # Spacing
+            if st.button("→ View Analysis", type="primary", use_container_width=True):
+                # Extract ticker from selected option
+                selected_ticker = selected_option.split(" - ")[0]
+                
+                # Store ticker in session state and navigate
+                st.session_state.selected_page = "📊 Company Analysis"
+                st.session_state.pre_selected_ticker = selected_ticker
+                st.rerun()
+        
+        # ============= PAID USER FEATURES =============
+        if st.session_state.get('is_vip', False):
+            st.markdown("---")
+            st.markdown("### 👑 VIP Features")
+            
+            # CSV Export
+            csv_data = filtered_df.copy()
+            csv_data = csv_data[['ticker', 'name', 'sector', 'market_cap', 'price', 'target', 'upside', 'pe']]
+            csv_string = csv_data.to_csv(index=False)
+            csv_filename = f"market_overview_{datetime.now().strftime('%Y-%m-%d')}.csv"
+            
+            st.download_button(
+                label="📥 Download Filtered Results (CSV)",
+                data=csv_string,
+                file_name=csv_filename,
+                mime="text/csv",
+                help="Export current filtered view to CSV"
+            )
+            
+            # High upside highlights
+            st.markdown("#### 🚀 High Upside Opportunities")
+            high_upside_df = filtered_df[filtered_df['upside'] > 20].sort_values('upside', ascending=False).head(10)
+            
+            if not high_upside_df.empty:
+                for _, row in high_upside_df.iterrows():
+                    st.success(f"**{row['ticker']}** ({row['name']}) - {row['upside']:+.1f}% upside")
+            else:
+                st.caption("No stocks with >20% upside in current filter")
+        else:
+            st.markdown("---")
+            st.info("👑 **Upgrade to VIP** for CSV export, high-upside alerts, and advanced columns")
+
 
 elif selected_page == "📊 Company Analysis":
     
     # Robinhood-style guidance
     st.caption("*This page explains how this company makes money and where the risks are.*")
     
+    # Check if ticker was pre-selected from Market Overview
+    default_ticker = st.session_state.selected_ticker
+    if 'pre_selected_ticker' in st.session_state and st.session_state.pre_selected_ticker:
+        default_ticker = st.session_state.pre_selected_ticker
+        st.session_state.selected_ticker = default_ticker
+        # Clear the pre-selected ticker
+        st.session_state.pre_selected_ticker = None
+    
     search = st.text_input(
         "🔍 Search by Company Name or Ticker:",
-        st.session_state.selected_ticker,
+        default_ticker,
         help="Try: Apple, AAPL, Microsoft, TSLA, etc."
     )
     
