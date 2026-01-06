@@ -3866,15 +3866,19 @@ def get_universe_list():
         return []
     
     # Use FMP Stock Screener - returns list with basic info
-    screener_url = f"{BASE_URL}/stock-screener?limit=5000&apikey={FMP_API_KEY}"
-    
+    screener_url = f"{BASE_URL}/stock-screener?limit=5000"
+
+    headers = {
+    "X-API-KEY": FMP_API_KEY
+    }
+
     try:
         response = requests.get(screener_url, timeout=30)
         
         # Check response status
         if response.status_code != 200:
-            st.error(f"❌ FMP API returned status {response.status_code}")
-            return get_fallback_universe()
+        st.error(f"❌ FMP API returned status {response.status_code}")
+        return get_fallback_universe()
         
         # Parse JSON
         try:
@@ -8002,11 +8006,19 @@ elif selected_page == "🌍 Sector Explorer":
         data = []
         
         # Use FMP Stock Screener
-        screener_url = f"{BASE_URL}/stock-screener?marketCapMoreThan=100000000&volumeMoreThan=50000&limit=5000&apikey={FMP_API_KEY}"
+        screener_url = f"{BASE_URL}/stock-screener?limit=5000"
+
+        headers = {
+        "X-API-KEY": FMP_API_KEY
+        }
         
         try:
             with st.spinner("Loading ALL stocks from FMP Premium database..."):
-                response = requests.get(screener_url, timeout=30)
+                response = requests.get(
+                screener_url,
+                headers=headers,
+                timeout=30
+                )
                 screener_data = response.json()
                 
                 if not screener_data:
