@@ -20,8 +20,8 @@ BUILD_STAMP = os.getenv("RENDER_GIT_COMMIT", "")[:7] or str(int(time.time()))
 # API Keys - Use environment variables (set these in Render dashboard)
 # FMP_API_KEY: Your Financial Modeling Prep API key
 # PERPLEXITY_API_KEY: Your Perplexity API key for AI risk analysis
-FMP_API_KEY = os.environ.get("FMP_API_KEY", "")
-BASE_URL = "https://financialmodelingprep.com/stable"
+FMP_API_KEY = os.environ.get("FMP_API_KEY", "").strip()
+BASE_URL = os.environ.get("BASE_URL", "https://financialmodelingprep.com/api/v3").rstrip("/")
 
 # AI Configuration - Perplexity API for risk analysis
 PERPLEXITY_API_KEY = os.environ.get("PERPLEXITY_API_KEY", "")
