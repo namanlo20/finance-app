@@ -7981,8 +7981,8 @@ elif selected_page == "📊 Market Overview":
     st.header("📊 Market Overview")
     st.caption("*Top 100 companies by market cap. Every sector has 100+ stocks. First load ~2-3 min, then cached.*")
     
-    # Get unique sectors
-    all_sectors = sorted(list(TOP_200_TICKERS.keys()))
+    # Get unique sectors (include "Other" for companies with missing/unknown sectors)
+    all_sectors = sorted(list(TOP_200_TICKERS.keys()) + ["Other"])
     
     # Sector filter (multiselect, empty by default = show all sectors)
     selected_sectors = st.multiselect(
@@ -8000,8 +8000,13 @@ elif selected_page == "📊 Market Overview":
             # Load only selected sectors
             tickers_to_load = []
             for sector in selected_sectors:
-                for ticker in TOP_200_TICKERS[sector]:
-                    tickers_to_load.append((ticker, sector))
+                if sector in TOP_200_TICKERS:
+                    for ticker in TOP_200_TICKERS[sector]:
+                        tickers_to_load.append((ticker, sector))
+                elif sector == "Other":
+                    # Note: "Other" is for companies with missing/unknown sectors
+                    # These would come from dynamic data sources, not our predefined list
+                    pass  # No predefined tickers for "Other"
         else:
             # Load ALL sectors proportionally (not just first 100 which would be all Tech)
             # Take ~9 tickers from each of the 11 sectors to get diverse 100-ticker default view
@@ -8013,8 +8018,14 @@ elif selected_page == "📊 Market Overview":
         
         st.info(f"Loading {len(tickers_to_load)} companies...")
         
+        # Debug: Show first few tickers being loaded
+        debug_tickers = [t[0] for t in tickers_to_load[:10]]
+        st.caption(f"🔍 Debug: First tickers loading: {', '.join(debug_tickers)}")
+        
         # Fetch data for each ticker (using existing get_quote which works)
         failed_quotes = 0
+        market_cap_debug = []  # Track market caps for validation
+        
         for ticker_sym, sector in tickers_to_load:
             quote = get_quote(ticker_sym)
             
@@ -8022,7 +8033,7 @@ elif selected_page == "📊 Market Overview":
             row = {
                 "Ticker": ticker_sym,
                 "Company": ticker_sym,  # Default to ticker
-                "Sector": sector,
+                "Sector": sector if sector else "Other",  # Handle missing sectors
                 "Market Cap": 0,
                 "Price": None,
                 "P/E Ratio": None,
@@ -8035,7 +8046,20 @@ elif selected_page == "📊 Market Overview":
             if quote:
                 # Update with real data from quote
                 row["Company"] = quote.get('name', ticker_sym)
-                row["Market Cap"] = quote.get('marketCap', 0)
+                
+                # Market Cap - use raw value from FMP (already in dollars)
+                raw_market_cap = quote.get('marketCap', 0)
+                row["Market Cap"] = raw_market_cap
+                
+                # Debug: Track market caps for known big companies
+                if ticker_sym in ['AAPL', 'MSFT', 'NVDA', 'BRK.B', 'GOOGL']:
+                    market_cap_debug.append({
+                        'ticker': ticker_sym,
+                        'name': quote.get('name', ticker_sym),
+                        'raw_market_cap': raw_market_cap,
+                        'formatted': format_number(raw_market_cap) if raw_market_cap > 0 else "N/A"
+                    })
+                
                 row["Price"] = quote.get('price', 0)
                 
                 # Get analyst price target
@@ -8076,6 +8100,14 @@ elif selected_page == "📊 Market Overview":
         
         if failed_quotes > 0:
             st.warning(f"⚠️ {failed_quotes} quotes failed to load. Showing available data.")
+        
+        # Display market cap validation for known big companies
+        if market_cap_debug:
+            with st.expander("🔍 Market Cap Validation (Debug)"):
+                st.caption("Verifying market cap accuracy for major companies:")
+                for item in market_cap_debug:
+                    st.write(f"**{item['ticker']}** ({item['name']}): Raw value = ${item['raw_market_cap']:,.0f} → Displays as {item['formatted']}")
+                st.caption("✅ Values should match public consensus within normal vendor differences")
         
         if rows:
             df = pd.DataFrame(rows)
