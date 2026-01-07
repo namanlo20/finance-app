@@ -8025,10 +8025,11 @@ elif selected_page == "📊 Market Overview":
                 "Sector": sector,
                 "Market Cap": 0,
                 "Price": None,
-                "Change %": None,
                 "P/E Ratio": None,
                 "P/S Ratio": None,
-                "FCF/Share": None
+                "FCF/Share": None,
+                "Analyst Price Target": None,
+                "Upside/Downside %": None
             }
             
             if quote:
@@ -8036,7 +8037,22 @@ elif selected_page == "📊 Market Overview":
                 row["Company"] = quote.get('name', ticker_sym)
                 row["Market Cap"] = quote.get('marketCap', 0)
                 row["Price"] = quote.get('price', 0)
-                row["Change %"] = quote.get('changesPercentage', 0)
+                
+                # Get analyst price target
+                try:
+                    target_data = get_price_target_consensus(ticker_sym)
+                    if target_data:
+                        target_price = target_data.get('targetConsensus') or target_data.get('targetMean')
+                        if target_price and target_price > 0:
+                            row["Analyst Price Target"] = target_price
+                            
+                            # Calculate upside/downside
+                            current_price = row["Price"]
+                            if current_price and current_price > 0:
+                                upside_pct = ((target_price - current_price) / current_price) * 100
+                                row["Upside/Downside %"] = upside_pct
+                except:
+                    pass  # Fail soft
                 
                 # Get additional metrics (fail-soft)
                 try:
@@ -8095,8 +8111,9 @@ elif selected_page == "📊 Market Overview":
             # Format display dataframe
             display_df = df.copy()
             display_df['Price'] = display_df['Price'].apply(lambda x: f"${x:.2f}" if pd.notna(x) and x > 0 else "—")
-            display_df['Change %'] = display_df['Change %'].apply(lambda x: f"{x:+.2f}%" if pd.notna(x) else "—")
             display_df['Market Cap'] = display_df['Market Cap'].apply(lambda x: format_number(x) if x > 0 else "—")
+            display_df['Analyst Price Target'] = display_df['Analyst Price Target'].apply(lambda x: f"${x:.2f}" if pd.notna(x) and x > 0 else "—")
+            display_df['Upside/Downside %'] = display_df['Upside/Downside %'].apply(lambda x: f"{x:+.1f}%" if pd.notna(x) else "—")
             display_df['P/E Ratio'] = display_df['P/E Ratio'].apply(lambda x: f"{x:.2f}" if pd.notna(x) else "—")
             display_df['P/S Ratio'] = display_df['P/S Ratio'].apply(lambda x: f"{x:.2f}" if pd.notna(x) else "—")
             display_df['FCF/Share'] = display_df['FCF/Share'].apply(lambda x: f"${x:.2f}" if pd.notna(x) else "—")
