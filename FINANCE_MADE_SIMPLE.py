@@ -3867,52 +3867,78 @@ def fetch_market_universe():
     SOURCE OF TRUTH: FMP API (not hardcoded)
     """
     if not FMP_API_KEY:
-        st.warning("⚠️ FMP_API_KEY not set. Using fallback data.")
+        st.warning("⚠️ FMP_API_KEY not set.")
         return pd.DataFrame()
     
     try:
-        # Use FMP stock screener to get large universe with market cap > $1B
-        # This returns stocks with ticker, name, sector, marketCap
-        url = f"https://financialmodelingprep.com/api/v3/stock-screener?marketCapMoreThan=1000000000&limit=1000&apikey={FMP_API_KEY}"
-        
-        response = requests.get(url, timeout=10)
+        # Step 1: Get list of tickers using search-name endpoint (works with Premium)
+        search_url = f"{BASE_URL}/search-name?query=&limit=2000&apikey={FMP_API_KEY}"
+        response = requests.get(search_url, timeout=15)
         
         if response.status_code != 200:
             st.error(f"❌ FMP API returned status {response.status_code}")
             return pd.DataFrame()
         
-        data = response.json()
+        search_data = response.json()
         
-        if not data or not isinstance(data, list):
-            st.warning("⚠️ No data returned from FMP screener")
+        if not search_data or not isinstance(search_data, list):
+            st.warning("⚠️ No data returned from FMP")
             return pd.DataFrame()
         
-        # Convert to DataFrame
-        df = pd.DataFrame(data)
+        # Extract tickers (take first 1000 to limit API calls)
+        tickers = [item['symbol'] for item in search_data[:1000] if 'symbol' in item]
         
-        # Ensure required columns exist
-        if 'symbol' not in df.columns or 'marketCap' not in df.columns:
-            st.error("❌ Missing required columns from FMP response")
+        if not tickers:
+            st.error("❌ No tickers found")
             return pd.DataFrame()
         
-        # Rename columns to match our convention
-        df = df.rename(columns={
-            'symbol': 'ticker',
-            'companyName': 'name',
-            'sector': 'sector',
-            'marketCap': 'marketCap'
-        })
+        # Step 2: Batch fetch quotes to get marketCap and sector (50 at a time)
+        all_quotes = []
+        for i in range(0, len(tickers), 50):
+            batch = tickers[i:i+50]
+            tickers_str = ",".join(batch)
+            quote_url = f"{BASE_URL}/quote/{tickers_str}?apikey={FMP_API_KEY}"
+            
+            try:
+                quote_response = requests.get(quote_url, timeout=15)
+                if quote_response.status_code == 200:
+                    batch_data = quote_response.json()
+                    if isinstance(batch_data, list):
+                        all_quotes.extend(batch_data)
+            except:
+                continue  # Skip failed batches
         
-        # Keep only needed columns
-        df = df[['ticker', 'name', 'sector', 'marketCap']].copy()
+        if not all_quotes:
+            st.error("❌ No quote data received")
+            return pd.DataFrame()
         
-        # Clean sector names (handle None/empty)
+        # Step 3: Convert to DataFrame
+        rows = []
+        for quote in all_quotes:
+            if not isinstance(quote, dict):
+                continue
+            
+            market_cap = quote.get('marketCap', 0)
+            if not market_cap or market_cap <= 0:
+                continue  # Skip stocks without valid market cap
+            
+            rows.append({
+                'ticker': quote.get('symbol', ''),
+                'name': quote.get('name', ''),
+                'sector': quote.get('sector', 'Other'),
+                'marketCap': market_cap
+            })
+        
+        if not rows:
+            st.error("❌ No valid stock data")
+            return pd.DataFrame()
+        
+        df = pd.DataFrame(rows)
+        
+        # Clean sector names
         df['sector'] = df['sector'].fillna('Other')
         df['sector'] = df['sector'].replace('', 'Other')
-        
-        # Ensure marketCap is numeric
-        df['marketCap'] = pd.to_numeric(df['marketCap'], errors='coerce')
-        df = df[df['marketCap'] > 0]  # Remove invalid market caps
+        df['sector'] = df['sector'].replace(None, 'Other')
         
         # Sort by market cap descending (SOURCE OF TRUTH for ranking)
         df = df.sort_values('marketCap', ascending=False).reset_index(drop=True)
