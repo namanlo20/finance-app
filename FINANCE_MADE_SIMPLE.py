@@ -1849,25 +1849,36 @@ def smart_search_ticker(search_term):
 
 @st.cache_data(ttl=300)
 def get_quote(ticker):
-    """Get quote"""
-    url = f"{BASE_URL}/quote?symbol={ticker}&apikey={FMP_API_KEY}"
+    """Get quote (FMP v3: /quote/{symbol})"""
+    if not ticker:
+        return None
+    url = f"{BASE_URL}/quote/{ticker}?apikey={FMP_API_KEY}"
     try:
         response = requests.get(url, timeout=10)
+        if response.status_code != 200:
+            return None
         data = response.json()
-        return data[0] if data and len(data) > 0 else None
-    except:
+        return data[0] if isinstance(data, list) and len(data) > 0 else None
+    except Exception:
         return None
 
+
+@st.cache_data(ttl=1800)
 @st.cache_data(ttl=1800)
 def get_profile(ticker):
-    """Get company profile"""
-    url = f"{BASE_URL}/profile?symbol={ticker}&apikey={FMP_API_KEY}"
+    """Get company profile (FMP v3: /profile/{symbol})"""
+    if not ticker:
+        return None
+    url = f"{BASE_URL}/profile/{ticker}?apikey={FMP_API_KEY}"
     try:
         response = requests.get(url, timeout=10)
+        if response.status_code != 200:
+            return None
         data = response.json()
-        return data[0] if data and len(data) > 0 else None
-    except:
+        return data[0] if isinstance(data, list) and len(data) > 0 else None
+    except Exception:
         return None
+
 
 def get_company_logo(ticker):
     """Get company logo URL from FMP profile"""
