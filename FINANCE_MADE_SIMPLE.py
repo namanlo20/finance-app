@@ -3883,6 +3883,211 @@ if 'user_profile' not in st.session_state:
         "updated_at": datetime.now().isoformat()
     }
 
+# ============= TRADE VALIDATION & PERSISTENCE =============
+STARTING_CASH = 100000.0
+
+def calculate_cash_from_db(user_id, portfolio_type='user'):
+    """
+    Calculate available cash from database trades (SOURCE OF TRUTH).
+    Returns: (cash_available, error_message)
+    """
+    if not SUPABASE_ENABLED:
+        return STARTING_CASH, None
+    
+    try:
+        # Fetch all trades for this user/portfolio from DB
+        query = supabase.table("trades").select("*")
+        
+        if portfolio_type == 'founder':
+            # Founder trades are public, filter by portfolio_type only
+            query = query.eq("portfolio_type", "founder")
+        else:
+            # User trades require user_id
+            if not user_id:
+                return STARTING_CASH, None
+            query = query.eq("user_id", user_id).eq("portfolio_type", "user")
+        
+        result = query.order("timestamp", desc=False).execute()
+        
+        if not result.data:
+            return STARTING_CASH, None
+        
+        # Calculate cash: Start with STARTING_CASH
+        cash = STARTING_CASH
+        for trade in result.data:
+            if trade['trade_type'] == 'BUY':
+                cash -= trade['total']
+            elif trade['trade_type'] == 'SELL':
+                cash += trade['total']
+        
+        return cash, None
+        
+    except Exception as e:
+        error_msg = f"DB error calculating cash: {str(e)}"
+        return STARTING_CASH, error_msg
+
+
+def validate_and_insert_trade(user_id, portfolio_type, action, ticker, shares, price):
+    """
+    HARD VALIDATION: Check cash from DB, then insert if valid.
+    Returns: (success: bool, message: str)
+    
+    CRITICAL: This function BLOCKS trades that would cause negative cash.
+    """
+    if not SUPABASE_ENABLED:
+        return False, "⚠️ Database not available. Trades cannot be persisted."
+    
+    # Require user_id for user trades
+    if portfolio_type == 'user' and not user_id:
+        return False, "⚠️ You must be logged in to trade."
+    
+    # Calculate estimated cost
+    estimated_cost = shares * price
+    
+    # For BUY trades: VALIDATE CASH FIRST
+    if action == "Buy":
+        cash_available, cash_error = calculate_cash_from_db(user_id, portfolio_type)
+        
+        if cash_error:
+            return False, f"❌ Error: {cash_error}"
+        
+        # HARD BLOCK if insufficient funds
+        if estimated_cost > cash_available:
+            shortfall = estimated_cost - cash_available
+            return False, (
+                f"❌ **Insufficient Funds**\n\n"
+                f"This trade requires **${estimated_cost:,.2f}**\n"
+                f"but you only have **${cash_available:,.2f}** available.\n\n"
+                f"You need **${shortfall:,.2f}** more.\n\n"
+                f"Please reduce quantity or wait for funds."
+            )
+    
+    # For SELL trades: Skip cash validation (always increases cash)
+    # But we should validate position exists (TODO: implement position check)
+    
+    # ============= INSERT INTO DATABASE =============
+    try:
+        trade_data = {
+            "portfolio_type": portfolio_type,
+            "ticker": ticker.upper(),
+            "trade_type": action.upper(),
+            "quantity": float(shares),
+            "price": float(price),
+            "total": float(estimated_cost),
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        # Add user_id only for user trades
+        if portfolio_type == 'user':
+            trade_data["user_id"] = user_id
+        else:
+            # Founder trades: Use current logged-in user (must be founder)
+            trade_data["user_id"] = user_id if user_id else None
+        
+        # Insert into DB
+        result = supabase.table("trades").insert(trade_data).execute()
+        
+        if not result.data:
+            return False, "❌ Trade failed to save to database."
+        
+        # Success!
+        action_word = "Bought" if action == "Buy" else "Sold"
+        return True, f"✅ {action_word} {shares} shares of {ticker} at ${price:.2f}"
+        
+    except Exception as e:
+        return False, f"❌ Database error: {str(e)}"
+
+
+def load_trades_from_db(user_id, portfolio_type='user'):
+    """
+    Load all trades from database for display.
+    Returns: List of trade dicts
+    """
+    if not SUPABASE_ENABLED:
+        return []
+    
+    try:
+        query = supabase.table("trades").select("*")
+        
+        if portfolio_type == 'founder':
+            query = query.eq("portfolio_type", "founder")
+        else:
+            if not user_id:
+                return []
+            query = query.eq("user_id", user_id).eq("portfolio_type", "user")
+        
+        result = query.order("timestamp", desc=True).execute()
+        
+        if not result.data:
+            return []
+        
+        # Convert to display format
+        trades = []
+        for trade in result.data:
+            trades.append({
+                'date': trade['timestamp'][:16].replace('T', ' '),  # Format datetime
+                'type': trade['trade_type'],
+                'ticker': trade['ticker'],
+                'shares': trade['quantity'],
+                'price': trade['price'],
+                'total': trade['total'],
+                'gain_loss': trade.get('gain_loss', 0)
+            })
+        
+        return trades
+        
+    except Exception as e:
+        st.error(f"Error loading trades: {str(e)}")
+        return []
+
+
+def rebuild_portfolio_from_trades(transactions):
+    """
+    Rebuild portfolio positions from transaction history.
+    Returns: List of position dicts [{ticker, shares, avg_price}]
+    """
+    positions = {}
+    
+    for txn in reversed(transactions):  # Process oldest first
+        ticker = txn['ticker']
+        shares = txn['shares']
+        price = txn['price']
+        
+        if txn['type'] == 'BUY':
+            if ticker in positions:
+                # Update average cost
+                old_shares = positions[ticker]['shares']
+                old_avg = positions[ticker]['avg_price']
+                total_shares = old_shares + shares
+                total_cost = (old_shares * old_avg) + (shares * price)
+                positions[ticker] = {
+                    'shares': total_shares,
+                    'avg_price': total_cost / total_shares
+                }
+            else:
+                positions[ticker] = {
+                    'shares': shares,
+                    'avg_price': price
+                }
+        
+        elif txn['type'] == 'SELL':
+            if ticker in positions:
+                positions[ticker]['shares'] -= shares
+                # Remove if sold all shares
+                if positions[ticker]['shares'] <= 0:
+                    del positions[ticker]
+    
+    # Convert to list format
+    portfolio = []
+    for ticker, data in positions.items():
+        portfolio.append({
+            'ticker': ticker,
+            'shares': data['shares'],
+            'avg_price': data['avg_price']
+        })
+    
+    return portfolio
+
 # ============= SUPABASE CONFIGURATION =============
 # Read from environment variables for security (set in Render dashboard)
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
@@ -8562,6 +8767,36 @@ elif selected_page == "💼 Paper Portfolio":
     if 'founder_realized_gains' not in st.session_state:
         st.session_state.founder_realized_gains = 0.0
     
+    # ============= LOAD TRADES FROM DATABASE =============
+    # Load user trades if logged in
+    user_id = st.session_state.get("user_id")
+    
+    if SUPABASE_ENABLED and user_id:
+        # Load user portfolio trades
+        db_transactions = load_trades_from_db(user_id, portfolio_type='user')
+        if db_transactions:
+            st.session_state.transactions = db_transactions
+            
+            # Recalculate cash from DB trades
+            cash, _ = calculate_cash_from_db(user_id, portfolio_type='user')
+            st.session_state.cash = cash
+            
+            # Rebuild portfolio from transactions
+            st.session_state.portfolio = rebuild_portfolio_from_trades(db_transactions)
+    
+    # Load founder trades (public, always load)
+    if SUPABASE_ENABLED:
+        founder_db_transactions = load_trades_from_db(None, portfolio_type='founder')
+        if founder_db_transactions:
+            st.session_state.founder_transactions = founder_db_transactions
+            
+            # Recalculate founder cash
+            founder_cash, _ = calculate_cash_from_db(None, portfolio_type='founder')
+            st.session_state.founder_cash = founder_cash
+            
+            # Rebuild founder portfolio
+            st.session_state.founder_portfolio = rebuild_portfolio_from_trades(founder_db_transactions)
+    
     # Trade UI state
     if 'show_order_modal' not in st.session_state:
         st.session_state.show_order_modal = False
@@ -8630,24 +8865,40 @@ elif selected_page == "💼 Paper Portfolio":
         return ((current_value - starting_value) / starting_value) * 100
     
     def execute_trade(action, ticker, shares, price, portfolio_type='user'):
-        """Execute a buy or sell trade"""
+        """
+        Execute a trade with DB validation and persistence.
+        CRITICAL: Validates cash from DB before inserting.
+        """
+        user_id = st.session_state.get("user_id")
+        
+        # Use DB validation (SOURCE OF TRUTH)
+        success, message = validate_and_insert_trade(
+            user_id=user_id,
+            portfolio_type=portfolio_type,
+            action=action,
+            ticker=ticker,
+            shares=shares,
+            price=price
+        )
+        
+        if not success:
+            return False, message
+        
+        # If DB insert succeeded, update session state for immediate UI update
+        # (This is just for real-time display; DB remains source of truth)
         if portfolio_type == 'user':
             portfolio = st.session_state.portfolio
-            cash = st.session_state.cash
-            transactions = st.session_state.transactions
+            cash_key = 'cash'
             realized_gains_key = 'realized_gains'
         else:  # founder
             portfolio = st.session_state.founder_portfolio
-            cash = st.session_state.founder_cash
-            transactions = st.session_state.founder_transactions
+            cash_key = 'founder_cash'
             realized_gains_key = 'founder_realized_gains'
         
         if action == "Buy":
             total_cost = shares * price
-            if total_cost > cash:
-                return False, "Insufficient funds"
             
-            # Find existing position
+            # Update portfolio position
             existing = None
             for pos in portfolio:
                 if pos['ticker'] == ticker:
@@ -8655,7 +8906,6 @@ elif selected_page == "💼 Paper Portfolio":
                     break
             
             if existing:
-                # Update average cost
                 total_shares = existing['shares'] + shares
                 total_cost_all = (existing['shares'] * existing['avg_price']) + total_cost
                 existing['avg_price'] = total_cost_all / total_shares
@@ -8668,22 +8918,7 @@ elif selected_page == "💼 Paper Portfolio":
                 })
             
             # Update cash
-            if portfolio_type == 'user':
-                st.session_state.cash -= total_cost
-            else:
-                st.session_state.founder_cash -= total_cost
-            
-            # Record transaction
-            transactions.append({
-                'date': datetime.now().strftime('%Y-%m-%d %H:%M'),
-                'type': 'BUY',
-                'ticker': ticker,
-                'shares': shares,
-                'price': price,
-                'total': total_cost
-            })
-            
-            return True, f"Bought {shares} shares of {ticker}"
+            st.session_state[cash_key] -= total_cost
         
         else:  # Sell
             # Find position
@@ -8706,32 +8941,17 @@ elif selected_page == "💼 Paper Portfolio":
             cost_basis = shares * pos_to_sell['avg_price']
             realized_gain = proceeds - cost_basis
             
-            # Update position or remove if selling all
+            # Update position
             if shares == pos_to_sell['shares']:
                 portfolio.pop(pos_index)
             else:
                 pos_to_sell['shares'] -= shares
             
             # Update cash and realized gains
-            if portfolio_type == 'user':
-                st.session_state.cash += proceeds
-                st.session_state.realized_gains += realized_gain
-            else:
-                st.session_state.founder_cash += proceeds
-                st.session_state.founder_realized_gains += realized_gain
-            
-            # Record transaction
-            transactions.append({
-                'date': datetime.now().strftime('%Y-%m-%d %H:%M'),
-                'type': 'SELL',
-                'ticker': ticker,
-                'shares': shares,
-                'price': price,
-                'total': proceeds,
-                'gain_loss': realized_gain
-            })
-            
-            return True, f"Sold {shares} shares of {ticker}"
+            st.session_state[cash_key] += proceeds
+            st.session_state[realized_gains_key] += realized_gain
+        
+        return True, message
     
     # ============= ORDER CONFIRMATION MODAL =============
     @st.dialog("Confirm Order", width="medium")
