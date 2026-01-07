@@ -3860,31 +3860,223 @@ SECTORS = {
 
 # ============= TOP 200 COMPANIES BY MARKET CAP (Static but reliable) =============
 TOP_200_TICKERS = {
-    "Technology": ["AAPL", "MSFT", "GOOGL", "GOOG", "AMZN", "NVDA", "META", "TSLA", "AVGO", "ORCL", 
-                   "ADBE", "CRM", "CSCO", "ACN", "AMD", "INTC", "IBM", "QCOM", "TXN", "INTU",
-                   "NOW", "AMAT", "PANW", "SNPS", "CDNS", "ADSK", "KLAC", "LRCX", "NXPI", "MCHP"],
-    "Healthcare": ["LLY", "UNH", "JNJ", "ABBV", "MRK", "TMO", "ABT", "DHR", "PFE", "BMY",
-                   "AMGN", "GILD", "CVS", "ISRG", "VRTX", "REGN", "CI", "MCK", "HCA", "ELV",
-                   "BSX", "ZTS", "SYK", "BDX", "EW", "IDXX", "DXCM", "A", "RMD", "IQV"],
-    "Financial Services": ["BRK.B", "JPM", "V", "MA", "BAC", "WFC", "GS", "MS", "SPGI", "BLK",
-                          "C", "SCHW", "AXP", "USB", "PNC", "TFC", "COF", "BK", "CME", "ICE",
-                          "MMC", "CB", "PGR", "AON", "AIG", "MET", "PRU", "ALL", "TRV", "AJG"],
-    "Consumer Cyclical": ["AMZN", "TSLA", "HD", "MCD", "NKE", "SBUX", "LOW", "TJX", "BKNG", "CMG",
-                         "MAR", "ABNB", "GM", "F", "TGT", "ROST", "DHI", "LEN", "YUM", "ORLY",
-                         "AZO", "EBAY", "ETSY", "DG", "DLTR", "ULTA", "DPZ", "BBY", "GPC", "AAP"],
-    "Consumer Defensive": ["WMT", "PG", "KO", "PEP", "COST", "PM", "MO", "MDLZ", "CL", "GIS",
-                          "KHC", "K", "HSY", "STZ", "TAP", "CAG", "SJM", "CPB", "MKC", "HRL"],
-    "Industrials": ["CAT", "BA", "HON", "UPS", "RTX", "LMT", "GE", "MMM", "DE", "UNP",
-                   "FDX", "EMR", "ITW", "ETN", "NSC", "CSX", "NOC", "GD", "TDG", "CARR",
-                   "WM", "RSG", "PCAR", "OTIS", "IR", "VRSK", "TT", "ROK", "DOV", "XYL"],
-    "Energy": ["XOM", "CVX", "COP", "SLB", "EOG", "MPC", "PSX", "VLO", "OXY", "HAL",
-               "WMB", "KMI", "BKR", "HES", "DVN", "FANG", "MRO", "APA", "CTRA", "OVV"],
-    "Real Estate": ["AMT", "PLD", "CCI", "EQIX", "PSA", "WELL", "DLR", "O", "VICI", "SPG",
-                   "AVB", "EQR", "SBAC", "WY", "VTR", "ARE", "INVH", "MAA", "ESS", "UDR"],
-    "Utilities": ["NEE", "DUK", "SO", "D", "AEP", "EXC", "SRE", "XEL", "PEG", "ED",
-                 "WEC", "ES", "AWK", "PCG", "FE", "PPL", "ETR", "ATO", "CMS", "DTE"],
-    "Communication Services": ["GOOGL", "META", "NFLX", "DIS", "CMCSA", "T", "VZ", "TMUS", "EA", "TTWO",
-                              "CHTR", "OMC", "IPG", "NWSA", "FOXA", "PARA", "WBD", "MTCH", "PINS", "SNAP"]
+    "Technology": [
+        # Mega caps
+        "AAPL", "MSFT", "GOOGL", "GOOG", "AMZN", "NVDA", "META", "TSLA", "AVGO", "ORCL",
+        # Large caps
+        "ADBE", "CRM", "CSCO", "ACN", "AMD", "INTC", "IBM", "QCOM", "TXN", "INTU",
+        "NOW", "AMAT", "PANW", "SNPS", "CDNS", "ADSK", "KLAC", "LRCX", "NXPI", "MCHP",
+        # Mid-large caps
+        "PLTR", "CRWD", "SNOW", "DDOG", "NET", "TEAM", "WDAY", "ZS", "OKTA", "MDB",
+        "FTNT", "ABNB", "UBER", "LYFT", "DOCU", "ZM", "TWLO", "SQ", "SHOP", "SPOT",
+        # More tech
+        "DELL", "HPQ", "HPE", "NTAP", "STX", "WDC", "MU", "ON", "SWKS", "MPWR",
+        "KEYS", "ANSS", "TYL", "VEEV", "RNG", "ENTG", "EPAM", "GLPI", "DLR", "EQIX",
+        # Software/Cloud
+        "FICO", "PAYX", "CTSH", "LDOS", "BR", "FIS", "FISV", "ADP", "IT", "GPN",
+        # Semiconductors
+        "ADI", "MRVL", "ALGN", "SMCI", "ENPH", "FSLR", "SEDG", "VECO", "COHR", "LITE",
+        # Hardware/Equipment
+        "GLW", "TEL", "APH", "ZBRA", "FLEX", "JBL", "PLXS", "SNX", "CLS", "JNPR"
+    ],
+    "Financial Services": [
+        # Mega banks
+        "BRK.B", "JPM", "BAC", "WFC", "C", "GS", "MS", "SCHW", "USB", "PNC",
+        # Payment processors
+        "V", "MA", "AXP", "PYPL", "FIS", "FISV", "GPN", "DFS", "SYF", "COF",
+        # Diversified financials
+        "SPGI", "BLK", "BX", "KKR", "APO", "ARES", "CG", "TPG", "TROW", "BEN",
+        "IVZ", "AMG", "EVR", "MCO", "MSCI", "NDAQ", "ICE", "CME", "CBOE", "MKTX",
+        # Regional banks
+        "TFC", "BK", "STT", "NTRS", "CFG", "KEY", "RF", "HBAN", "FITB", "MTB",
+        "ZION", "CMA", "EWBC", "WAL", "SNV", "UBSI", "ONB", "SSB", "WTFC", "FULT",
+        # Insurance
+        "BRK.A", "PGR", "CB", "TRV", "ALL", "AIG", "MET", "PRU", "AFL", "AMP",
+        "HIG", "PFG", "LNC", "GL", "AIZ", "RGA", "TMK", "FAF", "FNF", "CINF",
+        # Asset managers & brokers
+        "MMC", "AON", "WTW", "AJG", "BRO", "RJF", "IBKR", "SF", "LAZ", "MORN",
+        # Misc financial
+        "FDS", "TW", "VIRT", "BGC", "HL", "LPLA", "PIPR", "VCTR", "TREE", "CACC"
+    ],
+    "Healthcare": [
+        # Pharma mega caps
+        "LLY", "UNH", "JNJ", "ABBV", "MRK", "TMO", "ABT", "DHR", "PFE", "BMY",
+        "AMGN", "GILD", "VRTX", "REGN", "BIIB", "ILMN", "MRNA", "ISRG", "INCY", "EXAS",
+        # Biotech
+        "ALNY", "NBIX", "SGEN", "BMRN", "UTHR", "RGEN", "RARE", "FOLD", "IONS", "ARWR",
+        "SAGE", "BLUE", "CRSP", "NTLA", "EDIT", "BEAM", "VCYT", "PACB", "CDNA", "FATE",
+        # Healthcare services
+        "CVS", "CI", "MCK", "HCA", "ELV", "CAH", "COR", "HUM", "MOH", "CNC",
+        "WCG", "LH", "DGX", "QGEN", "CHE", "DVA", "UHS", "THC", "CYH", "ACHC",
+        # Medical devices
+        "BSX", "SYK", "BDX", "EW", "IDXX", "DXCM", "HOLX", "TFX", "TECH", "ALGN",
+        "PODD", "RMD", "BAX", "BIO", "MTD", "WAT", "PKI", "VTRS", "JAZZ", "HALO",
+        # International pharma
+        "NVS", "AZN", "SNY", "GSK", "NVO", "TAK", "RHHBY", "ZTS", "A", "IQV",
+        # More healthcare
+        "AMED", "PNTG", "SGRY", "SEM", "LHCG", "ENSG", "HSIC", "PDCO", "XRAY", "OMCL"
+    ],
+    "Consumer Cyclical": [
+        # Mega retailers
+        "AMZN", "HD", "LOW", "TGT", "TJX", "ROST", "DG", "DLTR", "BBY", "BBWI",
+        # Auto
+        "TSLA", "GM", "F", "RIVN", "LCID", "NIO", "XPEV", "LI", "FSR", "NKLA",
+        "RACE", "TM", "HMC", "NSANY", "HYMTF", "STLA", "FUJHY", "VWAGY", "BMWYY", "POAHY",
+        # Restaurants
+        "MCD", "SBUX", "CMG", "YUM", "QSR", "DPZ", "WEN", "JACK", "TXRH", "BLMN",
+        "DRI", "EAT", "CAKE", "DENN", "BJRI", "RUTH", "FRGI", "PLAY", "NDLS", "CHUY",
+        # Hotels/Travel
+        "MAR", "HLT", "H", "IHG", "WH", "RHP", "HST", "PK", "PEB", "SHO",
+        "BKNG", "EXPE", "TRIP", "TCOM", "MMYT", "ABNB", "LYFT", "UBER", "AVIS", "CAR",
+        # Apparel/Footwear
+        "NKE", "LULU", "DECK", "VFC", "HBI", "UAA", "UA", "CROX", "SKX", "WWW",
+        # Home improvement/Furnishings
+        "DHI", "LEN", "PHM", "TOL", "KBH", "MTH", "TMHC", "MHO", "BZH", "LGIH",
+        # Auto parts
+        "ORLY", "AZO", "AAP", "GPC", "TSCO", "DKS", "BGFV", "ASO", "HIBB", "BOOT"
+    ],
+    "Consumer Defensive": [
+        # Mega retailers
+        "WMT", "COST", "KR", "SYY", "TGT", "DG", "DLTR", "BJ", "PSMT", "WMK",
+        # Food/Beverage
+        "PG", "KO", "PEP", "MDLZ", "CL", "GIS", "KHC", "K", "HSY", "CAG",
+        "SJM", "CPB", "MKC", "HRL", "LW", "POST", "LANC", "BGS", "JBSS", "CALM",
+        "TSN", "HRL", "CAG", "INGR", "SJM", "MKC", "LANC", "JJSF", "UNFI", "CHEF",
+        # Tobacco
+        "PM", "MO", "BTI", "UVV", "VGR", "TPB", "IMBBY", "JULL", "XXII", "HUGE",
+        # Beverages
+        "STZ", "TAP", "SAM", "BF.B", "BF.A", "DEO", "MNST", "CELH", "FIZZ", "COKE",
+        "KDP", "PRMW", "ZVIA", "ABEV", "BUD", "HEINY", "CRLBF", "TLRY", "CGC", "ACB",
+        # Household products
+        "PG", "CL", "CLX", "CHD", "EL", "KMB", "NWL", "SJM", "JJSF", "ENR",
+        # Packaged foods
+        "GIS", "K", "CPB", "CAG", "MKC", "HRL", "SJM", "LANC", "BGS", "JBSS",
+        # Personal care
+        "EL", "AVP", "COTY", "ELF", "IFF", "FDP", "HAIN", "USNA", "UTZ", "NOMD"
+    ],
+    "Industrials": [
+        # Aerospace/Defense
+        "BA", "LMT", "RTX", "NOC", "GD", "LHX", "TDG", "HWM", "TXT", "HII",
+        "AVAV", "KTOS", "AJRD", "AIR", "DCO", "WWD", "MOG.A", "CW", "NPK", "TGI",
+        # Heavy machinery
+        "CAT", "DE", "CMI", "EMR", "ITW", "ETN", "ROK", "DOV", "XYL", "PNR",
+        "IR", "CARR", "PCAR", "GNRC", "FLS", "JCI", "RRX", "TTC", "MTZ", "ASTE",
+        # Transportation
+        "UPS", "FDX", "UNP", "NSC", "CSX", "JBHT", "ODFL", "KNX", "CHRW", "LSTR",
+        "XPO", "SNDR", "JBLU", "ALK", "HA", "LUV", "AAL", "DAL", "UAL", "SAVE",
+        # Industrial conglomerates
+        "GE", "HON", "MMM", "OTIS", "PH", "FTV", "AME", "ROP", "IEX", "TT",
+        # Electrical equipment
+        "EATON", "HUBB", "GNRC", "AOS", "ATKR", "AYI", "ADSK", "TNC", "ENS", "JBT",
+        # Construction/Engineering
+        "JCI", "WM", "RSG", "VRSK", "URI", "VMC", "MLM", "SUM", "MTZ", "FELE",
+        # Misc industrials
+        "DHR", "FTV", "ROP", "AME", "IEX", "LDOS", "SNA", "SWK", "TT", "FAST"
+    ],
+    "Energy": [
+        # Oil majors
+        "XOM", "CVX", "COP", "EOG", "SLB", "MPC", "PSX", "VLO", "OXY", "HAL",
+        "DVN", "FANG", "HES", "MRO", "APA", "CTRA", "OVV", "COP", "PXD", "MTDR",
+        # Midstream
+        "WMB", "KMI", "OKE", "EPD", "ET", "TRGP", "ENB", "TRP", "LNG", "MPLX",
+        # Services
+        "BKR", "FTI", "NOV", "HP", "CHX", "PTEN", "LBRT", "NINE", "WFRD", "PUMP",
+        # Refiners
+        "MPC", "PSX", "VLO", "HFC", "DINO", "PBF", "CIVI", "DK", "PARR", "CVR",
+        # E&P companies
+        "FANG", "COP", "EOG", "DVN", "PXD", "HES", "MRO", "APA", "MTDR", "CTRA",
+        # International
+        "BP", "SHEL", "TTE", "EQNR", "SU", "CNQ", "IMO", "CVE", "ERF", "CPG",
+        # Clean energy
+        "NEE", "NEP", "CEG", "VST", "NOVA", "AES", "NRG", "CWEN", "BEPC", "RNW",
+        # Renewables
+        "FSLR", "ENPH", "SEDG", "RUN", "SPWR", "SOL", "ARRY", "CSIQ", "JKS", "DQ",
+        # Oil services
+        "SLB", "HAL", "BKR", "FTI", "NOV", "HP", "CHX", "PTEN", "LBRT", "NINE"
+    ],
+    "Materials": [
+        # Chemicals
+        "LIN", "APD", "ECL", "SHW", "DD", "DOW", "LYB", "EMN", "CE", "FMC",
+        "ALB", "PPG", "NEM", "FCX", "VMC", "MLM", "NUE", "STLD", "CLF", "X",
+        # Mining
+        "BHP", "RIO", "VALE", "FCX", "NEM", "GOLD", "AEM", "AU", "KGC", "IAG",
+        "PAAS", "HL", "CDE", "AG", "EXK", "GPL", "SBSW", "FSM", "NGD", "BTG",
+        # Steel/Metals
+        "NUE", "STLD", "CLF", "X", "MT", "TX", "GGB", "SID", "PKX", "RS",
+        "CMC", "WOR", "ZEUS", "ATI", "CENX", "KALU", "HAYN", "TRN", "UAMY", "ARLP",
+        # Packaging
+        "PKG", "IP", "WRK", "SEE", "AMCR", "SON", "GPK", "SLGN", "NP", "BERY",
+        # Forest products
+        "WY", "PCH", "LPX", "UFPI", "BCC", "TREX", "AZEK", "CRH", "SUM", "VMC",
+        # Specialty chemicals
+        "ECL", "RPM", "AXTA", "FUL", "ASH", "HUN", "OLN", "CBT", "MTX", "ESI",
+        # Construction materials
+        "VMC", "MLM", "CRH", "SUM", "USCR", "USLM", "DOOR", "BECN", "ROCK", "APOG"
+    ],
+    "Real Estate": [
+        # REITs - Cell towers
+        "AMT", "CCI", "SBAC", "UNIT", "CONE", "GTES", "SHEN", "OMI", "SAFE", "CTRE",
+        # REITs - Data centers
+        "EQIX", "DLR", "CONE", "QTS", "DBRG", "FSLY", "CLOU", "SRVR", "INXN", "NLOP",
+        # REITs - Storage
+        "PSA", "EXR", "CUBE", "LSI", "NSA", "REXR", "STOR", "TRNO", "IRM", "CUZ",
+        # REITs - Residential
+        "AVB", "EQR", "MAA", "ESS", "UDR", "CPT", "AIV", "NXRT", "IRT", "BRT",
+        "INVH", "AMH", "DOOR", "ELME", "CSR", "ACC", "EDR", "BRG", "NRE", "AHH",
+        # REITs - Retail
+        "SPG", "O", "REG", "FRT", "KIM", "BRX", "ROIC", "SITC", "NETL", "BFS",
+        # REITs - Office
+        "BXP", "VNO", "SLG", "HPP", "CUZ", "PGRE", "OFC", "HIW", "DEI", "JBGS",
+        # REITs - Industrial
+        "PLD", "DRE", "FR", "REXR", "EGP", "STAG", "TRNO", "LXP", "ILPT", "GOOD",
+        # REITs - Healthcare
+        "WELL", "PEAK", "VTR", "OHI", "DOC", "HR", "SBRA", "MPW", "CTRE", "LTC",
+        # REITs - Diversified
+        "VICI", "WPC", "EPRT", "GTY", "ALEX", "FCPT", "GNL", "PINE", "ADC", "SAFE"
+    ],
+    "Utilities": [
+        # Electric utilities
+        "NEE", "DUK", "SO", "D", "AEP", "EXC", "XEL", "ED", "ES", "PEG",
+        "WEC", "FE", "PPL", "ETR", "ATO", "CMS", "DTE", "NI", "LNT", "ALE",
+        # Multi-utilities
+        "SRE", "PCG", "PNW", "SCG", "NWE", "AVA", "POR", "OGE", "CNP", "BKH",
+        # Water utilities
+        "AWK", "AWR", "WTRG", "CWT", "SJW", "MSEX", "ARTNA", "YORW", "GWRS", "CTWS",
+        # Gas utilities
+        "NJR", "SWX", "SR", "NWN", "NFG", "ATO", "OGS", "NWN", "OTTR", "UGI",
+        # Independent power
+        "AES", "NRG", "CEG", "VST", "NOVA", "CWEN", "NEP", "BEPC", "RNW", "AY",
+        # Renewable utilities
+        "FSLR", "ENPH", "RUN", "SPWR", "SOL", "ARRY", "CSIQ", "JKS", "DQ", "SHLS",
+        # International utilities
+        "NGG", "EOAN", "IBE", "RWEOY", "EDF", "ENLAY", "AQN", "FTS", "EMA", "H",
+        # Regulated utilities
+        "DUK", "SO", "AEP", "D", "XEL", "ES", "PEG", "ED", "WEC", "ETR",
+        # Transmission
+        "ITC", "ALE", "LNT", "AVA", "PNM", "NWE", "OGE", "POR", "BKH", "MDU"
+    ],
+    "Communication Services": [
+        # Internet/Social media
+        "GOOGL", "GOOG", "META", "SNAP", "PINS", "TWTR", "RDDT", "BMBL", "MTCH", "IAC",
+        # Streaming/Entertainment
+        "NFLX", "DIS", "WBD", "PARA", "FOXA", "FOX", "NWSA", "NWS", "LGF.A", "MSGS",
+        # Telecom
+        "T", "VZ", "TMUS", "CHTR", "CMCSA", "LBRDA", "LBRDK", "LBTYA", "LBTYK", "ATUS",
+        # Media/Publishing
+        "NYTIMES", "NYT", "LEE", "GANNETT", "GCI", "MCS", "TGNA", "SBGI", "GRAY", "NEXN",
+        # Gaming
+        "EA", "TTWO", "ATVI", "RBLX", "U", "ZNGA", "GMBL", "GLUU", "SLGG", "HOFV",
+        # Advertising
+        "OMC", "IPG", "QNST", "MGNI", "SCOR", "CRTO", "MAX", "ADV", "HYFM", "ZETA",
+        # Cable/Satellite
+        "CHTR", "CMCSA", "CABO", "DISH", "SATS", "SIRI", "LSXMA", "LSXMB", "LSXMK", "SIRI",
+        # Telecom equipment
+        "CSCO", "JNPR", "ANET", "FFIV", "NTAP", "CCOI", "INFN", "COMM", "VIAV", "OCLR",
+        # Wireless towers
+        "AMT", "CCI", "SBAC", "UNIT", "CONE", "GTES", "SHEN", "OMI", "SAFE", "CTRE",
+        # International telecom
+        "VOD", "TEF", "TU", "ORAN", "CHA", "AMX", "VIV", "TI", "SKM", "EADSY"
+    ]
 }
 
 # Flatten to get all unique tickers
@@ -7787,7 +7979,7 @@ elif selected_page == "📊 Company Analysis":
 elif selected_page == "📊 Market Overview":
     
     st.header("📊 Market Overview")
-    st.caption("*Top 200 companies by market cap. Filter by sector to focus your analysis.*")
+    st.caption("*Top 100 companies by market cap. Every sector has 100+ stocks. First load ~2-3 min, then cached.*")
     
     # Get unique sectors
     all_sectors = sorted(list(TOP_200_TICKERS.keys()))
@@ -7811,11 +8003,13 @@ elif selected_page == "📊 Market Overview":
                 for ticker in TOP_200_TICKERS[sector]:
                     tickers_to_load.append((ticker, sector))
         else:
-            # Load all sectors
+            # Load all sectors but LIMIT to first 100 to speed up default view
             tickers_to_load = []
             for sector, tickers in TOP_200_TICKERS.items():
                 for ticker in tickers:
                     tickers_to_load.append((ticker, sector))
+            # Take only first 100 for default view (faster load)
+            tickers_to_load = tickers_to_load[:100]
         
         st.info(f"Loading {len(tickers_to_load)} companies...")
         
