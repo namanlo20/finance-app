@@ -1294,11 +1294,11 @@ def format_number(num):
 
 def explain_metric(metric_name, value, sector=None):
     """Generate explanation for a metric value"""
-    if metric_name not in METRIC_EXPLANATIONS:
+    exp = METRIC_EXPLANATIONS.get(metric_name)
+    if not exp:
         return ""
     
-    exp = METRIC_EXPLANATIONS[metric_name]
-    explanation = f"**{exp['short']}**\n\n{exp['explanation']}\n\n✅ {exp['good']}"
+    explanation = f"**{exp.get('short', '')}**\n\n{exp.get('explanation', '')}\n\n✅ {exp.get('good', '')}"
     
     if sector and sector in INDUSTRY_BENCHMARKS:
         if metric_name == "P/E Ratio":
@@ -3858,6 +3858,71 @@ SECTORS = {
     }
 }
 
+# ============= DYNAMIC TOP 100 FETCHER =============
+@st.cache_data(ttl=86400)  # Cache for 24 hours
+def fetch_market_universe():
+    """
+    Fetch universe of stocks from FMP with market cap and sector data.
+    Returns DataFrame with columns: ticker, name, sector, marketCap
+    SOURCE OF TRUTH: FMP API (not hardcoded)
+    """
+    if not FMP_API_KEY:
+        st.warning("⚠️ FMP_API_KEY not set. Using fallback data.")
+        return pd.DataFrame()
+    
+    try:
+        # Use FMP stock screener to get large universe with market cap > $1B
+        # This returns stocks with ticker, name, sector, marketCap
+        url = f"https://financialmodelingprep.com/api/v3/stock-screener?marketCapMoreThan=1000000000&limit=1000&apikey={FMP_API_KEY}"
+        
+        response = requests.get(url, timeout=10)
+        
+        if response.status_code != 200:
+            st.error(f"❌ FMP API returned status {response.status_code}")
+            return pd.DataFrame()
+        
+        data = response.json()
+        
+        if not data or not isinstance(data, list):
+            st.warning("⚠️ No data returned from FMP screener")
+            return pd.DataFrame()
+        
+        # Convert to DataFrame
+        df = pd.DataFrame(data)
+        
+        # Ensure required columns exist
+        if 'symbol' not in df.columns or 'marketCap' not in df.columns:
+            st.error("❌ Missing required columns from FMP response")
+            return pd.DataFrame()
+        
+        # Rename columns to match our convention
+        df = df.rename(columns={
+            'symbol': 'ticker',
+            'companyName': 'name',
+            'sector': 'sector',
+            'marketCap': 'marketCap'
+        })
+        
+        # Keep only needed columns
+        df = df[['ticker', 'name', 'sector', 'marketCap']].copy()
+        
+        # Clean sector names (handle None/empty)
+        df['sector'] = df['sector'].fillna('Other')
+        df['sector'] = df['sector'].replace('', 'Other')
+        
+        # Ensure marketCap is numeric
+        df['marketCap'] = pd.to_numeric(df['marketCap'], errors='coerce')
+        df = df[df['marketCap'] > 0]  # Remove invalid market caps
+        
+        # Sort by market cap descending (SOURCE OF TRUTH for ranking)
+        df = df.sort_values('marketCap', ascending=False).reset_index(drop=True)
+        
+        return df
+        
+    except Exception as e:
+        st.error(f"❌ Error fetching market universe: {str(e)}")
+        return pd.DataFrame()
+
 # ============= STATE =============
 if 'selected_ticker' not in st.session_state:
     st.session_state.selected_ticker = "GOOGL"
@@ -5154,7 +5219,7 @@ with st.sidebar:
             "📊 Company Analysis",
             "📈 Financial Health",
             "📰 Market Intelligence",
-            "🌍 Sector Explorer"
+            "📊 Market Overview"
         ]
         for tool in analysis_tools:
             if st.button(tool, key=f"btn_{tool}", use_container_width=True):
@@ -7210,8 +7275,9 @@ elif selected_page == "📊 Company Analysis":
                 st.markdown("### 📊 Detailed Metric Analysis")
                 
                 with st.expander("📈 P/E Ratio (Price-to-Earnings) - Click for explanation"):
-                    st.markdown(f"**What it means:** {METRIC_EXPLANATIONS['P/E Ratio']['explanation']}")
-                    st.markdown(f"**Good range:** {METRIC_EXPLANATIONS['P/E Ratio']['good']}")
+                    pe_metric = METRIC_EXPLANATIONS.get('P/E Ratio', {})
+                    st.markdown(f"**What it means:** {pe_metric.get('explanation', 'P/E ratio explanation coming soon.')}")
+                    st.markdown(f"**Good range:** {pe_metric.get('good', 'Benchmark coming soon.')}")
                     
                     col1, col2 = st.columns(2)
                     with col1:
@@ -7239,8 +7305,9 @@ elif selected_page == "📊 Company Analysis":
                                 st.info("➡️ In line with sector average")
                 
                 with st.expander("💰 P/S Ratio (Price-to-Sales) - Click for explanation"):
-                    st.markdown(f"**What it means:** {METRIC_EXPLANATIONS['P/S Ratio']['explanation']}")
-                    st.markdown(f"**Good range:** {METRIC_EXPLANATIONS['P/S Ratio']['good']}")
+                    ps_metric = METRIC_EXPLANATIONS.get('P/S Ratio', {})
+                    st.markdown(f"**What it means:** {ps_metric.get('explanation', 'P/S ratio explanation coming soon.')}")
+                    st.markdown(f"**Good range:** {ps_metric.get('good', 'Benchmark coming soon.')}")
                     
                     col1, col2 = st.columns(2)
                     with col1:
@@ -7249,8 +7316,9 @@ elif selected_page == "📊 Company Analysis":
                         st.markdown(f"**{stock2}: {ps2:.2f if ps2 > 0 else 'N/A'}**")
                 
                 with st.expander("🏦 Debt-to-Equity Ratio - Click for explanation"):
-                    st.markdown(f"**What it means:** {METRIC_EXPLANATIONS['Debt-to-Equity']['explanation']}")
-                    st.markdown(f"**Good range:** {METRIC_EXPLANATIONS['Debt-to-Equity']['good']}")
+                    de_metric = METRIC_EXPLANATIONS.get('Debt-to-Equity', {})
+                    st.markdown(f"**What it means:** {de_metric.get('explanation', 'Debt-to-Equity explanation coming soon.')}")
+                    st.markdown(f"**Good range:** {de_metric.get('good', 'Benchmark coming soon.')}")
                     
                     col1, col2 = st.columns(2)
                     with col1:
@@ -7278,8 +7346,9 @@ elif selected_page == "📊 Company Analysis":
                                 st.warning("⚠️ Higher debt than sector average")
                 
                 with st.expander("💧 Quick Ratio (Liquidity) - Click for explanation"):
-                    st.markdown(f"**What it means:** {METRIC_EXPLANATIONS['Quick Ratio']['explanation']}")
-                    st.markdown(f"**Good range:** {METRIC_EXPLANATIONS['Quick Ratio']['good']}")
+                    qr_metric = METRIC_EXPLANATIONS.get('Quick Ratio', {})
+                    st.markdown(f"**What it means:** {qr_metric.get('explanation', 'Quick Ratio explanation coming soon.')}")
+                    st.markdown(f"**Good range:** {qr_metric.get('good', 'Benchmark coming soon.')}")
                     
                     col1, col2 = st.columns(2)
                     with col1:
@@ -7307,8 +7376,9 @@ elif selected_page == "📊 Company Analysis":
                                 st.warning("⚠️ Lower liquidity than sector average")
                 
                 with st.expander("💵 Free Cash Flow per Share - Click for explanation"):
-                    st.markdown(f"**What it means:** {METRIC_EXPLANATIONS['FCF per Share']['explanation']}")
-                    st.markdown(f"**Good range:** {METRIC_EXPLANATIONS['FCF per Share']['good']}")
+                    fcf_metric = METRIC_EXPLANATIONS.get('FCF per Share', {})
+                    st.markdown(f"**What it means:** {fcf_metric.get('explanation', 'FCF per Share explanation coming soon.')}")
+                    st.markdown(f"**Good range:** {fcf_metric.get('good', 'Benchmark coming soon.')}")
                     
                     col1, col2 = st.columns(2)
                     with col1:
@@ -7326,8 +7396,9 @@ elif selected_page == "📊 Company Analysis":
                             st.error("🚨 Burning cash (negative FCF)")
                 
                 with st.expander("📊 Beta (Volatility) - Click for explanation"):
-                    st.markdown(f"**What it means:** {METRIC_EXPLANATIONS['Beta']['explanation']}")
-                    st.markdown(f"**Good range:** {METRIC_EXPLANATIONS['Beta']['good']}")
+                    beta_metric = METRIC_EXPLANATIONS.get('Beta', {})
+                    st.markdown(f"**What it means:** {beta_metric.get('explanation', 'Beta explanation coming soon.')}")
+                    st.markdown(f"**Good range:** {beta_metric.get('good', 'Benchmark coming soon.')}")
                     
                     col1, col2 = st.columns(2)
                     with col1:
@@ -7746,92 +7817,157 @@ elif selected_page == "📊 Company Analysis":
             st.info("💡 **Tip:** Try a major stock like AAPL, MSFT, or GOOGL")
 
 
-elif selected_page == "🌍 Sector Explorer":
+elif selected_page == "📊 Market Overview":
     
-    st.header("🎯 Sector Explorer")
+    st.header("📊 Market Overview")
+    st.caption("*Top 100 companies by market cap (dynamically fetched from FMP). Filter by sector to focus your analysis.*")
     
-    # Default to Technology sector
-    sector_list = list(SECTORS.keys())
-    default_sector_idx = sector_list.index("💻 Technology") if "💻 Technology" in sector_list else 0
-    selected_sector = st.selectbox("Choose sector:", sector_list, index=default_sector_idx)
-    sector_info = SECTORS[selected_sector]
-    st.info(f"**{selected_sector}** - {sector_info['desc']}")
+    # Fetch universe from FMP (cached 24h)
+    universe_df = fetch_market_universe()
     
-    with st.spinner("Loading sector data..."):
-        rows = []
-        for ticker_sym in sector_info['tickers']:
+    if universe_df.empty:
+        st.error("❌ Unable to load market data. Please check API connection.")
+        st.stop()
+    
+    # Get unique sectors from universe
+    all_sectors = sorted(universe_df['sector'].unique().tolist())
+    
+    # Sector filter (multiselect, empty by default = show all sectors)
+    selected_sectors = st.multiselect(
+        "Filter by sector (leave empty to show all):",
+        options=all_sectors,
+        default=[],  # Empty by default
+        help="Select one or more sectors to filter. Leave empty to see top 100 across all sectors."
+    )
+    
+    # FILTER BY SECTOR FIRST (if selected)
+    if selected_sectors:
+        filtered_df = universe_df[universe_df['sector'].isin(selected_sectors)].copy()
+    else:
+        filtered_df = universe_df.copy()
+    
+    # SORT BY MARKET CAP DESC (already sorted in fetch, but ensure it)
+    filtered_df = filtered_df.sort_values('marketCap', ascending=False).reset_index(drop=True)
+    
+    # TAKE TOP 100 (or all if less than 100)
+    top_100 = filtered_df.head(100).copy()
+    
+    if top_100.empty:
+        st.warning("⚠️ No companies found for selected sectors.")
+        st.stop()
+    
+    st.info(f"📊 Showing **{len(top_100)}** companies (sorted by market cap)")
+    
+    # Now enrich with quote data (price, P/E, etc.)
+    # IMPORTANT: Keep all rows even if quote fails
+    with st.spinner("Loading detailed metrics..."):
+        enriched_rows = []
+        
+        for idx, row in top_100.iterrows():
+            ticker_sym = row['ticker']
+            
+            # Start with base data from universe (ALWAYS include these)
+            enriched_row = {
+                "Ticker": ticker_sym,
+                "Company": row.get('name', ticker_sym),
+                "Sector": row.get('sector', 'Other'),
+                "Market Cap": row.get('marketCap', 0)
+            }
+            
+            # Try to fetch quote data (fail-soft - row stays even if this fails)
             quote = get_quote(ticker_sym)
-            ratios_ttm = get_ratios_ttm(ticker_sym)
-            cash_df = get_cash_flow(ticker_sym, 'annual', 1)
-            income_df = get_income_statement(ticker_sym, 'annual', 1)
             
             if quote:
-                pe = get_pe_ratio(ticker_sym, quote, ratios_ttm, income_df)
-                ps = get_ps_ratio(ticker_sym, ratios_ttm)
-                fcf_per_share = calculate_fcf_per_share(ticker_sym, cash_df, quote)
+                enriched_row["Price"] = quote.get('price', None)
+                enriched_row["Change %"] = quote.get('changesPercentage', None)
                 
-                rows.append({
-                    "Ticker": ticker_sym,
-                    "Company": quote.get('name', ticker_sym),
-                    "Price": quote.get('price', 0),
-                    "Change %": quote.get('changesPercentage', 0),
-                    "Market Cap": quote.get('marketCap', 0),
-                    "P/E": pe,
-                    "P/S": ps,
-                    "FCF/Share": fcf_per_share
-                })
-        
-        if rows:
-            df = pd.DataFrame(rows)
-            df = df.sort_values('Market Cap', ascending=False)
+                # Try to get additional metrics (fail-soft)
+                try:
+                    ratios_ttm = get_ratios_ttm(ticker_sym)
+                    cash_df = get_cash_flow(ticker_sym, 'annual', 1)
+                    income_df = get_income_statement(ticker_sym, 'annual', 1)
+                    
+                    pe = get_pe_ratio(ticker_sym, quote, ratios_ttm, income_df)
+                    ps = get_ps_ratio(ticker_sym, ratios_ttm)
+                    fcf_per_share = calculate_fcf_per_share(ticker_sym, cash_df, quote)
+                    
+                    enriched_row["P/E Ratio"] = pe if pe > 0 else None
+                    enriched_row["P/S Ratio"] = ps if ps > 0 else None
+                    enriched_row["FCF/Share"] = fcf_per_share if fcf_per_share > 0 else None
+                except:
+                    # If metrics fail, set to None (will show as "—")
+                    enriched_row["P/E Ratio"] = None
+                    enriched_row["P/S Ratio"] = None
+                    enriched_row["FCF/Share"] = None
+            else:
+                # Quote failed - set all to None (row still included)
+                enriched_row["Price"] = None
+                enriched_row["Change %"] = None
+                enriched_row["P/E Ratio"] = None
+                enriched_row["P/S Ratio"] = None
+                enriched_row["FCF/Share"] = None
             
+            enriched_rows.append(enriched_row)
+        
+        # Create dataframe from enriched data
+        df = pd.DataFrame(enriched_rows)
+        
+        # Show KPI cards ONLY when exactly 1 sector selected
+        if len(selected_sectors) == 1:
+            st.markdown(f"### 📊 {selected_sectors[0]} Sector Metrics")
             col1, col2, col3 = st.columns(3)
             
-            valid_pes = df[df['P/E'] > 0]['P/E']
+            valid_pes = df[df['P/E Ratio'].notna()]['P/E Ratio']
             if len(valid_pes) > 0:
-                col1.metric("📊 Sector Avg P/E", f"{valid_pes.mean():.2f}",
+                col1.metric("Avg P/E", f"{valid_pes.mean():.2f}",
                            help="Average Price-to-Earnings ratio for this sector")
             
-            valid_ps = df[df['P/S'] > 0]['P/S']
+            valid_ps = df[df['P/S Ratio'].notna()]['P/S Ratio']
             if len(valid_ps) > 0:
-                col2.metric("📊 Sector Avg P/S", f"{valid_ps.mean():.2f}",
+                col2.metric("Avg P/S", f"{valid_ps.mean():.2f}",
                            help="Average Price-to-Sales ratio for this sector")
             
-            valid_fcf = df[df['FCF/Share'] > 0]['FCF/Share']
+            valid_fcf = df[df['FCF/Share'].notna()]['FCF/Share']
             if len(valid_fcf) > 0:
-                col3.metric("📊 Sector Avg FCF/Share", f"${valid_fcf.mean():.2f}",
+                col3.metric("Avg FCF/Share", f"${valid_fcf.mean():.2f}",
                            help="Average Free Cash Flow per share for this sector")
-            
-            st.markdown("**📊 Sector Companies** (hover over metrics for explanations)")
-            
-            display_df = df.copy()
-            display_df['Price'] = display_df['Price'].apply(lambda x: f"${x:.2f}")
-            display_df['Change %'] = display_df['Change %'].apply(lambda x: f"{x:+.2f}%")
-            display_df['Market Cap'] = display_df['Market Cap'].apply(format_number)
-            display_df['P/E'] = display_df['P/E'].apply(lambda x: f"{x:.2f}" if x > 0 else "N/A")
-            display_df['P/S'] = display_df['P/S'].apply(lambda x: f"{x:.2f}" if x > 0 else "N/A")
-            display_df['FCF/Share'] = display_df['FCF/Share'].apply(lambda x: f"${x:.2f}" if x > 0 else "N/A")
-            
-            st.dataframe(display_df, use_container_width=True, height=400)
-            
-            with st.expander("💡 What do these metrics mean?"):
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.markdown("**P/E Ratio:** " + METRIC_EXPLANATIONS["P/E Ratio"]["explanation"])
-                    st.markdown("**P/S Ratio:** " + METRIC_EXPLANATIONS["P/S Ratio"]["explanation"])
-                with col2:
-                    st.markdown("**FCF/Share:** " + METRIC_EXPLANATIONS["FCF per Share"]["explanation"])
-                    st.markdown("**Market Cap:** " + METRIC_EXPLANATIONS["Market Cap"]["explanation"])
-            
-            st.markdown("### 🔍 Analyze a Company")
-            col1, col2 = st.columns([3, 1])
+        
+        # Format display dataframe
+        display_df = df.copy()
+        display_df['Price'] = display_df['Price'].apply(lambda x: f"${x:.2f}" if pd.notna(x) and x > 0 else "—")
+        display_df['Change %'] = display_df['Change %'].apply(lambda x: f"{x:+.2f}%" if pd.notna(x) else "—")
+        display_df['Market Cap'] = display_df['Market Cap'].apply(lambda x: format_number(x) if x > 0 else "—")
+        display_df['P/E Ratio'] = display_df['P/E Ratio'].apply(lambda x: f"{x:.2f}" if pd.notna(x) else "—")
+        display_df['P/S Ratio'] = display_df['P/S Ratio'].apply(lambda x: f"{x:.2f}" if pd.notna(x) else "—")
+        display_df['FCF/Share'] = display_df['FCF/Share'].apply(lambda x: f"${x:.2f}" if pd.notna(x) else "—")
+        
+        # Display table
+        st.dataframe(display_df, use_container_width=True, height=600)
+        
+        with st.expander("💡 What do these metrics mean?"):
+            col1, col2 = st.columns(2)
             with col1:
-                selected = st.selectbox("Choose:", df['Ticker'].tolist(), 
-                                   format_func=lambda x: f"{df[df['Ticker']==x]['Company'].values[0]} ({x})")
+                pe_exp = METRIC_EXPLANATIONS.get("P/E Ratio", {}).get("explanation", "Price-to-Earnings ratio explanation coming soon.")
+                ps_exp = METRIC_EXPLANATIONS.get("P/S Ratio", {}).get("explanation", "Price-to-Sales ratio explanation coming soon.")
+                st.markdown(f"**P/E Ratio:** {pe_exp}")
+                st.markdown(f"**P/S Ratio:** {ps_exp}")
             with col2:
-                if st.button("Analyze →", type="primary", use_container_width=True):
-                    st.session_state.selected_ticker = selected
-                    st.rerun()
+                fcf_exp = METRIC_EXPLANATIONS.get("FCF per Share", {}).get("explanation", "Free Cash Flow per share explanation coming soon.")
+                mc_exp = METRIC_EXPLANATIONS.get("Market Cap", {}).get("explanation", "Total company value explanation coming soon.")
+                st.markdown(f"**FCF/Share:** {fcf_exp}")
+                st.markdown(f"**Market Cap:** {mc_exp}")
+        
+        st.markdown("### 🔍 Analyze a Company")
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            selected = st.selectbox("Choose:", df['Ticker'].tolist(), 
+                               format_func=lambda x: f"{df[df['Ticker']==x]['Company'].values[0]} ({x})")
+        with col2:
+            if st.button("Analyze →", type="primary", use_container_width=True):
+                st.session_state.selected_ticker = selected
+                st.session_state.selected_page = "📊 Company Analysis"
+                st.rerun()
+
 
 
 elif selected_page == "📈 Financial Health":
