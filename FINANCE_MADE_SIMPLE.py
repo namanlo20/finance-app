@@ -21,7 +21,7 @@ BUILD_STAMP = os.getenv("RENDER_GIT_COMMIT", "")[:7] or str(int(time.time()))
 # FMP_API_KEY: Your Financial Modeling Prep API key
 # PERPLEXITY_API_KEY: Your Perplexity API key for AI risk analysis
 FMP_API_KEY = os.environ.get("FMP_API_KEY", "")
-BASE_URL = os.environ.get("BASE_URL", "https://financialmodelingprep.com/api/v3")
+BASE_URL = "https://financialmodelingprep.com/stable"  # Keep this hardcoded - it works!
 
 # AI Configuration - Perplexity API for risk analysis
 PERPLEXITY_API_KEY = os.environ.get("PERPLEXITY_API_KEY", "")
@@ -1849,36 +1849,25 @@ def smart_search_ticker(search_term):
 
 @st.cache_data(ttl=300)
 def get_quote(ticker):
-    """Get quote (FMP v3: /quote/{symbol})"""
-    if not ticker:
-        return None
-    url = f"{BASE_URL}/quote/{ticker}?apikey={FMP_API_KEY}"
+    """Get quote"""
+    url = f"{BASE_URL}/quote?symbol={ticker}&apikey={FMP_API_KEY}"
     try:
         response = requests.get(url, timeout=10)
-        if response.status_code != 200:
-            return None
         data = response.json()
-        return data[0] if isinstance(data, list) and len(data) > 0 else None
-    except Exception:
+        return data[0] if data and len(data) > 0 else None
+    except:
         return None
 
-
-@st.cache_data(ttl=1800)
 @st.cache_data(ttl=1800)
 def get_profile(ticker):
-    """Get company profile (FMP v3: /profile/{symbol})"""
-    if not ticker:
-        return None
-    url = f"{BASE_URL}/profile/{ticker}?apikey={FMP_API_KEY}"
+    """Get company profile"""
+    url = f"{BASE_URL}/profile?symbol={ticker}&apikey={FMP_API_KEY}"
     try:
         response = requests.get(url, timeout=10)
-        if response.status_code != 200:
-            return None
         data = response.json()
-        return data[0] if isinstance(data, list) and len(data) > 0 else None
-    except Exception:
+        return data[0] if data and len(data) > 0 else None
+    except:
         return None
-
 
 def get_company_logo(ticker):
     """Get company logo URL from FMP profile"""
