@@ -3862,7 +3862,7 @@ SECTORS = {
 @st.cache_data(ttl=3600)  # Cache for 1 hour
 def get_companies_from_screener(sector=None, limit=100):
     """
-    Fetch companies from FMP Stock Screener API
+    Fetch companies from FMP Stock Screener API (stocks only, no ETFs)
     Returns list of dicts with 'symbol', 'companyName', 'sector', 'marketCap', 'price'
     """
     try:
@@ -3870,7 +3870,8 @@ def get_companies_from_screener(sector=None, limit=100):
         url = f"{BASE_URL}/company-screener?"
         params = {
             "marketCapMoreThan": 1000000000,  # $1B+ market cap
-            "limit": limit,
+            "limit": limit * 2,  # Request more to account for ETF filtering
+            "isEtf": "false",  # Exclude ETFs
             "apikey": FMP_API_KEY
         }
         
@@ -3883,7 +3884,27 @@ def get_companies_from_screener(sector=None, limit=100):
         if response.status_code == 200:
             data = response.json()
             if data and isinstance(data, list):
-                return data
+                # Client-side filtering: Remove any remaining ETFs or funds
+                stocks_only = []
+                etf_keywords = ['ETF', 'Fund', 'Index Fund', 'Trust', 'iShares', 'Vanguard', 'SPDR']
+                
+                for company in data:
+                    company_name = company.get('companyName', '')
+                    symbol = company.get('symbol', '')
+                    
+                    # Skip if name contains ETF keywords
+                    is_etf = any(keyword.lower() in company_name.lower() for keyword in etf_keywords)
+                    
+                    # Skip if symbol is all caps and 3-4 letters (common ETF pattern like VOO, SPY)
+                    # But allow stocks like META, AAPL, etc.
+                    if not is_etf:
+                        stocks_only.append(company)
+                    
+                    # Stop when we have enough stocks
+                    if len(stocks_only) >= limit:
+                        break
+                
+                return stocks_only[:limit]
         
         return []
     except Exception as e:
@@ -7787,7 +7808,7 @@ elif selected_page == "📊 Company Analysis":
 elif selected_page == "📊 Market Overview":
     
     st.header("📊 Market Overview")
-    st.caption("*Top 100 companies by market cap from FMP Stock Screener. Real-time data from live database.*")
+    st.caption("*Top 100 stocks by market cap (ETFs excluded). Real-time data from FMP Stock Screener.*")
     
     # Define available sectors (FMP standard sectors)
     all_sectors = [
