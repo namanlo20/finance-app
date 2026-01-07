@@ -7983,126 +7983,152 @@ elif selected_page == "📊 Market Overview":
     
     # Get unique sectors
     all_sectors = sorted(list(TOP_200_TICKERS.keys()))
-    
-    # Sector filter (multiselect, empty by default = show all sectors)
+
+    # Sector filter (Market Overview) — force default = ALL sectors
+    MO_SECTOR_KEY = "market_overview_sector_filter"
+
+    if MO_SECTOR_KEY not in st.session_state:
+        st.session_state[MO_SECTOR_KEY] = []  # empty = all sectors
+
     selected_sectors = st.multiselect(
         "Filter by sector (leave empty to show all):",
         options=all_sectors,
-        default=[],  # Empty by default
+        key=MO_SECTOR_KEY,
         help="Select one or more sectors to filter. Leave empty to see all companies across all sectors."
     )
     
     with st.spinner("Loading market data..."):
         rows = []
         
-        # Determine which tickers to load based on sector filter
-        if selected_sectors:
-            # Load only selected sectors
-            tickers_to_load = []
-            for sector in selected_sectors:
-                for ticker in TOP_200_TICKERS[sector]:
-                    tickers_to_load.append((ticker, sector))
-        else:
-            # Load all sectors but LIMIT to first 100 to speed up default view
-            tickers_to_load = []
-            for sector, tickers in TOP_200_TICKERS.items():
-                for ticker in tickers:
-                    tickers_to_load.append((ticker, sector))
-            # Take only first 100 for default view (faster load)
-            tickers_to_load = tickers_to_load[:100]
-        
-        st.info(f"Loading {len(tickers_to_load)} companies...")
-        
-        # Fetch data for each ticker (using existing get_quote which works)
-        failed_quotes = 0
-        for ticker_sym, sector in tickers_to_load:
-            quote = get_quote(ticker_sym)
-            
-            # ALWAYS create a row (even if quote fails)
-            row = {
-                "Ticker": ticker_sym,
-                "Company": ticker_sym,  # Default to ticker
-                "Sector": sector,
-                "Market Cap": 0,
-                "Price": None,
-                "Change %": None,
-                "P/E Ratio": None,
-                "P/S Ratio": None,
-                "FCF/Share": None
-            }
-            
-            if quote:
-                # Update with real data from quote
-                row["Company"] = quote.get('name', ticker_sym)
-                row["Market Cap"] = quote.get('marketCap', 0)
-                row["Price"] = quote.get('price', 0)
-                row["Change %"] = quote.get('changesPercentage', 0)
+        TARGET_COUNT = 100
+
+                # Build full ranked list (flatten all sectors)
+                all_ranked = []
+                for sector, tickers in TOP_200_TICKERS.items():
+                    for ticker in tickers:
+                        all_ranked.append((ticker, sector))
                 
-                # Get additional metrics (fail-soft)
-                try:
-                    ratios_ttm = get_ratios_ttm(ticker_sym)
-                    cash_df = get_cash_flow(ticker_sym, 'annual', 1)
-                    income_df = get_income_statement(ticker_sym, 'annual', 1)
-                    
-                    pe = get_pe_ratio(ticker_sym, quote, ratios_ttm, income_df)
-                    ps = get_ps_ratio(ticker_sym, ratios_ttm)
-                    fcf_per_share = calculate_fcf_per_share(ticker_sym, cash_df, quote)
-                    
-                    row["P/E Ratio"] = pe if pe and pe > 0 else None
-                    row["P/S Ratio"] = ps if ps and ps > 0 else None
-                    row["FCF/Share"] = fcf_per_share if fcf_per_share and fcf_per_share > 0 else None
-                except:
-                    pass  # Keep None values
-            else:
-                failed_quotes += 1
-            
-            rows.append(row)  # ALWAYS append
-        
-        if failed_quotes > 0:
-            st.warning(f"⚠️ {failed_quotes} quotes failed to load. Showing available data.")
-        
-        if rows:
-            df = pd.DataFrame(rows)
-            
-            # Sort by Market Cap descending (0 market caps go to bottom)
-            df = df.sort_values('Market Cap', ascending=False).reset_index(drop=True)
-            
-            # Take top 100
-            df = df.head(100)
-            
-            st.info(f"📊 Showing **{len(df)}** companies (sorted by market cap)")
-            
-            # Show KPI cards ONLY when exactly 1 sector selected
-            if len(selected_sectors) == 1:
-                st.markdown(f"### 📊 {selected_sectors[0]} Sector Metrics")
-                col1, col2, col3 = st.columns(3)
+                # Deduplicate while preserving order
+                seen = set()
+                all_ranked = [
+                    x for x in all_ranked
+                    if not (x[0] in seen or seen.add(x[0]))
+                ]
                 
-                valid_pes = df[df['P/E Ratio'].notna()]['P/E Ratio']
-                if len(valid_pes) > 0:
-                    col1.metric("Avg P/E", f"{valid_pes.mean():.2f}",
-                               help="Average Price-to-Earnings ratio for this sector")
+                if selected_sectors:
+                    # 1) Take all from selected sectors first
+                    filtered = [
+                        (ticker, sector)
+                        for (ticker, sector) in all_ranked
+                        if sector in selected_sectors
+                    ]
                 
-                valid_ps = df[df['P/S Ratio'].notna()]['P/S Ratio']
-                if len(valid_ps) > 0:
-                    col2.metric("Avg P/S", f"{valid_ps.mean():.2f}",
-                               help="Average Price-to-Sales ratio for this sector")
+                    # 2) Top up with remaining companies (other sectors) to reach 100
+                    if len(filtered) < TARGET_COUNT:
+                        remainder = [
+                            x for x in all_ranked
+                            if x not in filtered
+                        ]
+                        filtered.extend(remainder[: TARGET_COUNT - len(filtered)])
                 
-                valid_fcf = df[df['FCF/Share'].notna()]['FCF/Share']
-                if len(valid_fcf) > 0:
-                    col3.metric("Avg FCF/Share", f"${valid_fcf.mean():.2f}",
-                               help="Average Free Cash Flow per share for this sector")
-            
-            # Format display dataframe
-            display_df = df.copy()
-            display_df['Price'] = display_df['Price'].apply(lambda x: f"${x:.2f}" if pd.notna(x) and x > 0 else "—")
-            display_df['Change %'] = display_df['Change %'].apply(lambda x: f"{x:+.2f}%" if pd.notna(x) else "—")
-            display_df['Market Cap'] = display_df['Market Cap'].apply(lambda x: format_number(x) if x > 0 else "—")
-            display_df['P/E Ratio'] = display_df['P/E Ratio'].apply(lambda x: f"{x:.2f}" if pd.notna(x) else "—")
-            display_df['P/S Ratio'] = display_df['P/S Ratio'].apply(lambda x: f"{x:.2f}" if pd.notna(x) else "—")
-            display_df['FCF/Share'] = display_df['FCF/Share'].apply(lambda x: f"${x:.2f}" if pd.notna(x) else "—")
-            
-            # Display table
-            st.dataframe(display_df, use_container_width=True, height=600)
+                    tickers_to_load = filtered[:TARGET_COUNT]
+                else:
+                    # Default: top 100 across all sectors
+                    tickers_to_load = all_ranked[:TARGET_COUNT]
+                
+                        
+                        st.info(f"Loading {len(tickers_to_load)} companies...")
+                        
+                        # Fetch data for each ticker (using existing get_quote which works)
+                        failed_quotes = 0
+                        for ticker_sym, sector in tickers_to_load:
+                            quote = get_quote(ticker_sym)
+                            
+                            # ALWAYS create a row (even if quote fails)
+                            row = {
+                                "Ticker": ticker_sym,
+                                "Company": ticker_sym,  # Default to ticker
+                                "Sector": sector,
+                                "Market Cap": 0,
+                                "Price": None,
+                                "Change %": None,
+                                "P/E Ratio": None,
+                                "P/S Ratio": None,
+                                "FCF/Share": None
+                            }
+                            
+                            if quote:
+                                # Update with real data from quote
+                                row["Company"] = quote.get('name', ticker_sym)
+                                row["Market Cap"] = quote.get('marketCap', 0)
+                                row["Price"] = quote.get('price', 0)
+                                row["Change %"] = quote.get('changesPercentage', 0)
+                                
+                                # Get additional metrics (fail-soft)
+                                try:
+                                    ratios_ttm = get_ratios_ttm(ticker_sym)
+                                    cash_df = get_cash_flow(ticker_sym, 'annual', 1)
+                                    income_df = get_income_statement(ticker_sym, 'annual', 1)
+                                    
+                                    pe = get_pe_ratio(ticker_sym, quote, ratios_ttm, income_df)
+                                    ps = get_ps_ratio(ticker_sym, ratios_ttm)
+                                    fcf_per_share = calculate_fcf_per_share(ticker_sym, cash_df, quote)
+                                    
+                                    row["P/E Ratio"] = pe if pe and pe > 0 else None
+                                    row["P/S Ratio"] = ps if ps and ps > 0 else None
+                                    row["FCF/Share"] = fcf_per_share if fcf_per_share and fcf_per_share > 0 else None
+                                except:
+                                    pass  # Keep None values
+                            else:
+                                failed_quotes += 1
+                            
+                            rows.append(row)  # ALWAYS append
+                        
+                        if failed_quotes > 0:
+                            st.warning(f"⚠️ {failed_quotes} quotes failed to load. Showing available data.")
+                        
+                        if rows:
+                            df = pd.DataFrame(rows)
+                            
+                            # Sort by Market Cap descending (0 market caps go to bottom)
+                            df = df.sort_values('Market Cap', ascending=False).reset_index(drop=True)
+                            
+                            # Take top 100
+                            df = df.head(100)
+                            
+                            st.info(f"📊 Showing **{len(df)}** companies (sorted by market cap)")
+                            
+                            # Show KPI cards ONLY when exactly 1 sector selected
+                            if len(selected_sectors) == 1:
+                                st.markdown(f"### 📊 {selected_sectors[0]} Sector Metrics")
+                                col1, col2, col3 = st.columns(3)
+                                
+                                valid_pes = df[df['P/E Ratio'].notna()]['P/E Ratio']
+                                if len(valid_pes) > 0:
+                                    col1.metric("Avg P/E", f"{valid_pes.mean():.2f}",
+                                               help="Average Price-to-Earnings ratio for this sector")
+                                
+                                valid_ps = df[df['P/S Ratio'].notna()]['P/S Ratio']
+                                if len(valid_ps) > 0:
+                                    col2.metric("Avg P/S", f"{valid_ps.mean():.2f}",
+                                               help="Average Price-to-Sales ratio for this sector")
+                                
+                                valid_fcf = df[df['FCF/Share'].notna()]['FCF/Share']
+                                if len(valid_fcf) > 0:
+                                    col3.metric("Avg FCF/Share", f"${valid_fcf.mean():.2f}",
+                                               help="Average Free Cash Flow per share for this sector")
+                            
+                            # Format display dataframe
+                            display_df = df.copy()
+                            display_df['Price'] = display_df['Price'].apply(lambda x: f"${x:.2f}" if pd.notna(x) and x > 0 else "—")
+                            display_df['Change %'] = display_df['Change %'].apply(lambda x: f"{x:+.2f}%" if pd.notna(x) else "—")
+                            display_df['Market Cap'] = display_df['Market Cap'].apply(lambda x: format_number(x) if x > 0 else "—")
+                            display_df['P/E Ratio'] = display_df['P/E Ratio'].apply(lambda x: f"{x:.2f}" if pd.notna(x) else "—")
+                            display_df['P/S Ratio'] = display_df['P/S Ratio'].apply(lambda x: f"{x:.2f}" if pd.notna(x) else "—")
+                            display_df['FCF/Share'] = display_df['FCF/Share'].apply(lambda x: f"${x:.2f}" if pd.notna(x) else "—")
+                            
+                            # Display table
+                            st.dataframe(display_df, use_container_width=True, height=600)
             
             with st.expander("💡 What do these metrics mean?"):
                 col1, col2 = st.columns(2)
