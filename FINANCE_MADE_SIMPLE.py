@@ -2066,7 +2066,7 @@ def get_price_target_summary(ticker):
 @st.cache_data(ttl=3600)
 def get_price_target_consensus(ticker):
     """Get price target consensus from FMP stable API"""
-    url = f"https://financialmodelingprep.com/stable/price-target-consensus?symbol={ticker}&apikey={FMP_API_KEY}"
+    url = f"{BASE_URL}/price-target-consensus?symbol={ticker}&apikey={FMP_API_KEY}"
     try:
         response = requests.get(url, timeout=10)
         if response.status_code == 200:
@@ -2703,7 +2703,7 @@ Use educational language. This is not financial advice."""
 def get_historical_adjusted_prices(ticker, years=10):
     """Get historical adjusted close prices for accurate return calculations including dividends"""
     try:
-        url = f"https://financialmodelingprep.com/api/v3/historical-price-full/{ticker}?apikey={FMP_API_KEY}"
+        url = f"{BASE_URL}/historical-price-full/{ticker}?apikey={FMP_API_KEY}"
         response = requests.get(url, timeout=15)
         if response.status_code == 200:
             data = response.json()
@@ -6539,7 +6539,7 @@ elif selected_page == "📊 Company Analysis":
             st.markdown("**🏦 Treasury Rates**")
             st.caption("Safest investment. Zero risk = guaranteed returns.")
             
-            # Fetch treasury rates from FMP
+            # Fetch treasury rates from FMP (v4 endpoint - treasury data only available in v4)
             treasury_url = f"https://financialmodelingprep.com/api/v4/treasury?apikey={FMP_API_KEY}"
             try:
                 treasury_response = requests.get(treasury_url, timeout=5)
@@ -7445,7 +7445,7 @@ elif selected_page == "📊 Company Analysis":
             ratio_years = st.slider("Years of History", 1, 30, 5, key="ratio_years_sel")
         
         period_param = "annual" if ratio_period == "Annual" else "quarter"
-        ratios_url = f"https://financialmodelingprep.com/api/v3/ratios/{ticker}?period={period_param}&limit={ratio_years}&apikey={FMP_API_KEY}"
+        ratios_url = f"{BASE_URL}/ratios/{ticker}?period={period_param}&limit={ratio_years}&apikey={FMP_API_KEY}"
         
         try:
             response = requests.get(ratios_url, timeout=10)
@@ -7817,43 +7817,60 @@ elif selected_page == "📊 Market Overview":
                 for ticker in tickers:
                     tickers_to_load.append((ticker, sector))
         
+        st.info(f"Loading {len(tickers_to_load)} companies...")
+        
         # Fetch data for each ticker (using existing get_quote which works)
+        failed_quotes = 0
         for ticker_sym, sector in tickers_to_load:
             quote = get_quote(ticker_sym)
             
-            if not quote:
-                continue  # Skip if quote fails
-            
-            # Get additional metrics (fail-soft)
-            try:
-                ratios_ttm = get_ratios_ttm(ticker_sym)
-                cash_df = get_cash_flow(ticker_sym, 'annual', 1)
-                income_df = get_income_statement(ticker_sym, 'annual', 1)
-                
-                pe = get_pe_ratio(ticker_sym, quote, ratios_ttm, income_df)
-                ps = get_ps_ratio(ticker_sym, ratios_ttm)
-                fcf_per_share = calculate_fcf_per_share(ticker_sym, cash_df, quote)
-            except:
-                pe = None
-                ps = None
-                fcf_per_share = None
-            
-            rows.append({
+            # ALWAYS create a row (even if quote fails)
+            row = {
                 "Ticker": ticker_sym,
-                "Company": quote.get('name', ticker_sym),
+                "Company": ticker_sym,  # Default to ticker
                 "Sector": sector,
-                "Market Cap": quote.get('marketCap', 0),
-                "Price": quote.get('price', 0),
-                "Change %": quote.get('changesPercentage', 0),
-                "P/E Ratio": pe if pe and pe > 0 else None,
-                "P/S Ratio": ps if ps and ps > 0 else None,
-                "FCF/Share": fcf_per_share if fcf_per_share and fcf_per_share > 0 else None
-            })
+                "Market Cap": 0,
+                "Price": None,
+                "Change %": None,
+                "P/E Ratio": None,
+                "P/S Ratio": None,
+                "FCF/Share": None
+            }
+            
+            if quote:
+                # Update with real data from quote
+                row["Company"] = quote.get('name', ticker_sym)
+                row["Market Cap"] = quote.get('marketCap', 0)
+                row["Price"] = quote.get('price', 0)
+                row["Change %"] = quote.get('changesPercentage', 0)
+                
+                # Get additional metrics (fail-soft)
+                try:
+                    ratios_ttm = get_ratios_ttm(ticker_sym)
+                    cash_df = get_cash_flow(ticker_sym, 'annual', 1)
+                    income_df = get_income_statement(ticker_sym, 'annual', 1)
+                    
+                    pe = get_pe_ratio(ticker_sym, quote, ratios_ttm, income_df)
+                    ps = get_ps_ratio(ticker_sym, ratios_ttm)
+                    fcf_per_share = calculate_fcf_per_share(ticker_sym, cash_df, quote)
+                    
+                    row["P/E Ratio"] = pe if pe and pe > 0 else None
+                    row["P/S Ratio"] = ps if ps and ps > 0 else None
+                    row["FCF/Share"] = fcf_per_share if fcf_per_share and fcf_per_share > 0 else None
+                except:
+                    pass  # Keep None values
+            else:
+                failed_quotes += 1
+            
+            rows.append(row)  # ALWAYS append
+        
+        if failed_quotes > 0:
+            st.warning(f"⚠️ {failed_quotes} quotes failed to load. Showing available data.")
         
         if rows:
             df = pd.DataFrame(rows)
             
-            # Sort by Market Cap descending
+            # Sort by Market Cap descending (0 market caps go to bottom)
             df = df.sort_values('Market Cap', ascending=False).reset_index(drop=True)
             
             # Take top 100
@@ -7917,7 +7934,11 @@ elif selected_page == "📊 Market Overview":
                     st.session_state.selected_page = "📊 Company Analysis"
                     st.rerun()
         else:
-            st.warning("⚠️ No data available. Please check your API connection.")
+            st.error("❌ No rows created. This shouldn't happen!")
+            st.write(f"Debug: tickers_to_load had {len(tickers_to_load)} items")
+            st.write(f"Debug: selected_sectors = {selected_sectors}")
+            st.write(f"Debug: rows list was empty after processing")
+
 
 
 
