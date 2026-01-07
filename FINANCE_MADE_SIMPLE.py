@@ -3890,10 +3890,6 @@ def get_companies_from_screener(sector=None, limit=100):
         st.error(f"Stock Screener API error: {e}")
         return []
 
-
-# Flatten to get all unique tickers
-ALL_TOP_200 = list(set([ticker for tickers in TOP_200_TICKERS.values() for ticker in tickers]))
-
 # ============= STATE =============
 if 'selected_ticker' not in st.session_state:
     st.session_state.selected_ticker = "GOOGL"
