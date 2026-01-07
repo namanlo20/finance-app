@@ -8003,13 +8003,13 @@ elif selected_page == "📊 Market Overview":
                 for ticker in TOP_200_TICKERS[sector]:
                     tickers_to_load.append((ticker, sector))
         else:
-            # Load all sectors but LIMIT to first 100 to speed up default view
+            # Load ALL sectors proportionally (not just first 100 which would be all Tech)
+            # Take ~9 tickers from each of the 11 sectors to get diverse 100-ticker default view
             tickers_to_load = []
+            tickers_per_sector = 9  # 9 × 11 = 99, close to 100
             for sector, tickers in TOP_200_TICKERS.items():
-                for ticker in tickers:
+                for ticker in tickers[:tickers_per_sector]:
                     tickers_to_load.append((ticker, sector))
-            # Take only first 100 for default view (faster load)
-            tickers_to_load = tickers_to_load[:100]
         
         st.info(f"Loading {len(tickers_to_load)} companies...")
         
