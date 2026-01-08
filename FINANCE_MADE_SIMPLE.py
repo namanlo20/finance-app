@@ -1884,7 +1884,9 @@ def get_dividend_yield(ticker, price):
             return None
         
         # lastDiv is annual dividend in dollars
-        last_div = profile.get('lastDiv')
+        last_div_raw = profile.get('lastDiv')
+        last_div = float(last_div_raw) if last_div_raw is not None else None
+
         
         if last_div and last_div > 0:
             # Calculate yield: (annual dividend / price) * 100
