@@ -1880,6 +1880,7 @@ def get_dividend_yield(ticker, price):
         
         # Get profile which has lastDiv field
         profile = get_profile(ticker)
+        st.write("PROFILE DEBUG", ticker, type(profile), profile)
         if not profile:
             return None
         
