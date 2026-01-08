@@ -1871,8 +1871,9 @@ def get_profile(ticker):
 
 def get_dividend_yield(ticker, price):
     """
-    Get dividend yield percentage from FMP profile endpoint
-    Quote endpoint doesn't have dividend data - must use profile
+    Dividend yield (%) from FMP profile endpoint.
+    Uses lastDividend (fallback lastDiv). Assumes quarterly payouts (x4) for annualization.
+    Fail-soft: returns None if missing.
     """
     try:
         if not price or price <= 0:
@@ -1880,18 +1881,15 @@ def get_dividend_yield(ticker, price):
         
         # Get profile which has lastDiv field
         profile = get_profile(ticker)
-        st.write("PROFILE DEBUG", ticker, type(profile), profile)
         if not profile:
             return None
-        
-        # lastDiv is annual dividend in dollars
-        last_div_raw = profile.get('lastDiv')
-        last_div = float(last_div_raw) if last_div_raw is not None else None
+        last_div_raw = profile.get("lastDividend") or profile.get("lastDiv")
+        last_div = float(last_div_raw) if last_div_raw not in (None, "") else None
 
-        
         if last_div and last_div > 0:
             # Calculate yield: (annual dividend / price) * 100
-            yield_pct = (last_div / price) * 100
+            annual_div = last_div * 4
+            yield_pct = (annual_div / price) * 100
             
             # Sanity check (yields rarely > 20%)
             if 0 < yield_pct < 20:
