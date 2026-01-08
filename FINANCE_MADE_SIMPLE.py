@@ -1869,6 +1869,46 @@ def get_profile(ticker):
     except:
         return None
 
+def get_dividend_yield(ticker, price):
+    """Get dividend yield percentage - tries multiple FMP endpoints"""
+    try:
+        # Try method 1: Key Metrics TTM (most reliable for dividend data)
+        url = f"{BASE_URL}/key-metrics-ttm?symbol={ticker}&apikey={FMP_API_KEY}"
+        response = requests.get(url, timeout=10)
+        data = response.json()
+        
+        if data and len(data) > 0:
+            metrics = data[0]
+            # dividendYieldPercentageTTM is already a percentage
+            div_yield = metrics.get('dividendYieldPercentageTTM')
+            if div_yield and div_yield > 0:
+                return div_yield
+        
+        # Try method 2: Company profile lastDiv
+        profile = get_profile(ticker)
+        if profile and price and price > 0:
+            last_div = profile.get('lastDiv', 0)
+            if last_div and last_div > 0:
+                return (last_div / price) * 100
+        
+        # Try method 3: Quote endpoint
+        quote = get_quote(ticker)
+        if quote and price and price > 0:
+            # Try various possible field names
+            for field in ['dividendYield', 'lastDividend', 'dividend', 'annualDividend']:
+                div_val = quote.get(field)
+                if div_val and div_val > 0:
+                    # If already a percentage (0-100), return as is
+                    if div_val < 1:  # Likely needs conversion
+                        return div_val * 100
+                    else:
+                        return div_val
+        
+        return None
+    except:
+        return None
+
+
 def get_company_logo(ticker):
     """Get company logo URL from FMP profile"""
     profile = get_profile(ticker)
@@ -7900,14 +7940,10 @@ elif selected_page == "📊 Market Overview":
                             row["P/S Ratio"] = ps if ps and ps > 0 else None
                             row["FCF/Share"] = fcf_per_share if fcf_per_share and fcf_per_share > 0 else None
                             
-                            # Get dividend yield from profile endpoint (more reliable than quote)
-                            profile = get_profile(ticker_sym)
-                            if profile:
-                                last_div = profile.get('lastDiv', 0)  # Annual dividend
-                                price = row["Price"]
-                                if last_div and price and price > 0:
-                                    dividend_yield = (last_div / price) * 100
-                                    row["Dividend Yield %"] = dividend_yield if dividend_yield > 0 else None
+                            # Get dividend yield using dedicated function
+                            div_yield = get_dividend_yield(ticker_sym, row["Price"])
+                            if div_yield:
+                                row["Dividend Yield %"] = div_yield
                         except:
                             pass  # Keep None values
                     
@@ -7987,14 +8023,10 @@ elif selected_page == "📊 Market Overview":
                         row["P/S Ratio"] = ps if ps and ps > 0 else None
                         row["FCF/Share"] = fcf_per_share if fcf_per_share and fcf_per_share > 0 else None
                         
-                        # Get dividend yield from profile endpoint (more reliable than quote)
-                        profile = get_profile(ticker_sym)
-                        if profile:
-                            last_div = profile.get('lastDiv', 0)  # Annual dividend
-                            price = row["Price"]
-                            if last_div and price and price > 0:
-                                dividend_yield = (last_div / price) * 100
-                                row["Dividend Yield %"] = dividend_yield if dividend_yield > 0 else None
+                        # Get dividend yield using dedicated function
+                        div_yield = get_dividend_yield(ticker_sym, row["Price"])
+                        if div_yield:
+                            row["Dividend Yield %"] = div_yield
                     except:
                         pass  # Keep None values
                 
