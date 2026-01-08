@@ -1888,7 +1888,7 @@ def get_dividend_yield(ticker, price):
 
         if last_div and last_div > 0:
             # Calculate yield: (annual dividend / price) * 100
-            annual_div = last_div * 4
+            annual_div = last_div
             yield_pct = (annual_div / price) * 100
             
             # Sanity check (yields rarely > 20%)
