@@ -7900,12 +7900,13 @@ elif selected_page == "📊 Market Overview":
                             row["P/S Ratio"] = ps if ps and ps > 0 else None
                             row["FCF/Share"] = fcf_per_share if fcf_per_share and fcf_per_share > 0 else None
                             
-                            # Get dividend yield from quote (lastDividend / price * 100)
-                            if quote:
-                                last_dividend = quote.get('lastDividend')
+                            # Get dividend yield from profile endpoint (more reliable than quote)
+                            profile = get_profile(ticker_sym)
+                            if profile:
+                                last_div = profile.get('lastDiv', 0)  # Annual dividend
                                 price = row["Price"]
-                                if last_dividend and price and price > 0:
-                                    dividend_yield = (last_dividend / price) * 100
+                                if last_div and price and price > 0:
+                                    dividend_yield = (last_div / price) * 100
                                     row["Dividend Yield %"] = dividend_yield if dividend_yield > 0 else None
                         except:
                             pass  # Keep None values
@@ -7986,12 +7987,13 @@ elif selected_page == "📊 Market Overview":
                         row["P/S Ratio"] = ps if ps and ps > 0 else None
                         row["FCF/Share"] = fcf_per_share if fcf_per_share and fcf_per_share > 0 else None
                         
-                        # Get dividend yield from quote (lastDividend / price * 100)
-                        if quote:
-                            last_dividend = quote.get('lastDividend')
+                        # Get dividend yield from profile endpoint (more reliable than quote)
+                        profile = get_profile(ticker_sym)
+                        if profile:
+                            last_div = profile.get('lastDiv', 0)  # Annual dividend
                             price = row["Price"]
-                            if last_dividend and price and price > 0:
-                                dividend_yield = (last_dividend / price) * 100
+                            if last_div and price and price > 0:
+                                dividend_yield = (last_div / price) * 100
                                 row["Dividend Yield %"] = dividend_yield if dividend_yield > 0 else None
                     except:
                         pass  # Keep None values
