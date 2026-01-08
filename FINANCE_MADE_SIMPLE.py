@@ -1870,42 +1870,52 @@ def get_profile(ticker):
         return None
 
 def get_dividend_yield(ticker, price):
-    """Get dividend yield percentage - tries multiple FMP endpoints"""
+    """Get dividend yield percentage - uses quote endpoint which we already call"""
     try:
-        # Try method 1: Key Metrics TTM (most reliable for dividend data)
-        url = f"{BASE_URL}/key-metrics-ttm?symbol={ticker}&apikey={FMP_API_KEY}"
-        response = requests.get(url, timeout=10)
-        data = response.json()
-        
-        if data and len(data) > 0:
-            metrics = data[0]
-            # dividendYieldPercentageTTM is already a percentage
-            div_yield = metrics.get('dividendYieldPercentageTTM')
-            if div_yield and div_yield > 0:
-                return div_yield
-        
-        # Try method 2: Company profile lastDiv
-        profile = get_profile(ticker)
-        if profile and price and price > 0:
-            last_div = profile.get('lastDiv', 0)
-            if last_div and last_div > 0:
-                return (last_div / price) * 100
-        
-        # Try method 3: Quote endpoint
+        # Simple approach: quote endpoint has all the data
         quote = get_quote(ticker)
-        if quote and price and price > 0:
-            # Try various possible field names
-            for field in ['dividendYield', 'lastDividend', 'dividend', 'annualDividend']:
-                div_val = quote.get(field)
-                if div_val and div_val > 0:
-                    # If already a percentage (0-100), return as is
-                    if div_val < 1:  # Likely needs conversion
-                        return div_val * 100
-                    else:
-                        return div_val
+        if not quote or not price or price <= 0:
+            return None
         
+        # FMP quote endpoint returns these fields (check all possible names):
+        # Try yearHigh, yearLow, priceAvg50, priceAvg200, volume, avgVolume
+        # Most importantly: check for any dividend-related fields
+        
+        # METHOD 1: Check if quote has pre-calculated yield
+        for yield_field in ['dividendYield', 'dividend_yield', 'yield']:
+            yield_val = quote.get(yield_field)
+            if yield_val:
+                # If it's a decimal (0.015 = 1.5%), convert to percentage
+                if 0 < yield_val < 1:
+                    return yield_val * 100
+                # If already percentage (1.5 = 1.5%), return as is
+                elif 1 <= yield_val < 100:
+                    return yield_val
+        
+        # METHOD 2: Calculate from earnings per share (EPS) and payout
+        eps = quote.get('eps')
+        if eps and eps > 0:
+            # Typical payout ratios: use 30% for tech, 50% for mature companies
+            # This is estimation only - not perfect but better than nothing
+            # For now, skip this method as it's too inaccurate
+            pass
+        
+        # METHOD 3: Try to get from the quote data we already have
+        # Look for any field that might contain dividend info
+        for div_field in ['annualDividend', 'lastDividend', 'dividend', 'lastDiv']:
+            div_val = quote.get(div_field)
+            if div_val and div_val > 0:
+                # Calculate yield
+                yield_pct = (div_val / price) * 100
+                if 0 < yield_pct < 20:  # Sanity check (yields rarely > 20%)
+                    return yield_pct
+        
+        # If we get here, no dividend data found
         return None
-    except:
+        
+    except Exception as e:
+        # Log the error for debugging
+        st.write(f"DEBUG: Dividend error for {ticker}: {str(e)}")
         return None
 
 
@@ -8039,6 +8049,20 @@ elif selected_page == "📊 Market Overview":
                 for item in market_cap_debug:
                     st.write(f"**{item['ticker']}** ({item['name']}): Raw value = ${item['raw_market_cap']:,.0f} → Displays as {item['formatted']}")
                 st.caption("✅ Values should match public consensus within normal vendor differences")
+        
+        # DEBUG: Show quote fields for dividend debugging (TEMPORARY - REMOVE AFTER FIXING)
+        if rows and len(rows) > 0:
+            # Find a dividend-paying stock (WMT, AAPL, MSFT)
+            for row in rows:
+                if row['Ticker'] in ['WMT', 'AAPL', 'MSFT']:
+                    debug_ticker = row['Ticker']
+                    debug_quote = get_quote(debug_ticker)
+                    if debug_quote:
+                        with st.expander(f"🔍 DIVIDEND DEBUG: {debug_ticker} Quote Fields"):
+                            st.caption("All fields returned by FMP quote endpoint:")
+                            st.json(debug_quote)
+                            st.caption("Look for any dividend-related fields above ☝️")
+                        break
         
         if rows:
             df = pd.DataFrame(rows)
