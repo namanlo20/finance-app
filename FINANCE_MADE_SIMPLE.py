@@ -7854,8 +7854,11 @@ elif selected_page == "📊 Market Overview":
                         "P/E Ratio": None,
                         "P/S Ratio": None,
                         "FCF/Share": None,
+                        "Dividend Yield %": None,
                         "Analyst Price Target": None,
-                        "Upside/Downside %": None
+                        "Upside/Downside %": None,
+                        "AI Rating": "🔒 VIP",  # VIP placeholder
+                        "Risk Score": "🔒 VIP"  # VIP placeholder
                     }
                     
                     # Track debug info for major companies
@@ -7896,6 +7899,14 @@ elif selected_page == "📊 Market Overview":
                             row["P/E Ratio"] = pe if pe and pe > 0 else None
                             row["P/S Ratio"] = ps if ps and ps > 0 else None
                             row["FCF/Share"] = fcf_per_share if fcf_per_share and fcf_per_share > 0 else None
+                            
+                            # Get dividend yield from quote (lastDividend / price * 100)
+                            if quote:
+                                last_dividend = quote.get('lastDividend')
+                                price = row["Price"]
+                                if last_dividend and price and price > 0:
+                                    dividend_yield = (last_dividend / price) * 100
+                                    row["Dividend Yield %"] = dividend_yield if dividend_yield > 0 else None
                         except:
                             pass  # Keep None values
                     
@@ -7929,8 +7940,11 @@ elif selected_page == "📊 Market Overview":
                     "P/E Ratio": None,
                     "P/S Ratio": None,
                     "FCF/Share": None,
+                    "Dividend Yield %": None,
                     "Analyst Price Target": None,
-                    "Upside/Downside %": None
+                    "Upside/Downside %": None,
+                    "AI Rating": "🔒 VIP",  # VIP placeholder
+                    "Risk Score": "🔒 VIP"  # VIP placeholder
                 }
                 
                 # Track debug info for major companies
@@ -7971,6 +7985,14 @@ elif selected_page == "📊 Market Overview":
                         row["P/E Ratio"] = pe if pe and pe > 0 else None
                         row["P/S Ratio"] = ps if ps and ps > 0 else None
                         row["FCF/Share"] = fcf_per_share if fcf_per_share and fcf_per_share > 0 else None
+                        
+                        # Get dividend yield from quote (lastDividend / price * 100)
+                        if quote:
+                            last_dividend = quote.get('lastDividend')
+                            price = row["Price"]
+                            if last_dividend and price and price > 0:
+                                dividend_yield = (last_dividend / price) * 100
+                                row["Dividend Yield %"] = dividend_yield if dividend_yield > 0 else None
                     except:
                         pass  # Keep None values
                 
@@ -8024,22 +8046,38 @@ elif selected_page == "📊 Market Overview":
             display_df['P/E Ratio'] = display_df['P/E Ratio'].apply(lambda x: f"{x:.2f}" if pd.notna(x) else "—")
             display_df['P/S Ratio'] = display_df['P/S Ratio'].apply(lambda x: f"{x:.2f}" if pd.notna(x) else "—")
             display_df['FCF/Share'] = display_df['FCF/Share'].apply(lambda x: f"${x:.2f}" if pd.notna(x) else "—")
+            display_df['Dividend Yield %'] = display_df['Dividend Yield %'].apply(lambda x: f"{x:.2f}%" if pd.notna(x) and x > 0 else "—")
+            # VIP columns already have placeholders, no formatting needed
             
-            # Display table
-            st.dataframe(display_df, use_container_width=True, height=600)
+            # Display table with row selection enabled
+            event = st.dataframe(display_df, use_container_width=True, height=600, 
+                        on_select="rerun", selection_mode="single-row", key="market_overview_table")
+            
+            # Handle row click - navigate to Company Analysis
+            if event and hasattr(event, 'selection') and event.selection.get('rows'):
+                selected_row_idx = event.selection['rows'][0]
+                if selected_row_idx < len(df):
+                    selected_ticker = df.iloc[selected_row_idx]['Ticker']
+                    st.session_state.selected_ticker = selected_ticker
+                    st.session_state.selected_page = "📊 Company Analysis"
+                    st.rerun()
             
             with st.expander("💡 What do these metrics mean?"):
                 col1, col2 = st.columns(2)
                 with col1:
                     pe_exp = METRIC_EXPLANATIONS.get("P/E Ratio", {}).get("explanation", "Price-to-Earnings ratio explanation coming soon.")
                     ps_exp = METRIC_EXPLANATIONS.get("P/S Ratio", {}).get("explanation", "Price-to-Sales ratio explanation coming soon.")
+                    div_exp = "Annual dividends paid divided by stock price. A 3% yield means $3 per year for every $100 invested."
                     st.markdown(f"**P/E Ratio:** {pe_exp}")
                     st.markdown(f"**P/S Ratio:** {ps_exp}")
+                    st.markdown(f"**Dividend Yield:** {div_exp}")
                 with col2:
                     fcf_exp = METRIC_EXPLANATIONS.get("FCF per Share", {}).get("explanation", "Free Cash Flow per share explanation coming soon.")
                     mc_exp = METRIC_EXPLANATIONS.get("Market Cap", {}).get("explanation", "Total company value explanation coming soon.")
+                    vip_exp = "🔒 AI Rating and Risk Score are VIP features. Upgrade for AI-powered insights!"
                     st.markdown(f"**FCF/Share:** {fcf_exp}")
                     st.markdown(f"**Market Cap:** {mc_exp}")
+                    st.markdown(f"**VIP Features:** {vip_exp}")
             
             st.markdown("### 🔍 Analyze a Company")
             col1, col2 = st.columns([3, 1])
