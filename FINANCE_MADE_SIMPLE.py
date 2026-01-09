@@ -6134,6 +6134,18 @@ elif selected_page == "📖 Basics":
             st.balloons()
         except Exception:
             pass
+    def _ensure_basics_gamification_state():
+        if "basics_xp" not in st.session_state:
+            st.session_state.basics_xp = 0
+        if "basics_badges" not in st.session_state:
+            st.session_state.basics_badges = set()
+
+    def _level_from_xp(xp: int) -> int:
+        try:
+            xp = int(xp)
+        except Exception:
+            xp = 0
+        return max(1, (xp // 100) + 1)
 
     def _render_robinhood_header():
         _ensure_basics_gamification_state()
