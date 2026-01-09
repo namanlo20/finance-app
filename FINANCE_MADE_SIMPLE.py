@@ -9610,169 +9610,202 @@ elif selected_page == "📊 Pro Checklist":
         days = timeframe_days.get(timeframe, 365)
         
         # Fetch OHLCV data from FMP
-        try:
-            # Get historical price data
-            from_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
-            to_date = datetime.now().strftime("%Y-%m-%d")
-            
-            # FMP historical price endpoint
-            historical_url = f"{BASE_URL}/chart/{interval.lower()}/{ticker_check}?from={from_date}&to={to_date}&apikey={FMP_API_KEY}"
-            historical_response = requests.get(historical_url, timeout=30)
-            historical_data = historical_response.json()
-            
-            if not historical_data or len(historical_data) == 0:
-                st.warning(f"No historical data available for {ticker_check}. Showing fallback.")
-                st.stop()
-            
-            # Convert to DataFrame
-            df_chart = pd.DataFrame(historical_data)
-            df_chart['date'] = pd.to_datetime(df_chart['date'])
-            df_chart = df_chart.sort_values('date')
-            
-            # Fetch SMA data if requested
-            sma50_data = None
-            sma200_data = None
-            
-            if show_sma50:
-                try:
-                    sma50_url = f"{BASE_URL}/technical-indicators/sma?symbol={ticker_check}&periodLength=50&timeframe={interval.lower()}&apikey={FMP_API_KEY}"
-                    sma50_response = requests.get(sma50_url, timeout=30)
-                    sma50_data = pd.DataFrame(sma50_response.json())
-                    if not sma50_data.empty and 'date' in sma50_data.columns:
-                        sma50_data['date'] = pd.to_datetime(sma50_data['date'])
-                        sma50_data = sma50_data.sort_values('date')
-                except:
-                    pass
-            
-            if show_sma200:
-                try:
-                    sma200_url = f"{BASE_URL}/technical-indicators/sma?symbol={ticker_check}&periodLength=200&timeframe={interval.lower()}&apikey={FMP_API_KEY}"
-                    sma200_response = requests.get(sma200_url, timeout=30)
-                    sma200_data = pd.DataFrame(sma200_response.json())
-                    if not sma200_data.empty and 'date' in sma200_data.columns:
-                        sma200_data['date'] = pd.to_datetime(sma200_data['date'])
-                        sma200_data = sma200_data.sort_values('date')
-                except:
-                    pass
-            
-            # Create candlestick chart
-            fig = make_subplots(
-                rows=2 if show_volume else 1, 
-                cols=1,
-                shared_xaxes=True,
-                vertical_spacing=0.03,
-                row_heights=[0.7, 0.3] if show_volume else [1.0],
-                subplot_titles=(f'{ticker_check} Price Chart', 'Volume') if show_volume else (f'{ticker_check} Price Chart',)
-            )
-            
-            # Add candlestick
-            fig.add_trace(
-                go.Candlestick(
-                    x=df_chart['date'],
-                    open=df_chart['open'],
-                    high=df_chart['high'],
-                    low=df_chart['low'],
-                    close=df_chart['close'],
-                    name='Price',
-                    increasing_line_color='#00D9FF',
-                    decreasing_line_color='#FF4444'
-                ),
-                row=1, col=1
-            )
-            
-            # Add SMA 50
-            if show_sma50 and sma50_data is not None and not sma50_data.empty:
-                fig.add_trace(
-                    go.Scatter(
-                        x=sma50_data['date'],
-                        y=sma50_data['sma'],
-                        mode='lines',
-                        name='SMA 50',
-                        line=dict(color='#FFA500', width=2)
-                    ),
-                    row=1, col=1
-                )
-            
-            # Add SMA 200
-            if show_sma200 and sma200_data is not None and not sma200_data.empty:
-                fig.add_trace(
-                    go.Scatter(
-                        x=sma200_data['date'],
-                        y=sma200_data['sma'],
-                        mode='lines',
-                        name='SMA 200',
-                        line=dict(color='#9D4EDD', width=2)
-                    ),
-                    row=1, col=1
-                )
-            
-            # Add volume bars
-            if show_volume:
-                colors = ['#00D9FF' if df_chart['close'].iloc[i] >= df_chart['open'].iloc[i] else '#FF4444' 
-                          for i in range(len(df_chart))]
-                
-                fig.add_trace(
-                    go.Bar(
-                        x=df_chart['date'],
-                        y=df_chart['volume'],
-                        name='Volume',
-                        marker_color=colors,
-                        opacity=0.5
-                    ),
-                    row=2, col=1
-                )
-            
-            # Update layout
-            fig.update_layout(
-                height=600 if show_volume else 500,
-                template='plotly_dark',
-                showlegend=True,
-                hovermode='x unified',
-                xaxis_rangeslider_visible=False,
-                margin=dict(l=0, r=0, t=30, b=0)
-            )
-            
-            fig.update_xaxes(title_text="Date", row=2 if show_volume else 1, col=1)
-            fig.update_yaxes(title_text="Price ($)", row=1, col=1)
-            if show_volume:
-                fig.update_yaxes(title_text="Volume", row=2, col=1)
-            
-            st.plotly_chart(fig, use_container_width=True)
-            
-        except Exception as e:
-            st.error(f"Chart error: {str(e)}")
-            st.warning("Showing fallback: Close price line chart")
-            
-            # Fallback: Simple line chart
+        with st.spinner(f"Loading chart data for {ticker_check}..."):
             try:
-                historical_url = f"{BASE_URL}/chart/{interval.lower()}/{ticker_check}?from={from_date}&to={to_date}&apikey={FMP_API_KEY}"
+                # Get historical price data
+                from_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+                to_date = datetime.now().strftime("%Y-%m-%d")
+                
+                # FMP historical price endpoint - CORRECTED
+                historical_url = f"{BASE_URL}/historical-chart/{interval.lower()}/{ticker_check}?from={from_date}&to={to_date}&apikey={FMP_API_KEY}"
+                st.write(f"DEBUG: Fetching from {historical_url[:100]}...")  # Debug
+                
                 historical_response = requests.get(historical_url, timeout=30)
                 historical_data = historical_response.json()
                 
-                if historical_data:
-                    df_fallback = pd.DataFrame(historical_data)
-                    df_fallback['date'] = pd.to_datetime(df_fallback['date'])
-                    df_fallback = df_fallback.sort_values('date')
-                    
-                    fig_fallback = go.Figure()
-                    fig_fallback.add_trace(go.Scatter(
-                        x=df_fallback['date'],
-                        y=df_fallback['close'],
-                        mode='lines',
-                        name='Close Price',
-                        line=dict(color='#00D9FF', width=2)
-                    ))
-                    
-                    fig_fallback.update_layout(
-                        height=400,
-                        template='plotly_dark',
-                        showlegend=True,
-                        margin=dict(l=0, r=0, t=30, b=0)
+                st.write(f"DEBUG: Got {len(historical_data) if isinstance(historical_data, list) else 'error'} data points")  # Debug
+                
+                if not historical_data or len(historical_data) == 0:
+                    st.error(f"No historical data available for {ticker_check}")
+                    st.warning("FMP API returned empty data. This might be due to:")
+                    st.write("- Invalid ticker symbol")
+                    st.write("- No data for selected timeframe")
+                    st.write("- API rate limit reached")
+                    st.stop()
+                
+                # Convert to DataFrame
+                df_chart = pd.DataFrame(historical_data)
+                
+                # Check required columns
+                required_cols = ['date', 'open', 'high', 'low', 'close', 'volume']
+                missing_cols = [col for col in required_cols if col not in df_chart.columns]
+                if missing_cols:
+                    st.error(f"Missing required columns: {missing_cols}")
+                    st.write("Available columns:", df_chart.columns.tolist())
+                    st.stop()
+                
+                df_chart['date'] = pd.to_datetime(df_chart['date'])
+                df_chart = df_chart.sort_values('date')
+                
+                st.success(f"✅ Loaded {len(df_chart)} candles for {ticker_check}")
+                
+                # Fetch SMA data if requested
+                sma50_data = None
+                sma200_data = None
+                
+                if show_sma50:
+                    try:
+                        with st.spinner("Loading SMA 50..."):
+                            sma50_url = f"{BASE_URL}/technical-indicators/sma?symbol={ticker_check}&period=50&type={interval.lower()}&apikey={FMP_API_KEY}"
+                            sma50_response = requests.get(sma50_url, timeout=30)
+                            sma50_data = pd.DataFrame(sma50_response.json())
+                            if not sma50_data.empty and 'date' in sma50_data.columns:
+                                sma50_data['date'] = pd.to_datetime(sma50_data['date'])
+                                sma50_data = sma50_data.sort_values('date')
+                                st.success(f"✅ Loaded SMA 50")
+                            else:
+                                st.info("SMA 50 data not available")
+                    except Exception as e:
+                        st.warning(f"Could not load SMA 50: {str(e)}")
+                
+                if show_sma200:
+                    try:
+                        with st.spinner("Loading SMA 200..."):
+                            sma200_url = f"{BASE_URL}/technical-indicators/sma?symbol={ticker_check}&period=200&type={interval.lower()}&apikey={FMP_API_KEY}"
+                            sma200_response = requests.get(sma200_url, timeout=30)
+                            sma200_data = pd.DataFrame(sma200_response.json())
+                            if not sma200_data.empty and 'date' in sma200_data.columns:
+                                sma200_data['date'] = pd.to_datetime(sma200_data['date'])
+                                sma200_data = sma200_data.sort_values('date')
+                                st.success(f"✅ Loaded SMA 200")
+                            else:
+                                st.info("SMA 200 data not available")
+                    except Exception as e:
+                        st.warning(f"Could not load SMA 200: {str(e)}")
+                
+                # Create candlestick chart
+                fig = make_subplots(
+                    rows=2 if show_volume else 1, 
+                    cols=1,
+                    shared_xaxes=True,
+                    vertical_spacing=0.03,
+                    row_heights=[0.7, 0.3] if show_volume else [1.0],
+                    subplot_titles=(f'{ticker_check} Price Chart', 'Volume') if show_volume else (f'{ticker_check} Price Chart',)
+                )
+                
+                # Add candlestick
+                fig.add_trace(
+                    go.Candlestick(
+                        x=df_chart['date'],
+                        open=df_chart['open'],
+                        high=df_chart['high'],
+                        low=df_chart['low'],
+                        close=df_chart['close'],
+                        name='Price',
+                        increasing_line_color='#00D9FF',
+                        decreasing_line_color='#FF4444'
+                    ),
+                    row=1, col=1
+                )
+                
+                # Add SMA 50
+                if show_sma50 and sma50_data is not None and not sma50_data.empty:
+                    fig.add_trace(
+                        go.Scatter(
+                            x=sma50_data['date'],
+                            y=sma50_data['sma'],
+                            mode='lines',
+                            name='SMA 50',
+                            line=dict(color='#FFA500', width=2)
+                        ),
+                        row=1, col=1
                     )
+                
+                # Add SMA 200
+                if show_sma200 and sma200_data is not None and not sma200_data.empty:
+                    fig.add_trace(
+                        go.Scatter(
+                            x=sma200_data['date'],
+                            y=sma200_data['sma'],
+                            mode='lines',
+                            name='SMA 200',
+                            line=dict(color='#9D4EDD', width=2)
+                        ),
+                        row=1, col=1
+                    )
+                
+                # Add volume bars
+                if show_volume:
+                    colors = ['#00D9FF' if df_chart['close'].iloc[i] >= df_chart['open'].iloc[i] else '#FF4444' 
+                              for i in range(len(df_chart))]
                     
-                    st.plotly_chart(fig_fallback, use_container_width=True)
-            except:
-                st.error("Unable to load chart data")
+                    fig.add_trace(
+                        go.Bar(
+                            x=df_chart['date'],
+                            y=df_chart['volume'],
+                            name='Volume',
+                            marker_color=colors,
+                            opacity=0.5
+                        ),
+                        row=2, col=1
+                    )
+                
+                # Update layout
+                fig.update_layout(
+                    height=600 if show_volume else 500,
+                    template='plotly_dark',
+                    showlegend=True,
+                    hovermode='x unified',
+                    xaxis_rangeslider_visible=False,
+                    margin=dict(l=0, r=0, t=30, b=0)
+                )
+                
+                fig.update_xaxes(title_text="Date", row=2 if show_volume else 1, col=1)
+                fig.update_yaxes(title_text="Price ($)", row=1, col=1)
+                if show_volume:
+                    fig.update_yaxes(title_text="Volume", row=2, col=1)
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+            except Exception as e:
+                st.error(f"❌ Chart rendering error: {str(e)}")
+                st.code(str(e), language="python")  # Show full error
+                st.warning("Attempting fallback: Close price line chart...")
+                
+                # Fallback: Simple line chart
+                try:
+                    historical_url = f"{BASE_URL}/historical-chart/{interval.lower()}/{ticker_check}?from={from_date}&to={to_date}&apikey={FMP_API_KEY}"
+                    historical_response = requests.get(historical_url, timeout=30)
+                    historical_data = historical_response.json()
+                    
+                    if historical_data and isinstance(historical_data, list) and len(historical_data) > 0:
+                        df_fallback = pd.DataFrame(historical_data)
+                        df_fallback['date'] = pd.to_datetime(df_fallback['date'])
+                        df_fallback = df_fallback.sort_values('date')
+                        
+                        fig_fallback = go.Figure()
+                        fig_fallback.add_trace(go.Scatter(
+                            x=df_fallback['date'],
+                            y=df_fallback['close'],
+                            mode='lines',
+                            name='Close Price',
+                            line=dict(color='#00D9FF', width=2)
+                        ))
+                        
+                        fig_fallback.update_layout(
+                            height=400,
+                            template='plotly_dark',
+                            showlegend=True,
+                            margin=dict(l=0, r=0, t=30, b=0)
+                        )
+                        
+                        st.plotly_chart(fig_fallback, use_container_width=True)
+                        st.success("✅ Fallback chart loaded")
+                    else:
+                        st.error("❌ Unable to load fallback chart - no data returned")
+                except Exception as fallback_error:
+                    st.error(f"❌ Fallback also failed: {str(fallback_error)}")
+                    st.code(str(fallback_error), language="python")
         
         # ============= FUNDAMENTAL CHECKS =============
         st.markdown("---")
