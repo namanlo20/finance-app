@@ -5673,13 +5673,8 @@ elif selected_page == "📖 Basics":
     # Non-blocking setup nudge card (optional on Basics)
     render_setup_nudge()
     
-    # Page Header
-    st.markdown("""
-    <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 30px; border-radius: 15px; margin-bottom: 30px; text-align: center;">
-        <h1 style="color: #FFFFFF; margin: 0; font-size: 2.5em;">Basics</h1>
-        <p style="color: #B0B0B0; margin-top: 10px; font-size: 1.2em;">Learn how investing actually works — without the BS.</p>
-    </div>
-    """, unsafe_allow_html=True)
+    # Robinhood-style header
+    _render_robinhood_header()
     
     # Profile Summary Chip
     profile = st.session_state.user_profile
@@ -5724,7 +5719,7 @@ elif selected_page == "📖 Basics":
             st.success("🎉 **Amazing work!** Create a free account to save your achievement and access more features.")
     
     # Robinhood-style progress header (XP / Level / Badges)
-    _render_robinhood_header()
+    # _render_robinhood_header()
 
     # Define all lessons structure
     lessons_structure = {
