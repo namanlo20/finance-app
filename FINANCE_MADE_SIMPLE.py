@@ -2357,6 +2357,26 @@ def get_historical_price(ticker, years=5):
     return pd.DataFrame()
 
 @st.cache_data(ttl=3600)
+def get_historical_ohlc(ticker, years=5):
+    """Get historical OHLC data for candlestick charts"""
+    url = f"{BASE_URL}/historical-price-full/{ticker}?apikey={FMP_API_KEY}"
+    try:
+        response = requests.get(url, timeout=15)
+        data = response.json()
+        if data and 'historical' in data:
+            df = pd.DataFrame(data['historical'])
+            df['date'] = pd.to_datetime(df['date'])
+            df = df.sort_values('date')
+            cutoff = datetime.now() - timedelta(days=years*365)
+            df = df[df['date'] >= cutoff]
+            # Rename columns to lowercase for consistency
+            df = df.rename(columns={'open': 'open', 'high': 'high', 'low': 'low', 'close': 'close', 'volume': 'volume'})
+            return df
+    except:
+        pass
+    return pd.DataFrame()
+
+@st.cache_data(ttl=3600)
 def get_price_target(ticker):
     """Get price target consensus"""
     url = f"{BASE_URL}/price-target-consensus?symbol={ticker}&apikey={FMP_API_KEY}"
@@ -9629,9 +9649,9 @@ elif selected_page == "📊 Pro Checklist":
         days = timeframe_days.get(timeframe, 365)
         years = days / 365.0
         
-        # Use the EXISTING Company Analysis function that already works!
-        st.write(f"DEBUG: Using get_historical_price for {ticker_check}, {years:.1f} years")
-        price_history = get_historical_price(ticker_check, years)
+        # Use the OHLC function for candlestick support!
+        st.write(f"DEBUG: Using get_historical_ohlc for {ticker_check}, {years:.1f} years")
+        price_history = get_historical_ohlc(ticker_check, years)
         
         if price_history.empty:
             st.error(f"❌ No price data available for {ticker_check}")
@@ -9667,15 +9687,15 @@ elif selected_page == "📊 Pro Checklist":
                         low=price_history['low'],
                         close=price_history['close'],
                         name='Price',
-                        increasing_line_color='#00D9FF',
-                        decreasing_line_color='#FF4444'
+                        increasing_line_color='#00FF00',  # GREEN for up days
+                        decreasing_line_color='#FF4444'   # RED for down days
                     ),
                     row=1, col=1
                 )
                 
                 # Add volume if available and requested
                 if show_volume and 'volume' in price_history.columns:
-                    colors = ['#00D9FF' if price_history['close'].iloc[i] >= price_history['open'].iloc[i] else '#FF4444' 
+                    colors = ['#00FF00' if price_history['close'].iloc[i] >= price_history['open'].iloc[i] else '#FF4444' 
                               for i in range(len(price_history))]
                     
                     fig_price.add_trace(
@@ -9713,30 +9733,36 @@ elif selected_page == "📊 Pro Checklist":
             
             if show_sma50 and len(price_history) >= 50:
                 sma50 = price_history[close_col].rolling(window=50).mean()
-                fig_price.add_trace(
-                    go.Scatter(
-                        x=price_history['date'],
-                        y=sma50,
-                        mode='lines',
-                        name='SMA 50',
-                        line=dict(color='#FFA500', width=2)
-                    ),
-                    row=1, col=1
+                sma_trace_50 = go.Scatter(
+                    x=price_history['date'],
+                    y=sma50,
+                    mode='lines',
+                    name='SMA 50',
+                    line=dict(color='#FFA500', width=2)
                 )
+                
+                if has_ohlc:
+                    fig_price.add_trace(sma_trace_50, row=1, col=1)
+                else:
+                    fig_price.add_trace(sma_trace_50)
+                
                 st.success("✅ Added SMA 50")
             
             if show_sma200 and len(price_history) >= 200:
                 sma200 = price_history[close_col].rolling(window=200).mean()
-                fig_price.add_trace(
-                    go.Scatter(
-                        x=price_history['date'],
-                        y=sma200,
-                        mode='lines',
-                        name='SMA 200',
-                        line=dict(color='#9D4EDD', width=2)
-                    ),
-                    row=1, col=1
+                sma_trace_200 = go.Scatter(
+                    x=price_history['date'],
+                    y=sma200,
+                    mode='lines',
+                    name='SMA 200',
+                    line=dict(color='#9D4EDD', width=2)
                 )
+                
+                if has_ohlc:
+                    fig_price.add_trace(sma_trace_200, row=1, col=1)
+                else:
+                    fig_price.add_trace(sma_trace_200)
+                
                 st.success("✅ Added SMA 200")
             
             # Update layout (same as Company Analysis)
