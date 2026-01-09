@@ -6171,19 +6171,19 @@ elif selected_page == "📖 Basics":
         # image (safe if missing) - compact Robinhood/Duolingo style
         img_path = data.get("image")
         if img_path and os.path.exists(img_path):
-            # Wrap image in custom container for size control (compact 25vh)
+            # Wrap image in custom container for size control (ultra-compact 16vh)
             st.markdown("""
             <style>
             .lesson-image-container {
                 display: flex;
                 justify-content: center;
                 align-items: center;
-                margin: 15px 0;
-                max-height: 25vh;
+                margin: 10px 0;
+                max-height: 16vh;
                 overflow: hidden;
             }
             .lesson-image-container img {
-                max-height: 25vh;
+                max-height: 16vh;
                 max-width: 100%;
                 width: auto;
                 height: auto;
@@ -6194,8 +6194,8 @@ elif selected_page == "📖 Basics":
             </style>
             """, unsafe_allow_html=True)
             
-            # Render image WITHOUT use_container_width (prevents huge vertical expansion)
-            st.image(img_path, use_column_width=False)
+            # Render image with width parameter (no deprecation warning)
+            st.image(img_path, width=None)
 
         st.markdown(f"**Goal:** {data.get('goal','')}")
         st.markdown("**Core idea**")
@@ -6462,19 +6462,17 @@ elif selected_page == "📚 Finance 101":
          "example": "Good: Apple — ratio > 1, can survive any storm. Bad: Startups pre-profitability — often < 0.5, vulnerable to funding freezes"}
     ]
     
-    # Display as cards in a grid
-    col1, col2 = st.columns(2)
+    # Display as vertical cards (ranked from most to least important)
     for i, metric in enumerate(metrics_data):
-        with col1 if i % 2 == 0 else col2:
-            st.markdown(f"""
-            <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 20px; border-radius: 12px; margin-bottom: 15px; border-left: 4px solid #FF4444;">
-                <div style="font-size: 28px; margin-bottom: 8px;">{metric['icon']}</div>
-                <h4 style="color: #FFFFFF; margin: 0 0 8px 0;">#{i+1}: {metric['name']}</h4>
-                <p style="color: #B0B0B0; margin: 0 0 8px 0; font-size: 14px;">{metric['definition']}</p>
-                <p style="color: #FF6B6B; margin: 0 0 8px 0; font-size: 13px;"><strong>Why it matters:</strong> {metric['why']}</p>
-                <p style="color: #4ECDC4; margin: 0; font-size: 12px;"><em>{metric['example']}</em></p>
-            </div>
-            """, unsafe_allow_html=True)
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 20px; border-radius: 12px; margin-bottom: 15px; border-left: 4px solid #FF4444;">
+            <div style="font-size: 28px; margin-bottom: 8px;">{metric['icon']}</div>
+            <h4 style="color: #FFFFFF; margin: 0 0 8px 0;">#{i+1}: {metric['name']}</h4>
+            <p style="color: #B0B0B0; margin: 0 0 8px 0; font-size: 14px;">{metric['definition']}</p>
+            <p style="color: #FF6B6B; margin: 0 0 8px 0; font-size: 13px;"><strong>Why it matters:</strong> {metric['why']}</p>
+            <p style="color: #4ECDC4; margin: 0; font-size: 12px;"><em>{metric['example']}</em></p>
+        </div>
+        """, unsafe_allow_html=True)
     
     # Micro-quiz for Top 5 Metrics (E)
     with st.expander("📝 Quick Quiz: Test Your Knowledge"):
