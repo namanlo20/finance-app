@@ -2358,64 +2358,33 @@ def get_historical_price(ticker, years=5):
 
 @st.cache_data(ttl=3600)
 def get_historical_ohlc(ticker, years=5):
-    """Get historical OHLC data for candlestick charts - tries multiple endpoints"""
+    """Get historical OHLC data for candlestick charts from FMP"""
     
-    # Try different endpoints in order of preference
-    endpoints = [
-        # Try historical-price-eod (might have OHLC)
-        (f"{BASE_URL}/historical-price-eod/{ticker}?apikey={FMP_API_KEY}", "EOD"),
-        # Fallback to quote endpoint with extended history
-        (f"{BASE_URL}/historical-chart/1day/{ticker}?apikey={FMP_API_KEY}", "1day"),
-    ]
+    # Use the CORRECT endpoint from FMP docs: /historical-price-eod/full
+    url = f"{BASE_URL}/historical-price-eod/full?symbol={ticker}&apikey={FMP_API_KEY}"
     
-    for url, name in endpoints:
-        try:
-            st.write(f"DEBUG: Trying {name} endpoint: {url[:80]}...")
-            response = requests.get(url, timeout=15)
-            data = response.json()
-            
-            if not data or (isinstance(data, dict) and 'Error Message' in data):
-                st.warning(f"DEBUG: {name} endpoint returned error or empty")
-                continue
-            
-            # Check if it's a list or dict with historical
-            if isinstance(data, list) and len(data) > 0:
-                df = pd.DataFrame(data)
-            elif isinstance(data, dict) and 'historical' in data:
-                df = pd.DataFrame(data['historical'])
-            else:
-                st.warning(f"DEBUG: {name} endpoint unexpected format")
-                continue
+    try:
+        st.write(f"DEBUG: Trying FMP EOD FULL endpoint: {url[:80]}...")
+        response = requests.get(url, timeout=15)
+        data = response.json()
+        
+        if data and isinstance(data, list) and len(data) > 0:
+            st.write(f"DEBUG: Got {len(data)} records")
+            df = pd.DataFrame(data)
+            st.write(f"DEBUG: Columns: {df.columns.tolist()}")
             
             if not df.empty:
-                st.write(f"DEBUG: {name} returned {len(df)} rows, columns: {df.columns.tolist()}")
                 df['date'] = pd.to_datetime(df['date'])
                 df = df.sort_values('date')
                 cutoff = datetime.now() - timedelta(days=years*365)
                 df = df[df['date'] >= cutoff]
-                st.success(f"✅ Using {name} endpoint: {len(df)} rows")
+                st.success(f"✅ Loaded {len(df)} rows with OHLC data!")
                 return df
-        except Exception as e:
-            st.error(f"DEBUG: {name} exception: {str(e)}")
+        else:
+            st.warning(f"DEBUG: Unexpected response: {str(data)[:200]}")
+    except Exception as e:
+        st.error(f"DEBUG: Error: {str(e)}")
     
-    # Final fallback: use the WORKING historical-price-eod/light endpoint
-    st.info("DEBUG: Falling back to working light endpoint (line chart)")
-    try:
-        url = f"{BASE_URL}/historical-price-eod/light?symbol={ticker}&apikey={FMP_API_KEY}"
-        response = requests.get(url, timeout=15)
-        data = response.json()
-        if data and isinstance(data, list):
-            df = pd.DataFrame(data)
-            df['date'] = pd.to_datetime(df['date'])
-            df = df.sort_values('date')
-            cutoff = datetime.now() - timedelta(days=years*365)
-            df = df[df['date'] >= cutoff]
-            st.success(f"✅ Fallback successful: {len(df)} rows")
-            return df
-    except:
-        pass
-    
-    st.error("❌ All endpoints failed")
     return pd.DataFrame()
 
 @st.cache_data(ttl=3600)
@@ -9708,6 +9677,9 @@ elif selected_page == "📊 Pro Checklist":
             
             # Create chart (candlestick if we have OHLC, line chart if only close)
             has_ohlc = all(col in price_history.columns for col in ['open', 'high', 'low', 'close'])
+            
+            # Initialize num_rows (used for layout height calculation)
+            num_rows = 1
             
             if has_ohlc:
                 st.info("✅ Full OHLC data available - rendering candlesticks")
