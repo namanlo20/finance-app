@@ -9565,22 +9565,41 @@ elif selected_page == "📊 Pro Checklist":
         st.write("")  # Spacing
         analyze_button = st.button("Analyze", key="checklist_analyze", use_container_width=True)
     
+    # DEBUG: Show button state
+    st.write(f"🔍 DEBUG OUTSIDE IF: analyze_button={analyze_button}, checklist_analyzed={st.session_state.get('checklist_analyzed', False)}")
+    
     # ============= ANALYSIS SECTION =============
     if analyze_button or st.session_state.checklist_analyzed:
         st.session_state.checklist_analyzed = True
         
+        # DEBUG: Show we entered this block
+        st.info(f"🔍 DEBUG: Analyze button clicked! Processing ticker: {ticker_check}")
+        st.write(f"DEBUG: Timeframe={timeframe}, Interval={interval}")
+        
         # Resolve ticker
+        st.write(f"DEBUG: Attempting to resolve ticker '{ticker_check}'...")
         resolved_ticker = resolve_company_to_ticker(ticker_check)
+        st.write(f"DEBUG: Resolved ticker result: {resolved_ticker}")
+        
         if not resolved_ticker:
-            st.error(f"Could not find ticker: {ticker_check}")
+            st.error(f"❌ Could not find ticker: {ticker_check}")
+            st.warning("Try using the exact ticker symbol (e.g., GOOGL not GOOG)")
             st.stop()
         
         ticker_check = resolved_ticker
+        st.success(f"✅ Resolved to: {ticker_check}")
         
         # Get data
+        st.write(f"DEBUG: Fetching quote data for {ticker_check}...")
         quote = get_quote(ticker_check)
+        st.write(f"DEBUG: Quote result: {quote is not None}")
+        
         if not quote:
-            st.error(f"Could not fetch data for {ticker_check}")
+            st.error(f"❌ Could not fetch data for {ticker_check}")
+            st.warning("This might be due to:")
+            st.write("- API rate limit")
+            st.write("- Invalid ticker")
+            st.write("- Network issue")
             st.stop()
         
         st.subheader(f"📊 {quote.get('name', ticker_check)} ({ticker_check})")
