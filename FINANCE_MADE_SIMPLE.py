@@ -6168,10 +6168,34 @@ elif selected_page == "📖 Basics":
             st.info("Lesson content missing — add it to LESSON_CONTENT.")
             return
 
-        # image (safe if missing)
+        # image (safe if missing) - compact Robinhood/Duolingo style
         img_path = data.get("image")
         if img_path and os.path.exists(img_path):
-            st.image(img_path, use_container_width=True)
+            # Wrap image in custom container for size control
+            st.markdown("""
+            <style>
+            .lesson-image-container {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                margin: 20px 0;
+                max-height: 35vh;
+                overflow: hidden;
+            }
+            .lesson-image-container img {
+                max-height: 35vh;
+                max-width: 100%;
+                width: auto;
+                height: auto;
+                object-fit: contain;
+                border-radius: 12px;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            }
+            </style>
+            """, unsafe_allow_html=True)
+            
+            # Render image WITHOUT use_container_width (prevents huge vertical expansion)
+            st.image(img_path, use_column_width=False)
 
         st.markdown(f"**Goal:** {data.get('goal','')}")
         st.markdown("**Core idea**")
