@@ -1018,6 +1018,86 @@ FINANCIAL_METRICS_EXPLAINED = {
     }
 }
 
+
+# ============= GAMIFICATION HELPERS (Robinhood-style) =============
+def _ensure_basics_gamification_state():
+    if "basics_xp" not in st.session_state:
+        # If user has completions already, give baseline XP so progress doesn't feel empty
+        st.session_state.basics_xp = len(st.session_state.get("completed_lessons", set())) * 10
+    if "basics_badges" not in st.session_state:
+        st.session_state.basics_badges = set()
+    if "checkpoint_passed" not in st.session_state:
+        st.session_state.checkpoint_passed = set()
+    if "last_confetti_ts" not in st.session_state:
+        st.session_state.last_confetti_ts = 0
+
+def _award_xp(amount: int, reason: str = ""):
+    _ensure_basics_gamification_state()
+    st.session_state.basics_xp = int(st.session_state.basics_xp) + int(amount)
+    if reason:
+        try:
+            st.toast(f"+{amount} XP — {reason}")
+        except Exception:
+            pass
+
+def _level_from_xp(xp: int) -> int:
+    return max(1, int(xp) // 100 + 1)
+
+def _show_confetti_once(key: str):
+    """
+    Robinhood-style "confetti": we use a lightweight HTML/CSS burst + Streamlit balloons fallback.
+    """
+    now = int(time.time())
+    # Debounce so reruns don't spam confetti
+    if st.session_state.get("last_confetti_ts", 0) + 4 > now:
+        return
+    st.session_state.last_confetti_ts = now
+
+    confetti_html = """
+    <style>
+    .confetti-wrap{position:fixed;left:0;top:0;width:100vw;height:100vh;pointer-events:none;z-index:9999;overflow:hidden;}
+    .confetti{position:absolute;top:-10px;width:10px;height:16px;opacity:.95;animation:fall 1.8s linear forwards;}
+    @keyframes fall{
+      0%{transform:translateY(0) rotate(0deg);opacity:1}
+      100%{transform:translateY(110vh) rotate(720deg);opacity:0}
+    }
+    </style>
+    <div class="confetti-wrap">
+    """ + "".join([
+        f'<div class="confetti" style="left:{i*5 % 100}vw; animation-delay:{(i%12)*0.05}s; background:rgb({255},{random.randint(30,80)},{random.randint(30,80)}); border-radius:{random.choice([2,8,50])}px;"></div>'
+        for i in range(80)
+    ]) + "</div>"
+    st.markdown(confetti_html, unsafe_allow_html=True)
+    try:
+        st.balloons()
+    except Exception:
+        pass
+
+def _render_robinhood_header():
+    _ensure_basics_gamification_state()
+    xp = int(st.session_state.basics_xp)
+    lvl = _level_from_xp(xp)
+    next_lvl_xp = lvl * 100
+    progress = min(1.0, xp / next_lvl_xp) if next_lvl_xp else 0.0
+
+    c1, c2, c3 = st.columns([1.1, 1.1, 1.8])
+    with c1:
+        st.markdown(f"### 🧩 Level {lvl}")
+        st.progress(progress)
+        st.caption(f"{xp} XP • Next level at {next_lvl_xp} XP")
+    with c2:
+        badges = st.session_state.get("basics_badges", set())
+        st.markdown("### 🏅 Badges")
+        if badges:
+            st.write(" ".join([f"`M{b}`" for b in sorted(badges)]))
+        else:
+            st.caption("Finish a module checkpoint to earn badges.")
+    with c3:
+        st.markdown("### 🔥 Momentum")
+        st.caption("Keep it simple: 1 lesson at a time. Finish a checkpoint to unlock a badge.")
+
+# ============= END GAMIFICATION HELPERS =============
+
 def get_metric_explanation(metric_key):
     """Get simple explanation for any metric"""
     # Normalize the key
@@ -6081,94 +6161,6 @@ elif selected_page == "📖 Basics":
             ],
         },
     }
-
-    def _ensure_basics_gamification_state():
-        if "basics_xp" not in st.session_state:
-            # If user has completions already, give baseline XP so progress doesn't feel empty
-            st.session_state.basics_xp = len(st.session_state.get("completed_lessons", set())) * 10
-        if "basics_badges" not in st.session_state:
-            st.session_state.basics_badges = set()
-        if "checkpoint_passed" not in st.session_state:
-            st.session_state.checkpoint_passed = set()
-        if "last_confetti_ts" not in st.session_state:
-            st.session_state.last_confetti_ts = 0
-
-    def _award_xp(amount: int, reason: str = ""):
-        _ensure_basics_gamification_state()
-        st.session_state.basics_xp = int(st.session_state.basics_xp) + int(amount)
-        if reason:
-            try:
-                st.toast(f"+{amount} XP — {reason}")
-            except Exception:
-                pass
-
-    def _level_from_xp(xp: int) -> int:
-        return max(1, int(xp) // 100 + 1)
-
-    def _show_confetti_once(key: str):
-        """
-        Robinhood-style "confetti": we use a lightweight HTML/CSS burst + Streamlit balloons fallback.
-        """
-        now = int(time.time())
-        # Debounce so reruns don't spam confetti
-        if st.session_state.get("last_confetti_ts", 0) + 4 > now:
-            return
-        st.session_state.last_confetti_ts = now
-
-        confetti_html = """
-        <style>
-        .confetti-wrap{position:fixed;left:0;top:0;width:100vw;height:100vh;pointer-events:none;z-index:9999;overflow:hidden;}
-        .confetti{position:absolute;top:-10px;width:10px;height:16px;opacity:.95;animation:fall 1.8s linear forwards;}
-        @keyframes fall{
-          0%{transform:translateY(0) rotate(0deg);opacity:1}
-          100%{transform:translateY(110vh) rotate(720deg);opacity:0}
-        }
-        </style>
-        <div class="confetti-wrap">
-        """ + "".join([
-            f'<div class="confetti" style="left:{i*5 % 100}vw; animation-delay:{(i%12)*0.05}s; background:rgb({255},{random.randint(30,80)},{random.randint(30,80)}); border-radius:{random.choice([2,8,50])}px;"></div>'
-            for i in range(80)
-        ]) + "</div>"
-        st.markdown(confetti_html, unsafe_allow_html=True)
-        try:
-            st.balloons()
-        except Exception:
-            pass
-    def _ensure_basics_gamification_state():
-        if "basics_xp" not in st.session_state:
-            st.session_state.basics_xp = 0
-        if "basics_badges" not in st.session_state:
-            st.session_state.basics_badges = set()
-
-    def _level_from_xp(xp: int) -> int:
-        try:
-            xp = int(xp)
-        except Exception:
-            xp = 0
-        return max(1, (xp // 100) + 1)
-
-    def _render_robinhood_header():
-        _ensure_basics_gamification_state()
-        xp = int(st.session_state.basics_xp)
-        lvl = _level_from_xp(xp)
-        next_lvl_xp = lvl * 100
-        progress = min(1.0, xp / next_lvl_xp) if next_lvl_xp else 0.0
-
-        c1, c2, c3 = st.columns([1.1, 1.1, 1.8])
-        with c1:
-            st.markdown(f"### 🧩 Level {lvl}")
-            st.progress(progress)
-            st.caption(f"{xp} XP • Next level at {next_lvl_xp} XP")
-        with c2:
-            badges = st.session_state.get("basics_badges", set())
-            st.markdown("### 🏅 Badges")
-            if badges:
-                st.write(" ".join([f"`M{b}`" for b in sorted(badges)]))
-            else:
-                st.caption("Finish a module checkpoint to earn badges.")
-        with c3:
-            st.markdown("### 🔥 Momentum")
-            st.caption("Keep it simple: 1 lesson at a time. Finish a checkpoint to unlock a badge.")
 
     def _render_lesson_content(lesson_id: str):
         data = LESSON_CONTENT.get(lesson_id)
