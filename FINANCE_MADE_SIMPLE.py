@@ -2358,42 +2358,64 @@ def get_historical_price(ticker, years=5):
 
 @st.cache_data(ttl=3600)
 def get_historical_ohlc(ticker, years=5):
-    """Get historical OHLC data for candlestick charts"""
+    """Get historical OHLC data for candlestick charts - tries multiple endpoints"""
     
-    # Try v3 endpoint first (more reliable for historical data)
-    urls_to_try = [
-        f"https://financialmodelingprep.com/api/v3/historical-price-full/{ticker}?apikey={FMP_API_KEY}",
-        f"{BASE_URL}/historical-price-full/{ticker}?apikey={FMP_API_KEY}"
+    # Try different endpoints in order of preference
+    endpoints = [
+        # Try historical-price-eod (might have OHLC)
+        (f"{BASE_URL}/historical-price-eod/{ticker}?apikey={FMP_API_KEY}", "EOD"),
+        # Fallback to quote endpoint with extended history
+        (f"{BASE_URL}/historical-chart/1day/{ticker}?apikey={FMP_API_KEY}", "1day"),
     ]
     
-    for i, url in enumerate(urls_to_try):
+    for url, name in endpoints:
         try:
-            st.write(f"DEBUG OHLC: Trying endpoint {i+1}: {url[:80]}...")
+            st.write(f"DEBUG: Trying {name} endpoint: {url[:80]}...")
             response = requests.get(url, timeout=15)
             data = response.json()
             
-            st.write(f"DEBUG OHLC: Response type = {type(data)}")
-            if isinstance(data, dict):
-                st.write(f"DEBUG OHLC: Response keys = {list(data.keys())}")
+            if not data or (isinstance(data, dict) and 'Error Message' in data):
+                st.warning(f"DEBUG: {name} endpoint returned error or empty")
+                continue
             
-            if data and isinstance(data, dict) and 'historical' in data:
-                st.write(f"DEBUG OHLC: Found 'historical' key with {len(data['historical'])} items")
+            # Check if it's a list or dict with historical
+            if isinstance(data, list) and len(data) > 0:
+                df = pd.DataFrame(data)
+            elif isinstance(data, dict) and 'historical' in data:
                 df = pd.DataFrame(data['historical'])
-                
-                if not df.empty:
-                    st.write(f"DEBUG OHLC: DataFrame columns = {df.columns.tolist()}")
-                    df['date'] = pd.to_datetime(df['date'])
-                    df = df.sort_values('date')
-                    cutoff = datetime.now() - timedelta(days=years*365)
-                    df = df[df['date'] >= cutoff]
-                    st.write(f"DEBUG OHLC: After date filter, {len(df)} rows remain")
-                    return df
             else:
-                st.warning(f"DEBUG OHLC: Endpoint {i+1} failed. Response preview: {str(data)[:200]}")
+                st.warning(f"DEBUG: {name} endpoint unexpected format")
+                continue
+            
+            if not df.empty:
+                st.write(f"DEBUG: {name} returned {len(df)} rows, columns: {df.columns.tolist()}")
+                df['date'] = pd.to_datetime(df['date'])
+                df = df.sort_values('date')
+                cutoff = datetime.now() - timedelta(days=years*365)
+                df = df[df['date'] >= cutoff]
+                st.success(f"✅ Using {name} endpoint: {len(df)} rows")
+                return df
         except Exception as e:
-            st.error(f"DEBUG OHLC: Endpoint {i+1} exception = {str(e)}")
+            st.error(f"DEBUG: {name} exception: {str(e)}")
     
-    st.error("DEBUG OHLC: All endpoints failed, returning empty DataFrame")
+    # Final fallback: use the WORKING historical-price-eod/light endpoint
+    st.info("DEBUG: Falling back to working light endpoint (line chart)")
+    try:
+        url = f"{BASE_URL}/historical-price-eod/light?symbol={ticker}&apikey={FMP_API_KEY}"
+        response = requests.get(url, timeout=15)
+        data = response.json()
+        if data and isinstance(data, list):
+            df = pd.DataFrame(data)
+            df['date'] = pd.to_datetime(df['date'])
+            df = df.sort_values('date')
+            cutoff = datetime.now() - timedelta(days=years*365)
+            df = df[df['date'] >= cutoff]
+            st.success(f"✅ Fallback successful: {len(df)} rows")
+            return df
+    except:
+        pass
+    
+    st.error("❌ All endpoints failed")
     return pd.DataFrame()
 
 @st.cache_data(ttl=3600)
@@ -9649,12 +9671,14 @@ elif selected_page == "📊 Pro Checklist":
         st.markdown("### 📈 Price Chart with Technical Indicators")
         
         # Overlay checkboxes
-        col_check1, col_check2, col_check3 = st.columns(3)
+        col_check1, col_check2, col_check3, col_check4 = st.columns(4)
         with col_check1:
             show_sma50 = st.checkbox("SMA 50", value=True, key="show_sma50")
         with col_check2:
             show_sma200 = st.checkbox("SMA 200", value=True, key="show_sma200")
         with col_check3:
+            show_rsi = st.checkbox("RSI", value=True, key="show_rsi")
+        with col_check4:
             show_volume = st.checkbox("Volume", value=True, key="show_volume")
         
         # Calculate days to fetch based on timeframe
@@ -9688,14 +9712,35 @@ elif selected_page == "📊 Pro Checklist":
             if has_ohlc:
                 st.info("✅ Full OHLC data available - rendering candlesticks")
                 
-                # Create candlestick chart
+                # Determine number of rows based on indicators
+                num_rows = 1  # Price chart always present
+                row_heights = []
+                subplot_titles_list = [f'{ticker_check} Price']
+                
+                if show_rsi:
+                    num_rows += 1
+                    subplot_titles_list.append('RSI (14)')
+                
+                if show_volume and 'volume' in price_history.columns:
+                    num_rows += 1
+                    subplot_titles_list.append('Volume')
+                
+                # Calculate row heights
+                if num_rows == 1:
+                    row_heights = [1.0]
+                elif num_rows == 2:
+                    row_heights = [0.7, 0.3]
+                else:  # 3 rows
+                    row_heights = [0.6, 0.2, 0.2]
+                
+                # Create candlestick chart with dynamic rows
                 fig_price = make_subplots(
-                    rows=2 if show_volume else 1,
+                    rows=num_rows,
                     cols=1,
                     shared_xaxes=True,
                     vertical_spacing=0.03,
-                    row_heights=[0.7, 0.3] if show_volume else [1.0],
-                    subplot_titles=(f'{ticker_check} Price', 'Volume') if show_volume else (f'{ticker_check} Price',)
+                    row_heights=row_heights,
+                    subplot_titles=tuple(subplot_titles_list)
                 )
                 
                 # Add candlestick
@@ -9718,6 +9763,9 @@ elif selected_page == "📊 Pro Checklist":
                     colors = ['#00FF00' if price_history['close'].iloc[i] >= price_history['open'].iloc[i] else '#FF4444' 
                               for i in range(len(price_history))]
                     
+                    # Determine which row for volume (last row)
+                    volume_row = num_rows
+                    
                     fig_price.add_trace(
                         go.Bar(
                             x=price_history['date'],
@@ -9726,7 +9774,7 @@ elif selected_page == "📊 Pro Checklist":
                             marker_color=colors,
                             opacity=0.5
                         ),
-                        row=2, col=1
+                        row=volume_row, col=1
                     )
                 
             else:
@@ -9785,12 +9833,46 @@ elif selected_page == "📊 Pro Checklist":
                 
                 st.success("✅ Added SMA 200")
             
+            # Add RSI (Relative Strength Index)
+            if show_rsi and len(price_history) >= 14:
+                # Calculate RSI
+                close_col = 'close' if 'close' in price_history.columns else 'price'
+                delta = price_history[close_col].diff()
+                gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+                loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+                rs = gain / loss
+                rsi = 100 - (100 / (1 + rs))
+                
+                # Determine RSI row number
+                rsi_row = 2 if show_rsi else None
+                if rsi_row and has_ohlc:
+                    # Add RSI line
+                    fig_price.add_trace(
+                        go.Scatter(
+                            x=price_history['date'],
+                            y=rsi,
+                            mode='lines',
+                            name='RSI',
+                            line=dict(color='#FFD700', width=2)  # Gold color
+                        ),
+                        row=rsi_row, col=1
+                    )
+                    
+                    # Add overbought/oversold lines
+                    fig_price.add_hline(y=70, line_dash="dash", line_color="red", opacity=0.5, row=rsi_row, col=1)
+                    fig_price.add_hline(y=30, line_dash="dash", line_color="green", opacity=0.5, row=rsi_row, col=1)
+                    
+                    # Update RSI y-axis
+                    fig_price.update_yaxes(title_text="RSI", range=[0, 100], row=rsi_row, col=1)
+                    
+                    st.success("✅ Added RSI (14)")
+            
             # Update layout (same as Company Analysis)
             fig_price.update_layout(
                 title=f"{ticker_check} Price History ({timeframe})",
                 xaxis_title="Date",
                 yaxis_title="Price ($)",
-                height=600 if show_volume else 500,
+                height=700 if num_rows == 3 else (600 if num_rows == 2 else 500),
                 template='plotly_dark',
                 margin=dict(l=0, r=0, t=40, b=0),
                 hovermode='x unified',
@@ -9798,10 +9880,11 @@ elif selected_page == "📊 Pro Checklist":
                 xaxis_rangeslider_visible=False
             )
             
-            if show_volume and has_ohlc:
-                fig_price.update_xaxes(title_text="Date", row=2, col=1)
+            # Update axis labels based on number of rows
+            if has_ohlc:
                 fig_price.update_yaxes(title_text="Price ($)", row=1, col=1)
-                fig_price.update_yaxes(title_text="Volume", row=2, col=1)
+                if show_volume:
+                    fig_price.update_yaxes(title_text="Volume", row=num_rows, col=1)
             
             # Display chart (same as Company Analysis)
             st.plotly_chart(fig_price, use_container_width=True)
