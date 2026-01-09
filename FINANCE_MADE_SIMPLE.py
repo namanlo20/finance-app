@@ -5330,7 +5330,7 @@ with st.sidebar:
     with st.expander("### 3. 🎯 The Action Group", expanded=False):
         st.caption("Track your progress")
         action_tools = [
-            "📋 Investment Checklist",
+            "📊 Pro Checklist",
             "💼 Paper Portfolio",
             "👤 Naman's Portfolio",
             "📜 Founder Track Record"
@@ -9494,8 +9494,42 @@ elif selected_page == "👑 Become a VIP":
     st.caption("*Pricing subject to change. No credit card required for waitlist. This is not financial advice.*")
 
 
-elif selected_page == "📋 Investment Checklist":
-    st.header("Investment Checklist")
+elif selected_page == "📊 Pro Checklist":
+    st.header("📊 Pro Checklist")
+    st.caption("*Advanced technical analysis + fundamental screening*")
+    
+    # ============= TIER CHECK =============
+    user_tier = st.session_state.get("subscription_tier", "free")
+    is_founder = st.session_state.get("is_founder", False)
+    is_pro_or_higher = user_tier in ["pro", "ultimate"] or is_founder
+    
+    # Disclaimer box (always visible)
+    st.markdown("""
+    <div style="background: rgba(255,165,0,0.1); padding: 15px; border-radius: 8px; border-left: 4px solid #FFA500; margin-bottom: 20px;">
+        <p style="margin: 0; color: #FFA500; font-size: 13px;">
+            <strong>⚠️ Educational Only — Not Financial Advice</strong><br>
+            This checklist helps you think in two lanes: (1) Business conviction and (2) Timing/momentum.<br>
+            <em>Signals can conflict — that's normal.</em>
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # ============= PRO TIER GATE =============
+    if not is_pro_or_higher:
+        st.warning("🔒 **Pro Checklist is a PRO/Ultimate feature**")
+        st.markdown("""
+        This feature includes:
+        - 📈 Interactive candlestick charts
+        - 📊 Technical indicators (SMA 50/200, volume)
+        - ⏰ Multi-timeframe analysis (3M, 6M, 1Y, 2Y, 5Y)
+        - ✅ Enhanced fundamental screening
+        
+        **Upgrade to PRO or Ultimate to unlock!**
+        """)
+        st.stop()
+    
+    # ============= PRO USER CONTENT =============
+    st.success("✅ Pro Checklist unlocked!")
     
     # Progress Bar for Investment Checklist
     if 'checklist_analyzed' not in st.session_state:
@@ -9506,66 +9540,308 @@ elif selected_page == "📋 Investment Checklist":
     checklist_total = 1
     render_progress_bar(checklist_current, checklist_total, "Checklist Progress")
     
-    st.write("Quick check before investing")
+    # ============= INPUT ROW =============
+    col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
     
-    ticker_check = st.text_input("Enter ticker:", value=st.session_state.selected_ticker, key="checklist_ticker")
+    with col1:
+        ticker_check = st.text_input("Ticker or Company Name:", value=st.session_state.selected_ticker, key="checklist_ticker")
     
-    if st.button("Analyze", key="checklist_analyze"):
+    with col2:
+        timeframe = st.selectbox("Timeframe", ["3M", "6M", "1Y", "2Y", "5Y"], index=2, key="checklist_timeframe")
+    
+    with col3:
+        # Interval options based on timeframe
+        if timeframe in ["3M", "6M"]:
+            interval_options = ["1D"]
+            default_interval = "1D"
+        else:  # 1Y, 2Y, 5Y
+            interval_options = ["1D", "1W"]
+            default_interval = "1D"
+        
+        interval = st.selectbox("Interval", interval_options, index=0, key="checklist_interval")
+    
+    with col4:
+        st.write("")  # Spacing
+        st.write("")  # Spacing
+        analyze_button = st.button("Analyze", key="checklist_analyze", use_container_width=True)
+    
+    # ============= ANALYSIS SECTION =============
+    if analyze_button or st.session_state.checklist_analyzed:
         st.session_state.checklist_analyzed = True
+        
+        # Resolve ticker
+        resolved_ticker = resolve_company_to_ticker(ticker_check)
+        if not resolved_ticker:
+            st.error(f"Could not find ticker: {ticker_check}")
+            st.stop()
+        
+        ticker_check = resolved_ticker
+        
+        # Get data
         quote = get_quote(ticker_check)
+        if not quote:
+            st.error(f"Could not fetch data for {ticker_check}")
+            st.stop()
+        
+        st.subheader(f"📊 {quote.get('name', ticker_check)} ({ticker_check})")
+        
+        # ============= CANDLESTICK CHART =============
+        st.markdown("---")
+        st.markdown("### 📈 Price Chart with Technical Indicators")
+        
+        # Overlay checkboxes
+        col_check1, col_check2, col_check3 = st.columns(3)
+        with col_check1:
+            show_sma50 = st.checkbox("SMA 50", value=True, key="show_sma50")
+        with col_check2:
+            show_sma200 = st.checkbox("SMA 200", value=True, key="show_sma200")
+        with col_check3:
+            show_volume = st.checkbox("Volume", value=True, key="show_volume")
+        
+        # Calculate days to fetch based on timeframe
+        timeframe_days = {
+            "3M": 90,
+            "6M": 180,
+            "1Y": 365,
+            "2Y": 730,
+            "5Y": 1825
+        }
+        
+        days = timeframe_days.get(timeframe, 365)
+        
+        # Fetch OHLCV data from FMP
+        try:
+            # Get historical price data
+            from_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+            to_date = datetime.now().strftime("%Y-%m-%d")
+            
+            # FMP historical price endpoint
+            historical_url = f"{BASE_URL}/chart/{interval.lower()}/{ticker_check}?from={from_date}&to={to_date}&apikey={FMP_API_KEY}"
+            historical_response = requests.get(historical_url, timeout=30)
+            historical_data = historical_response.json()
+            
+            if not historical_data or len(historical_data) == 0:
+                st.warning(f"No historical data available for {ticker_check}. Showing fallback.")
+                st.stop()
+            
+            # Convert to DataFrame
+            df_chart = pd.DataFrame(historical_data)
+            df_chart['date'] = pd.to_datetime(df_chart['date'])
+            df_chart = df_chart.sort_values('date')
+            
+            # Fetch SMA data if requested
+            sma50_data = None
+            sma200_data = None
+            
+            if show_sma50:
+                try:
+                    sma50_url = f"{BASE_URL}/technical-indicators/sma?symbol={ticker_check}&periodLength=50&timeframe={interval.lower()}&apikey={FMP_API_KEY}"
+                    sma50_response = requests.get(sma50_url, timeout=30)
+                    sma50_data = pd.DataFrame(sma50_response.json())
+                    if not sma50_data.empty and 'date' in sma50_data.columns:
+                        sma50_data['date'] = pd.to_datetime(sma50_data['date'])
+                        sma50_data = sma50_data.sort_values('date')
+                except:
+                    pass
+            
+            if show_sma200:
+                try:
+                    sma200_url = f"{BASE_URL}/technical-indicators/sma?symbol={ticker_check}&periodLength=200&timeframe={interval.lower()}&apikey={FMP_API_KEY}"
+                    sma200_response = requests.get(sma200_url, timeout=30)
+                    sma200_data = pd.DataFrame(sma200_response.json())
+                    if not sma200_data.empty and 'date' in sma200_data.columns:
+                        sma200_data['date'] = pd.to_datetime(sma200_data['date'])
+                        sma200_data = sma200_data.sort_values('date')
+                except:
+                    pass
+            
+            # Create candlestick chart
+            fig = make_subplots(
+                rows=2 if show_volume else 1, 
+                cols=1,
+                shared_xaxes=True,
+                vertical_spacing=0.03,
+                row_heights=[0.7, 0.3] if show_volume else [1.0],
+                subplot_titles=(f'{ticker_check} Price Chart', 'Volume') if show_volume else (f'{ticker_check} Price Chart',)
+            )
+            
+            # Add candlestick
+            fig.add_trace(
+                go.Candlestick(
+                    x=df_chart['date'],
+                    open=df_chart['open'],
+                    high=df_chart['high'],
+                    low=df_chart['low'],
+                    close=df_chart['close'],
+                    name='Price',
+                    increasing_line_color='#00D9FF',
+                    decreasing_line_color='#FF4444'
+                ),
+                row=1, col=1
+            )
+            
+            # Add SMA 50
+            if show_sma50 and sma50_data is not None and not sma50_data.empty:
+                fig.add_trace(
+                    go.Scatter(
+                        x=sma50_data['date'],
+                        y=sma50_data['sma'],
+                        mode='lines',
+                        name='SMA 50',
+                        line=dict(color='#FFA500', width=2)
+                    ),
+                    row=1, col=1
+                )
+            
+            # Add SMA 200
+            if show_sma200 and sma200_data is not None and not sma200_data.empty:
+                fig.add_trace(
+                    go.Scatter(
+                        x=sma200_data['date'],
+                        y=sma200_data['sma'],
+                        mode='lines',
+                        name='SMA 200',
+                        line=dict(color='#9D4EDD', width=2)
+                    ),
+                    row=1, col=1
+                )
+            
+            # Add volume bars
+            if show_volume:
+                colors = ['#00D9FF' if df_chart['close'].iloc[i] >= df_chart['open'].iloc[i] else '#FF4444' 
+                          for i in range(len(df_chart))]
+                
+                fig.add_trace(
+                    go.Bar(
+                        x=df_chart['date'],
+                        y=df_chart['volume'],
+                        name='Volume',
+                        marker_color=colors,
+                        opacity=0.5
+                    ),
+                    row=2, col=1
+                )
+            
+            # Update layout
+            fig.update_layout(
+                height=600 if show_volume else 500,
+                template='plotly_dark',
+                showlegend=True,
+                hovermode='x unified',
+                xaxis_rangeslider_visible=False,
+                margin=dict(l=0, r=0, t=30, b=0)
+            )
+            
+            fig.update_xaxes(title_text="Date", row=2 if show_volume else 1, col=1)
+            fig.update_yaxes(title_text="Price ($)", row=1, col=1)
+            if show_volume:
+                fig.update_yaxes(title_text="Volume", row=2, col=1)
+            
+            st.plotly_chart(fig, use_container_width=True)
+            
+        except Exception as e:
+            st.error(f"Chart error: {str(e)}")
+            st.warning("Showing fallback: Close price line chart")
+            
+            # Fallback: Simple line chart
+            try:
+                historical_url = f"{BASE_URL}/chart/{interval.lower()}/{ticker_check}?from={from_date}&to={to_date}&apikey={FMP_API_KEY}"
+                historical_response = requests.get(historical_url, timeout=30)
+                historical_data = historical_response.json()
+                
+                if historical_data:
+                    df_fallback = pd.DataFrame(historical_data)
+                    df_fallback['date'] = pd.to_datetime(df_fallback['date'])
+                    df_fallback = df_fallback.sort_values('date')
+                    
+                    fig_fallback = go.Figure()
+                    fig_fallback.add_trace(go.Scatter(
+                        x=df_fallback['date'],
+                        y=df_fallback['close'],
+                        mode='lines',
+                        name='Close Price',
+                        line=dict(color='#00D9FF', width=2)
+                    ))
+                    
+                    fig_fallback.update_layout(
+                        height=400,
+                        template='plotly_dark',
+                        showlegend=True,
+                        margin=dict(l=0, r=0, t=30, b=0)
+                    )
+                    
+                    st.plotly_chart(fig_fallback, use_container_width=True)
+            except:
+                st.error("Unable to load chart data")
+        
+        # ============= FUNDAMENTAL CHECKS =============
+        st.markdown("---")
+        st.markdown("### ✅ Fundamental Screening")
+        
         ratios = get_financial_ratios(ticker_check, 'annual', 1)
         cash = get_cash_flow(ticker_check, 'annual', 1)
         balance = get_balance_sheet(ticker_check, 'annual', 1)
         ratios_ttm = get_ratios_ttm(ticker_check)
         income_df = get_income_statement(ticker_check, 'annual', 1)
         
-        if quote:
-            st.subheader(f"📊 {quote.get('name', ticker_check)} ({ticker_check})")
-            
-            checks = []
-            
-            if not ratios.empty and 'netProfitMargin' in ratios.columns:
-                margin = ratios['netProfitMargin'].iloc[-1]
-                checks.append(("✅ Profitable (>10% margin)" if margin > 0.1 else "❌ Low profitability", margin > 0.1))
-            
-            if not cash.empty and 'freeCashFlow' in cash.columns:
-                fcf = cash['freeCashFlow'].iloc[-1]
-                checks.append(("✅ Positive free cash flow" if fcf > 0 else "❌ Negative FCF", fcf > 0))
-            
-            pe = get_pe_ratio(ticker_check, quote, ratios_ttm, income_df)
-            if 0 < pe < 30:
-                checks.append(("✅ Reasonable P/E (<30)", True))
-            elif pe > 30:
-                checks.append(("⚠️ High P/E (>30)", False))
-            
-            mcap = quote.get('marketCap', 0)
-            checks.append(("✅ Large cap (>$10B)" if mcap > 10e9 else "⚠️ Small/mid cap", mcap > 10e9))
-            
-            de_ratio = calculate_debt_to_equity(balance)
-            if de_ratio > 0:
-                checks.append(("✅ Low debt (D/E < 1.0)" if de_ratio < 1.0 else "⚠️ High debt (D/E > 1.0)", de_ratio < 1.0))
-            
-            qr = calculate_quick_ratio(balance)
-            if qr > 0:
-                checks.append(("✅ Good liquidity (QR > 1.0)" if qr > 1.0 else "⚠️ Low liquidity (QR < 1.0)", qr > 1.0))
-            
-            for check, passed in checks:
+        checks = []
+        
+        if not ratios.empty and 'netProfitMargin' in ratios.columns:
+            margin = ratios['netProfitMargin'].iloc[-1]
+            checks.append(("✅ Profitable (>10% margin)" if margin > 0.1 else "❌ Low profitability", margin > 0.1))
+        
+        if not cash.empty and 'freeCashFlow' in cash.columns:
+            fcf = cash['freeCashFlow'].iloc[-1]
+            checks.append(("✅ Positive free cash flow" if fcf > 0 else "❌ Negative FCF", fcf > 0))
+        
+        pe = get_pe_ratio(ticker_check, quote, ratios_ttm, income_df)
+        if 0 < pe < 30:
+            checks.append(("✅ Reasonable P/E (<30)", True))
+        elif pe > 30:
+            checks.append(("⚠️ High P/E (>30)", False))
+        
+        mcap = quote.get('marketCap', 0)
+        checks.append(("✅ Large cap (>$10B)" if mcap > 10e9 else "⚠️ Small/mid cap", mcap > 10e9))
+        
+        de_ratio = calculate_debt_to_equity(balance)
+        if de_ratio > 0:
+            checks.append(("✅ Low debt (D/E < 1.0)" if de_ratio < 1.0 else "⚠️ High debt (D/E > 1.0)", de_ratio < 1.0))
+        
+        qr = calculate_quick_ratio(balance)
+        if qr > 0:
+            checks.append(("✅ Good liquidity (QR > 1.0)" if qr > 1.0 else "⚠️ Low liquidity (QR < 1.0)", qr > 1.0))
+        
+        # Display checks
+        col_check1, col_check2 = st.columns(2)
+        for i, (check, passed) in enumerate(checks):
+            with col_check1 if i % 2 == 0 else col_check2:
                 if passed:
                     st.success(check)
                 else:
                     st.warning(check)
-            
-            passed_count = sum(1 for _, p in checks if p)
-            total = len(checks)
-            
-            st.metric("Score", f"{passed_count}/{total}")
-            
+        
+        # Score
+        passed_count = sum(1 for _, p in checks if p)
+        total = len(checks)
+        
+        st.markdown("---")
+        col_score1, col_score2, col_score3 = st.columns(3)
+        
+        with col_score1:
+            st.metric("Fundamental Score", f"{passed_count}/{total}")
+        
+        with col_score2:
+            score_pct = (passed_count / total * 100) if total > 0 else 0
+            st.metric("Pass Rate", f"{score_pct:.0f}%")
+        
+        with col_score3:
             if passed_count >= total * 0.75:
-                st.success("🎉 Strong candidate!")
+                st.success("🎉 Strong!")
             elif passed_count >= total * 0.5:
-                st.info("🤔 Mixed signals")
+                st.info("🤔 Mixed")
             else:
-                st.error("🚨 Many red flags")
+                st.error("🚨 Weak")
+
 
 
 # NEW PAPER PORTFOLIO PAGE - Section 6 Implementation
