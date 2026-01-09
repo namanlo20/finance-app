@@ -6171,19 +6171,19 @@ elif selected_page == "📖 Basics":
         # image (safe if missing) - compact Robinhood/Duolingo style
         img_path = data.get("image")
         if img_path and os.path.exists(img_path):
-            # Wrap image in custom container for size control
+            # Wrap image in custom container for size control (compact 25vh)
             st.markdown("""
             <style>
             .lesson-image-container {
                 display: flex;
                 justify-content: center;
                 align-items: center;
-                margin: 20px 0;
-                max-height: 35vh;
+                margin: 15px 0;
+                max-height: 25vh;
                 overflow: hidden;
             }
             .lesson-image-container img {
-                max-height: 35vh;
+                max-height: 25vh;
                 max-width: 100%;
                 width: auto;
                 height: auto;
@@ -6436,16 +6436,30 @@ elif selected_page == "📚 Finance 101":
     
     # Top 5 Metrics as visual cards (D1)
     metrics_data = [
-        {"icon": "📈", "name": "Net Income Growth", "definition": "Bottom line profit after all expenses.", 
-         "why": "If this isn't growing, nothing else matters.", "example": "Apple: +15% annually = healthy business"},
-        {"icon": "⚙️", "name": "Operating Income Growth", "definition": "Profit from core business operations.", 
-         "why": "Shows if the business model works before financial tricks.", "example": "Microsoft: +20% = strong operations"},
-        {"icon": "💵", "name": "Free Cash Flow Growth", "definition": "Cash left after running the business.", 
-         "why": "Cash is king. Earnings can be manipulated, cash can't.", "example": "Google: $60B FCF = cash machine"},
-        {"icon": "📊", "name": "Revenue Growth", "definition": "Total money coming in from sales.", 
-         "why": "Top line tells you if customers want the product.", "example": "NVIDIA: +100% = massive demand"},
-        {"icon": "🛡️", "name": "Quick Ratio", "definition": "Can the company pay bills without selling inventory?", 
-         "why": "Rising liquidity = safety in a crisis.", "example": "Ratio > 1 = can survive a storm"}
+        {"icon": "💰", "name": "FCF per Share Growth", 
+         "definition": "Free cash flow divided by total shares outstanding.", 
+         "why": "FCF per share accounts for dilution from stock-based comp. Total FCF can grow 20% but if shares also grow 20%, FCF/share stays flat ($1.00 → $1.00). This is the most honest growth metric.", 
+         "example": "Good: Visa — FCF grows faster than shares. Bad: Snap — heavy dilution kills per-share growth"},
+        
+        {"icon": "⚙️", "name": "Operating Income Growth", 
+         "definition": "Profit from core business before interest and taxes.", 
+         "why": "Shows real operating leverage. Less noisy than net income because it excludes one-time items and financial engineering.", 
+         "example": "Good: Amazon — massive operating leverage as AWS scales. Bad: WeWork — burned cash despite revenue growth"},
+        
+        {"icon": "📊", "name": "Gross Margin Growth", 
+         "definition": "Revenue minus cost of goods sold, as a percentage.", 
+         "why": "Rising gross margins indicate pricing power and efficiency. Especially critical for software (should be 70%+) and consumer brands.", 
+         "example": "Good: Microsoft — software margins expand with scale. Bad: Peloton — hardware margins collapsed under competition"},
+        
+        {"icon": "📈", "name": "Revenue Growth", 
+         "definition": "Total money coming in from customer sales.", 
+         "why": "Important signal of demand, but can be 'bought' with unsustainable discounting or low-quality growth. Always check profitability too.", 
+         "example": "Good: NVIDIA — revenue explosion from AI chips. Bad: Uber (early years) — grew revenue while burning billions"},
+        
+        {"icon": "🛡️", "name": "Quick Ratio", 
+         "definition": "(Cash + receivables) / current liabilities. Excludes inventory.", 
+         "why": "Measures short-term liquidity and crisis survival. Quick ratio > 1 means the company can pay bills without selling inventory. Essential for risk management.", 
+         "example": "Good: Apple — ratio > 1, can survive any storm. Bad: Startups pre-profitability — often < 0.5, vulnerable to funding freezes"}
     ]
     
     # Display as cards in a grid
@@ -6465,15 +6479,15 @@ elif selected_page == "📚 Finance 101":
     # Micro-quiz for Top 5 Metrics (E)
     with st.expander("📝 Quick Quiz: Test Your Knowledge"):
         quiz_answer = st.radio(
-            "Which metric is hardest to manipulate?",
-            ["Net Income", "Revenue", "Free Cash Flow", "Operating Income"],
+            "Which metric best accounts for shareholder dilution from stock-based compensation?",
+            ["Total Free Cash Flow", "Revenue Growth", "FCF per Share", "Operating Income"],
             key="finance101_quiz1"
         )
         if st.button("Check Answer", key="check_quiz1"):
-            if quiz_answer == "Free Cash Flow":
-                st.success("Correct! Cash is king - you either have it or you don't.")
+            if quiz_answer == "FCF per Share":
+                st.success("Correct! FCF per share divides total FCF by shares outstanding, so you see the true per-share growth after dilution.")
             else:
-                st.error("Not quite. Free Cash Flow is the answer - cash can't be faked like accounting earnings.")
+                st.error("Not quite. FCF per share is the answer - it accounts for dilution, unlike total FCF which can grow while per-share value stays flat.")
     
     # ============= VISUAL DIAGRAMS (D2) =============
     st.markdown("---")
