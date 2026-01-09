@@ -2359,21 +2359,41 @@ def get_historical_price(ticker, years=5):
 @st.cache_data(ttl=3600)
 def get_historical_ohlc(ticker, years=5):
     """Get historical OHLC data for candlestick charts"""
-    url = f"{BASE_URL}/historical-price-full/{ticker}?apikey={FMP_API_KEY}"
-    try:
-        response = requests.get(url, timeout=15)
-        data = response.json()
-        if data and 'historical' in data:
-            df = pd.DataFrame(data['historical'])
-            df['date'] = pd.to_datetime(df['date'])
-            df = df.sort_values('date')
-            cutoff = datetime.now() - timedelta(days=years*365)
-            df = df[df['date'] >= cutoff]
-            # Rename columns to lowercase for consistency
-            df = df.rename(columns={'open': 'open', 'high': 'high', 'low': 'low', 'close': 'close', 'volume': 'volume'})
-            return df
-    except:
-        pass
+    
+    # Try v3 endpoint first (more reliable for historical data)
+    urls_to_try = [
+        f"https://financialmodelingprep.com/api/v3/historical-price-full/{ticker}?apikey={FMP_API_KEY}",
+        f"{BASE_URL}/historical-price-full/{ticker}?apikey={FMP_API_KEY}"
+    ]
+    
+    for i, url in enumerate(urls_to_try):
+        try:
+            st.write(f"DEBUG OHLC: Trying endpoint {i+1}: {url[:80]}...")
+            response = requests.get(url, timeout=15)
+            data = response.json()
+            
+            st.write(f"DEBUG OHLC: Response type = {type(data)}")
+            if isinstance(data, dict):
+                st.write(f"DEBUG OHLC: Response keys = {list(data.keys())}")
+            
+            if data and isinstance(data, dict) and 'historical' in data:
+                st.write(f"DEBUG OHLC: Found 'historical' key with {len(data['historical'])} items")
+                df = pd.DataFrame(data['historical'])
+                
+                if not df.empty:
+                    st.write(f"DEBUG OHLC: DataFrame columns = {df.columns.tolist()}")
+                    df['date'] = pd.to_datetime(df['date'])
+                    df = df.sort_values('date')
+                    cutoff = datetime.now() - timedelta(days=years*365)
+                    df = df[df['date'] >= cutoff]
+                    st.write(f"DEBUG OHLC: After date filter, {len(df)} rows remain")
+                    return df
+            else:
+                st.warning(f"DEBUG OHLC: Endpoint {i+1} failed. Response preview: {str(data)[:200]}")
+        except Exception as e:
+            st.error(f"DEBUG OHLC: Endpoint {i+1} exception = {str(e)}")
+    
+    st.error("DEBUG OHLC: All endpoints failed, returning empty DataFrame")
     return pd.DataFrame()
 
 @st.cache_data(ttl=3600)
