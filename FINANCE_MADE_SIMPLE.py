@@ -10108,6 +10108,28 @@ elif selected_page == "👤 Naman's Portfolio":
 elif selected_page == "👑 Become a VIP":
     st.header("👑 Become a VIP")
     st.markdown("**Unlock Premium Features & Exclusive Insights**")
+
+    # --- Premium value proposition (detailed, skimmable) ---
+    st.markdown(
+        "Upgrade to get **AI-powered technical insights**, faster workflows, and tools that help you "
+        "**understand what the chart is saying** — without pretending to give financial advice."
+    )
+
+    with st.expander("👀 Quick preview: what you’ll get", expanded=True):
+        st.markdown(
+            "**Pro includes:**\n"
+            "- Candlestick chart + SMA50/SMA200/RSI/Volume toggles\n"
+            "- **Technical Facts** summary (trend, momentum, volume, volatility, key levels)\n"
+            "- **Chart Callouts** (rule-based highlights that always match the data)\n"
+            "- **Pattern Detection (AI + Rules)** with confidence + key levels\n"
+            "- “What traders generally do next” educational checklist\n"
+            "\n"
+            "**Ultimate adds:**\n"
+            "- **Historical Similar Setups** (find past periods that looked like today)\n"
+            "- Outcome stats (next 5D/20D returns, drawdowns, hit rate)\n"
+            "- Alerts / watchlists + exportable reports (coming next)"
+        )
+
     
     # Initialize selected tier in session state
     if 'selected_tier' not in st.session_state:
@@ -10168,47 +10190,81 @@ elif selected_page == "👑 Become a VIP":
     
     # Feature Comparison Table
     st.markdown("---")
-    st.markdown("### Feature Comparison")
-    
-    # Create feature comparison table with HTML for better styling
-    st.markdown("""
-    <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-        <thead>
-            <tr style="background: #1a1a1a;">
-                <th style="padding: 15px; text-align: left; border-bottom: 2px solid #333; color: #FFFFFF;">Feature</th>
-                <th style="padding: 15px; text-align: center; border-bottom: 2px solid #333; color: #00C853;">Free</th>
-                <th style="padding: 15px; text-align: center; border-bottom: 2px solid #333; color: #9D4EDD;">Pro</th>
-                <th style="padding: 15px; text-align: center; border-bottom: 2px solid #333; color: #FFD700;">Ultimate</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr style="background: #0a0a0a;">
-                <td style="padding: 12px; border-bottom: 1px solid #222; color: #FFFFFF;">Basic Ratios</td>
-                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #00C853; font-size: 20px;">&#10003;</td>
-                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #00C853; font-size: 20px;">&#10003;</td>
-                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #00C853; font-size: 20px;">&#10003;</td>
-            </tr>
-            <tr style="background: #1a1a1a;">
-                <td style="padding: 12px; border-bottom: 1px solid #222; color: #FFFFFF;">Trade Alerts</td>
-                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #FF4444; font-size: 20px;">&#10007;</td>
-                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #00C853; font-size: 20px;">&#10003;</td>
-                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #00C853; font-size: 20px;">&#10003;</td>
-            </tr>
-            <tr style="background: #0a0a0a;">
-                <td style="padding: 12px; border-bottom: 1px solid #222; color: #FFFFFF;">Naman's Portfolio</td>
-                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #FF4444; font-size: 20px;">&#10007;</td>
-                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #00C853; font-size: 20px;">&#10003;</td>
-                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #00C853; font-size: 20px;">&#10003;</td>
-            </tr>
-            <tr style="background: #1a1a1a;">
-                <td style="padding: 12px; border-bottom: 1px solid #222; color: #FFFFFF;">1-on-1 Support</td>
-                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #FF4444; font-size: 20px;">&#10007;</td>
-                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #FF4444; font-size: 20px;">&#10007;</td>
-                <td style="padding: 12px; text-align: center; border-bottom: 1px solid #222; color: #00C853; font-size: 20px;">&#10003;</td>
-            </tr>
-        </tbody>
-    </table>
-    """, unsafe_allow_html=True)
+    st.markdown("### What you get (by tier)")
+    st.markdown("Pick a tier above, then skim what’s included below. **Everything is educational** — not financial advice.")
+
+    col_free2, col_pro2, col_ult2 = st.columns(3)
+
+    with col_free2:
+        st.markdown(
+            """
+            <div style="background:#141414;border:1px solid #2a2a2a;border-radius:14px;padding:16px;min-height:420px;">
+              <h3 style="color:#00C853;margin:0 0 6px 0;">Free</h3>
+              <div style="color:#BBBBBB;font-size:14px;margin-bottom:10px;">Great for getting started</div>
+              <ul style="color:#FFFFFF;line-height:1.6;">
+                <li>Market Overview + Sector Explorer basics</li>
+                <li>Company Analysis essentials</li>
+                <li>Educational content + Risk Quiz</li>
+              </ul>
+              <div style="color:#888;font-size:12px;margin-top:12px;">
+                Tip: Free stays useful — paid tiers add speed + deeper tooling.
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    with col_pro2:
+        st.markdown(
+            """
+            <div style="background:#141414;border:2px solid #9D4EDD;border-radius:14px;padding:16px;min-height:420px;box-shadow:0 0 18px rgba(157,78,221,0.25);">
+              <h3 style="color:#9D4EDD;margin:0 0 6px 0;">Pro</h3>
+              <div style="color:#BBBBBB;font-size:14px;margin-bottom:10px;">For technical learners + faster decisions</div>
+              <ul style="color:#FFFFFF;line-height:1.6;">
+                <li><b>Pro Chart Lab</b>: candlesticks + SMA50/SMA200/RSI/Volume toggles</li>
+                <li><b>Technical Facts</b>: trend regime, momentum, volume/volatility context</li>
+                <li><b>Chart Callouts</b>: 3–5 grounded takeaways under every chart</li>
+                <li><b>Pattern Detection (AI + Rules)</b>: label + confidence + key levels</li>
+                <li><b>Next Steps Checklist</b>: “what traders generally do next” (educational)</li>
+              </ul>
+              <div style="color:#888;font-size:12px;margin-top:12px;">
+                Designed to be <b>accurate per ticker</b> (AI is constrained to computed facts).
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    with col_ult2:
+        st.markdown(
+            """
+            <div style="background:#141414;border:2px solid #FFD700;border-radius:14px;padding:16px;min-height:420px;box-shadow:0 0 18px rgba(255,215,0,0.20);">
+              <h3 style="color:#FFD700;margin:0 0 6px 0;">Ultimate</h3>
+              <div style="color:#BBBBBB;font-size:14px;margin-bottom:10px;">For “show me the receipts” users</div>
+              <ul style="color:#FFFFFF;line-height:1.6;">
+                <li>Everything in <b>Pro</b></li>
+                <li><b>Historical Similar Setups</b>: find past charts that looked like today</li>
+                <li><b>Outcome stats</b>: typical next 5D/20D returns + drawdowns (educational)</li>
+                <li><b>Backtest-style insights</b> (coming next)</li>
+                <li><b>Alerts & watchlists</b> (coming next)</li>
+                <li><b>Exportable reports</b> (coming next)</li>
+              </ul>
+              <div style="color:#888;font-size:12px;margin-top:12px;">
+                Ultimate is where we add <b>history + outcomes</b>, not just interpretation.
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    st.markdown("")
+    with st.expander("FAQ", expanded=False):
+        st.markdown(
+            "- **Is this financial advice?** No — educational only.\n"
+            "- **Why AI at all?** We compute the facts first; AI is used to explain them in plain English.\n"
+            "- **What’s the difference between Pro and Ultimate?** Ultimate adds historical analogs + outcome stats + alerts/exports."
+        )
+
     
     st.markdown("---")
     
