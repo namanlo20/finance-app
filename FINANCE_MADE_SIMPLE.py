@@ -9576,11 +9576,6 @@ elif selected_page == "📊 Pro Checklist":
     st.header("📊 Pro Checklist")
     st.caption("*Advanced technical analysis + fundamental screening*")
     
-    # ============= TIER CHECK =============
-    user_tier = st.session_state.get("subscription_tier", "free")
-    is_founder = st.session_state.get("is_founder", False)
-    is_pro_or_higher = user_tier in ["pro", "ultimate"] or is_founder
-    
     # Disclaimer box (always visible)
     st.markdown("""
     <div style="background: rgba(255,165,0,0.1); padding: 15px; border-radius: 8px; border-left: 4px solid #FFA500; margin-bottom: 20px;">
@@ -9592,22 +9587,40 @@ elif selected_page == "📊 Pro Checklist":
     </div>
     """, unsafe_allow_html=True)
     
-    # ============= PRO TIER GATE =============
-    if not is_pro_or_higher:
-        st.warning("🔒 **Pro Checklist is a PRO/Ultimate feature**")
-        st.markdown("""
-        This feature includes:
-        - 📈 Interactive candlestick charts
-        - 📊 Technical indicators (SMA 50/200, volume)
-        - ⏰ Multi-timeframe analysis (3M, 6M, 1Y, 2Y, 5Y)
-        - ✅ Enhanced fundamental screening
-        
-        **Upgrade to PRO or Ultimate to unlock!**
-        """)
-        st.stop()
+    # ============= PRO USER CONTENT (NOW PUBLIC) =============
+    # Note: Pro Checklist is now available to all users
     
-    # ============= PRO USER CONTENT =============
-    st.success("✅ Pro Checklist unlocked!")
+    # Fix selectbox dropdown colors to match input styling
+    st.markdown("""
+    <style>
+    /* Style the selectbox to match the red input fields */
+    [data-testid="stSelectbox"] > div > div {
+        background-color: #FF4B4B !important;
+        color: white !important;
+    }
+    
+    /* Style the dropdown options */
+    [data-baseweb="popover"] {
+        background-color: #2b2b2b !important;
+    }
+    
+    /* Style dropdown menu items */
+    [data-baseweb="menu"] li {
+        background-color: #2b2b2b !important;
+        color: white !important;
+    }
+    
+    /* Hover state for dropdown items */
+    [data-baseweb="menu"] li:hover {
+        background-color: #FF4B4B !important;
+    }
+    
+    /* Selected option text */
+    [data-baseweb="select"] > div {
+        color: white !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
     
     # Feature Definitions Glossary
     render_pro_glossary()
