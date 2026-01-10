@@ -5480,7 +5480,8 @@ def render_technical_quick_guide(price_data, ticker):
         
         try:
             close_col = 'close' if 'close' in recent_data.columns else 'price'
-            sma50 = recent_data[close_col].rolling(window=min(50, len(recent_data))).mean()
+            # Use min_periods=1 to show line from start (will use fewer points at beginning)
+            sma50 = recent_data[close_col].rolling(window=50, min_periods=1).mean()
             
             fig_sma50 = go.Figure()
             fig_sma50.add_trace(go.Scatter(
@@ -5507,19 +5508,23 @@ def render_technical_quick_guide(price_data, ticker):
         st.caption("*Often implies: above SMA200 = long-term bullish; below = long-term bearish.*")
         
         try:
-            # Need more data for SMA200, use what we have
+            # Use full dataset for SMA calculation, then display last 200 days
             if len(price_data) >= 200:
-                long_data = price_data.tail(200).copy()
-                close_col = 'close' if 'close' in long_data.columns else 'price'
-                sma200 = long_data[close_col].rolling(window=200).mean()
+                close_col = 'close' if 'close' in price_data.columns else 'price'
+                # Calculate SMA 200 on full dataset with min_periods=1
+                sma200 = price_data[close_col].rolling(window=200, min_periods=1).mean()
+                
+                # Display last 200 days
+                display_data = price_data.tail(200).copy()
+                display_sma200 = sma200.tail(200)
                 
                 fig_sma200 = go.Figure()
                 fig_sma200.add_trace(go.Scatter(
-                    x=long_data['date'], y=long_data[close_col],
+                    x=display_data['date'], y=display_data[close_col],
                     mode='lines', name='Price', line=dict(color='#9D4EDD', width=1.5)
                 ))
                 fig_sma200.add_trace(go.Scatter(
-                    x=long_data['date'], y=sma200,
+                    x=display_data['date'], y=display_sma200,
                     mode='lines', name='SMA 200', line=dict(color='#9D4EDD', width=2, dash='dash')
                 ))
                 fig_sma200.update_layout(
@@ -9863,31 +9868,41 @@ elif selected_page == "📊 Pro Checklist":
     # Fix selectbox dropdown colors to match input styling
     st.markdown("""
     <style>
-    /* Style the selectbox to match the red input fields */
+    /* Style the selectbox closed state */
     [data-testid="stSelectbox"] > div > div {
-        background-color: #FF4B4B !important;
+        background-color: #0E1117 !important;
         color: white !important;
     }
     
-    /* Style the dropdown options */
+    /* Style the dropdown button/selector */
+    [data-testid="stSelectbox"] [data-baseweb="select"] > div {
+        background-color: #0E1117 !important;
+        color: white !important;
+    }
+    
+    /* Style the dropdown popover/menu container */
     [data-baseweb="popover"] {
-        background-color: #2b2b2b !important;
+        background-color: #0E1117 !important;
     }
     
     /* Style dropdown menu items */
+    [data-baseweb="menu"] {
+        background-color: #0E1117 !important;
+    }
+    
     [data-baseweb="menu"] li {
-        background-color: #2b2b2b !important;
+        background-color: #0E1117 !important;
         color: white !important;
     }
     
     /* Hover state for dropdown items */
     [data-baseweb="menu"] li:hover {
-        background-color: #FF4B4B !important;
+        background-color: #262730 !important;
     }
     
-    /* Selected option text */
-    [data-baseweb="select"] > div {
-        color: white !important;
+    /* Selected/active item */
+    [data-baseweb="menu"] li[aria-selected="true"] {
+        background-color: #FF4B4B !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -9956,6 +9971,28 @@ elif selected_page == "📊 Pro Checklist":
             st.write("- Network issue")
             st.stop()
         
+        # Load price data early so we can show Technical Quick Guide
+        timeframe_days = {
+            "3M": 90,
+            "6M": 180,
+            "1Y": 365,
+            "2Y": 730,
+            "5Y": 1825
+        }
+        days = timeframe_days.get(timeframe, 365)
+        years = days / 365.0
+        price_history = get_historical_ohlc(ticker_check, years)
+        
+        if price_history.empty:
+            st.error(f"❌ No price data available for {ticker_check}")
+            st.warning("Try a different ticker or timeframe")
+            st.stop()
+        
+        # ============= TECHNICAL QUICK GUIDE (BEFORE COMPANY NAME) =============
+        st.markdown("---")
+        render_technical_quick_guide(price_history, ticker_check)
+        
+        st.markdown("---")
         st.subheader(f"📊 {quote.get('name', ticker_check)} ({ticker_check})")
         
         # ============= CANDLESTICK CHART (Using Company Analysis proven logic) =============
@@ -9973,160 +10010,144 @@ elif selected_page == "📊 Pro Checklist":
         with col_check4:
             show_volume = st.checkbox("Volume", value=True, key="show_volume")
         
-        # Calculate days to fetch based on timeframe
-        timeframe_days = {
-            "3M": 90,
-            "6M": 180,
-            "1Y": 365,
-            "2Y": 730,
-            "5Y": 1825
-        }
+        # Price history already loaded earlier for Technical Quick Guide
+        # Continue with chart rendering
         
-        days = timeframe_days.get(timeframe, 365)
-        years = days / 365.0
+        # Track what features are available for status line
+        chart_features = []
         
-        # Get historical OHLC data
-        price_history = get_historical_ohlc(ticker_check, years)
+        # Create chart (candlestick if we have OHLC, line chart if only close)
+        has_ohlc = all(col in price_history.columns for col in ['open', 'high', 'low', 'close'])
         
-        if price_history.empty:
-            st.error(f"❌ No price data available for {ticker_check}")
-            st.warning("Try a different ticker or timeframe")
+        # Initialize num_rows (used for layout height calculation)
+        num_rows = 1
+        
+        if has_ohlc:
+            chart_features.append("OHLC")
+            
+            # Determine number of rows based on indicators
+            num_rows = 1  # Price chart always present
+            row_heights = []
+            subplot_titles_list = [f'{ticker_check} Price']
+            
+            if show_rsi:
+                num_rows += 1
+                subplot_titles_list.append('RSI (14)')
+            
+            if show_volume and 'volume' in price_history.columns:
+                num_rows += 1
+                subplot_titles_list.append('Volume')
+            
+            # Calculate row heights
+            if num_rows == 1:
+                row_heights = [1.0]
+            elif num_rows == 2:
+                row_heights = [0.7, 0.3]
+            else:  # 3 rows
+                row_heights = [0.6, 0.2, 0.2]
+            
+            # Create candlestick chart with dynamic rows
+            fig_price = make_subplots(
+                rows=num_rows,
+                cols=1,
+                shared_xaxes=True,
+                vertical_spacing=0.03,
+                row_heights=row_heights,
+                subplot_titles=tuple(subplot_titles_list)
+            )
+            
+            # Add candlestick
+            fig_price.add_trace(
+                go.Candlestick(
+                    x=price_history['date'],
+                    open=price_history['open'],
+                    high=price_history['high'],
+                    low=price_history['low'],
+                    close=price_history['close'],
+                    name='Price',
+                    increasing_line_color='#00FF00',  # GREEN for up days
+                    decreasing_line_color='#FF4444'   # RED for down days
+                ),
+                row=1, col=1
+            )
+            
+            # Add volume if available and requested
+            if show_volume and 'volume' in price_history.columns:
+                colors = ['#00FF00' if price_history['close'].iloc[i] >= price_history['open'].iloc[i] else '#FF4444' 
+                          for i in range(len(price_history))]
+                
+                # Determine which row for volume (last row)
+                volume_row = num_rows
+                
+                fig_price.add_trace(
+                    go.Bar(
+                        x=price_history['date'],
+                        y=price_history['volume'],
+                        name='Volume',
+                        marker_color=colors,
+                        opacity=0.5
+                    ),
+                    row=volume_row, col=1
+                )
+                chart_features.append("Volume")
+            
         else:
-            # Track what features are available for status line
-            chart_features = []
+            # Fallback to line chart (like Company Analysis does)
+            chart_features.append("Line")
             
-            # Create chart (candlestick if we have OHLC, line chart if only close)
-            has_ohlc = all(col in price_history.columns for col in ['open', 'high', 'low', 'close'])
+            fig_price = go.Figure()
             
-            # Initialize num_rows (used for layout height calculation)
-            num_rows = 1
+            price_col = 'close' if 'close' in price_history.columns else 'price'
+            
+            fig_price.add_trace(go.Scatter(
+                x=price_history['date'],
+                y=price_history[price_col],
+                mode='lines',
+                name='Price',
+                line=dict(color='#9D4EDD', width=2),
+                fill='tozeroy',
+                fillcolor='rgba(157, 78, 221, 0.2)',
+                hovertemplate='%{x}<br>Price: $%{y:.2f}<extra></extra>'
+            ))
+        
+        # Add SMAs (calculate manually from close prices)
+        close_col = 'close' if 'close' in price_history.columns else 'price'
+        
+        if show_sma50 and len(price_history) >= 50:
+            sma50 = price_history[close_col].rolling(window=50, min_periods=1).mean()
+            sma_trace_50 = go.Scatter(
+                x=price_history['date'],
+                y=sma50,
+                mode='lines',
+                name='SMA 50',
+                line=dict(color='#FFA500', width=2)
+            )
             
             if has_ohlc:
-                chart_features.append("OHLC")
-                
-                # Determine number of rows based on indicators
-                num_rows = 1  # Price chart always present
-                row_heights = []
-                subplot_titles_list = [f'{ticker_check} Price']
-                
-                if show_rsi:
-                    num_rows += 1
-                    subplot_titles_list.append('RSI (14)')
-                
-                if show_volume and 'volume' in price_history.columns:
-                    num_rows += 1
-                    subplot_titles_list.append('Volume')
-                
-                # Calculate row heights
-                if num_rows == 1:
-                    row_heights = [1.0]
-                elif num_rows == 2:
-                    row_heights = [0.7, 0.3]
-                else:  # 3 rows
-                    row_heights = [0.6, 0.2, 0.2]
-                
-                # Create candlestick chart with dynamic rows
-                fig_price = make_subplots(
-                    rows=num_rows,
-                    cols=1,
-                    shared_xaxes=True,
-                    vertical_spacing=0.03,
-                    row_heights=row_heights,
-                    subplot_titles=tuple(subplot_titles_list)
-                )
-                
-                # Add candlestick
-                fig_price.add_trace(
-                    go.Candlestick(
-                        x=price_history['date'],
-                        open=price_history['open'],
-                        high=price_history['high'],
-                        low=price_history['low'],
-                        close=price_history['close'],
-                        name='Price',
-                        increasing_line_color='#00FF00',  # GREEN for up days
-                        decreasing_line_color='#FF4444'   # RED for down days
-                    ),
-                    row=1, col=1
-                )
-                
-                # Add volume if available and requested
-                if show_volume and 'volume' in price_history.columns:
-                    colors = ['#00FF00' if price_history['close'].iloc[i] >= price_history['open'].iloc[i] else '#FF4444' 
-                              for i in range(len(price_history))]
-                    
-                    # Determine which row for volume (last row)
-                    volume_row = num_rows
-                    
-                    fig_price.add_trace(
-                        go.Bar(
-                            x=price_history['date'],
-                            y=price_history['volume'],
-                            name='Volume',
-                            marker_color=colors,
-                            opacity=0.5
-                        ),
-                        row=volume_row, col=1
-                    )
-                    chart_features.append("Volume")
-                
+                fig_price.add_trace(sma_trace_50, row=1, col=1)
             else:
-                # Fallback to line chart (like Company Analysis does)
-                chart_features.append("Line")
-                
-                fig_price = go.Figure()
-                
-                price_col = 'close' if 'close' in price_history.columns else 'price'
-                
-                fig_price.add_trace(go.Scatter(
-                    x=price_history['date'],
-                    y=price_history[price_col],
-                    mode='lines',
-                    name='Price',
-                    line=dict(color='#9D4EDD', width=2),
-                    fill='tozeroy',
-                    fillcolor='rgba(157, 78, 221, 0.2)',
-                    hovertemplate='%{x}<br>Price: $%{y:.2f}<extra></extra>'
-                ))
+                fig_price.add_trace(sma_trace_50)
             
-            # Add SMAs (calculate manually from close prices)
-            close_col = 'close' if 'close' in price_history.columns else 'price'
+            chart_features.append("SMA50")
+        
+        if show_sma200 and len(price_history) >= 200:
+            sma200 = price_history[close_col].rolling(window=200, min_periods=1).mean()
+            sma_trace_200 = go.Scatter(
+                x=price_history['date'],
+                y=sma200,
+                mode='lines',
+                name='SMA 200',
+                line=dict(color='#9D4EDD', width=2)
+            )
             
-            if show_sma50 and len(price_history) >= 50:
-                sma50 = price_history[close_col].rolling(window=50).mean()
-                sma_trace_50 = go.Scatter(
-                    x=price_history['date'],
-                    y=sma50,
-                    mode='lines',
-                    name='SMA 50',
-                    line=dict(color='#FFA500', width=2)
-                )
-                
-                if has_ohlc:
-                    fig_price.add_trace(sma_trace_50, row=1, col=1)
-                else:
-                    fig_price.add_trace(sma_trace_50)
-                
-                chart_features.append("SMA50")
+            if has_ohlc:
+                fig_price.add_trace(sma_trace_200, row=1, col=1)
+            else:
+                fig_price.add_trace(sma_trace_200)
             
-            if show_sma200 and len(price_history) >= 200:
-                sma200 = price_history[close_col].rolling(window=200).mean()
-                sma_trace_200 = go.Scatter(
-                    x=price_history['date'],
-                    y=sma200,
-                    mode='lines',
-                    name='SMA 200',
-                    line=dict(color='#9D4EDD', width=2)
-                )
-                
-                if has_ohlc:
-                    fig_price.add_trace(sma_trace_200, row=1, col=1)
-                else:
-                    fig_price.add_trace(sma_trace_200)
-                
-                chart_features.append("SMA200")
-            
-            # Add RSI (Relative Strength Index)
+            chart_features.append("SMA200")
+        
+        # Add RSI (Relative Strength Index)
             if show_rsi and len(price_history) >= 14:
                 # Calculate RSI
                 close_col = 'close' if 'close' in price_history.columns else 'price'
@@ -10229,10 +10250,6 @@ elif selected_page == "📊 Pro Checklist":
                 st.success(f"✅ Chart ready: {' | '.join(status_parts)}")
             else:
                 st.warning("⚠️ OHLC not available — showing line chart fallback.")
-            
-            # ============= TECHNICAL QUICK GUIDE =============
-            st.markdown("---")
-            render_technical_quick_guide(price_history, ticker_check)
         
         # ============= PATTERN DETECTION =============
         st.markdown("---")
