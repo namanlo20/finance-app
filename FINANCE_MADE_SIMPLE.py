@@ -5462,56 +5462,135 @@ with st.sidebar:
 
 # ============= HELPER FUNCTIONS FOR PAGES =============
 
+def render_technical_quick_guide(price_data, ticker):
+    """Render compact technical quick guide with mini visual examples"""
+    with st.expander("📊 Technical Quick Guide (simple examples)"):
+        st.caption("*Quick reference for the main indicators shown on this chart*")
+        
+        # Use last ~120 trading days for examples
+        recent_data = price_data.tail(120).copy() if len(price_data) >= 120 else price_data.copy()
+        
+        if len(recent_data) < 20:
+            st.warning("— Not enough data for visual examples")
+            return
+        
+        # ========== SMA 50 ==========
+        st.markdown("**SMA 50:** Average price over ~50 days (medium-term trend).")
+        st.caption("*Often implies: price above SMA50 = trend stronger; below = weaker.*")
+        
+        try:
+            close_col = 'close' if 'close' in recent_data.columns else 'price'
+            sma50 = recent_data[close_col].rolling(window=min(50, len(recent_data))).mean()
+            
+            fig_sma50 = go.Figure()
+            fig_sma50.add_trace(go.Scatter(
+                x=recent_data['date'], y=recent_data[close_col],
+                mode='lines', name='Price', line=dict(color='#9D4EDD', width=1.5)
+            ))
+            fig_sma50.add_trace(go.Scatter(
+                x=recent_data['date'], y=sma50,
+                mode='lines', name='SMA 50', line=dict(color='#FFA500', width=2)
+            ))
+            fig_sma50.update_layout(
+                height=240, margin=dict(l=0, r=0, t=10, b=0),
+                template='plotly_dark', showlegend=True, legend=dict(orientation="h", y=1.05),
+                xaxis_title=None, yaxis_title="Price"
+            )
+            st.plotly_chart(fig_sma50, use_container_width=True)
+        except:
+            st.caption("— Chart not available")
+        
+        st.markdown("---")
+        
+        # ========== SMA 200 ==========
+        st.markdown("**SMA 200:** Average price over ~200 days (long-term trend).")
+        st.caption("*Often implies: above SMA200 = long-term bullish; below = long-term bearish.*")
+        
+        try:
+            # Need more data for SMA200, use what we have
+            if len(price_data) >= 200:
+                long_data = price_data.tail(200).copy()
+                close_col = 'close' if 'close' in long_data.columns else 'price'
+                sma200 = long_data[close_col].rolling(window=200).mean()
+                
+                fig_sma200 = go.Figure()
+                fig_sma200.add_trace(go.Scatter(
+                    x=long_data['date'], y=long_data[close_col],
+                    mode='lines', name='Price', line=dict(color='#9D4EDD', width=1.5)
+                ))
+                fig_sma200.add_trace(go.Scatter(
+                    x=long_data['date'], y=sma200,
+                    mode='lines', name='SMA 200', line=dict(color='#9D4EDD', width=2, dash='dash')
+                ))
+                fig_sma200.update_layout(
+                    height=240, margin=dict(l=0, r=0, t=10, b=0),
+                    template='plotly_dark', showlegend=True, legend=dict(orientation="h", y=1.05),
+                    xaxis_title=None, yaxis_title="Price"
+                )
+                st.plotly_chart(fig_sma200, use_container_width=True)
+            else:
+                st.caption("— Not enough data for SMA 200 example (need 200+ days)")
+        except:
+            st.caption("— Chart not available")
+        
+        st.markdown("---")
+        
+        # ========== RSI ==========
+        st.markdown("**RSI (14):** Momentum meter (0–100).")
+        st.caption("*Often implies: RSI > 70 = overheated; RSI < 30 = oversold.*")
+        
+        try:
+            close_col = 'close' if 'close' in recent_data.columns else 'price'
+            delta = recent_data[close_col].diff()
+            gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+            loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+            rs = gain / loss
+            rsi = 100 - (100 / (1 + rs))
+            
+            fig_rsi = go.Figure()
+            fig_rsi.add_trace(go.Scatter(
+                x=recent_data['date'], y=rsi,
+                mode='lines', name='RSI', line=dict(color='#FFD700', width=2), fill='tozeroy'
+            ))
+            fig_rsi.add_hline(y=70, line_dash="dash", line_color="red", opacity=0.5, annotation_text="70")
+            fig_rsi.add_hline(y=30, line_dash="dash", line_color="green", opacity=0.5, annotation_text="30")
+            fig_rsi.update_layout(
+                height=240, margin=dict(l=0, r=0, t=10, b=0),
+                template='plotly_dark', showlegend=False,
+                xaxis_title=None, yaxis_title="RSI", yaxis=dict(range=[0, 100])
+            )
+            st.plotly_chart(fig_rsi, use_container_width=True)
+        except:
+            st.caption("— Chart not available")
+        
+        st.markdown("---")
+        
+        # ========== Volume ==========
+        st.markdown("**Volume:** How many shares traded.")
+        st.caption("*Often implies: breakouts with high volume are more 'real' than low-volume moves.*")
+        
+        try:
+            if 'volume' in recent_data.columns:
+                fig_vol = go.Figure()
+                fig_vol.add_trace(go.Bar(
+                    x=recent_data['date'], y=recent_data['volume'],
+                    name='Volume', marker_color='#00BFFF', opacity=0.7
+                ))
+                fig_vol.update_layout(
+                    height=240, margin=dict(l=0, r=0, t=10, b=0),
+                    template='plotly_dark', showlegend=False,
+                    xaxis_title=None, yaxis_title="Volume"
+                )
+                st.plotly_chart(fig_vol, use_container_width=True)
+            else:
+                st.caption("— Volume data not available")
+        except:
+            st.caption("— Chart not available")
+
+
 def render_pro_glossary():
-    """Render feature definitions glossary for Pro Checklist"""
-    with st.expander("📖 Feature Definitions (Glossary)"):
-        st.markdown("""
-        • **Candlestick Chart:** Shows price movement (open, high, low, close) for each time period.
-        
-        • **Volume:** How many shares traded — higher volume = stronger conviction.
-        
-        • **VWAP:** The "average price" institutions paid today (weighted by volume).
-        
-        • **Moving Average (MA):** A smoothed average price that helps reveal the trend.
-        
-        • **20/50/200 MA:** Short / medium / long-term trend lines traders watch.
-        
-        • **RSI:** Momentum meter (0–100). >70 = overbought, <30 = oversold.
-        
-        • **MACD:** Momentum + trend-change signal based on moving averages.
-        
-        • **Bollinger Bands:** Shows when price is unusually high/low vs recent volatility.
-        
-        • **Support:** A price level where buyers often step in (price tends to bounce).
-        
-        • **Resistance:** A price level where sellers often step in (price tends to stall).
-        
-        • **Breakout:** Price moves above resistance — can signal a new uptrend.
-        
-        • **Breakdown:** Price falls below support — can signal weakness.
-        
-        • **Trend Strength:** How consistently price is moving in one direction.
-        
-        • **Volatility Squeeze:** Price gets "tight" (low volatility) — often before a big move.
-        
-        • **Signal Badges:** Quick labels that summarize what indicators are saying right now.
-        
-        • **AI Chart Explanation:** A plain-English summary of trend, momentum, levels, and risk.
-        
-        • **Pattern Detection:** AI finds common setups like breakouts, reversals, or squeezes.
-        
-        • **Historical Similar Setups:** Finds past charts that looked similar and shows what happened next.
-        
-        • **Historical Win Rate:** How often similar setups worked historically (not guaranteed).
-        
-        • **Backtesting:** Simulates a strategy on past data to see how it performed.
-        
-        • **Alerts:** Notifications when price hits levels or signals trigger (coming soon).
-        
-        ---
-        
-        *Educational only — not financial advice.*
-        """)
+    """Legacy function - replaced by render_technical_quick_guide"""
+    pass  # Kept for compatibility, no longer used
 
 
 def build_pro_chart_prompt(ticker: str, context: dict, simple_mode: bool) -> str:
@@ -9813,9 +9892,6 @@ elif selected_page == "📊 Pro Checklist":
     </style>
     """, unsafe_allow_html=True)
     
-    # Feature Definitions Glossary
-    render_pro_glossary()
-    
     # Progress Bar for Investment Checklist
     if 'checklist_analyzed' not in st.session_state:
         st.session_state.checklist_analyzed = False
@@ -9916,7 +9992,8 @@ elif selected_page == "📊 Pro Checklist":
             st.error(f"❌ No price data available for {ticker_check}")
             st.warning("Try a different ticker or timeframe")
         else:
-            st.success(f"✅ Loaded {len(price_history)} price points")
+            # Track what features are available for status line
+            chart_features = []
             
             # Create chart (candlestick if we have OHLC, line chart if only close)
             has_ohlc = all(col in price_history.columns for col in ['open', 'high', 'low', 'close'])
@@ -9925,7 +10002,7 @@ elif selected_page == "📊 Pro Checklist":
             num_rows = 1
             
             if has_ohlc:
-                st.info("✅ Full OHLC data available - rendering candlesticks")
+                chart_features.append("OHLC")
                 
                 # Determine number of rows based on indicators
                 num_rows = 1  # Price chart always present
@@ -9991,10 +10068,11 @@ elif selected_page == "📊 Pro Checklist":
                         ),
                         row=volume_row, col=1
                     )
+                    chart_features.append("Volume")
                 
             else:
                 # Fallback to line chart (like Company Analysis does)
-                st.info("ℹ️ Only close prices available - rendering line chart")
+                chart_features.append("Line")
                 
                 fig_price = go.Figure()
                 
@@ -10029,7 +10107,7 @@ elif selected_page == "📊 Pro Checklist":
                 else:
                     fig_price.add_trace(sma_trace_50)
                 
-                st.success("✅ Added SMA 50")
+                chart_features.append("SMA50")
             
             if show_sma200 and len(price_history) >= 200:
                 sma200 = price_history[close_col].rolling(window=200).mean()
@@ -10046,7 +10124,7 @@ elif selected_page == "📊 Pro Checklist":
                 else:
                     fig_price.add_trace(sma_trace_200)
                 
-                st.success("✅ Added SMA 200")
+                chart_features.append("SMA200")
             
             # Add RSI (Relative Strength Index)
             if show_rsi and len(price_history) >= 14:
@@ -10080,7 +10158,7 @@ elif selected_page == "📊 Pro Checklist":
                     # Update RSI y-axis
                     fig_price.update_yaxes(title_text="RSI", range=[0, 100], row=rsi_row, col=1)
                     
-                    st.success("✅ Added RSI (14)")
+                    chart_features.append("RSI")
             
             # Update layout (same as Company Analysis)
             fig_price.update_layout(
@@ -10144,6 +10222,17 @@ elif selected_page == "📊 Pro Checklist":
             
             # Display chart (same as Company Analysis)
             st.plotly_chart(fig_price, use_container_width=True)
+            
+            # ============= COMPACT STATUS LINE =============
+            if has_ohlc:
+                status_parts = [f"{feat} ✓" for feat in chart_features]
+                st.success(f"✅ Chart ready: {' | '.join(status_parts)}")
+            else:
+                st.warning("⚠️ OHLC not available — showing line chart fallback.")
+            
+            # ============= TECHNICAL QUICK GUIDE =============
+            st.markdown("---")
+            render_technical_quick_guide(price_history, ticker_check)
         
         # ============= PATTERN DETECTION =============
         st.markdown("---")
@@ -10277,74 +10366,13 @@ elif selected_page == "📊 Pro Checklist":
                 else:
                     st.warning("⚠️ Not enough data to detect patterns. Try a different ticker or timeframe.")
         
-        # ============= FUNDAMENTAL CHECKS =============
-        st.markdown("---")
-        st.markdown("### ✅ Fundamental Screening")
         
-        ratios = get_financial_ratios(ticker_check, 'annual', 1)
-        cash = get_cash_flow(ticker_check, 'annual', 1)
-        balance = get_balance_sheet(ticker_check, 'annual', 1)
-        ratios_ttm = get_ratios_ttm(ticker_check)
-        income_df = get_income_statement(ticker_check, 'annual', 1)
+        # ✅ Disabled celebrations (balloons/confetti) on Pro tab
+        # Pro tab is a professional tool - no gamification elements
         
-        checks = []
+        # ✅ Removed Fundamental Screening from Pro (Pro is technical + AI only)
         
-        if not ratios.empty and 'netProfitMargin' in ratios.columns:
-            margin = ratios['netProfitMargin'].iloc[-1]
-            checks.append(("✅ Profitable (>10% margin)" if margin > 0.1 else "❌ Low profitability", margin > 0.1))
-        
-        if not cash.empty and 'freeCashFlow' in cash.columns:
-            fcf = cash['freeCashFlow'].iloc[-1]
-            checks.append(("✅ Positive free cash flow" if fcf > 0 else "❌ Negative FCF", fcf > 0))
-        
-        pe = get_pe_ratio(ticker_check, quote, ratios_ttm, income_df)
-        if 0 < pe < 30:
-            checks.append(("✅ Reasonable P/E (<30)", True))
-        elif pe > 30:
-            checks.append(("⚠️ High P/E (>30)", False))
-        
-        mcap = quote.get('marketCap', 0)
-        checks.append(("✅ Large cap (>$10B)" if mcap > 10e9 else "⚠️ Small/mid cap", mcap > 10e9))
-        
-        de_ratio = calculate_debt_to_equity(balance)
-        if de_ratio > 0:
-            checks.append(("✅ Low debt (D/E < 1.0)" if de_ratio < 1.0 else "⚠️ High debt (D/E > 1.0)", de_ratio < 1.0))
-        
-        qr = calculate_quick_ratio(balance)
-        if qr > 0:
-            checks.append(("✅ Good liquidity (QR > 1.0)" if qr > 1.0 else "⚠️ Low liquidity (QR < 1.0)", qr > 1.0))
-        
-        # Display checks
-        col_check1, col_check2 = st.columns(2)
-        for i, (check, passed) in enumerate(checks):
-            with col_check1 if i % 2 == 0 else col_check2:
-                if passed:
-                    st.success(check)
-                else:
-                    st.warning(check)
-        
-        # Score
-        passed_count = sum(1 for _, p in checks if p)
-        total = len(checks)
-        
-        st.markdown("---")
-        col_score1, col_score2, col_score3 = st.columns(3)
-        
-        with col_score1:
-            st.metric("Fundamental Score", f"{passed_count}/{total}")
-        
-        with col_score2:
-            score_pct = (passed_count / total * 100) if total > 0 else 0
-            st.metric("Pass Rate", f"{score_pct:.0f}%")
-        
-        with col_score3:
-            if passed_count >= total * 0.75:
-                st.success("🎉 Strong!")
-            elif passed_count >= total * 0.5:
-                st.info("🤔 Mixed")
-            else:
-                st.error("🚨 Weak")
-
+        # ✅ PRO CLEANUP + THEME FIX COMPLETE
 
 
 # NEW PAPER PORTFOLIO PAGE - Section 6 Implementation
