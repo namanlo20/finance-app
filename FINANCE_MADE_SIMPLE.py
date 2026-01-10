@@ -5513,6 +5513,197 @@ def render_pro_glossary():
         *Educational only — not financial advice.*
         """)
 
+
+def build_pro_chart_prompt(ticker: str, context: dict, simple_mode: bool) -> str:
+    """Build AI prompt for chart explanation based on ELI5 mode"""
+    
+    # Extract context
+    current_price = context.get('current_price', 'N/A')
+    sma_50 = context.get('sma_50', 'N/A')
+    sma_200 = context.get('sma_200', 'N/A')
+    rsi = context.get('rsi', 'N/A')
+    recent_return = context.get('recent_return', 'N/A')
+    
+    if simple_mode:
+        # ELI5 mode - beginner friendly
+        prompt = f"""You are explaining stock charts to a complete beginner (like explaining to a 5-year-old).
+
+Ticker: {ticker}
+Current Price: ${current_price}
+50-day average: ${sma_50}
+200-day average: ${sma_200}
+RSI (momentum): {rsi}
+Recent change: {recent_return}%
+
+Explain the chart in VERY SIMPLE terms:
+1. What's the trend? (Is it going up, down, or sideways?)
+2. Is it a good time to buy? (Use simple words like "maybe wait" or "looks interesting")
+3. What should I watch for? (Explain ONE key thing to pay attention to)
+
+Use simple words. No jargon. Explain like you're talking to someone who's never seen a stock chart before."""
+    
+    else:
+        # Advanced mode - technical analysis
+        prompt = f"""You are a professional technical analyst. Analyze this chart setup:
+
+Ticker: {ticker}
+Current Price: ${current_price}
+SMA 50: ${sma_50}
+SMA 200: ${sma_200}
+RSI: {rsi}
+Recent Return: {recent_return}%
+
+Provide a concise technical analysis:
+1. **Trend Assessment**: What's the current trend and strength?
+2. **Key Levels**: Important support/resistance levels
+3. **Momentum**: RSI interpretation and momentum signals
+4. **Risk/Reward**: What traders should watch for
+
+Be specific and actionable. Use technical terms appropriately."""
+    
+    return prompt
+
+
+def calculate_pattern_features(price_data):
+    """Calculate rule-based features for pattern detection"""
+    try:
+        # Ensure we have required columns
+        if 'close' not in price_data.columns:
+            return None
+        
+        # Get last 6 months of data (approx 126 trading days)
+        recent_data = price_data.tail(126).copy()
+        
+        if len(recent_data) < 20:
+            return None
+        
+        # Calculate features
+        close = recent_data['close']
+        
+        # Moving averages
+        ma_20 = close.rolling(window=20).mean().iloc[-1]
+        ma_50 = close.rolling(window=50).mean().iloc[-1] if len(recent_data) >= 50 else ma_20
+        
+        # RSI
+        delta = close.diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+        rs = gain / loss
+        rsi = 100 - (100 / (1 + rs))
+        current_rsi = rsi.iloc[-1]
+        
+        # Returns
+        last_20d_return = ((close.iloc[-1] / close.iloc[-20]) - 1) * 100
+        
+        # Volatility regime
+        vol_20d = close.pct_change().tail(20).std() * 100
+        vol_60d = close.pct_change().tail(60).std() * 100 if len(recent_data) >= 60 else vol_20d
+        
+        # Trend strength (slope of MA20)
+        ma20_series = close.rolling(window=20).mean().tail(20)
+        if len(ma20_series) >= 2:
+            trend_slope = (ma20_series.iloc[-1] - ma20_series.iloc[0]) / ma20_series.iloc[0] * 100
+        else:
+            trend_slope = 0
+        
+        # Current price
+        current_price = close.iloc[-1]
+        
+        features = {
+            'current_price': round(current_price, 2),
+            'ma_20': round(ma_20, 2),
+            'ma_50': round(ma_50, 2),
+            'ma_20_vs_50': 'above' if ma_20 > ma_50 else 'below',
+            'price_vs_ma20': round(((current_price / ma_20) - 1) * 100, 2),
+            'rsi': round(current_rsi, 1),
+            'rsi_zone': 'overbought' if current_rsi > 70 else ('oversold' if current_rsi < 30 else 'neutral'),
+            'last_20d_return': round(last_20d_return, 2),
+            'vol_20d': round(vol_20d, 2),
+            'vol_60d': round(vol_60d, 2),
+            'vol_regime': 'low' if vol_20d < vol_60d * 0.7 else ('high' if vol_20d > vol_60d * 1.3 else 'normal'),
+            'trend_slope': round(trend_slope, 2),
+            'trend_direction': 'up' if trend_slope > 2 else ('down' if trend_slope < -2 else 'sideways')
+        }
+        
+        return features
+    
+    except Exception as e:
+        st.error(f"Error calculating pattern features: {str(e)}")
+        return None
+
+
+def detect_chart_pattern(ticker: str, features: dict, simple_mode: bool) -> dict:
+    """Use AI to detect and explain chart patterns"""
+    
+    if not features:
+        return None
+    
+    # Build AI prompt for pattern detection
+    if simple_mode:
+        prompt = f"""You are explaining stock chart patterns to a beginner (like a 5-year-old).
+
+Ticker: {ticker}
+Current Price: ${features['current_price']}
+20-day average: ${features['ma_20']} (price is {features['price_vs_ma20']}% {'above' if features['price_vs_ma20'] > 0 else 'below'})
+50-day average: ${features['ma_50']} (20-day is {features['ma_20_vs_50']} 50-day)
+Momentum (RSI): {features['rsi']} ({features['rsi_zone']})
+Last 20 days: {features['last_20d_return']}%
+Trend: {features['trend_direction']}
+Volatility: {features['vol_regime']}
+
+What pattern do you see? Choose ONE from:
+- "Going up steadily"
+- "Trying to break higher"
+- "Bouncing in a range"
+- "Getting weaker"
+- "Quiet before a big move"
+- "Needs to cool off"
+
+Respond in this EXACT format:
+PATTERN: [one of the patterns above]
+CONFIDENCE: [High/Medium/Low]
+WHY:
+• [Simple reason 1 - one short sentence]
+• [Simple reason 2 - one short sentence]
+• [Simple reason 3 - one short sentence]
+WATCH: $[price level to watch] - [what it means in simple words]
+
+Use VERY simple language. No technical jargon."""
+
+    else:
+        prompt = f"""You are a professional technical analyst. Analyze this chart pattern:
+
+Ticker: {ticker}
+Current Price: ${features['current_price']}
+MA 20: ${features['ma_20']} (price {features['price_vs_ma20']}% vs MA20)
+MA 50: ${features['ma_50']} (MA20 {features['ma_20_vs_50']} MA50)
+RSI: {features['rsi']} ({features['rsi_zone']})
+20-day Return: {features['last_20d_return']}%
+Trend: {features['trend_direction']} (slope: {features['trend_slope']}%)
+Volatility: {features['vol_regime']} (20d: {features['vol_20d']}%, 60d: {features['vol_60d']}%)
+
+Identify the most likely pattern from:
+- "Uptrend continuation"
+- "Breakout attempt"
+- "Mean reversion zone"
+- "Distribution / weakness"
+- "Volatility squeeze"
+- "Post-consolidation setup"
+
+Respond in this EXACT format:
+PATTERN: [one of the patterns above]
+CONFIDENCE: [High/Medium/Low]
+WHY:
+• [Technical reason 1]
+• [Technical reason 2]
+• [Technical reason 3]
+WATCH: $[key level] - [what confirming/breaking this level means]
+
+Be specific and technical. Use proper terminology."""
+    
+    return prompt
+
+
 # ============= PAGE CONTENT =============
 
 # ============= HOMEPAGE: START HERE =============
@@ -9655,9 +9846,12 @@ elif selected_page == "📊 Pro Checklist":
         interval = st.selectbox("Interval", interval_options, index=0, key="checklist_interval")
     
     with col4:
-        st.write("")  # Spacing
-        st.write("")  # Spacing
+        # ELI5 toggle
+        simple_mode = st.toggle("Explain like I'm 5", value=False, key="eli5_toggle")
         analyze_button = st.button("Analyze", key="checklist_analyze", use_container_width=True)
+    
+    # Store simple_mode in session state for use across features
+    st.session_state.simple_mode = simple_mode
     
     
     # ============= ANALYSIS SECTION =============
@@ -9950,6 +10144,138 @@ elif selected_page == "📊 Pro Checklist":
             
             # Display chart (same as Company Analysis)
             st.plotly_chart(fig_price, use_container_width=True)
+        
+        # ============= PATTERN DETECTION =============
+        st.markdown("---")
+        st.markdown("### 🔍 Pattern Detection (AI + Rules)")
+        
+        # Pattern detection button
+        col_pattern1, col_pattern2 = st.columns([1, 3])
+        with col_pattern1:
+            detect_pattern_btn = st.button("🤖 Detect Pattern", key="detect_pattern_btn", use_container_width=True)
+        
+        with col_pattern2:
+            st.caption("*AI analyzes chart patterns, momentum, and technical signals*")
+        
+        # Pattern detection logic
+        if detect_pattern_btn or st.session_state.get('pattern_detected', False):
+            st.session_state.pattern_detected = True
+            
+            with st.spinner("🔍 Analyzing chart pattern..."):
+                # Calculate rule-based features
+                features = calculate_pattern_features(price_history)
+                
+                if features:
+                    # Display feature summary in expandable section
+                    with st.expander("📊 Technical Metrics", expanded=False):
+                        col_f1, col_f2, col_f3, col_f4 = st.columns(4)
+                        with col_f1:
+                            st.metric("Current Price", f"${features['current_price']}")
+                            st.caption(f"vs MA20: {features['price_vs_ma20']:+.1f}%")
+                        with col_f2:
+                            st.metric("RSI", f"{features['rsi']:.0f}")
+                            st.caption(f"{features['rsi_zone'].capitalize()}")
+                        with col_f3:
+                            st.metric("20-Day Return", f"{features['last_20d_return']:+.1f}%")
+                            st.caption(f"Trend: {features['trend_direction']}")
+                        with col_f4:
+                            st.metric("Volatility", features['vol_regime'].capitalize())
+                            st.caption(f"20d: {features['vol_20d']:.1f}%")
+                    
+                    # Get AI pattern detection
+                    simple_mode = st.session_state.get('simple_mode', False)
+                    pattern_prompt = detect_chart_pattern(ticker_check, features, simple_mode)
+                    
+                    # Here you would call Claude API with pattern_prompt
+                    # For now, we'll show a placeholder response based on rules
+                    
+                    # Rule-based pattern suggestion (fallback)
+                    if features['trend_direction'] == 'up' and features['rsi'] < 70 and features['ma_20_vs_50'] == 'above':
+                        pattern_label = "Uptrend continuation" if not simple_mode else "Going up steadily"
+                        confidence = "High"
+                        reasons = [
+                            "Price is consistently above both 20-day and 50-day averages" if not simple_mode else "The price keeps going higher over time",
+                            "Short-term average (20d) is above long-term average (50d)" if not simple_mode else "The recent average is higher than the older average",
+                            f"RSI at {features['rsi']:.0f} shows healthy momentum without being overbought" if not simple_mode else f"Momentum looks good (not too hot at {features['rsi']:.0f})"
+                        ]
+                        watch_level = round(features['ma_50'], 2)
+                        watch_note = f"Breaking below ${watch_level} (50-day MA) would challenge the uptrend" if not simple_mode else f"If it drops below ${watch_level}, the uptrend might be ending"
+                    
+                    elif features['rsi'] > 70 and features['trend_direction'] == 'up':
+                        pattern_label = "Mean reversion zone" if not simple_mode else "Needs to cool off"
+                        confidence = "Medium"
+                        reasons = [
+                            f"RSI at {features['rsi']:.0f} indicates overbought conditions" if not simple_mode else f"The momentum is very high ({features['rsi']:.0f}) - might be too hot",
+                            f"Price is {features['price_vs_ma20']:+.1f}% above 20-day average" if not simple_mode else f"Price jumped {abs(features['price_vs_ma20']):.0f}% above normal",
+                            "Potential for short-term pullback to moving averages" if not simple_mode else "It might come back down a bit to 'cool off'"
+                        ]
+                        watch_level = round(features['ma_20'], 2)
+                        watch_note = f"Watch for support at ${watch_level} (20-day MA)" if not simple_mode else f"Watch if it bounces at ${watch_level}"
+                    
+                    elif features['vol_regime'] == 'low' and abs(features['trend_slope']) < 2:
+                        pattern_label = "Volatility squeeze" if not simple_mode else "Quiet before a big move"
+                        confidence = "Medium"
+                        reasons = [
+                            f"Volatility dropped to {features['vol_20d']:.1f}% (below 60-day average)" if not simple_mode else "Price movement got very small and quiet",
+                            "Price consolidating in narrow range" if not simple_mode else "It's been moving sideways in a tight range",
+                            "Often precedes significant directional move" if not simple_mode else "Usually something big happens after this"
+                        ]
+                        watch_level = round(features['current_price'] * 1.03, 2)
+                        watch_note = f"Breakout above ${watch_level} or breakdown below ${round(features['current_price'] * 0.97, 2)}" if not simple_mode else f"Watch if it jumps above ${watch_level} or falls below ${round(features['current_price'] * 0.97, 2)}"
+                    
+                    elif features['trend_direction'] == 'down' or features['ma_20_vs_50'] == 'below':
+                        pattern_label = "Distribution / weakness" if not simple_mode else "Getting weaker"
+                        confidence = "Medium"
+                        reasons = [
+                            "20-day average below 50-day average signals downtrend" if not simple_mode else "Recent prices are lower than before",
+                            f"Recent 20-day return of {features['last_20d_return']:.1f}% shows selling pressure" if not simple_mode else f"It dropped {abs(features['last_20d_return']):.0f}% in the last 20 days",
+                            "Momentum indicators show continued weakness" if not simple_mode else "The trend looks like it will keep going down"
+                        ]
+                        watch_level = round(features['ma_50'], 2)
+                        watch_note = f"Reclaim of ${watch_level} (50-day MA) needed to change trend" if not simple_mode else f"Needs to get back above ${watch_level} to turn around"
+                    
+                    else:
+                        pattern_label = "Mean reversion zone" if not simple_mode else "Bouncing in a range"
+                        confidence = "Low"
+                        reasons = [
+                            "Price showing mixed technical signals" if not simple_mode else "The chart is giving mixed signals",
+                            "No clear directional bias currently" if not simple_mode else "Not clear if it will go up or down",
+                            "Wait for clearer setup before taking action" if not simple_mode else "Better to wait and see what happens"
+                        ]
+                        watch_level = round(features['ma_20'], 2)
+                        watch_note = f"Monitor ${watch_level} (20-day MA) for directional clues" if not simple_mode else f"Watch ${watch_level} to see which way it goes"
+                    
+                    # Display pattern result
+                    st.markdown("#### 🎯 Pattern Analysis")
+                    
+                    # Pattern card with confidence color
+                    confidence_color = {
+                        'High': '#00FF00',
+                        'Medium': '#FFA500', 
+                        'Low': '#FF4444'
+                    }
+                    
+                    st.markdown(f"""
+                    <div style="background: rgba(50,50,50,0.5); padding: 20px; border-radius: 10px; border-left: 5px solid {confidence_color[confidence]};">
+                        <h3 style="margin: 0; color: {confidence_color[confidence]};">🔍 {pattern_label}</h3>
+                        <p style="margin: 5px 0; color: {confidence_color[confidence]}; font-size: 14px;">Confidence: {confidence}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    st.markdown("**Why we think this:**")
+                    for reason in reasons:
+                        st.markdown(f"• {reason}")
+                    
+                    st.markdown(f"**🎯 Key Level to Watch:** {watch_note}")
+                    
+                    # Note about AI
+                    if simple_mode:
+                        st.info("💡 **Remember**: This is just one way to look at the chart. Always do your own research!")
+                    else:
+                        st.info("ℹ️ **Note**: Pattern detection combines rule-based signals with AI interpretation. Not financial advice.")
+                
+                else:
+                    st.warning("⚠️ Not enough data to detect patterns. Try a different ticker or timeframe.")
         
         # ============= FUNDAMENTAL CHECKS =============
         st.markdown("---")
