@@ -9844,12 +9844,37 @@ elif selected_page == "📊 Pro Checklist":
                 title=f"{ticker_check} Price History ({timeframe})",
                 xaxis_title="Date",
                 yaxis_title="Price ($)",
-                height=700 if num_rows == 3 else (600 if num_rows == 2 else 500),
+                height=500,  # Reduced from 700/600/500
                 template='plotly_dark',
                 margin=dict(l=0, r=0, t=40, b=0),
                 hovermode='x unified',
                 showlegend=True,
-                xaxis_rangeslider_visible=False
+                xaxis_rangeslider_visible=False  # Hide by default, add custom range selector
+            )
+            
+            # Add range selector buttons (like Company Analysis)
+            fig_price.update_xaxes(
+                rangeselector=dict(
+                    buttons=list([
+                        dict(count=1, label="1M", step="month", stepmode="backward"),
+                        dict(count=3, label="3M", step="month", stepmode="backward"),
+                        dict(count=6, label="6M", step="month", stepmode="backward"),
+                        dict(count=1, label="1Y", step="year", stepmode="backward"),
+                        dict(step="all", label="All")
+                    ]),
+                    bgcolor="rgba(150, 150, 150, 0.1)",
+                    activecolor="rgba(150, 150, 150, 0.3)",
+                    x=0,
+                    y=1.05,
+                    xanchor="left",
+                    yanchor="bottom"
+                ),
+                rangeslider=dict(
+                    visible=True,
+                    thickness=0.05,
+                    bgcolor="rgba(150, 150, 150, 0.1)"
+                ),
+                row=1, col=1
             )
             
             # Update axis labels based on number of rows
