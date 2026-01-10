@@ -5466,40 +5466,51 @@ def render_pro_glossary():
     """Render feature definitions glossary for Pro Checklist"""
     with st.expander("📖 Feature Definitions (Glossary)"):
         st.markdown("""
-        **Chart Types:**
-        • **Candlestick chart** - Shows open, high, low, close prices for each period as colored bars (green=up, red=down)
+        • **Candlestick Chart:** Shows price movement (open, high, low, close) for each time period.
         
-        **Volume & Pricing:**
-        • **Volume** - Number of shares traded; high volume confirms price moves
-        • **VWAP** - Volume-weighted average price; shows average price weighted by trading volume
+        • **Volume:** How many shares traded — higher volume = stronger conviction.
         
-        **Moving Averages:**
-        • **SMA 20** - 20-day simple moving average; short-term trend indicator
-        • **SMA 50** - 50-day simple moving average; medium-term trend indicator  
-        • **SMA 200** - 200-day simple moving average; long-term trend indicator
+        • **VWAP:** The "average price" institutions paid today (weighted by volume).
         
-        **Momentum Indicators:**
-        • **RSI** - Relative Strength Index (0-100); >70 = overbought, <30 = oversold
-        • **MACD** - Moving Average Convergence Divergence; shows trend changes and momentum
+        • **Moving Average (MA):** A smoothed average price that helps reveal the trend.
         
-        **Volatility:**
-        • **Bollinger Bands** - Price channels showing standard deviations; measures volatility
-        • **Volatility squeeze** - When Bollinger Bands narrow, indicating potential breakout
+        • **20/50/200 MA:** Short / medium / long-term trend lines traders watch.
         
-        **Price Levels:**
-        • **Support** - Price level where buying pressure prevents further decline
-        • **Resistance** - Price level where selling pressure prevents further rise
-        • **Breakout** - When price moves above resistance with volume
-        • **Breakdown** - When price moves below support with volume
+        • **RSI:** Momentum meter (0–100). >70 = overbought, <30 = oversold.
         
-        **Analysis Tools:**
-        • **Trend strength** - How strong the current up/down trend is
-        • **Pattern detection** - Identifies chart patterns (triangles, head & shoulders, etc.)
-        • **AI chart explanation** - AI-powered analysis of what the chart shows
+        • **MACD:** Momentum + trend-change signal based on moving averages.
         
-        **Coming Soon:**
-        • **Historical win-rate** - Backtested performance of similar setups
-        • **Alerts** - Get notified when conditions are met
+        • **Bollinger Bands:** Shows when price is unusually high/low vs recent volatility.
+        
+        • **Support:** A price level where buyers often step in (price tends to bounce).
+        
+        • **Resistance:** A price level where sellers often step in (price tends to stall).
+        
+        • **Breakout:** Price moves above resistance — can signal a new uptrend.
+        
+        • **Breakdown:** Price falls below support — can signal weakness.
+        
+        • **Trend Strength:** How consistently price is moving in one direction.
+        
+        • **Volatility Squeeze:** Price gets "tight" (low volatility) — often before a big move.
+        
+        • **Signal Badges:** Quick labels that summarize what indicators are saying right now.
+        
+        • **AI Chart Explanation:** A plain-English summary of trend, momentum, levels, and risk.
+        
+        • **Pattern Detection:** AI finds common setups like breakouts, reversals, or squeezes.
+        
+        • **Historical Similar Setups:** Finds past charts that looked similar and shows what happened next.
+        
+        • **Historical Win Rate:** How often similar setups worked historically (not guaranteed).
+        
+        • **Backtesting:** Simulates a strategy on past data to see how it performed.
+        
+        • **Alerts:** Notifications when price hits levels or signals trigger (coming soon).
+        
+        ---
+        
+        *Educational only — not financial advice.*
         """)
 
 # ============= PAGE CONTENT =============
