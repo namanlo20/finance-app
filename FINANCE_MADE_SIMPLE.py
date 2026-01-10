@@ -32,6 +32,54 @@ STARTING_CASH = float(os.environ.get("STARTING_CASH", "100000"))
 
 st.set_page_config(page_title="Investing Made Simple", layout="wide", page_icon="💰")
 
+
+
+# --- GLOBAL UI THEME OVERRIDES (dropdowns = red background) ---
+st.markdown("""
+<style>
+/* Make all Streamlit selectbox dropdown menus match the red theme (background + readable text) */
+div[data-baseweb="popover"] ul[role="listbox"]{
+  background: #ff4b4b !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255,255,255,0.15) !important;
+}
+div[data-baseweb="popover"] li[role="option"]{
+  background: #ff4b4b !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+div[data-baseweb="popover"] li[role="option"]:hover{
+  background: #e63c3c !important;
+  color: #ffffff !important;
+}
+div[data-baseweb="popover"] li[role="option"][aria-selected="true"]{
+  background: #d83232 !important;
+  color: #ffffff !important;
+}
+div[data-baseweb="select"] > div{
+  background: #ff4b4b !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255,255,255,0.18) !important;
+}
+div[data-baseweb="select"] span{
+  color: #ffffff !important;
+}
+div[data-baseweb="select"] input{
+  color: #ffffff !important;
+}
+/* Make sure the dropdown arrow is visible */
+div[data-baseweb="select"] svg{
+  fill: #ffffff !important;
+}
+
+/* Also style multiselect dropdowns (same baseweb) */
+div[data-baseweb="select"]{
+  border-radius: 10px !important;
+}
+</style>
+""", unsafe_allow_html=True)
+# --- END GLOBAL UI THEME OVERRIDES ---
+
 # ============= DARK/LIGHT MODE =============
 if 'theme' not in st.session_state:
     st.session_state.theme = 'dark'
