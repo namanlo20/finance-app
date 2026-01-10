@@ -3812,7 +3812,7 @@ def render_coffee_calculator(ticker, stock_name):
         st.info(f"Unable to calculate coffee investment for {ticker}. Try a different stock.")
 
 # ============= PROGRESS GAMIFICATION =============
-def render_progress_bar(current_step, total_steps, section_name):
+def render_progress_bar(current_step, total_steps, section_name, disable_celebrations=False):
     """Render a progress bar with gamification"""
     progress = (current_step / total_steps) * 100
     
@@ -3830,7 +3830,7 @@ def render_progress_bar(current_step, total_steps, section_name):
     </div>
     ''', unsafe_allow_html=True)
     
-    if progress >= 100:
+    if progress >= 100 and not disable_celebrations:
         st.balloons()
         st.success("🎉 Congratulations! You've completed this section!")
 
@@ -9868,39 +9868,39 @@ elif selected_page == "📊 Pro Checklist":
     # Fix selectbox dropdown colors to match input styling
     st.markdown("""
     <style>
-    /* Style the selectbox closed state */
+    /* Style the selectbox closed state - RED like text input */
     [data-testid="stSelectbox"] > div > div {
-        background-color: #0E1117 !important;
+        background-color: #FF4B4B !important;
         color: white !important;
     }
     
-    /* Style the dropdown button/selector */
+    /* Style the dropdown button/selector - RED */
     [data-testid="stSelectbox"] [data-baseweb="select"] > div {
-        background-color: #0E1117 !important;
+        background-color: #FF4B4B !important;
         color: white !important;
     }
     
-    /* Style the dropdown popover/menu container */
+    /* Style the dropdown popover/menu container - DARK for opened menu */
     [data-baseweb="popover"] {
-        background-color: #0E1117 !important;
-    }
-    
-    /* Style dropdown menu items */
-    [data-baseweb="menu"] {
-        background-color: #0E1117 !important;
-    }
-    
-    [data-baseweb="menu"] li {
-        background-color: #0E1117 !important;
-        color: white !important;
-    }
-    
-    /* Hover state for dropdown items */
-    [data-baseweb="menu"] li:hover {
         background-color: #262730 !important;
     }
     
-    /* Selected/active item */
+    /* Style dropdown menu items - DARK background */
+    [data-baseweb="menu"] {
+        background-color: #262730 !important;
+    }
+    
+    [data-baseweb="menu"] li {
+        background-color: #262730 !important;
+        color: white !important;
+    }
+    
+    /* Hover state for dropdown items - Lighter gray */
+    [data-baseweb="menu"] li:hover {
+        background-color: #3A3B45 !important;
+    }
+    
+    /* Selected/active item - RED */
     [data-baseweb="menu"] li[aria-selected="true"] {
         background-color: #FF4B4B !important;
     }
@@ -9914,7 +9914,7 @@ elif selected_page == "📊 Pro Checklist":
     # Use current_step/total_steps format for render_progress_bar
     checklist_current = 1 if st.session_state.checklist_analyzed else 0
     checklist_total = 1
-    render_progress_bar(checklist_current, checklist_total, "Checklist Progress")
+    render_progress_bar(checklist_current, checklist_total, "Checklist Progress", disable_celebrations=True)
     
     # ============= INPUT ROW =============
     col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
@@ -10194,28 +10194,8 @@ elif selected_page == "📊 Pro Checklist":
                 xaxis_rangeslider_visible=False  # Hide by default, add custom range selector
             )
             
-            # Add range selector buttons and slider to BOTTOM subplot (last row)
-            # This ensures it's visible when we have multiple rows (price, RSI, volume)
-            fig_price.update_xaxes(
-                rangeselector=dict(
-                    buttons=list([
-                        dict(count=1, label="1M", step="month", stepmode="backward"),
-                        dict(count=3, label="3M", step="month", stepmode="backward"),
-                        dict(count=6, label="6M", step="month", stepmode="backward"),
-                        dict(count=1, label="1Y", step="year", stepmode="backward"),
-                        dict(step="all", label="All")
-                    ]),
-                    bgcolor="rgba(150, 150, 150, 0.1)",
-                    activecolor="rgba(150, 150, 150, 0.3)",
-                    x=0,
-                    y=1.05,
-                    xanchor="left",
-                    yanchor="bottom"
-                ),
-                row=1, col=1  # Buttons on top chart
-            )
-            
             # Add rangeslider to the BOTTOM row (where it will be visible)
+            # No range selector buttons - user controls timeframe via dropdown
             if has_ohlc:
                 fig_price.update_xaxes(
                     rangeslider=dict(
