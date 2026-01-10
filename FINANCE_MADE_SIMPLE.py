@@ -2364,26 +2364,20 @@ def get_historical_ohlc(ticker, years=5):
     url = f"{BASE_URL}/historical-price-eod/full?symbol={ticker}&apikey={FMP_API_KEY}"
     
     try:
-        st.write(f"DEBUG: Trying FMP EOD FULL endpoint: {url[:80]}...")
         response = requests.get(url, timeout=15)
         data = response.json()
         
         if data and isinstance(data, list) and len(data) > 0:
-            st.write(f"DEBUG: Got {len(data)} records")
             df = pd.DataFrame(data)
-            st.write(f"DEBUG: Columns: {df.columns.tolist()}")
             
             if not df.empty:
                 df['date'] = pd.to_datetime(df['date'])
                 df = df.sort_values('date')
                 cutoff = datetime.now() - timedelta(days=years*365)
                 df = df[df['date'] >= cutoff]
-                st.success(f"✅ Loaded {len(df)} rows with OHLC data!")
                 return df
-        else:
-            st.warning(f"DEBUG: Unexpected response: {str(data)[:200]}")
-    except Exception as e:
-        st.error(f"DEBUG: Error: {str(e)}")
+    except:
+        pass
     
     return pd.DataFrame()
 
@@ -5465,6 +5459,48 @@ with st.sidebar:
             if st.button("🔐 Sign In", use_container_width=True, type="secondary", key="sidebar_login_btn"):
                 st.session_state.show_login_popup = True
                 st.rerun()
+
+# ============= HELPER FUNCTIONS FOR PAGES =============
+
+def render_pro_glossary():
+    """Render feature definitions glossary for Pro Checklist"""
+    with st.expander("📖 Feature Definitions (Glossary)"):
+        st.markdown("""
+        **Chart Types:**
+        • **Candlestick chart** - Shows open, high, low, close prices for each period as colored bars (green=up, red=down)
+        
+        **Volume & Pricing:**
+        • **Volume** - Number of shares traded; high volume confirms price moves
+        • **VWAP** - Volume-weighted average price; shows average price weighted by trading volume
+        
+        **Moving Averages:**
+        • **SMA 20** - 20-day simple moving average; short-term trend indicator
+        • **SMA 50** - 50-day simple moving average; medium-term trend indicator  
+        • **SMA 200** - 200-day simple moving average; long-term trend indicator
+        
+        **Momentum Indicators:**
+        • **RSI** - Relative Strength Index (0-100); >70 = overbought, <30 = oversold
+        • **MACD** - Moving Average Convergence Divergence; shows trend changes and momentum
+        
+        **Volatility:**
+        • **Bollinger Bands** - Price channels showing standard deviations; measures volatility
+        • **Volatility squeeze** - When Bollinger Bands narrow, indicating potential breakout
+        
+        **Price Levels:**
+        • **Support** - Price level where buying pressure prevents further decline
+        • **Resistance** - Price level where selling pressure prevents further rise
+        • **Breakout** - When price moves above resistance with volume
+        • **Breakdown** - When price moves below support with volume
+        
+        **Analysis Tools:**
+        • **Trend strength** - How strong the current up/down trend is
+        • **Pattern detection** - Identifies chart patterns (triangles, head & shoulders, etc.)
+        • **AI chart explanation** - AI-powered analysis of what the chart shows
+        
+        **Coming Soon:**
+        • **Historical win-rate** - Backtested performance of similar setups
+        • **Alerts** - Get notified when conditions are met
+        """)
 
 # ============= PAGE CONTENT =============
 
@@ -9562,6 +9598,9 @@ elif selected_page == "📊 Pro Checklist":
     # ============= PRO USER CONTENT =============
     st.success("✅ Pro Checklist unlocked!")
     
+    # Feature Definitions Glossary
+    render_pro_glossary()
+    
     # Progress Bar for Investment Checklist
     if 'checklist_analyzed' not in st.session_state:
         st.session_state.checklist_analyzed = False
@@ -9596,21 +9635,13 @@ elif selected_page == "📊 Pro Checklist":
         st.write("")  # Spacing
         analyze_button = st.button("Analyze", key="checklist_analyze", use_container_width=True)
     
-    # DEBUG: Show button state
-    st.write(f"🔍 DEBUG OUTSIDE IF: analyze_button={analyze_button}, checklist_analyzed={st.session_state.get('checklist_analyzed', False)}")
     
     # ============= ANALYSIS SECTION =============
     if analyze_button or st.session_state.checklist_analyzed:
         st.session_state.checklist_analyzed = True
         
-        # DEBUG: Show we entered this block
-        st.info(f"🔍 DEBUG: Analyze button clicked! Processing ticker: {ticker_check}")
-        st.write(f"DEBUG: Timeframe={timeframe}, Interval={interval}")
-        
         # Resolve ticker
-        st.write(f"DEBUG: Attempting to resolve ticker '{ticker_check}'...")
         resolved_ticker = resolve_company_to_ticker(ticker_check)
-        st.write(f"DEBUG: Resolved ticker result: {resolved_ticker}")
         
         if not resolved_ticker:
             st.error(f"❌ Could not find ticker: {ticker_check}")
@@ -9621,9 +9652,7 @@ elif selected_page == "📊 Pro Checklist":
         st.success(f"✅ Resolved to: {ticker_check}")
         
         # Get data
-        st.write(f"DEBUG: Fetching quote data for {ticker_check}...")
         quote = get_quote(ticker_check)
-        st.write(f"DEBUG: Quote result: {quote is not None}")
         
         if not quote:
             st.error(f"❌ Could not fetch data for {ticker_check}")
@@ -9662,8 +9691,7 @@ elif selected_page == "📊 Pro Checklist":
         days = timeframe_days.get(timeframe, 365)
         years = days / 365.0
         
-        # Use the OHLC function for candlestick support!
-        st.write(f"DEBUG: Using get_historical_ohlc for {ticker_check}, {years:.1f} years")
+        # Get historical OHLC data
         price_history = get_historical_ohlc(ticker_check, years)
         
         if price_history.empty:
@@ -9671,9 +9699,6 @@ elif selected_page == "📊 Pro Checklist":
             st.warning("Try a different ticker or timeframe")
         else:
             st.success(f"✅ Loaded {len(price_history)} price points")
-            
-            # Check what columns we have
-            st.write(f"DEBUG: Available columns: {price_history.columns.tolist()}")
             
             # Create chart (candlestick if we have OHLC, line chart if only close)
             has_ohlc = all(col in price_history.columns for col in ['open', 'high', 'low', 'close'])
@@ -9852,7 +9877,8 @@ elif selected_page == "📊 Pro Checklist":
                 xaxis_rangeslider_visible=False  # Hide by default, add custom range selector
             )
             
-            # Add range selector buttons (like Company Analysis)
+            # Add range selector buttons and slider to BOTTOM subplot (last row)
+            # This ensures it's visible when we have multiple rows (price, RSI, volume)
             fig_price.update_xaxes(
                 rangeselector=dict(
                     buttons=list([
@@ -9869,13 +9895,28 @@ elif selected_page == "📊 Pro Checklist":
                     xanchor="left",
                     yanchor="bottom"
                 ),
-                rangeslider=dict(
-                    visible=True,
-                    thickness=0.05,
-                    bgcolor="rgba(150, 150, 150, 0.1)"
-                ),
-                row=1, col=1
+                row=1, col=1  # Buttons on top chart
             )
+            
+            # Add rangeslider to the BOTTOM row (where it will be visible)
+            if has_ohlc:
+                fig_price.update_xaxes(
+                    rangeslider=dict(
+                        visible=True,
+                        thickness=0.05,
+                        bgcolor="rgba(150, 150, 150, 0.1)"
+                    ),
+                    row=num_rows, col=1  # Slider on bottom chart
+                )
+            else:
+                # For line charts (no subplots), add to main axis
+                fig_price.update_xaxes(
+                    rangeslider=dict(
+                        visible=True,
+                        thickness=0.05,
+                        bgcolor="rgba(150, 150, 150, 0.1)"
+                    )
+                )
             
             # Update axis labels based on number of rows
             if has_ohlc:
