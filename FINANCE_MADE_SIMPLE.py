@@ -5716,6 +5716,392 @@ def calculate_pattern_features(price_data):
         return None
 
 
+
+def compute_technical_facts(df: pd.DataFrame) -> dict:
+    """Deterministic 'facts' for chart + pattern explanations.
+    Expects columns: close (required), and optionally open/high/low/volume.
+    Fail-soft: returns keys with None when insufficient data.
+    """
+    facts = {
+        "last_close": None,
+        "return_5d": None,
+        "return_20d": None,
+        "return_60d": None,
+        "sma50": None,
+        "sma200": None,
+        "pct_above_sma50": None,
+        "pct_above_sma200": None,
+        "days_above_sma50_last_60": None,
+        "days_above_sma200_last_120": None,
+        "sma50_slope": None,
+        "sma200_slope": None,
+        "rsi14_last": None,
+        "rsi14_prev": None,
+        "rsi_state": None,
+        "rsi_trend": None,
+        "vol_20d": None,
+        "vol_60d": None,
+        "vol_regime": None,
+        "atr_pct": None,
+        "vol_today": None,
+        "vol_avg20": None,
+        "volume_spike": None,
+        "volume_spike_x": None,
+        "volume_trend": None,
+        "support_level": None,
+        "resistance_level": None,
+        "distance_to_support_pct": None,
+        "distance_to_resistance_pct": None,
+        "data_points": int(len(df)) if df is not None else 0,
+    }
+
+    if df is None or len(df) < 10 or "close" not in df.columns:
+        return facts
+
+    dfx = df.copy()
+    close = pd.to_numeric(dfx["close"], errors="coerce").dropna()
+    if len(close) < 10:
+        return facts
+
+    facts["last_close"] = float(close.iloc[-1])
+
+    def _safe_ret(n: int):
+        if len(close) <= n:
+            return None
+        base = close.iloc[-(n+1)]
+        if base == 0 or pd.isna(base):
+            return None
+        return float((close.iloc[-1] / base - 1.0) * 100.0)
+
+    facts["return_5d"] = _safe_ret(5)
+    facts["return_20d"] = _safe_ret(20)
+    facts["return_60d"] = _safe_ret(60)
+
+    # SMAs
+    if len(close) >= 50:
+        sma50_series = close.rolling(50).mean()
+        facts["sma50"] = float(sma50_series.iloc[-1])
+        # slope as % over last 10 points of SMA (or fewer)
+        tail = sma50_series.dropna().tail(10)
+        if len(tail) >= 2 and tail.iloc[0] != 0:
+            facts["sma50_slope"] = float((tail.iloc[-1] / tail.iloc[0] - 1.0) * 100.0)
+
+    if len(close) >= 200:
+        sma200_series = close.rolling(200).mean()
+        facts["sma200"] = float(sma200_series.iloc[-1])
+        tail = sma200_series.dropna().tail(10)
+        if len(tail) >= 2 and tail.iloc[0] != 0:
+            facts["sma200_slope"] = float((tail.iloc[-1] / tail.iloc[0] - 1.0) * 100.0)
+
+    # % above SMAs + days above
+    last_close = facts["last_close"]
+    if facts["sma50"] is not None and facts["sma50"] != 0:
+        facts["pct_above_sma50"] = float((last_close / facts["sma50"] - 1.0) * 100.0)
+        last60 = close.tail(60)
+        if len(last60) > 0:
+            sma50_last60 = close.rolling(50).mean().tail(60)
+            valid = (~sma50_last60.isna())
+            facts["days_above_sma50_last_60"] = int(((last60 > sma50_last60) & valid).sum())
+
+    if facts["sma200"] is not None and facts["sma200"] != 0:
+        facts["pct_above_sma200"] = float((last_close / facts["sma200"] - 1.0) * 100.0)
+        last120 = close.tail(120)
+        if len(last120) > 0:
+            sma200_last120 = close.rolling(200).mean().tail(120)
+            valid = (~sma200_last120.isna())
+            facts["days_above_sma200_last_120"] = int(((last120 > sma200_last120) & valid).sum())
+
+    # RSI(14)
+    delta = close.diff()
+    gain = (delta.where(delta > 0, 0.0)).rolling(14).mean()
+    loss = (-delta.where(delta < 0, 0.0)).rolling(14).mean()
+    rs = gain / loss.replace(0, np.nan)
+    rsi = 100 - (100 / (1 + rs))
+    if len(rsi.dropna()) > 0:
+        facts["rsi14_last"] = float(rsi.iloc[-1])
+        # previous 1–5 bars ago (use 3 bars if possible)
+        prev_idx = -4 if len(rsi) >= 5 else -2
+        try:
+            facts["rsi14_prev"] = float(rsi.iloc[prev_idx])
+        except Exception:
+            facts["rsi14_prev"] = None
+
+        r = facts["rsi14_last"]
+        if r is not None:
+            if r >= 70:
+                facts["rsi_state"] = "overbought"
+            elif r <= 30:
+                facts["rsi_state"] = "oversold"
+            else:
+                facts["rsi_state"] = "neutral"
+
+        if facts["rsi14_prev"] is not None and facts["rsi14_last"] is not None:
+            d = facts["rsi14_last"] - facts["rsi14_prev"]
+            if d > 2:
+                facts["rsi_trend"] = "rising"
+            elif d < -2:
+                facts["rsi_trend"] = "falling"
+            else:
+                facts["rsi_trend"] = "flat"
+
+    # Volatility regime
+    ret = close.pct_change().dropna()
+    if len(ret) >= 20:
+        facts["vol_20d"] = float(ret.tail(20).std() * 100.0)
+    if len(ret) >= 60:
+        facts["vol_60d"] = float(ret.tail(60).std() * 100.0)
+    if facts["vol_20d"] is not None and facts["vol_60d"] is not None and facts["vol_60d"] != 0:
+        ratio = facts["vol_20d"] / facts["vol_60d"]
+        if ratio < 0.75:
+            facts["vol_regime"] = "low"
+        elif ratio > 1.25:
+            facts["vol_regime"] = "high"
+        else:
+            facts["vol_regime"] = "normal"
+
+    # ATR% (if OHLC exists)
+    if all(c in dfx.columns for c in ["high", "low", "close"]):
+        high = pd.to_numeric(dfx["high"], errors="coerce")
+        low = pd.to_numeric(dfx["low"], errors="coerce")
+        prev_close = pd.to_numeric(dfx["close"], errors="coerce").shift(1)
+        tr = pd.concat([
+            (high - low).abs(),
+            (high - prev_close).abs(),
+            (low - prev_close).abs(),
+        ], axis=1).max(axis=1)
+        atr = tr.rolling(14).mean()
+        if len(atr.dropna()) > 0 and last_close:
+            facts["atr_pct"] = float((atr.iloc[-1] / last_close) * 100.0)
+
+    # Volume
+    if "volume" in dfx.columns:
+        vol = pd.to_numeric(dfx["volume"], errors="coerce").dropna()
+        if len(vol) > 0:
+            facts["vol_today"] = float(vol.iloc[-1])
+        if len(vol) >= 20:
+            facts["vol_avg20"] = float(vol.tail(20).mean())
+        if facts["vol_today"] is not None and facts["vol_avg20"] not in (None, 0):
+            x = facts["vol_today"] / facts["vol_avg20"]
+            facts["volume_spike_x"] = float(x)
+            facts["volume_spike"] = bool(x >= 1.8)
+        if len(vol) >= 20:
+            avg5 = float(vol.tail(5).mean())
+            avg20 = float(vol.tail(20).mean())
+            if avg20 != 0:
+                if avg5 / avg20 > 1.15:
+                    facts["volume_trend"] = "rising"
+                elif avg5 / avg20 < 0.85:
+                    facts["volume_trend"] = "falling"
+                else:
+                    facts["volume_trend"] = "flat"
+
+    # Key levels: use robust quantiles over last N bars (avoid single-point swing logic)
+    lookback = min(len(close), 120)
+    window = close.tail(lookback)
+    if len(window) >= 20:
+        facts["support_level"] = float(window.quantile(0.15))
+        facts["resistance_level"] = float(window.quantile(0.85))
+        if facts["support_level"] and facts["support_level"] != 0:
+            facts["distance_to_support_pct"] = float((last_close / facts["support_level"] - 1.0) * 100.0)
+        if facts["resistance_level"] and facts["resistance_level"] != 0:
+            facts["distance_to_resistance_pct"] = float((facts["resistance_level"] / last_close - 1.0) * 100.0)
+
+    return facts
+
+
+def render_chart_callouts(facts: dict) -> list:
+    """Generate 3–5 deterministic callouts based on facts (no AI).
+    Returns list of bullet strings."""
+    if not facts or not facts.get("last_close"):
+        return []
+
+    bullets = []
+    last_close = facts.get("last_close")
+    sma50 = facts.get("sma50")
+    sma200 = facts.get("sma200")
+
+    if sma50 is not None and facts.get("days_above_sma50_last_60") is not None:
+        if last_close > sma50 and facts["days_above_sma50_last_60"] >= 45:
+            bullets.append("✅ Price has stayed above SMA50 for most of the last ~3 months — typically bullish trend behavior.")
+        elif last_close < sma50:
+            bullets.append("⚠️ Price is below SMA50 — short/medium-term trend is often considered weaker.")
+
+    if sma200 is not None:
+        if last_close < sma200:
+            bullets.append("⚠️ Price is below SMA200 — long-term trend is often considered weaker.")
+        else:
+            bullets.append("✅ Price is above SMA200 — long-term trend is often considered healthier.")
+
+    rsi = facts.get("rsi14_last")
+    if rsi is not None:
+        if rsi >= 70:
+            bullets.append(f"⚠️ RSI is {rsi:.0f} (overbought zone) — momentum is strong but pullbacks are more common.")
+        elif rsi <= 30:
+            bullets.append(f"👀 RSI is {rsi:.0f} (oversold zone) — selling pressure may be stretched.")
+
+    if facts.get("volume_spike"):
+        x = facts.get("volume_spike_x")
+        if x:
+            bullets.append(f"✅ Volume spike: today’s volume is ~{x:.1f}× the 20-day average — moves on higher volume are usually more meaningful.")
+
+    # Near key levels
+    dtr = facts.get("distance_to_resistance_pct")
+    if dtr is not None and dtr <= 3:
+        lvl = facts.get("resistance_level")
+        if lvl:
+            bullets.append(f"👀 Price is ~{dtr:.1f}% from resistance near ${lvl:,.2f}.")
+
+    dts = facts.get("distance_to_support_pct")
+    if dts is not None and dts <= 3:
+        lvl = facts.get("support_level")
+        if lvl:
+            bullets.append(f"👀 Price is ~{dts:.1f}% above support near ${lvl:,.2f}.")
+
+    # Keep it tight: 3–5 bullets
+    if len(bullets) > 5:
+        bullets = bullets[:5]
+    return bullets
+
+
+def detect_rule_based_pattern(facts: dict, simple_mode: bool = False) -> tuple:
+    """Deterministic pattern label + confidence + reasons + watch level + watch note.
+    Guardrails: avoids nonsensical labels (ex: RSI 88 shouldn't be 'mean reversion zone')."""
+    if not facts or facts.get("last_close") is None:
+        return ("Not enough data" if not simple_mode else "Need more data", "Low", ["Not enough price history to analyze."], None, "")
+
+    last_close = facts["last_close"]
+    sma50 = facts.get("sma50")
+    sma200 = facts.get("sma200")
+    rsi = facts.get("rsi14_last")
+    vol_regime = facts.get("vol_regime")
+    ret20 = facts.get("return_20d")
+    ret60 = facts.get("return_60d")
+    dtr = facts.get("distance_to_resistance_pct")
+    dts = facts.get("distance_to_support_pct")
+    vol_spike = facts.get("volume_spike")
+
+    up_bias = (sma50 is not None and last_close > sma50) and (facts.get("sma50_slope") is None or facts.get("sma50_slope", 0) >= -0.2)
+    down_bias = (sma50 is not None and last_close < sma50) or (sma200 is not None and last_close < sma200)
+
+    # 1) Overbought momentum (guardrail for RSI very high)
+    if rsi is not None and rsi >= 75 and up_bias and (ret20 is None or ret20 > 0):
+        label = "Overbought momentum" if not simple_mode else "Running hot"
+        conf = "High" if (ret20 is not None and ret20 > 5) else "Medium"
+        reasons = [
+            f"RSI is {rsi:.0f} (overbought) — momentum is strong.",
+        ]
+        if sma50 is not None:
+            reasons.append("Price is above SMA50, supporting an uptrend bias.")
+        if vol_spike:
+            reasons.append("Move is supported by a volume spike (higher conviction).")
+        watch = facts.get("sma50") or facts.get("support_level")
+        note = f"Watch ${watch:,.2f} as a support area; a break below can signal cooling." if watch else "Watch support: a break below can signal cooling."
+        return (label, conf, reasons[:3], watch, note)
+
+    # 2) Volatility squeeze
+    if vol_regime == "low" and (facts.get("vol_20d") is not None and facts.get("vol_60d") is not None):
+        label = "Volatility squeeze" if not simple_mode else "Quiet before a move"
+        conf = "Medium"
+        reasons = [
+            "Short-term volatility is lower than the recent baseline (compression).",
+            "Compression phases often precede larger directional moves.",
+        ]
+        if dtr is not None and dtr <= 5:
+            reasons.append("Price is sitting near resistance — breakouts can happen from tight ranges.")
+        watch = facts.get("resistance_level") or (last_close * 1.03)
+        note = f"Watch for a break above ${watch:,.2f} (bullish) or a drop below support." if watch else "Watch for a break above resistance or a drop below support."
+        return (label, conf, reasons[:3], watch, note)
+
+    # 3) Breakout attempt
+    if dtr is not None and dtr <= 3 and (ret20 is None or ret20 >= 0) and (vol_spike or facts.get("volume_trend") == "rising"):
+        label = "Breakout attempt" if not simple_mode else "Trying to break higher"
+        conf = "Medium" if not vol_spike else "High"
+        lvl = facts.get("resistance_level")
+        reasons = [
+            "Price is pressing against a nearby resistance level.",
+            "Momentum is supportive (recent returns not negative).",
+        ]
+        if vol_spike:
+            reasons.append("Volume spike increases the odds the move is real.")
+        watch = lvl
+        note = f"Watch ${lvl:,.2f}: a clean break/hold above can confirm breakout." if lvl else "Watch resistance: a break/hold above can confirm."
+        return (label, conf, reasons[:3], watch, note)
+
+    # 4) Breakdown risk
+    if dts is not None and dts <= 3 and down_bias and (ret20 is None or ret20 <= 0):
+        label = "Breakdown risk" if not simple_mode else "At risk of dropping"
+        conf = "Medium"
+        lvl = facts.get("support_level")
+        reasons = [
+            "Price is very close to a support zone.",
+            "Trend bias is weaker (below key moving average(s)).",
+        ]
+        if rsi is not None and rsi < 40:
+            reasons.append("RSI is weak, which can align with selling pressure.")
+        watch = lvl
+        note = f"Watch ${lvl:,.2f}: a break below can accelerate downside." if lvl else "Watch support: a break below can accelerate downside."
+        return (label, conf, reasons[:3], watch, note)
+
+    # 5) Oversold bounce zone
+    if rsi is not None and rsi <= 30 and dts is not None and dts <= 6:
+        label = "Oversold bounce zone" if not simple_mode else "Sold too hard"
+        conf = "Medium"
+        lvl = facts.get("support_level") or facts.get("sma50")
+        reasons = [
+            f"RSI is {rsi:.0f} (oversold) — selling may be stretched.",
+            "Price is near a support area, where bounces sometimes start.",
+        ]
+        if vol_spike:
+            reasons.append("A volume spike can indicate capitulation or a turning point.")
+        watch = lvl
+        note = f"Watch ${lvl:,.2f}: holding above it supports a bounce scenario." if lvl else "Watch support: holding it supports a bounce scenario."
+        return (label, conf, reasons[:3], watch, note)
+
+    # 6) Range / sideways (possible mean reversion behavior)
+    flat_sma = (facts.get("sma50_slope") is not None and abs(facts["sma50_slope"]) < 0.5)
+    flat_ret = (ret20 is not None and abs(ret20) < 3) and (ret60 is None or abs(ret60) < 6)
+    rsi_mid = (rsi is not None and 40 <= rsi <= 60)
+    if flat_sma and flat_ret:
+        if rsi_mid:
+            label = "Range / sideways" if not simple_mode else "Mostly sideways"
+            conf = "Medium"
+            reasons = [
+                "Returns are relatively flat and SMA slope is near zero (no clear trend).",
+                "This often leads to mean-reversion style back-and-forth movement.",
+            ]
+            lvl = facts.get("support_level") or facts.get("resistance_level")
+            reasons.append("Key levels tend to matter more than trend during ranges.")
+            watch = lvl
+            note = "Watch support/resistance boundaries — breaks can start a new trend."
+            return (label, conf, reasons[:3], watch, note)
+
+    # 7) Default: Uptrend / Downtrend continuation
+    if up_bias and (ret20 is None or ret20 >= 0):
+        label = "Uptrend continuation" if not simple_mode else "Going up steadily"
+        conf = "Medium"
+        reasons = ["Price is above a key moving average, supporting an uptrend bias."]
+        if facts.get("sma50_slope") is not None and facts["sma50_slope"] > 0.5:
+            reasons.append("SMA50 slope is rising (trend strength improving).")
+        if rsi is not None and rsi < 70:
+            reasons.append("RSI is not overbought, leaving room for continuation.")
+        watch = facts.get("sma50") or facts.get("support_level")
+        note = f"Watch ${watch:,.2f} as support; holding above it keeps the uptrend intact." if watch else "Watch support; holding keeps the uptrend intact."
+        return (label, conf, reasons[:3], watch, note)
+
+    label = "Distribution / weakness" if not simple_mode else "Getting weaker"
+    conf = "Medium"
+    reasons = ["Price is below key moving average(s), which can align with weakness."]
+    if rsi is not None and rsi < 45:
+        reasons.append("RSI is weak, which supports a bearish bias.")
+    if ret20 is not None and ret20 < 0:
+        reasons.append("Recent returns are negative, reinforcing downside risk.")
+    watch = facts.get("support_level") or facts.get("sma50")
+    note = f"Watch ${watch:,.2f}: losing this level can keep weakness intact." if watch else "Watch support; losing it can keep weakness intact."
+    return (label, conf, reasons[:3], watch, note)
+
+
+
+
 def detect_chart_pattern(ticker: str, features: dict, simple_mode: bool) -> dict:
     """Use AI to detect and explain chart patterns"""
     
@@ -7652,6 +8038,20 @@ elif selected_page == "📊 Company Analysis":
                     )
                 
                 st.plotly_chart(fig_price, use_container_width=True)
+
+            # --------- Fact-based chart callouts (deterministic) ---------
+            try:
+                tech_facts = compute_technical_facts(price_history)
+                st.session_state['pro_tech_facts'] = tech_facts
+                callouts = render_chart_callouts(tech_facts)
+                if callouts:
+                    st.markdown("#### 📌 Chart Callouts (fact-based)")
+                    for b in callouts:
+                        st.write(f"- {b}")
+            except Exception:
+                # fail-soft: never crash Pro tab if a callout calc fails
+                pass
+
             
             st.markdown("---")
             st.markdown("### 💰 Investment Calculator")
@@ -10275,63 +10675,14 @@ elif selected_page == "📊 Pro Checklist":
                     # Here you would call Claude API with pattern_prompt
                     # For now, we'll show a placeholder response based on rules
                     
-                    # Rule-based pattern suggestion (fallback)
-                    if features['trend_direction'] == 'up' and features['rsi'] < 70 and features['ma_20_vs_50'] == 'above':
-                        pattern_label = "Uptrend continuation" if not simple_mode else "Going up steadily"
-                        confidence = "High"
-                        reasons = [
-                            "Price is consistently above both 20-day and 50-day averages" if not simple_mode else "The price keeps going higher over time",
-                            "Short-term average (20d) is above long-term average (50d)" if not simple_mode else "The recent average is higher than the older average",
-                            f"RSI at {features['rsi']:.0f} shows healthy momentum without being overbought" if not simple_mode else f"Momentum looks good (not too hot at {features['rsi']:.0f})"
-                        ]
-                        watch_level = round(features['ma_50'], 2)
-                        watch_note = f"Breaking below ${watch_level} (50-day MA) would challenge the uptrend" if not simple_mode else f"If it drops below ${watch_level}, the uptrend might be ending"
-                    
-                    elif features['rsi'] > 70 and features['trend_direction'] == 'up':
-                        pattern_label = "Mean reversion zone" if not simple_mode else "Needs to cool off"
-                        confidence = "Medium"
-                        reasons = [
-                            f"RSI at {features['rsi']:.0f} indicates overbought conditions" if not simple_mode else f"The momentum is very high ({features['rsi']:.0f}) - might be too hot",
-                            f"Price is {features['price_vs_ma20']:+.1f}% above 20-day average" if not simple_mode else f"Price jumped {abs(features['price_vs_ma20']):.0f}% above normal",
-                            "Potential for short-term pullback to moving averages" if not simple_mode else "It might come back down a bit to 'cool off'"
-                        ]
-                        watch_level = round(features['ma_20'], 2)
-                        watch_note = f"Watch for support at ${watch_level} (20-day MA)" if not simple_mode else f"Watch if it bounces at ${watch_level}"
-                    
-                    elif features['vol_regime'] == 'low' and abs(features['trend_slope']) < 2:
-                        pattern_label = "Volatility squeeze" if not simple_mode else "Quiet before a big move"
-                        confidence = "Medium"
-                        reasons = [
-                            f"Volatility dropped to {features['vol_20d']:.1f}% (below 60-day average)" if not simple_mode else "Price movement got very small and quiet",
-                            "Price consolidating in narrow range" if not simple_mode else "It's been moving sideways in a tight range",
-                            "Often precedes significant directional move" if not simple_mode else "Usually something big happens after this"
-                        ]
-                        watch_level = round(features['current_price'] * 1.03, 2)
-                        watch_note = f"Breakout above ${watch_level} or breakdown below ${round(features['current_price'] * 0.97, 2)}" if not simple_mode else f"Watch if it jumps above ${watch_level} or falls below ${round(features['current_price'] * 0.97, 2)}"
-                    
-                    elif features['trend_direction'] == 'down' or features['ma_20_vs_50'] == 'below':
-                        pattern_label = "Distribution / weakness" if not simple_mode else "Getting weaker"
-                        confidence = "Medium"
-                        reasons = [
-                            "20-day average below 50-day average signals downtrend" if not simple_mode else "Recent prices are lower than before",
-                            f"Recent 20-day return of {features['last_20d_return']:.1f}% shows selling pressure" if not simple_mode else f"It dropped {abs(features['last_20d_return']):.0f}% in the last 20 days",
-                            "Momentum indicators show continued weakness" if not simple_mode else "The trend looks like it will keep going down"
-                        ]
-                        watch_level = round(features['ma_50'], 2)
-                        watch_note = f"Reclaim of ${watch_level} (50-day MA) needed to change trend" if not simple_mode else f"Needs to get back above ${watch_level} to turn around"
-                    
-                    else:
-                        pattern_label = "Mean reversion zone" if not simple_mode else "Bouncing in a range"
-                        confidence = "Low"
-                        reasons = [
-                            "Price showing mixed technical signals" if not simple_mode else "The chart is giving mixed signals",
-                            "No clear directional bias currently" if not simple_mode else "Not clear if it will go up or down",
-                            "Wait for clearer setup before taking action" if not simple_mode else "Better to wait and see what happens"
-                        ]
-                        watch_level = round(features['ma_20'], 2)
-                        watch_note = f"Monitor ${watch_level} (20-day MA) for directional clues" if not simple_mode else f"Watch ${watch_level} to see which way it goes"
-                    
-                    # Display pattern result
+                                        
+                    # Rule-based pattern suggestion (fact-locked fallback)
+                    tech_facts = st.session_state.get('pro_tech_facts') or compute_technical_facts(price_history)
+                    pattern_label, confidence, reasons, watch_level, watch_note = detect_rule_based_pattern(
+                        tech_facts,
+                        simple_mode=simple_mode
+                    )
+# Display pattern result
                     st.markdown("#### 🎯 Pattern Analysis")
                     
                     # Pattern card with confidence color
