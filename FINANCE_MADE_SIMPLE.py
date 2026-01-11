@@ -6198,6 +6198,227 @@ def generate_trader_actions(facts: dict, pattern_label: str) -> list:
     return actions[:7]  # Max 7
 
 
+def build_explain_chart_prompt(facts: dict, rule_based: dict, simple_mode: bool = False) -> str:
+    """
+    STEP 7A: Build prompt for 'Explain this chart (AI)' button.
+    Returns strict JSON-only prompt for Perplexity.
+    
+    Args:
+        facts: Technical facts dict from compute_technical_facts()
+        rule_based: Dict with rule-based pattern (label, confidence, reasons, watch_level, watch_note)
+        simple_mode: If True, use beginner-friendly language
+    
+    Returns:
+        Prompt string for Perplexity API
+    """
+    import json
+    
+    # Clean facts for JSON (remove None values)
+    clean_facts = {k: v for k, v in facts.items() if v is not None}
+    facts_json = json.dumps(clean_facts, indent=2)
+    rule_json = json.dumps(rule_based, indent=2)
+    
+    language_style = "beginner-friendly (like explaining to a 5-year-old)" if simple_mode else "technical but clear"
+    
+    prompt = f"""You are an investing education assistant. This is NOT financial advice.
+
+CRITICAL RULES:
+1. Use ONLY the provided FACTS_JSON and RULE_BASED data below
+2. Do NOT invent numbers, indicators, or data not present
+3. Do NOT mention indicators not in FACTS_JSON
+4. Return ONLY valid JSON matching the schema - NO markdown, NO code blocks, NO preamble
+5. Use {language_style} language
+
+FACTS_JSON:
+{facts_json}
+
+RULE_BASED:
+{rule_json}
+
+Return ONLY this exact JSON structure (no other text):
+
+{{
+  "summary_one_liner": "One sentence summary of current chart setup",
+  "trend": [
+    "Bullet about trend direction based on SMAs and price position",
+    "Bullet about trend strength or slope",
+    "Bullet about trend duration/consistency"
+  ],
+  "momentum": [
+    "Bullet about RSI state and trend",
+    "Bullet about recent returns (5d, 20d, 60d)",
+    "Bullet about volume behavior"
+  ],
+  "key_levels": {{
+    "support": {{"level": 123.45, "distance_pct": -2.5}},
+    "resistance": {{"level": 150.00, "distance_pct": 3.2}},
+    "watch_level": {{"level": 145.50, "note": "SMA50 - holding above keeps uptrend intact"}}
+  }},
+  "risk_notes": [
+    "Bullet about current risk (e.g., overbought, volatility)",
+    "Bullet about key level risk",
+    "Bullet about trend weakness/strength risk"
+  ],
+  "what_to_watch_next_5_days": [
+    "Specific level or event to watch",
+    "Another key thing to monitor",
+    "Third thing to watch"
+  ],
+  "citations": [
+    {{"claim": "Price is above SMA50", "fact_keys_used": ["last_close", "sma50", "pct_above_sma50"]}},
+    {{"claim": "RSI shows overbought conditions", "fact_keys_used": ["rsi14_last", "rsi_state"]}}
+  ]
+}}
+
+IMPORTANT:
+- Every bullet point must cite specific facts from FACTS_JSON
+- "citations" array must reference real keys from FACTS_JSON
+- All numbers must match FACTS_JSON exactly (within 0.5% tolerance)
+- If a fact key doesn't exist, do NOT mention that indicator
+- summary_one_liner should be {language_style}
+
+Return ONLY the JSON object above. No other text."""
+
+    return prompt
+
+
+def build_bull_bear_prompt(facts: dict, simple_mode: bool = False) -> str:
+    """
+    STEP 7B: Build prompt for 'Bull vs Bear case (AI)' button.
+    Returns strict JSON-only prompt for Perplexity.
+    
+    Args:
+        facts: Technical facts dict from compute_technical_facts()
+        simple_mode: If True, use beginner-friendly language
+    
+    Returns:
+        Prompt string for Perplexity API
+    """
+    import json
+    
+    # Clean facts for JSON
+    clean_facts = {k: v for k, v in facts.items() if v is not None}
+    facts_json = json.dumps(clean_facts, indent=2)
+    
+    language_style = "simple, beginner-friendly" if simple_mode else "technical but clear"
+    
+    prompt = f"""You are an investing education assistant. This is NOT financial advice.
+
+CRITICAL RULES:
+1. Use ONLY FACTS_JSON below - do NOT invent data
+2. Return ONLY valid JSON matching the schema - NO markdown, NO code blocks
+3. Use {language_style} language
+4. Every point must cite which fact_keys you used
+
+FACTS_JSON:
+{facts_json}
+
+Return ONLY this JSON structure (no other text):
+
+{{
+  "bull_case": [
+    {{"point": "string describing bullish factor", "fact_keys_used": ["key1", "key2"]}},
+    {{"point": "string", "fact_keys_used": ["key3"]}},
+    {{"point": "string", "fact_keys_used": ["key4"]}}
+  ],
+  "bear_case": [
+    {{"point":"string","fact_keys_used":["key1"]}},
+    {{"point":"string","fact_keys_used":["key2"]}},
+    {{"point":"string","fact_keys_used":["key3"]}}
+  ],
+  "neutral_take": "string - one sentence balanced view",
+  "two_conditions_to_change_view": [
+    {{"condition":"string","fact_keys_used":["key1"]}},
+    {{"condition":"string","fact_keys_used":["key2"]}}
+  ]
+}}
+
+Every claim MUST cite real fact_keys from FACTS_JSON above.
+Example fact keys: last_close, rsi14_last, sma50, pct_above_sma50, return_20d, volume_spike, etc.
+"""
+    
+    return prompt
+
+
+def validate_ai_response(ai_output: dict, facts: dict, response_type: str = "explain") -> tuple:
+    """
+    STEP 7C: Validate AI response against facts.
+    Checks that AI didn't invent data and that fact_keys_used are valid.
+    
+    Args:
+        ai_output: Parsed JSON from Perplexity
+        facts: Original technical facts dict
+        response_type: "explain" or "bull_bear"
+    
+    Returns:
+        (is_valid: bool, error_message: str)
+    """
+    if not ai_output or not isinstance(ai_output, dict):
+        return False, "AI output is not a valid dict"
+    
+    # Collect all fact_keys_used from AI response
+    all_referenced_keys = []
+    
+    try:
+        if response_type == "explain":
+            # Check citations
+            if "citations" in ai_output:
+                for cite in ai_output.get("citations", []):
+                    all_referenced_keys.extend(cite.get("fact_keys_used", []))
+        
+        elif response_type == "bull_bear":
+            # Check bull_case
+            if "bull_case" in ai_output:
+                for item in ai_output.get("bull_case", []):
+                    all_referenced_keys.extend(item.get("fact_keys_used", []))
+            
+            # Check bear_case
+            if "bear_case" in ai_output:
+                for item in ai_output.get("bear_case", []):
+                    all_referenced_keys.extend(item.get("fact_keys_used", []))
+            
+            # Check conditions
+            if "two_conditions_to_change_view" in ai_output:
+                for cond in ai_output.get("two_conditions_to_change_view", []):
+                    all_referenced_keys.extend(cond.get("fact_keys_used", []))
+        
+        # Verify all referenced keys exist in facts
+        for key in all_referenced_keys:
+            if key not in facts:
+                return False, f"AI referenced non-existent fact key: {key}"
+        
+        # Check RSI consistency if mentioned
+        if "rsi14_last" in facts and facts["rsi14_last"] is not None:
+            ai_text = str(ai_output).lower()
+            fact_rsi = facts["rsi14_last"]
+            
+            # If AI says "overbought" but RSI < 65, that's wrong
+            if "overbought" in ai_text and fact_rsi < 65:
+                return False, f"AI said 'overbought' but RSI is {fact_rsi:.0f}"
+            
+            # If AI says "oversold" but RSI > 35, that's wrong
+            if "oversold" in ai_text and fact_rsi > 35:
+                return False, f"AI said 'oversold' but RSI is {fact_rsi:.0f}"
+        
+        # Check required fields exist
+        if response_type == "explain":
+            required = ["summary_one_liner", "trend", "momentum", "key_levels", "risk_notes"]
+            for field in required:
+                if field not in ai_output:
+                    return False, f"Missing required field: {field}"
+        
+        elif response_type == "bull_bear":
+            required = ["bull_case", "bear_case", "neutral_take"]
+            for field in required:
+                if field not in ai_output:
+                    return False, f"Missing required field: {field}"
+        
+        return True, "OK"
+    
+    except Exception as e:
+        return False, f"Validation error: {str(e)}"
+
+
 def detect_rule_based_pattern(facts: dict, simple_mode: bool = False) -> tuple:
     """Deterministic pattern label + confidence + reasons + watch level + watch note.
     Guardrails: avoids nonsensical labels (ex: RSI 88 shouldn't be 'mean reversion zone')."""
@@ -11091,6 +11312,186 @@ elif selected_page == "📊 Pro Checklist":
                         st.caption("*Insufficient data for trader action suggestions*")
                     
                     st.caption("*📚 Educational only — not a recommendation. Always do your own research.*")
+                    
+                    # ============= STEP 7: AI-POWERED ANALYSIS BUTTONS =============
+                    st.markdown("---")
+                    st.markdown("### 🤖 AI-Powered Deep Dive (Fact-Locked)")
+                    st.caption("*AI analyzes using ONLY the technical facts above — no hallucinations*")
+                    
+                    # Initialize session state for AI outputs
+                    if 'pro_explain_ai' not in st.session_state:
+                        st.session_state.pro_explain_ai = None
+                    if 'pro_bull_bear_ai' not in st.session_state:
+                        st.session_state.pro_bull_bear_ai = None
+                    
+                    # Check if Perplexity is available
+                    perplexity_available = bool(os.environ.get('PERPLEXITY_API_KEY', ''))
+                    
+                    if not perplexity_available:
+                        st.warning("⚠️ AI features require PERPLEXITY_API_KEY environment variable")
+                    else:
+                        col_ai1, col_ai2 = st.columns(2)
+                        
+                        with col_ai1:
+                            explain_btn = st.button("🔍 Explain this chart (AI)", key="explain_chart_ai", use_container_width=True)
+                        
+                        with col_ai2:
+                            bull_bear_btn = st.button("⚖️ Bull vs Bear case (AI)", key="bull_bear_ai", use_container_width=True)
+                        
+                        # ============= EXPLAIN CHART AI =============
+                        if explain_btn:
+                            with st.spinner("🤖 AI analyzing chart facts..."):
+                                # Build prompt
+                                rule_based_dict = {
+                                    "label": pattern_label,
+                                    "confidence": confidence,
+                                    "reasons": reasons,
+                                    "watch_level": watch_level,
+                                    "watch_note": watch_note
+                                }
+                                
+                                simple_mode = st.session_state.get('simple_mode', False)
+                                prompt = build_explain_chart_prompt(tech_facts, rule_based_dict, simple_mode)
+                                
+                                # Call Perplexity
+                                ai_response = call_perplexity_json(prompt, max_tokens=2500, temperature=0.1)
+                                
+                                if ai_response:
+                                    # Validate response
+                                    is_valid, error_msg = validate_ai_response(ai_response, tech_facts, "explain")
+                                    
+                                    if is_valid:
+                                        st.session_state.pro_explain_ai = ai_response
+                                    else:
+                                        st.error(f"⚠️ AI validation failed: {error_msg}")
+                                        st.info("Showing rule-based analysis instead.")
+                                        st.session_state.pro_explain_ai = None
+                                else:
+                                    st.error("⚠️ AI request failed. Try again or use rule-based analysis.")
+                                    st.session_state.pro_explain_ai = None
+                        
+                        # ============= BULL VS BEAR AI =============
+                        if bull_bear_btn:
+                            with st.spinner("🤖 AI building bull/bear cases..."):
+                                simple_mode = st.session_state.get('simple_mode', False)
+                                prompt = build_bull_bear_prompt(tech_facts, simple_mode)
+                                
+                                # Call Perplexity
+                                ai_response = call_perplexity_json(prompt, max_tokens=2000, temperature=0.1)
+                                
+                                if ai_response:
+                                    # Validate response
+                                    is_valid, error_msg = validate_ai_response(ai_response, tech_facts, "bull_bear")
+                                    
+                                    if is_valid:
+                                        st.session_state.pro_bull_bear_ai = ai_response
+                                    else:
+                                        st.error(f"⚠️ AI validation failed: {error_msg}")
+                                        st.info("Check the pattern analysis above for rule-based insights.")
+                                        st.session_state.pro_bull_bear_ai = None
+                                else:
+                                    st.error("⚠️ AI request failed. Try again.")
+                                    st.session_state.pro_bull_bear_ai = None
+                        
+                        # ============= DISPLAY EXPLAIN CHART AI OUTPUT =============
+                        if st.session_state.pro_explain_ai:
+                            st.markdown("---")
+                            st.markdown("#### 🔍 AI Chart Explanation")
+                            
+                            output = st.session_state.pro_explain_ai
+                            
+                            # Summary
+                            if "summary_one_liner" in output:
+                                st.markdown(f"**{output['summary_one_liner']}**")
+                                st.markdown("")
+                            
+                            # Trend
+                            if "trend" in output and output["trend"]:
+                                st.markdown("**📈 Trend Analysis:**")
+                                for bullet in output["trend"]:
+                                    st.markdown(f"- {bullet}")
+                                st.markdown("")
+                            
+                            # Momentum
+                            if "momentum" in output and output["momentum"]:
+                                st.markdown("**🚀 Momentum:**")
+                                for bullet in output["momentum"]:
+                                    st.markdown(f"- {bullet}")
+                                st.markdown("")
+                            
+                            # Key Levels
+                            if "key_levels" in output:
+                                st.markdown("**🎯 Key Levels:**")
+                                levels = output["key_levels"]
+                                
+                                if "support" in levels and levels["support"].get("level"):
+                                    sup_level = levels["support"]["level"]
+                                    sup_dist = levels["support"].get("distance_pct", 0)
+                                    st.markdown(f"- **Support:** ${sup_level:.2f} ({sup_dist:+.1f}% away)")
+                                
+                                if "resistance" in levels and levels["resistance"].get("level"):
+                                    res_level = levels["resistance"]["level"]
+                                    res_dist = levels["resistance"].get("distance_pct", 0)
+                                    st.markdown(f"- **Resistance:** ${res_level:.2f} ({res_dist:+.1f}% away)")
+                                
+                                if "watch_level" in levels and levels["watch_level"].get("level"):
+                                    watch_lvl = levels["watch_level"]["level"]
+                                    watch_note = levels["watch_level"].get("note", "")
+                                    st.markdown(f"- **Watch:** ${watch_lvl:.2f} — {watch_note}")
+                                
+                                st.markdown("")
+                            
+                            # Risk Notes
+                            if "risk_notes" in output and output["risk_notes"]:
+                                st.markdown("**⚠️ Risks to Watch:**")
+                                for bullet in output["risk_notes"]:
+                                    st.markdown(f"- {bullet}")
+                                st.markdown("")
+                            
+                            # What to Watch Next 5 Days
+                            if "what_to_watch_next_5_days" in output and output["what_to_watch_next_5_days"]:
+                                st.markdown("**👀 What to Watch (Next 5 Days):**")
+                                for bullet in output["what_to_watch_next_5_days"]:
+                                    st.markdown(f"- {bullet}")
+                            
+                            st.info("✅ **Fact-locked AI**: All statements grounded in technical facts above")
+                        
+                        # ============= DISPLAY BULL VS BEAR AI OUTPUT =============
+                        if st.session_state.pro_bull_bear_ai:
+                            st.markdown("---")
+                            st.markdown("#### ⚖️ Bull vs Bear Analysis (AI)")
+                            
+                            output = st.session_state.pro_bull_bear_ai
+                            
+                            # Bull Case
+                            if "bull_case" in output and output["bull_case"]:
+                                st.markdown("##### 🐂 Bull Case:")
+                                for item in output["bull_case"]:
+                                    point = item.get("point", "")
+                                    st.markdown(f"- {point}")
+                                st.markdown("")
+                            
+                            # Bear Case
+                            if "bear_case" in output and output["bear_case"]:
+                                st.markdown("##### 🐻 Bear Case:")
+                                for item in output["bear_case"]:
+                                    point = item.get("point", "")
+                                    st.markdown(f"- {point}")
+                                st.markdown("")
+                            
+                            # Neutral Take
+                            if "neutral_take" in output:
+                                st.markdown(f"**⚖️ Neutral Take:** {output['neutral_take']}")
+                                st.markdown("")
+                            
+                            # Conditions to Change View
+                            if "two_conditions_to_change_view" in output and output["two_conditions_to_change_view"]:
+                                st.markdown("**🔄 Conditions That Would Change This View:**")
+                                for cond in output["two_conditions_to_change_view"]:
+                                    condition_text = cond.get("condition", "")
+                                    st.markdown(f"- {condition_text}")
+                            
+                            st.info("✅ **Fact-locked AI**: All arguments based on technical facts above")
                 
                 else:
                     st.warning("⚠️ Not enough data to detect patterns. Try a different ticker or timeframe.")
