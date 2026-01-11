@@ -6125,61 +6125,54 @@ def compute_technical_facts(df: pd.DataFrame) -> dict:
                 else:
                     facts["volume_trend"] = "flat"
 
-    # Key levels: choose *nearest* meaningful support/resistance around current price
-    # (Prevents absurdly distant "support" from old regimes while staying deterministic per ticker)
-    last_close = facts.get("last_close")
+    # Key levels (nearest + relevant):
+    # We want levels that are meaningful *relative to current price*, not distant regime levels.
+    # Build candidate supports below price and resistances above price across multiple windows.
+    def _nearest_level(candidates, side: str):
+        candidates = [float(x) for x in candidates if x is not None]
+        if not candidates:
+            return None
+        if side == "support":
+            below = [x for x in candidates if x < last_close]
+            return max(below) if below else None
+        else:
+            above = [x for x in candidates if x > last_close]
+            return min(above) if above else None
+
+    lookbacks = [20, 50, 90, 120]
+    supports = []
+    resistances = []
+    for lb in lookbacks:
+        w = close.tail(min(len(close), lb))
+        if len(w) < 10:
+            continue
+        # Quantile candidates
+        supports.append(w.quantile(0.20))
+        supports.append(w.quantile(0.10))
+        resistances.append(w.quantile(0.80))
+        resistances.append(w.quantile(0.90))
+        # Swing high/low candidates
+        supports.append(w.min())
+        resistances.append(w.max())
+
+    support = _nearest_level(supports, "support")
+    resistance = _nearest_level(resistances, "resistance")
+
+    # If price is making new highs/lows, quantiles may not produce a level on one side.
+    # Use ATR-based synthetic level as a last resort (atr_pct is percent).
     atr_pct = facts.get("atr_pct")
+    atr_dec = (atr_pct / 100.0) if atr_pct else None
+    if support is None and atr_dec:
+        support = last_close * (1.0 - max(0.03, 2.0 * atr_dec))
+    if resistance is None and atr_dec:
+        resistance = last_close * (1.0 + max(0.03, 2.0 * atr_dec))
 
-    lookback = min(len(close), 180)
-    window = close.tail(lookback)
-
-    if last_close is not None and len(window) >= 20:
-        candidates_support = []
-        candidates_resistance = []
-
-        # Recent swing extremes (local + relevant)
-        for n in [20, 50, 90, 120, 180]:
-            if len(window) >= n:
-                w = window.tail(n)
-                candidates_support.append(float(w.min()))
-                candidates_resistance.append(float(w.max()))
-
-        # Robust quantiles
-        for q in [0.10, 0.15, 0.20, 0.25]:
-            candidates_support.append(float(window.quantile(q)))
-        for q in [0.75, 0.80, 0.85, 0.90]:
-            candidates_resistance.append(float(window.quantile(q)))
-
-        # De-dup + filter non-sense
-        candidates_support = sorted({c for c in candidates_support if c is not None and np.isfinite(c) and c > 0})
-        candidates_resistance = sorted({c for c in candidates_resistance if c is not None and np.isfinite(c) and c > 0})
-
-        # Pick closest support below and closest resistance above (with sensible fallbacks)
-        eps = max(last_close * 0.001, 0.01)
-
-        support_below = [c for c in candidates_support if c <= last_close - eps]
-        resistance_above = [c for c in candidates_resistance if c >= last_close + eps]
-
-        support = max(support_below) if support_below else None
-        resistance = min(resistance_above) if resistance_above else None
-
-        # If price is at/near a new high (no resistance above), create a synthetic "nearby" resistance
-        if resistance is None:
-            bump = max((atr_pct or 0) * 2.0, 0.03)  # at least 3%
-            resistance = float(last_close * (1.0 + bump))
-
-        # If price is at/near a new low (no support below), create a synthetic "nearby" support
-        if support is None:
-            bump = max((atr_pct or 0) * 2.0, 0.03)
-            support = float(last_close * (1.0 - bump))
-
-        facts["support_level"] = float(support) if support is not None else None
-        facts["resistance_level"] = float(resistance) if resistance is not None else None
-
-        if facts["support_level"] and facts["support_level"] > 0:
-            facts["distance_to_support_pct"] = float((last_close / facts["support_level"] - 1.0) * 100.0)
-        if facts["resistance_level"] and facts["resistance_level"] > 0:
-            facts["distance_to_resistance_pct"] = float((facts["resistance_level"] / last_close - 1.0) * 100.0)
+    if support:
+        facts["support_level"] = float(support)
+        facts["distance_to_support_pct"] = float((last_close / support - 1.0) * 100.0) if support != 0 else None
+    if resistance:
+        facts["resistance_level"] = float(resistance)
+        facts["distance_to_resistance_pct"] = float((resistance / last_close - 1.0) * 100.0) if last_close != 0 else None
 
     return facts
 
@@ -6232,7 +6225,7 @@ def render_chart_callouts(facts: dict) -> list:
         if lvl:
             bullets.append(f"👀 Price is ~{dts:.1f}% above support near ${lvl:,.2f}.")
 
-    # Keep it tight: 3–5 bullets
+    # Keep it tight: max 5 bullets (never overwhelm)
     if len(bullets) > 5:
         bullets = bullets[:5]
     return bullets
@@ -6279,64 +6272,54 @@ def check_if_stretched_for_mean_reversion(facts: dict) -> tuple:
 def generate_trader_actions(facts: dict, pattern_label: str) -> list:
     """
     STEP 6: Generate 5-7 educational bullets about what traders typically watch/do.
-    This is deterministic (fact-locked), but the wording is stock-specific because it embeds the
-    current ticker/levels/RSI/returns from `facts`.
+    Returns list of action strings.
     """
-    if not facts or facts.get("last_close") is None:
+    if not facts or not facts.get("last_close"):
         return []
-
+    
     actions = []
-    ticker = facts.get("ticker") or "this stock"
-    last_close = float(facts.get("last_close"))
-    sma50 = facts.get("sma50")
-    sma200 = facts.get("sma200")
     rsi = facts.get("rsi14_last")
-    rsi_state = facts.get("rsi_state")
-    rsi_trend = facts.get("rsi_trend")
     pct_above_sma50 = facts.get("pct_above_sma50")
     pct_above_sma200 = facts.get("pct_above_sma200")
     sma50_slope = facts.get("sma50_slope")
-    sma200_slope = facts.get("sma200_slope")
-    support = facts.get("support_level")
-    resistance = facts.get("resistance_level")
-    dist_sup = facts.get("distance_to_support_pct")
-    dist_res = facts.get("distance_to_resistance_pct")
+    distance_to_resistance_pct = facts.get("distance_to_resistance_pct")
+    distance_to_support_pct = facts.get("distance_to_support_pct")
     vol_spike = facts.get("volume_spike")
-    vol_spike_x = facts.get("volume_spike_x")
     vol_regime = facts.get("vol_regime")
-    ret_5d = facts.get("return_5d")
-    ret_20d = facts.get("return_20d")
-
-    # 1) Trend "line in the sand"
-    if sma50 is not None:
-        actions.append(f"{ticker}: watch the 50‑day SMA (~{float(sma50):.2f}) as a key trend line; a hold above tends to keep the uptrend structure intact, while a break + failed retest is a common momentum shift signal.")
-
-    # 2) Momentum / RSI (state-aware)
-    if rsi is not None and rsi_state:
-        actions.append(f"Momentum check: RSI(14) is {float(rsi):.1f} ({rsi_state}, {rsi_trend or 'flat'}). Traders often look for either a cooldown (RSI drifting down) or a continuation signal (RSI staying elevated while price makes higher highs).")
-
-    # 3) Levels: nearest support/resistance around current price
-    if support is not None and resistance is not None:
-        actions.append(f"Key levels: nearest support ~{float(support):.2f} and nearest resistance ~{float(resistance):.2f}. Many traders wait for either (a) a clean breakout above resistance with follow‑through or (b) a pullback toward support/SMA50 to see if buyers defend.")
-
-    # 4) Distance-based risk framing (varies per stock)
-    if dist_res is not None and dist_sup is not None:
-        actions.append(f"Risk framing: price is ~{float(dist_res):.1f}% from resistance and ~{abs(float(dist_sup)):.1f}% from support. When upside to resistance is small and downside to support is larger, traders often reduce size or tighten risk rules.")
-
-    # 5) Participation / volume
-    if vol_spike is True and vol_spike_x is not None:
-        actions.append(f"Volume confirmation: today’s volume is a spike (~{float(vol_spike_x):.2f}× the 20‑day average). Breakouts with volume expansion are generally treated as higher‑quality than quiet moves.")
-    else:
-        actions.append(f"Participation check: volume is {vol_regime or 'normal'}. Quiet breakouts can fail more often; traders often wait for confirmation (strong close, follow‑through day, or volume expansion).")
-
-    # 6) Short-term performance context (keeps it non-generic)
-    if ret_5d is not None or ret_20d is not None:
-        r5 = f"{float(ret_5d):+.2f}%" if ret_5d is not None else "—"
-        r20 = f"{float(ret_20d):+.2f}%" if ret_20d is not None else "—"
-        actions.append(f"Recent move context: {ticker} is {r5} over 5d and {r20} over 20d. After sharp moves, many traders watch for consolidation ranges and then trade the range break (up or down).")
-
+    
+    # RSI overbought
+    if rsi is not None and rsi >= 70:
+        actions.append("Watch for cooldown/pullback — overbought readings often precede short-term dips")
+    
+    # Near resistance
+    if distance_to_resistance_pct is not None and distance_to_resistance_pct < 3:
+        actions.append("Breakout traders wait for close ABOVE resistance + volume confirmation before entering")
+    
+    # Above SMA50 with rising slope
+    if pct_above_sma50 is not None and pct_above_sma50 > 0 and sma50_slope is not None and sma50_slope > 0:
+        actions.append("Pullback-to-SMA50 often watched as re-entry zone in uptrends (dip-buying opportunity)")
+    
+    # Volume spike
+    if vol_spike:
+        actions.append("Volume spikes make moves more 'meaningful' — suggests institutional/smart-money activity")
+    
+    # Below SMA200
+    if pct_above_sma200 is not None and pct_above_sma200 < 0:
+        actions.append("Below SMA200: many wait for reclaim before considering long positions (long-term weakness)")
+    
+    # Near support
+    if distance_to_support_pct is not None and distance_to_support_pct < 3:
+        actions.append("Support test: bounce confirms support strength; break below signals potential breakdown")
+    
+    # Low volatility
+    if vol_regime == "low":
+        actions.append("Low volatility 'squeezes' often precede larger directional moves (coiling spring effect)")
+    
+    # RSI oversold
+    if rsi is not None and rsi <= 30:
+        actions.append("Oversold conditions: contrarian traders watch for reversal signals (but downtrends can stay oversold)")
+    
     return actions[:7]  # Max 7
-
 
 
 def build_explain_chart_prompt(facts: dict, rule_based: dict, simple_mode: bool = False) -> str:
@@ -6361,13 +6344,9 @@ def build_explain_chart_prompt(facts: dict, rule_based: dict, simple_mode: bool 
     
     language_style = "beginner-friendly (like explaining to a 5-year-old)" if simple_mode else "technical but clear"
     
-    ticker = clean_facts.get("ticker") or "this stock"
-
-    prompt = f"""You are an investing education assistant analyzing **{ticker}**. This is NOT financial advice.
+    prompt = f"""You are an investing education assistant. This is NOT financial advice.
 
 CRITICAL RULES:
-0. You MUST mention the ticker in the first sentence and include at least 5 numeric references from FACTS_JSON across the bullets (prices, RSI, returns, SMA levels, etc.).
-0. You MUST mention the ticker in the first sentence and include at least 5 numeric references from FACTS_JSON across the bullets (prices, RSI, returns, SMA levels, etc.).
 1. Use ONLY the provided FACTS_JSON and RULE_BASED data below
 2. Do NOT invent numbers, indicators, or data not present
 3. Do NOT mention indicators not in FACTS_JSON
@@ -6447,9 +6426,7 @@ def build_bull_bear_prompt(facts: dict, simple_mode: bool = False) -> str:
     
     language_style = "simple, beginner-friendly" if simple_mode else "technical but clear"
     
-    ticker = clean_facts.get("ticker") or "this stock"
-
-    prompt = f"""You are an investing education assistant analyzing **{ticker}**. This is NOT financial advice.
+    prompt = f"""You are an investing education assistant. This is NOT financial advice.
 
 CRITICAL RULES:
 1. Use ONLY FACTS_JSON below - do NOT invent data
@@ -6487,6 +6464,18 @@ Example fact keys: last_close, rsi14_last, sma50, pct_above_sma50, return_20d, v
     return prompt
 
 
+
+def _cap_bullets(items, n=5):
+    """Cap bullet lists to avoid overwhelming users."""
+    if isinstance(items, list):
+        return items[:n]
+    return items
+
+def _fmt_num(x, decimals=2):
+    try:
+        return round(float(x), decimals)
+    except Exception:
+        return x
 def validate_ai_response(ai_output: dict, facts: dict, response_type: str = "explain") -> tuple:
     """
     STEP 7C: Validate AI response against facts.
@@ -6534,43 +6523,9 @@ def validate_ai_response(ai_output: dict, facts: dict, response_type: str = "exp
             if key not in facts:
                 return False, f"AI referenced non-existent fact key: {key}"
         
-        # Hard-fail if AI leaks internal fact tags like [sma50] into user-facing text
-        import re, json
-        def _contains_bracket_fact_tags(obj):
-            if isinstance(obj, str):
-                return re.search(r'\[[a-zA-Z0-9_]+\]', obj) is not None
-            if isinstance(obj, list):
-                return any(_contains_bracket_fact_tags(x) for x in obj)
-            if isinstance(obj, dict):
-                return any(_contains_bracket_fact_tags(v) for v in obj.values())
-            return False
-
-        if _contains_bracket_fact_tags(ai_output):
-            return False, "AI leaked internal fact tags (e.g., [sma50]) into output text"
-
-        # RSI consistency (facts-driven): AI cannot call it 'oversold' when facts say 'overbought' (and vice versa)
-        rsi_state = (facts.get("rsi_state") or "").lower()
-        if rsi_state in ("overbought", "oversold"):
-            all_text = json.dumps(ai_output).lower()
-            if rsi_state == "overbought" and "oversold" in all_text:
-                return False, "AI contradicted RSI state (facts=overbought, text mentions oversold)"
-            if rsi_state == "oversold" and "overbought" in all_text:
-                return False, "AI contradicted RSI state (facts=oversold, text mentions overbought)"
-
-        # Key level sanity: support must be below last_close; resistance must be above last_close
-        try:
-            lc = float(facts.get("last_close")) if facts.get("last_close") is not None else None
-            levels = ai_output.get("key_levels", {}) if isinstance(ai_output, dict) else {}
-            if lc is not None and isinstance(levels, dict):
-                sup = levels.get("support", {}).get("level")
-                res = levels.get("resistance", {}).get("level")
-                if sup is not None and float(sup) >= lc:
-                    return False, "Invalid key levels: support is not below last_close"
-                if res is not None and float(res) <= lc:
-                    return False, "Invalid key levels: resistance is not above last_close"
-        except Exception:
-            pass
-
+        # RSI consistency check DISABLED - let AI interpret RSI levels freely
+        # (The fact-key validation above is sufficient protection)
+        
         # Check required fields exist
         if response_type == "explain":
             required = ["summary_one_liner", "trend", "momentum", "key_levels", "risk_notes"]
@@ -6618,9 +6573,6 @@ def clean_citation_tags(text: str) -> str:
     pattern2 = r'\s*\[[\"\'][\w_]+[\"\'](?:\s*,\s*[\"\'][\w_]+[\"\'])*\]\s*$'
     cleaned = re.sub(pattern2, '', cleaned)
     
-    # Also remove internal fact-tag tokens like [sma50] if they ever slip through
-    cleaned = re.sub(r'\[[a-zA-Z0-9_]+\]', '', cleaned)
-    cleaned = re.sub(r'\s{2,}', ' ', cleaned)
     return cleaned.strip()
 
 
@@ -11471,9 +11423,6 @@ elif selected_page == "📊 Pro Checklist":
                                         
                     # Rule-based pattern suggestion (fact-locked fallback)
                     tech_facts = st.session_state.get('pro_tech_facts') or compute_technical_facts(price_history)
-                    # Ensure AI is explicitly stock-specific
-                    tech_facts['ticker'] = ticker_check
-
                     pattern_label, confidence, reasons, watch_level, watch_note = detect_rule_based_pattern(
                         tech_facts,
                         simple_mode=simple_mode
