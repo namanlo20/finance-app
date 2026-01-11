@@ -6125,54 +6125,48 @@ def compute_technical_facts(df: pd.DataFrame) -> dict:
                 else:
                     facts["volume_trend"] = "flat"
 
-    # Key levels (nearest + relevant):
-    # We want levels that are meaningful *relative to current price*, not distant regime levels.
-    # Build candidate supports below price and resistances above price across multiple windows.
-    def _nearest_level(candidates, side: str):
-        candidates = [float(x) for x in candidates if x is not None]
-        if not candidates:
-            return None
-        if side == "support":
-            below = [x for x in candidates if x < last_close]
-            return max(below) if below else None
-        else:
-            above = [x for x in candidates if x > last_close]
-            return min(above) if above else None
+    # Key levels: choose *nearest* meaningful support/resistance around current price
+    # (Prevents absurdly distant "support" from old regimes while staying deterministic per ticker)
+    last_close = facts.get("last_close")
 
-    lookbacks = [20, 50, 90, 120]
-    supports = []
-    resistances = []
-    for lb in lookbacks:
-        w = close.tail(min(len(close), lb))
-        if len(w) < 10:
-            continue
-        # Quantile candidates
-        supports.append(w.quantile(0.20))
-        supports.append(w.quantile(0.10))
-        resistances.append(w.quantile(0.80))
-        resistances.append(w.quantile(0.90))
-        # Swing high/low candidates
-        supports.append(w.min())
-        resistances.append(w.max())
+    lookback = min(len(close), 180)
+    window = close.tail(lookback)
 
-    support = _nearest_level(supports, "support")
-    resistance = _nearest_level(resistances, "resistance")
+    if last_close is not None and len(window) >= 20:
+        candidates_support = []
+        candidates_resistance = []
 
-    # If price is making new highs/lows, quantiles may not produce a level on one side.
-    # Use ATR-based synthetic level as a last resort (atr_pct is percent).
-    atr_pct = facts.get("atr_pct")
-    atr_dec = (atr_pct / 100.0) if atr_pct else None
-    if support is None and atr_dec:
-        support = last_close * (1.0 - max(0.03, 2.0 * atr_dec))
-    if resistance is None and atr_dec:
-        resistance = last_close * (1.0 + max(0.03, 2.0 * atr_dec))
+        # Recent swing extremes (more "local" and relevant)
+        for n in [20, 50, 90, 120, 180]:
+            if len(window) >= n:
+                w = window.tail(n)
+                candidates_support.append(float(w.min()))
+                candidates_resistance.append(float(w.max()))
 
-    if support:
-        facts["support_level"] = float(support)
-        facts["distance_to_support_pct"] = float((last_close / support - 1.0) * 100.0) if support != 0 else None
-    if resistance:
-        facts["resistance_level"] = float(resistance)
-        facts["distance_to_resistance_pct"] = float((resistance / last_close - 1.0) * 100.0) if last_close != 0 else None
+        # Robust quantiles (still useful, but not the only source)
+        for q in [0.10, 0.15, 0.20, 0.25]:
+            candidates_support.append(float(window.quantile(q)))
+        for q in [0.75, 0.80, 0.85, 0.90]:
+            candidates_resistance.append(float(window.quantile(q)))
+
+        # De-dup + filter non-sense
+        candidates_support = sorted({c for c in candidates_support if c is not None and np.isfinite(c) and c > 0})
+        candidates_resistance = sorted({c for c in candidates_resistance if c is not None and np.isfinite(c) and c > 0})
+
+        # Pick the closest support below last_close; closest resistance above last_close
+        support_below = [c for c in candidates_support if c < last_close]
+        resistance_above = [c for c in candidates_resistance if c > last_close]
+
+        support = max(support_below) if support_below else (min(candidates_support) if candidates_support else None)
+        resistance = min(resistance_above) if resistance_above else (max(candidates_resistance) if candidates_resistance else None)
+
+        facts["support_level"] = float(support) if support is not None else None
+        facts["resistance_level"] = float(resistance) if resistance is not None else None
+
+        if facts["support_level"]:
+            facts["distance_to_support_pct"] = float((facts["support_level"] / last_close - 1.0) * 100.0)
+        if facts["resistance_level"]:
+            facts["distance_to_resistance_pct"] = float((facts["resistance_level"] / last_close - 1.0) * 100.0)
 
     return facts
 
@@ -6225,7 +6219,7 @@ def render_chart_callouts(facts: dict) -> list:
         if lvl:
             bullets.append(f"👀 Price is ~{dts:.1f}% above support near ${lvl:,.2f}.")
 
-    # Keep it tight: max 5 bullets (never overwhelm)
+    # Keep it tight: 3–5 bullets
     if len(bullets) > 5:
         bullets = bullets[:5]
     return bullets
@@ -6342,68 +6336,72 @@ def build_explain_chart_prompt(facts: dict, rule_based: dict, simple_mode: bool 
     facts_json = json.dumps(clean_facts, indent=2)
     rule_json = json.dumps(rule_based, indent=2)
     
-    language_style = "beginner-friendly (like explaining to a 5-year-old)" if simple_mode else "technical but clear"
+    language_style = "simple, conversational language (like talking to a friend)" if simple_mode else "clear professional language"
     
-    prompt = f"""You are an investing education assistant. This is NOT financial advice.
+    prompt = f"""You are a chart analysis AI assistant. Write in natural, CONVERSATIONAL language.
 
-CRITICAL RULES:
-1. Use ONLY the provided FACTS_JSON and RULE_BASED data below
-2. Do NOT invent numbers, indicators, or data not present
-3. Do NOT mention indicators not in FACTS_JSON
-4. Return ONLY valid JSON matching the schema - NO markdown, NO code blocks, NO preamble
-5. Use {language_style} language
+CRITICAL FORMATTING RULES:
+1. Format ALL dollar amounts as: $XXX.XX (with $ sign and 2 decimals)
+2. Format ALL percentages as: XX.XX% (with % sign and 2 decimals)
+3. Format large numbers with commas: 1,234,567
+4. Do NOT include fact_keys, citations, or any technical tags like [sma50] in your response
+5. Write in {language_style}
+6. Use ONLY the facts provided below - do NOT invent data
 
-FACTS_JSON:
+FACTS TO USE:
 {facts_json}
 
-RULE_BASED:
+PATTERN DETECTED:
 {rule_json}
 
-Return ONLY this exact JSON structure (no other text):
+Return ONLY this JSON (no markdown, no code blocks):
 
 {{
-  "summary_one_liner": "One sentence summary of current chart setup",
+  "summary_one_liner": "One conversational sentence explaining the current situation (what's happening with this stock right now)",
   "trend": [
-    "Bullet about trend direction based on SMAs and price position",
-    "Bullet about trend strength or slope",
-    "Bullet about trend duration/consistency"
+    "First observation about trend (where price is vs moving averages) - explain what it means",
+    "Second observation about trend direction/strength - why it matters",
+    "Third observation about how long trend has lasted - is it reliable?"
   ],
   "momentum": [
-    "Bullet about RSI state and trend",
-    "Bullet about recent returns (5d, 20d, 60d)",
-    "Bullet about volume behavior"
+    "First observation about RSI (explain if momentum is strong, weak, or neutral) - what it suggests",
+    "Second observation about recent price gains/losses - put in context",
+    "Third observation about volume (is it high/low, what does that mean)"
   ],
   "key_levels": {{
     "support": {{"level": 123.45, "distance_pct": -2.5}},
     "resistance": {{"level": 150.00, "distance_pct": 3.2}},
-    "watch_level": {{"level": 145.50, "note": "SMA50 - holding above keeps uptrend intact"}}
+    "watch_level": {{"level": 145.50, "note": "Plain English note about this level"}}
   }},
   "risk_notes": [
-    "Bullet about current risk (e.g., overbought, volatility)",
-    "Bullet about key level risk",
-    "Bullet about trend weakness/strength risk"
+    "First risk to watch - explain why it's a risk",
+    "Second risk - what could go wrong",
+    "Third risk - what traders worry about here"
   ],
   "what_to_watch_next_5_days": [
-    "Specific level or event to watch",
-    "Another key thing to monitor",
+    "First specific thing to monitor (price level, event, pattern)",
+    "Second thing to watch",
     "Third thing to watch"
-  ],
-  "citations": [
-    {{"claim": "Price is above SMA50", "fact_keys_used": ["last_close", "sma50", "pct_above_sma50"]}},
-    {{"claim": "RSI shows overbought conditions", "fact_keys_used": ["rsi14_last", "rsi_state"]}}
   ]
 }}
 
-IMPORTANT:
-- Every bullet point must cite specific facts from FACTS_JSON
-- "citations" array must reference real keys from FACTS_JSON
-- All numbers must match FACTS_JSON exactly (within 0.5% tolerance)
-- If a fact key doesn't exist, do NOT mention that indicator
-- summary_one_liner should be {language_style}
+CRITICAL: 
+- NO fact_keys anywhere in output
+- NO brackets like [sma50] or [rsi14_last]
+- ALL numbers formatted with $, %, or commas as appropriate
+- Each bullet should EXPLAIN what the fact MEANS, not just state it
+- Write naturally - pretend you're texting a friend about the stock
 
-Return ONLY the JSON object above. No other text."""
+Example GOOD bullet:
+"Price is sitting at $653.06, about 2% above the 50-day average - this suggests buyers have been in control recently"
+
+Example BAD bullet:
+"The last close at 653.06 is slightly above the 50-day SMA of 643.3988 (+1.50%).[last_close][sma50][pct_above_sma50]"
+
+Return ONLY the JSON. No other text."""
 
     return prompt
+
 
 
 def build_bull_bear_prompt(facts: dict, simple_mode: bool = False) -> str:
@@ -6424,62 +6422,67 @@ def build_bull_bear_prompt(facts: dict, simple_mode: bool = False) -> str:
     clean_facts = {k: v for k, v in facts.items() if v is not None}
     facts_json = json.dumps(clean_facts, indent=2)
     
-    language_style = "simple, beginner-friendly" if simple_mode else "technical but clear"
+    language_style = "simple conversational language" if simple_mode else "clear professional language"
     
-    prompt = f"""You are an investing education assistant. This is NOT financial advice.
+    prompt = f"""You are a chart analysis AI. Present both bull and bear perspectives naturally.
 
-CRITICAL RULES:
-1. Use ONLY FACTS_JSON below - do NOT invent data
-2. Return ONLY valid JSON matching the schema - NO markdown, NO code blocks
-3. Use {language_style} language
-4. Every point must cite which fact_keys you used
+CRITICAL FORMATTING:
+1. Format ALL dollar amounts: $XXX.XX (with $, 2 decimals)
+2. Format ALL percentages: XX.XX% (with %, 2 decimals)
+3. Format large numbers with commas: 1,234,567
+4. Do NOT include fact_keys, citations, or any [brackets]
+5. Write in {language_style}
+6. Use ONLY the facts below - no inventing data
 
-FACTS_JSON:
+FACTS:
 {facts_json}
 
-Return ONLY this JSON structure (no other text):
+Return ONLY this JSON (no markdown, no code blocks):
 
 {{
   "bull_case": [
-    {{"point": "string describing bullish factor", "fact_keys_used": ["key1", "key2"]}},
-    {{"point": "string", "fact_keys_used": ["key3"]}},
-    {{"point": "string", "fact_keys_used": ["key4"]}}
+    "First bullish point - explain what's positive and WHY it matters",
+    "Second bullish point - what bulls see as good",
+    "Third bullish point - what could drive price higher",
+    "Fourth bullish point - additional positive factor",
+    "Fifth bullish point - final bullish observation"
   ],
   "bear_case": [
-    {{"point":"string","fact_keys_used":["key1"]}},
-    {{"point":"string","fact_keys_used":["key2"]}},
-    {{"point":"string","fact_keys_used":["key3"]}}
+    "First bearish point - explain the concern and WHY it's risky",
+    "Second bearish point - what bears worry about",
+    "Third bearish point - what could push price lower",
+    "Fourth bearish point - additional negative factor"
   ],
-  "neutral_take": "string - one sentence balanced view",
+  "neutral_take": "One sentence balancing both sides - what's the most likely scenario",
   "two_conditions_to_change_view": [
-    {{"condition":"string","fact_keys_used":["key1"]}},
-    {{"condition":"string","fact_keys_used":["key2"]}}
+    "What would make you MORE bullish (specific price level or event)",
+    "What would make you MORE bearish (specific price level or event)"
   ]
 }}
 
-Every claim MUST cite real fact_keys from FACTS_JSON above.
-Example fact keys: last_close, rsi14_last, sma50, pct_above_sma50, return_20d, volume_spike, etc.
-"""
+CRITICAL:
+- NO fact_keys anywhere
+- NO brackets like [sma50] or [last_close]
+- ALL numbers properly formatted
+- Each point should EXPLAIN what the fact MEANS, not just state it
+- Write conversationally - like explaining to a friend
+
+Example GOOD bull point:
+"Price is holding above the $650 level, which acted as support twice before - this shows buyers are stepping in"
+
+Example BAD bull point:
+"Price remains well above the rising long-term 200-day moving average.[last_close][sma200][pct_above_sma200]"
+
+Return ONLY the JSON. No other text."""
     
     return prompt
 
 
 
-def _cap_bullets(items, n=5):
-    """Cap bullet lists to avoid overwhelming users."""
-    if isinstance(items, list):
-        return items[:n]
-    return items
-
-def _fmt_num(x, decimals=2):
-    try:
-        return round(float(x), decimals)
-    except Exception:
-        return x
 def validate_ai_response(ai_output: dict, facts: dict, response_type: str = "explain") -> tuple:
     """
     STEP 7C: Validate AI response against facts.
-    Checks that AI didn't invent data and that fact_keys_used are valid.
+    Checks that AI didn't invent data or leak internal tags.
     
     Args:
         ai_output: Parsed JSON from Perplexity
@@ -6492,40 +6495,24 @@ def validate_ai_response(ai_output: dict, facts: dict, response_type: str = "exp
     if not ai_output or not isinstance(ai_output, dict):
         return False, "AI output is not a valid dict"
     
-    # Collect all fact_keys_used from AI response
-    all_referenced_keys = []
-    
     try:
-        if response_type == "explain":
-            # Check citations
-            if "citations" in ai_output:
-                for cite in ai_output.get("citations", []):
-                    all_referenced_keys.extend(cite.get("fact_keys_used", []))
-        
-        elif response_type == "bull_bear":
-            # Check bull_case
-            if "bull_case" in ai_output:
-                for item in ai_output.get("bull_case", []):
-                    all_referenced_keys.extend(item.get("fact_keys_used", []))
-            
-            # Check bear_case
-            if "bear_case" in ai_output:
-                for item in ai_output.get("bear_case", []):
-                    all_referenced_keys.extend(item.get("fact_keys_used", []))
-            
-            # Check conditions
-            if "two_conditions_to_change_view" in ai_output:
-                for cond in ai_output.get("two_conditions_to_change_view", []):
-                    all_referenced_keys.extend(cond.get("fact_keys_used", []))
-        
-        # Verify all referenced keys exist in facts
-        for key in all_referenced_keys:
-            if key not in facts:
-                return False, f"AI referenced non-existent fact key: {key}"
-        
-        # RSI consistency check DISABLED - let AI interpret RSI levels freely
-        # (The fact-key validation above is sufficient protection)
-        
+        # CRITICAL: Hard-fail if AI leaks internal fact tags like [sma50] into user-facing text
+        import re, json
+        def _contains_bracket_fact_tags(obj):
+            if isinstance(obj, str):
+                return re.search(r'\[[a-zA-Z0-9_]+\]', obj) is not None
+            if isinstance(obj, list):
+                return any(_contains_bracket_fact_tags(x) for x in obj)
+            if isinstance(obj, dict):
+                return any(_contains_bracket_fact_tags(v) for v in obj.values())
+            return False
+
+        if _contains_bracket_fact_tags(ai_output):
+            return False, "AI leaked internal fact tags (e.g., [sma50]) into output text"
+
+        # RSI consistency check DISABLED - too strict
+        # (The fact-tag validation above is sufficient)
+
         # Check required fields exist
         if response_type == "explain":
             required = ["summary_one_liner", "trend", "momentum", "key_levels", "risk_notes"]
@@ -6547,33 +6534,77 @@ def validate_ai_response(ai_output: dict, facts: dict, response_type: str = "exp
 
 def clean_citation_tags(text: str) -> str:
     """
-    Remove citation arrays like ["key1","key2"] from end of text.
-    AI sometimes includes these inline instead of in separate citations field.
+    Remove citation arrays and fact tags from text.
+    AGGRESSIVELY removes all citation-like patterns.
     
     Args:
         text: Text that might have citation tags
     
     Returns:
-        Cleaned text without citation arrays
+        Cleaned text without citation arrays or fact tags
     """
     import re
     
     if not text or not isinstance(text, str):
         return text
     
-    # Pattern: ends with .[" or ,["
-    # Example: "...momentum.["rsi14_last","rsi_state"]"
-    # Example: "...momentum,["rsi14_last","rsi_state"]"
-    pattern = r'[\.,]\s*\[[\"\'][\w_]+[\"\'](?:\s*,\s*[\"\'][\w_]+[\"\'])*\]\s*$'
+    # Pattern 1: Remove JSON-style citations like ["key1","key2"] or ['key1','key2']
+    # Match anywhere in text, not just at end
+    text = re.sub(r'\[[\"\'][a-zA-Z0-9_]+[\"\'](?:\s*,\s*[\"\'][a-zA-Z0-9_]+[\"\'])*\]', '', text)
     
-    cleaned = re.sub(pattern, '.', text)
+    # Pattern 2: Remove fact tags like [last_close][sma50][pct_above_sma50]
+    # This catches multiple consecutive tags
+    text = re.sub(r'(?:\[[a-zA-Z0-9_]+\])+', '', text)
     
-    # Also remove standalone citation arrays at the end
-    # Example: "...momentum ["key1","key2"]"
-    pattern2 = r'\s*\[[\"\'][\w_]+[\"\'](?:\s*,\s*[\"\'][\w_]+[\"\'])*\]\s*$'
-    cleaned = re.sub(pattern2, '', cleaned)
+    # Pattern 3: Remove any remaining single brackets with word inside
+    text = re.sub(r'\[[a-zA-Z0-9_]+\]', '', text)
     
-    return cleaned.strip()
+    # Pattern 4: Clean up any trailing punctuation issues
+    text = re.sub(r'[\.,]\s*[\.,]', '.', text)  # Remove double periods/commas
+    text = re.sub(r'\s+([,\.])', r'\1', text)  # Remove space before punctuation
+    text = re.sub(r'\s{2,}', ' ', text)  # Remove multiple spaces
+    
+    # Pattern 5: Clean up ending - if sentence ends with just period and space, clean it
+    text = text.strip()
+    
+    return text
+
+
+def format_number(value, number_type="number"):
+    """
+    Format numbers consistently with 2 decimals, $, %, and commas.
+    
+    Args:
+        value: Number to format
+        number_type: "dollar", "percent", "number", "volume"
+    
+    Returns:
+        Formatted string
+    """
+    if value is None:
+        return "—"
+    
+    try:
+        num = float(value)
+        
+        if number_type == "dollar":
+            # Format as $XXX.XX with commas
+            return f"${num:,.2f}"
+        
+        elif number_type == "percent":
+            # Format as XX.XX%
+            return f"{num:.2f}%"
+        
+        elif number_type == "volume":
+            # Format with commas, no decimals
+            return f"{int(num):,}"
+        
+        else:  # "number"
+            # Format with commas and 2 decimals
+            return f"{num:,.2f}"
+    
+    except (ValueError, TypeError):
+        return str(value)
 
 
 def detect_rule_based_pattern(facts: dict, simple_mode: bool = False) -> tuple:
@@ -11620,7 +11651,7 @@ elif selected_page == "📊 Pro Checklist":
                         # ============= DISPLAY BULL VS BEAR AI OUTPUT =============
                         if st.session_state.pro_bull_bear_ai:
                             st.markdown("---")
-                            st.markdown("#### ⚖️ Bull vs Bear Analysis (AI)")
+                            st.markdown("####⚖️ Bull vs Bear Analysis (AI)")
                             
                             output = st.session_state.pro_bull_bear_ai
                             
@@ -11628,7 +11659,11 @@ elif selected_page == "📊 Pro Checklist":
                             if "bull_case" in output and output["bull_case"]:
                                 st.markdown("##### 🐂 Bull Case:")
                                 for item in output["bull_case"]:
-                                    point = item.get("point", "")
+                                    # Handle both old format (dict with "point") and new format (string)
+                                    if isinstance(item, dict):
+                                        point = item.get("point", "")
+                                    else:
+                                        point = str(item)
                                     clean_point = clean_citation_tags(point)
                                     st.markdown(f"- {clean_point}")
                                 st.markdown("")
@@ -11637,7 +11672,11 @@ elif selected_page == "📊 Pro Checklist":
                             if "bear_case" in output and output["bear_case"]:
                                 st.markdown("##### 🐻 Bear Case:")
                                 for item in output["bear_case"]:
-                                    point = item.get("point", "")
+                                    # Handle both old format (dict with "point") and new format (string)
+                                    if isinstance(item, dict):
+                                        point = item.get("point", "")
+                                    else:
+                                        point = str(item)
                                     clean_point = clean_citation_tags(point)
                                     st.markdown(f"- {clean_point}")
                                 st.markdown("")
@@ -11652,7 +11691,11 @@ elif selected_page == "📊 Pro Checklist":
                             if "two_conditions_to_change_view" in output and output["two_conditions_to_change_view"]:
                                 st.markdown("**🔄 Conditions That Would Change This View:**")
                                 for cond in output["two_conditions_to_change_view"]:
-                                    condition_text = cond.get("condition", "")
+                                    # Handle both old format (dict with "condition") and new format (string)
+                                    if isinstance(cond, dict):
+                                        condition_text = cond.get("condition", "")
+                                    else:
+                                        condition_text = str(cond)
                                     clean_condition = clean_citation_tags(condition_text)
                                     st.markdown(f"- {clean_condition}")
                             
