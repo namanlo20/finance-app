@@ -11728,6 +11728,52 @@ elif selected_page == "👑 Ultimate":
     st.header("👑 Ultimate Analysis")
     st.caption("*Premium AI-powered analysis with fact-locked insights. Everything adapts to your selected ticker.*")
     
+    # ============= RED THEME STYLING =============
+    st.markdown("""
+    <style>
+    /* Red theme for Ultimate tab */
+    [data-testid="stExpander"] {
+        background-color: rgba(255, 75, 75, 0.1) !important;
+        border: 1px solid #FF4B4B !important;
+    }
+    
+    [data-testid="stExpander"] summary {
+        background-color: #FF4B4B !important;
+        color: white !important;
+        font-weight: bold !important;
+    }
+    
+    /* Selectbox styling */
+    [data-testid="stSelectbox"] > div > div {
+        background-color: #FF4B4B !important;
+        color: white !important;
+    }
+    
+    [data-testid="stSelectbox"] [data-baseweb="select"] > div {
+        background-color: #FF4B4B !important;
+        color: white !important;
+    }
+    
+    /* Dropdown menu styling */
+    div[data-baseweb="popover"] {
+        background-color: #FF4B4B !important;
+    }
+    
+    div[data-baseweb="popover"] ul[role="listbox"] {
+        background-color: #FF4B4B !important;
+    }
+    
+    div[data-baseweb="popover"] li[role="option"] {
+        background-color: #FF4B4B !important;
+        color: white !important;
+    }
+    
+    div[data-baseweb="popover"] li[role="option"]:hover {
+        background-color: #CC3333 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
     # ============= REUSE PRO DATA LOADING =============
     # Use exact same data loading as Pro - DO NOT DUPLICATE
     
@@ -11804,15 +11850,6 @@ elif selected_page == "👑 Ultimate":
     # ============= INCLUDE PRO CONTENT (COLLAPSED) =============
     with st.expander("✅ Pro Analysis (included)", expanded=False):
         st.caption("*Standard Pro analysis is included in Ultimate - expand to view*")
-        
-        # Reuse Pro chart rendering
-        try:
-            fig = create_advanced_candlestick(df, ticker, show_sma50=True, show_sma200=True, 
-                                             show_rsi=True, show_volume=True)
-            st.plotly_chart(fig, use_container_width=True)
-            st.caption(f"✅ Chart ready: OHLC ✓ | SMA50 ✓ | SMA200 ✓ | RSI ✓ | Volume ✓")
-        except:
-            st.error("Chart rendering failed")
         
         # Show compact Pro analysis
         st.markdown("### 📌 Key Observations")
@@ -11944,6 +11981,11 @@ elif selected_page == "👑 Ultimate":
             st.dataframe(levels_df, use_container_width=True, hide_index=True)
         else:
             st.caption("Could not compute key levels")
+        
+        # ============= COMPUTE NEAREST LEVELS (FOR USE IN LATER MODULES) =============
+        # These are needed by Trade Plan Builder AND Scenario Simulator
+        nearest_support = supports[0]["level"] if supports else last_close * 0.97
+        nearest_resistance = resistances[0]["level"] if resistances else last_close * 1.03
     
     st.markdown("---")
     
@@ -11963,10 +12005,7 @@ elif selected_page == "👑 Ultimate":
         risk_style = st.selectbox("Risk Style", ["Conservative", "Moderate", "Aggressive"], key="ultimate_risk")
     
     if st.button("🔨 Build Plan", key="build_plan"):
-        # Build educational plan based on facts
-        
-        nearest_support = supports[0]["level"] if supports else last_close * 0.97
-        nearest_resistance = resistances[0]["level"] if resistances else last_close * 1.03
+        # Build educational plan based on facts (using pre-computed nearest levels)
         
         st.markdown("**📊 Plan Summary:**")
         
@@ -12175,16 +12214,16 @@ elif selected_page == "👑 Ultimate":
             # Clear the other output
             st.session_state.ultimate_change_view_ai = None
             
-            with st.spinner("🤖 AI building trade plan rationale..."):
-                prompt = f"""You are a trading education AI. Explain the rationale for a potential trade setup.
+            with st.spinner("🤖 AI building comprehensive trade plan rationale..."):
+                prompt = f"""You are an ELITE trading education AI for premium subscribers. Provide comprehensive, institutional-grade analysis.
 
 CRITICAL FORMATTING:
 1. Format ALL dollar amounts: $XXX.XX
 2. Format ALL percentages: XX.XX%
 3. Format ALL numbers with commas if >999
 4. NO brackets like [sma50] anywhere
-5. Use conversational language
-6. Max 5 bullets
+5. Use professional but accessible language
+6. Provide 7-10 detailed bullets (this is PREMIUM)
 
 FACTS (USE ONLY THESE):
 {json.dumps({k: v for k, v in tech_facts.items() if v is not None}, indent=2)}
@@ -12193,24 +12232,32 @@ Return ONLY this JSON (no markdown, no code blocks):
 
 {{
   "ticker": "{ticker}",
-  "summary": "1-2 sentences explaining the current setup and what makes it interesting",
+  "summary": "2-3 sentences providing a sophisticated overview of the current setup, market context, and what makes this particularly interesting or concerning right now",
   "bullets": [
-    "First rationale point - why this setup matters (cite a number from facts)",
-    "Second point - what's supporting this view",
-    "Third point - what traders would focus on",
-    "Fourth point - key level or catalyst",
-    "Fifth point - risk consideration"
+    "Point 1: Current price action and positioning relative to key moving averages - what does this tell us about institutional sentiment?",
+    "Point 2: Momentum analysis - RSI state, recent performance, and what this suggests about near-term direction",
+    "Point 3: Volume analysis - what is volume telling us about conviction behind recent moves?",
+    "Point 4: Volatility regime - is this a low-vol grind or high-vol environment? What does that mean for position sizing?",
+    "Point 5: Key support level - where is the nearest meaningful support and why does it matter?",
+    "Point 6: Key resistance level - what's the upside target and what would need to happen to reach it?",
+    "Point 7: Risk/reward setup - given current positioning, what's the risk/reward profile?",
+    "Point 8: Timeframe consideration - is this a day trade, swing trade, or position trade setup?",
+    "Point 9: Catalyst or watch items - what events or levels should traders monitor?",
+    "Point 10: Contrarian view - what's the counter-argument to this setup?"
   ],
   "fact_keys_used": ["list", "of", "fact", "keys", "used"]
 }}
 
-CRITICAL:
-- Max 5 bullets (truncate if more)
+CRITICAL REQUIREMENTS:
+- Provide 7-10 comprehensive bullets (NOT just 5)
 - NO [bracket] tags anywhere
-- Every bullet must cite at least one numeric value
-- All numbers properly formatted"""
+- Every bullet must cite specific numbers from facts
+- All numbers properly formatted with $, %, commas
+- Think like an institutional trader - what really matters?
+- Consider multiple timeframes and scenarios
+- Address BOTH bullish AND bearish perspectives"""
 
-                ai_response = call_perplexity_json(prompt, max_tokens=2000, temperature=0.1)
+                ai_response = call_perplexity_json(prompt, max_tokens=3500, temperature=0.1)
                 
                 if ai_response:
                     # Validate
@@ -12235,9 +12282,9 @@ CRITICAL:
                             is_valid = False
                             error_msg = "AI output contains bracket tags"
                     
-                    # Truncate bullets to max 5
+                    # For premium, allow 7-10 bullets (not just 5)
                     if is_valid and "bullets" in ai_response:
-                        ai_response["bullets"] = ai_response["bullets"][:5]
+                        ai_response["bullets"] = ai_response["bullets"][:10]
                     
                     if is_valid:
                         st.session_state.ultimate_trade_plan_ai = ai_response
@@ -12254,17 +12301,17 @@ CRITICAL:
             # Clear the other output
             st.session_state.ultimate_trade_plan_ai = None
             
-            with st.spinner("🤖 AI analyzing conditions that would change the view..."):
-                prompt = f"""You are a trading education AI. Explain what specific conditions would change the current market view.
+            with st.spinner("🤖 AI analyzing comprehensive scenario triggers..."):
+                prompt = f"""You are an ELITE trading education AI for premium subscribers. Provide comprehensive scenario analysis with specific trigger conditions.
 
 CRITICAL FORMATTING:
 1. Format ALL dollar amounts: $XXX.XX
 2. Format ALL percentages: XX.XX%
 3. Format ALL numbers with commas if >999
 4. NO brackets like [sma50] anywhere
-5. Use conversational language
-6. Max 5 bullets
-7. Phrase as IF/THEN conditions
+5. Use professional but accessible language
+6. Provide 7-10 detailed IF/THEN conditions (this is PREMIUM)
+7. Be specific about price levels, timeframes, and follow-through
 
 FACTS (USE ONLY THESE):
 {json.dumps({k: v for k, v in tech_facts.items() if v is not None}, indent=2)}
@@ -12273,24 +12320,33 @@ Return ONLY this JSON (no markdown, no code blocks):
 
 {{
   "ticker": "{ticker}",
-  "summary": "1-2 sentences about the current state and what would need to change",
+  "summary": "2-3 sentences about the current state, key inflection points, and what would need to change to shift the narrative",
   "bullets": [
-    "IF condition 1... THEN outcome (be specific with price levels)",
-    "IF condition 2... THEN outcome",
-    "IF condition 3... THEN outcome",
-    "IF condition 4... THEN outcome",
-    "IF condition 5... THEN outcome"
+    "IF price breaks above $XXX (resistance) with volume > YYY... THEN expect move to next resistance at $ZZZ (momentum breakout scenario)",
+    "IF price breaks below $XXX (support) on increasing volume... THEN expect retest of $YYY (breakdown scenario)",
+    "IF RSI crosses above/below XX while price is at $YYY... THEN suggests momentum shift (divergence scenario)",
+    "IF volume spikes above X% of 20-day average at current levels... THEN indicates institutional accumulation/distribution",
+    "IF price consolidates between $XXX-$YYY for X+ days... THEN coiling pattern suggests directional move brewing",
+    "IF SMA50 crosses above/below SMA200 (Golden/Death Cross)... THEN confirms long-term trend change",
+    "IF volatility (ATR) drops below X% while at resistance... THEN suggests breakout imminent (volatility compression)",
+    "IF price gaps above/below $XXX on open... THEN watch for gap fill or continuation pattern",
+    "IF fails to hold $XXX support for 2+ consecutive days... THEN reassess bull case entirely",
+    "IF breaks above $XXX AND holds it as support for 3+ days... THEN new higher range established"
   ],
   "fact_keys_used": ["list", "of", "fact", "keys", "used"]
 }}
 
-CRITICAL:
-- Max 5 bullets (truncate if more)
+CRITICAL REQUIREMENTS:
+- Provide 7-10 comprehensive IF/THEN conditions (NOT just 5)
 - NO [bracket] tags anywhere
-- Every condition must reference a specific $ price or % level
-- All numbers properly formatted"""
+- Every condition must cite specific $ prices and % levels from facts
+- Include BOTH bullish AND bearish triggers
+- Consider volume, volatility, and time elements
+- Think about what institutional traders watch
+- Address multiple timeframes (intraday, swing, position)
+- All numbers properly formatted with $, %, commas"""
 
-                ai_response = call_perplexity_json(prompt, max_tokens=2000, temperature=0.1)
+                ai_response = call_perplexity_json(prompt, max_tokens=3500, temperature=0.1)
                 
                 if ai_response:
                     # Validate (same as above)
@@ -12312,8 +12368,9 @@ CRITICAL:
                             is_valid = False
                             error_msg = "AI output contains bracket tags"
                     
+                    # For premium, allow 7-10 bullets
                     if is_valid and "bullets" in ai_response:
-                        ai_response["bullets"] = ai_response["bullets"][:5]
+                        ai_response["bullets"] = ai_response["bullets"][:10]
                     
                     if is_valid:
                         st.session_state.ultimate_change_view_ai = ai_response
@@ -12328,7 +12385,7 @@ CRITICAL:
         # ============= DISPLAY TRADE PLAN RATIONALE AI =============
         if st.session_state.ultimate_trade_plan_ai:
             st.markdown("---")
-            st.markdown("#### 📝 Trade Plan Rationale (AI)")
+            st.markdown("#### 📝 Comprehensive Trade Plan Rationale (Premium AI)")
             
             output = st.session_state.ultimate_trade_plan_ai
             
@@ -12337,16 +12394,17 @@ CRITICAL:
                 st.markdown("")
             
             if "bullets" in output:
-                for bullet in output["bullets"][:5]:
+                st.markdown("**Institutional-Grade Analysis:**")
+                for i, bullet in enumerate(output["bullets"], 1):
                     cleaned = clean_citation_tags(str(bullet))
-                    st.markdown(f"- {cleaned}")
+                    st.markdown(f"{i}. {cleaned}")
             
-            st.info("✅ Fact-locked AI: All statements grounded in technical facts above")
+            st.info("✅ Premium Fact-Locked AI: Comprehensive analysis grounded in technical facts • Ultimate tier exclusive")
         
         # ============= DISPLAY WHAT WOULD CHANGE VIEW AI =============
         if st.session_state.ultimate_change_view_ai:
             st.markdown("---")
-            st.markdown("#### 🔄 What Would Change The View (AI)")
+            st.markdown("#### 🔄 Scenario Triggers & Inflection Points (Premium AI)")
             
             output = st.session_state.ultimate_change_view_ai
             
@@ -12355,11 +12413,12 @@ CRITICAL:
                 st.markdown("")
             
             if "bullets" in output:
-                for bullet in output["bullets"][:5]:
+                st.markdown("**Key Conditions to Monitor:**")
+                for i, bullet in enumerate(output["bullets"], 1):
                     cleaned = clean_citation_tags(str(bullet))
-                    st.markdown(f"- {cleaned}")
+                    st.markdown(f"{i}. {cleaned}")
             
-            st.info("✅ Fact-locked AI: All conditions based on technical facts above")
+            st.info("✅ Premium Fact-Locked AI: Comprehensive scenario analysis • Ultimate tier exclusive")
 
 
 # NEW PAPER PORTFOLIO PAGE - Section 6 Implementation
