@@ -6125,15 +6125,47 @@ def compute_technical_facts(df: pd.DataFrame) -> dict:
                 else:
                     facts["volume_trend"] = "flat"
 
-    # Key levels: use robust quantiles over last N bars (avoid single-point swing logic)
-    lookback = min(len(close), 120)
+    # Key levels: choose *nearest* meaningful support/resistance around current price
+    # (Prevents absurdly distant "support" from old regimes while staying deterministic per ticker)
+    last_close = facts.get("last_close")
+
+    lookback = min(len(close), 180)
     window = close.tail(lookback)
-    if len(window) >= 20:
-        facts["support_level"] = float(window.quantile(0.15))
-        facts["resistance_level"] = float(window.quantile(0.85))
-        if facts["support_level"] and facts["support_level"] != 0:
-            facts["distance_to_support_pct"] = float((last_close / facts["support_level"] - 1.0) * 100.0)
-        if facts["resistance_level"] and facts["resistance_level"] != 0:
+
+    if last_close is not None and len(window) >= 20:
+        candidates_support = []
+        candidates_resistance = []
+
+        # Recent swing extremes (more "local" and relevant)
+        for n in [20, 50, 90, 120, 180]:
+            if len(window) >= n:
+                w = window.tail(n)
+                candidates_support.append(float(w.min()))
+                candidates_resistance.append(float(w.max()))
+
+        # Robust quantiles (still useful, but not the only source)
+        for q in [0.10, 0.15, 0.20, 0.25]:
+            candidates_support.append(float(window.quantile(q)))
+        for q in [0.75, 0.80, 0.85, 0.90]:
+            candidates_resistance.append(float(window.quantile(q)))
+
+        # De-dup + filter non-sense
+        candidates_support = sorted({c for c in candidates_support if c is not None and np.isfinite(c) and c > 0})
+        candidates_resistance = sorted({c for c in candidates_resistance if c is not None and np.isfinite(c) and c > 0})
+
+        # Pick the closest support below last_close; closest resistance above last_close
+        support_below = [c for c in candidates_support if c < last_close]
+        resistance_above = [c for c in candidates_resistance if c > last_close]
+
+        support = max(support_below) if support_below else (min(candidates_support) if candidates_support else None)
+        resistance = min(resistance_above) if resistance_above else (max(candidates_resistance) if candidates_resistance else None)
+
+        facts["support_level"] = float(support) if support is not None else None
+        facts["resistance_level"] = float(resistance) if resistance is not None else None
+
+        if facts["support_level"]:
+            facts["distance_to_support_pct"] = float((facts["support_level"] / last_close - 1.0) * 100.0)
+        if facts["resistance_level"]:
             facts["distance_to_resistance_pct"] = float((facts["resistance_level"] / last_close - 1.0) * 100.0)
 
     return facts
@@ -6473,9 +6505,43 @@ def validate_ai_response(ai_output: dict, facts: dict, response_type: str = "exp
             if key not in facts:
                 return False, f"AI referenced non-existent fact key: {key}"
         
-        # RSI consistency check DISABLED - let AI interpret RSI levels freely
-        # (The fact-key validation above is sufficient protection)
-        
+        # Hard-fail if AI leaks internal fact tags like [sma50] into user-facing text
+        import re, json
+        def _contains_bracket_fact_tags(obj):
+            if isinstance(obj, str):
+                return re.search(r'\[[a-zA-Z0-9_]+\]', obj) is not None
+            if isinstance(obj, list):
+                return any(_contains_bracket_fact_tags(x) for x in obj)
+            if isinstance(obj, dict):
+                return any(_contains_bracket_fact_tags(v) for v in obj.values())
+            return False
+
+        if _contains_bracket_fact_tags(ai_output):
+            return False, "AI leaked internal fact tags (e.g., [sma50]) into output text"
+
+        # RSI consistency (facts-driven): AI cannot call it 'oversold' when facts say 'overbought' (and vice versa)
+        rsi_state = (facts.get("rsi_state") or "").lower()
+        if rsi_state in ("overbought", "oversold"):
+            all_text = json.dumps(ai_output).lower()
+            if rsi_state == "overbought" and "oversold" in all_text:
+                return False, "AI contradicted RSI state (facts=overbought, text mentions oversold)"
+            if rsi_state == "oversold" and "overbought" in all_text:
+                return False, "AI contradicted RSI state (facts=oversold, text mentions overbought)"
+
+        # Key level sanity: support must be below last_close; resistance must be above last_close
+        try:
+            lc = float(facts.get("last_close")) if facts.get("last_close") is not None else None
+            levels = ai_output.get("key_levels", {}) if isinstance(ai_output, dict) else {}
+            if lc is not None and isinstance(levels, dict):
+                sup = levels.get("support", {}).get("level")
+                res = levels.get("resistance", {}).get("level")
+                if sup is not None and float(sup) >= lc:
+                    return False, "Invalid key levels: support is not below last_close"
+                if res is not None and float(res) <= lc:
+                    return False, "Invalid key levels: resistance is not above last_close"
+        except Exception:
+            pass
+
         # Check required fields exist
         if response_type == "explain":
             required = ["summary_one_liner", "trend", "momentum", "key_levels", "risk_notes"]
@@ -6523,6 +6589,9 @@ def clean_citation_tags(text: str) -> str:
     pattern2 = r'\s*\[[\"\'][\w_]+[\"\'](?:\s*,\s*[\"\'][\w_]+[\"\'])*\]\s*$'
     cleaned = re.sub(pattern2, '', cleaned)
     
+    # Also remove internal fact-tag tokens like [sma50] if they ever slip through
+    cleaned = re.sub(r'\[[a-zA-Z0-9_]+\]', '', cleaned)
+    cleaned = re.sub(r'\s{2,}', ' ', cleaned)
     return cleaned.strip()
 
 
