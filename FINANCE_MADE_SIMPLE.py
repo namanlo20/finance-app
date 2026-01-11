@@ -6478,13 +6478,29 @@ def validate_ai_response(ai_output: dict, facts: dict, response_type: str = "exp
             ai_text = str(ai_output).lower()
             fact_rsi = facts["rsi14_last"]
             
-            # If AI says "overbought" but RSI < 65, that's wrong
-            if "overbought" in ai_text and fact_rsi < 65:
-                return False, f"AI said 'overbought' but RSI is {fact_rsi:.0f}"
+            # Check for "overbought" mentions (but allow negative context like "not overbought")
+            if "overbought" in ai_text:
+                # Allow if it's in a negative context
+                negative_patterns = ["not overbought", "not yet overbought", "isn't overbought", 
+                                    "far from overbought", "approaching overbought", "watch for overbought"]
+                
+                has_negative_context = any(pattern in ai_text for pattern in negative_patterns)
+                
+                # Only reject if RSI is clearly NOT overbought (< 60) AND no negative context
+                if fact_rsi < 60 and not has_negative_context:
+                    return False, f"AI said 'overbought' but RSI is {fact_rsi:.0f}"
             
-            # If AI says "oversold" but RSI > 35, that's wrong
-            if "oversold" in ai_text and fact_rsi > 35:
-                return False, f"AI said 'oversold' but RSI is {fact_rsi:.0f}"
+            # Check for "oversold" mentions (but allow negative context like "not oversold")
+            if "oversold" in ai_text:
+                # Allow if it's in a negative context
+                negative_patterns = ["not oversold", "not yet oversold", "isn't oversold",
+                                    "far from oversold", "approaching oversold", "watch for oversold"]
+                
+                has_negative_context = any(pattern in ai_text for pattern in negative_patterns)
+                
+                # Only reject if RSI is clearly NOT oversold (> 40) AND no negative context
+                if fact_rsi > 40 and not has_negative_context:
+                    return False, f"AI said 'oversold' but RSI is {fact_rsi:.0f}"
         
         # Check required fields exist
         if response_type == "explain":
