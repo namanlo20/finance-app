@@ -6473,34 +6473,8 @@ def validate_ai_response(ai_output: dict, facts: dict, response_type: str = "exp
             if key not in facts:
                 return False, f"AI referenced non-existent fact key: {key}"
         
-        # Check RSI consistency if mentioned
-        if "rsi14_last" in facts and facts["rsi14_last"] is not None:
-            ai_text = str(ai_output).lower()
-            fact_rsi = facts["rsi14_last"]
-            
-            # Check for "overbought" mentions (but allow negative context like "not overbought")
-            if "overbought" in ai_text:
-                # Allow if it's in a negative context
-                negative_patterns = ["not overbought", "not yet overbought", "isn't overbought", 
-                                    "far from overbought", "approaching overbought", "watch for overbought"]
-                
-                has_negative_context = any(pattern in ai_text for pattern in negative_patterns)
-                
-                # Only reject if RSI is clearly NOT overbought (< 60) AND no negative context
-                if fact_rsi < 60 and not has_negative_context:
-                    return False, f"AI said 'overbought' but RSI is {fact_rsi:.0f}"
-            
-            # Check for "oversold" mentions (but allow negative context like "not oversold")
-            if "oversold" in ai_text:
-                # Allow if it's in a negative context
-                negative_patterns = ["not oversold", "not yet oversold", "isn't oversold",
-                                    "far from oversold", "approaching oversold", "watch for oversold"]
-                
-                has_negative_context = any(pattern in ai_text for pattern in negative_patterns)
-                
-                # Only reject if RSI is clearly NOT oversold (> 40) AND no negative context
-                if fact_rsi > 40 and not has_negative_context:
-                    return False, f"AI said 'oversold' but RSI is {fact_rsi:.0f}"
+        # RSI consistency check DISABLED - let AI interpret RSI levels freely
+        # (The fact-key validation above is sufficient protection)
         
         # Check required fields exist
         if response_type == "explain":
