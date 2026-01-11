@@ -12318,14 +12318,17 @@ elif selected_page == "👑 Ultimate":
                 if len(df) < 120:
                     st.warning("Need at least 120 days of data for similarity analysis")
                 else:
-                    # Current setup features
+                    # Current setup features - handle None values safely
+                    curr_pct_above_sma50 = tech_facts.get("pct_above_sma50") or 0
+                    curr_pct_above_sma200 = tech_facts.get("pct_above_sma200") or 0
+                    
                     current_features = {
-                        "above_sma50": tech_facts.get("pct_above_sma50", 0) > 0,
-                        "above_sma200": tech_facts.get("pct_above_sma200", 0) > 0,
+                        "above_sma50": curr_pct_above_sma50 > 0,
+                        "above_sma200": curr_pct_above_sma200 > 0,
                         "rsi_state": tech_facts.get("rsi_state", "neutral"),
                         "vol_regime": tech_facts.get("vol_regime", "medium"),
-                        "dist_sma50": tech_facts.get("pct_above_sma50", 0),
-                        "dist_sma200": tech_facts.get("pct_above_sma200", 0),
+                        "dist_sma50": curr_pct_above_sma50,
+                        "dist_sma200": curr_pct_above_sma200,
                         "volume_spike": tech_facts.get("volume_spike", False)
                     }
                     
@@ -12341,13 +12344,17 @@ elif selected_page == "👑 Ultimate":
                         # Compute features for this historical point
                         hist_facts = compute_technical_facts(hist_slice)
                         
+                        # Handle None values safely
+                        pct_above_sma50 = hist_facts.get("pct_above_sma50") or 0
+                        pct_above_sma200 = hist_facts.get("pct_above_sma200") or 0
+                        
                         hist_features = {
-                            "above_sma50": hist_facts.get("pct_above_sma50", 0) > 0,
-                            "above_sma200": hist_facts.get("pct_above_sma200", 0) > 0,
+                            "above_sma50": pct_above_sma50 > 0,
+                            "above_sma200": pct_above_sma200 > 0,
                             "rsi_state": hist_facts.get("rsi_state", "neutral"),
                             "vol_regime": hist_facts.get("vol_regime", "medium"),
-                            "dist_sma50": hist_facts.get("pct_above_sma50", 0),
-                            "dist_sma200": hist_facts.get("pct_above_sma200", 0),
+                            "dist_sma50": pct_above_sma50,
+                            "dist_sma200": pct_above_sma200,
                             "volume_spike": hist_facts.get("volume_spike", False)
                         }
                         
@@ -12462,9 +12469,9 @@ elif selected_page == "👑 Ultimate":
         
         # Initialize session state
         if 'ultimate_trade_plan_ai' not in st.session_state:
-            st.session_state.ultimate_trade_plan_ai = None
+            st.session_state.ultimate_trade_plan_output = None
         if 'ultimate_change_view_ai' not in st.session_state:
-            st.session_state.ultimate_change_view_ai = None
+            st.session_state.ultimate_change_view_output = None
         
         # Build allowed fact keys list
         allowed_fact_keys = list(tech_facts.keys()) + [f"support_{i}" for i in range(1, 4)] + [f"resistance_{i}" for i in range(1, 4)]
@@ -12478,7 +12485,7 @@ elif selected_page == "👑 Ultimate":
         # ============= TRADE PLAN RATIONALE AI =============
         if trade_plan_btn:
             # Clear the other output
-            st.session_state.ultimate_change_view_ai = None
+            st.session_state.ultimate_change_view_output = None
             
             with st.spinner("🤖 AI building comprehensive trade plan rationale..."):
                 prompt = f"""You are an ELITE trading education AI for premium subscribers. Provide comprehensive, institutional-grade analysis.
@@ -12553,19 +12560,19 @@ CRITICAL REQUIREMENTS:
                         ai_response["bullets"] = ai_response["bullets"][:10]
                     
                     if is_valid:
-                        st.session_state.ultimate_trade_plan_ai = ai_response
+                        st.session_state.ultimate_trade_plan_output = ai_response
                     else:
                         st.error(f"⚠️ AI validation failed: {error_msg}")
                         st.info("Showing rule-based rationale instead")
-                        st.session_state.ultimate_trade_plan_ai = None
+                        st.session_state.ultimate_trade_plan_output = None
                 else:
                     st.error("⚠️ AI request failed")
-                    st.session_state.ultimate_trade_plan_ai = None
+                    st.session_state.ultimate_trade_plan_output = None
         
         # ============= WHAT WOULD CHANGE VIEW AI =============
         if change_view_btn:
             # Clear the other output
-            st.session_state.ultimate_trade_plan_ai = None
+            st.session_state.ultimate_trade_plan_output = None
             
             with st.spinner("🤖 AI analyzing comprehensive scenario triggers..."):
                 prompt = f"""You are an ELITE trading education AI for premium subscribers. Provide comprehensive scenario analysis with specific trigger conditions.
@@ -12639,21 +12646,21 @@ CRITICAL REQUIREMENTS:
                         ai_response["bullets"] = ai_response["bullets"][:10]
                     
                     if is_valid:
-                        st.session_state.ultimate_change_view_ai = ai_response
+                        st.session_state.ultimate_change_view_output = ai_response
                     else:
                         st.error(f"⚠️ AI validation failed: {error_msg}")
                         st.info("Showing rule-based conditions instead")
-                        st.session_state.ultimate_change_view_ai = None
+                        st.session_state.ultimate_change_view_output = None
                 else:
                     st.error("⚠️ AI request failed")
-                    st.session_state.ultimate_change_view_ai = None
+                    st.session_state.ultimate_change_view_output = None
         
         # ============= DISPLAY TRADE PLAN RATIONALE AI =============
-        if st.session_state.ultimate_trade_plan_ai:
+        if st.session_state.ultimate_trade_plan_output:
             st.markdown("---")
             st.markdown("#### 📝 Comprehensive Trade Plan Rationale (Premium AI)")
             
-            output = st.session_state.ultimate_trade_plan_ai
+            output = st.session_state.ultimate_trade_plan_output
             
             if "summary" in output:
                 st.markdown(f"**{output['summary']}**")
@@ -12668,11 +12675,11 @@ CRITICAL REQUIREMENTS:
             st.info("✅ Premium Fact-Locked AI: Comprehensive analysis grounded in technical facts • Ultimate tier exclusive")
         
         # ============= DISPLAY WHAT WOULD CHANGE VIEW AI =============
-        if st.session_state.ultimate_change_view_ai:
+        if st.session_state.ultimate_change_view_output:
             st.markdown("---")
             st.markdown("#### 🔄 Scenario Triggers & Inflection Points (Premium AI)")
             
-            output = st.session_state.ultimate_change_view_ai
+            output = st.session_state.ultimate_change_view_output
             
             if "summary" in output:
                 st.markdown(f"**{output['summary']}**")
