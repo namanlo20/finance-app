@@ -11764,7 +11764,17 @@ elif selected_page == "👑 Ultimate":
     # Load data if analyze clicked OR cache invalid
     if analyze_btn or st.session_state.ultimate_cache_key != cache_key:
         with st.spinner(f"Loading {ticker} data..."):
-            price_data = load_stock_data_fmp(ticker, timeframe, interval)
+            # Convert timeframe to years
+            timeframe_to_years = {
+                "6mo": 0.5,
+                "1y": 1,
+                "2y": 2,
+                "5y": 5
+            }
+            years = timeframe_to_years.get(timeframe, 1)
+            
+            # Use correct function - get_historical_ohlc
+            price_data = get_historical_ohlc(ticker, years)
             
             if price_data is not None and len(price_data) > 0:
                 # Update cache
