@@ -5735,6 +5735,92 @@ def render_technical_quick_guide(price_data, ticker):
                 st.caption("— Volume data not available")
         except:
             st.caption("— Chart not available")
+        
+        st.markdown("---")
+        
+        # ========== SUPPORT ==========
+        st.markdown("**Support:** Price level where buying interest tends to emerge, preventing further decline.")
+        st.caption("*Often implies: if price approaches support, it may bounce; breaking through support can signal weakness.*")
+        
+        try:
+            close_col = 'close' if 'close' in recent_data.columns else 'price'
+            
+            # Calculate support as 15th percentile of recent prices
+            support_level = recent_data[close_col].quantile(0.15)
+            
+            fig_support = go.Figure()
+            fig_support.add_trace(go.Scatter(
+                x=recent_data['date'], y=recent_data[close_col],
+                mode='lines', name='Price', line=dict(color='#9D4EDD', width=1.5)
+            ))
+            # Add support line
+            fig_support.add_hline(
+                y=support_level, 
+                line_dash="dot", 
+                line_color="#00FF00", 
+                line_width=2,
+                annotation_text=f"Support ${support_level:.2f}",
+                annotation_position="right"
+            )
+            # Highlight area below support
+            fig_support.add_hrect(
+                y0=recent_data[close_col].min() * 0.95, 
+                y1=support_level,
+                fillcolor="green", 
+                opacity=0.1,
+                line_width=0
+            )
+            fig_support.update_layout(
+                height=240, margin=dict(l=0, r=0, t=10, b=0),
+                template='plotly_dark', showlegend=True, legend=dict(orientation="h", y=1.05),
+                xaxis_title=None, yaxis_title="Price"
+            )
+            st.plotly_chart(fig_support, use_container_width=True)
+        except:
+            st.caption("— Chart not available")
+        
+        st.markdown("---")
+        
+        # ========== RESISTANCE ==========
+        st.markdown("**Resistance:** Price level where selling pressure tends to emerge, preventing further rise.")
+        st.caption("*Often implies: if price approaches resistance, it may stall; breaking above resistance can signal strength.*")
+        
+        try:
+            close_col = 'close' if 'close' in recent_data.columns else 'price'
+            
+            # Calculate resistance as 85th percentile of recent prices
+            resistance_level = recent_data[close_col].quantile(0.85)
+            
+            fig_resistance = go.Figure()
+            fig_resistance.add_trace(go.Scatter(
+                x=recent_data['date'], y=recent_data[close_col],
+                mode='lines', name='Price', line=dict(color='#9D4EDD', width=1.5)
+            ))
+            # Add resistance line
+            fig_resistance.add_hline(
+                y=resistance_level, 
+                line_dash="dot", 
+                line_color="#FF4B4B", 
+                line_width=2,
+                annotation_text=f"Resistance ${resistance_level:.2f}",
+                annotation_position="right"
+            )
+            # Highlight area above resistance
+            fig_resistance.add_hrect(
+                y0=resistance_level, 
+                y1=recent_data[close_col].max() * 1.05,
+                fillcolor="red", 
+                opacity=0.1,
+                line_width=0
+            )
+            fig_resistance.update_layout(
+                height=240, margin=dict(l=0, r=0, t=10, b=0),
+                template='plotly_dark', showlegend=True, legend=dict(orientation="h", y=1.05),
+                xaxis_title=None, yaxis_title="Price"
+            )
+            st.plotly_chart(fig_resistance, use_container_width=True)
+        except:
+            st.caption("— Chart not available")
 
 
 def render_pro_glossary():
@@ -6417,6 +6503,37 @@ def validate_ai_response(ai_output: dict, facts: dict, response_type: str = "exp
     
     except Exception as e:
         return False, f"Validation error: {str(e)}"
+
+
+def clean_citation_tags(text: str) -> str:
+    """
+    Remove citation arrays like ["key1","key2"] from end of text.
+    AI sometimes includes these inline instead of in separate citations field.
+    
+    Args:
+        text: Text that might have citation tags
+    
+    Returns:
+        Cleaned text without citation arrays
+    """
+    import re
+    
+    if not text or not isinstance(text, str):
+        return text
+    
+    # Pattern: ends with .[" or ,["
+    # Example: "...momentum.["rsi14_last","rsi_state"]"
+    # Example: "...momentum,["rsi14_last","rsi_state"]"
+    pattern = r'[\.,]\s*\[[\"\'][\w_]+[\"\'](?:\s*,\s*[\"\'][\w_]+[\"\'])*\]\s*$'
+    
+    cleaned = re.sub(pattern, '.', text)
+    
+    # Also remove standalone citation arrays at the end
+    # Example: "...momentum ["key1","key2"]"
+    pattern2 = r'\s*\[[\"\'][\w_]+[\"\'](?:\s*,\s*[\"\'][\w_]+[\"\'])*\]\s*$'
+    cleaned = re.sub(pattern2, '', cleaned)
+    
+    return cleaned.strip()
 
 
 def detect_rule_based_pattern(facts: dict, simple_mode: bool = False) -> tuple:
@@ -11409,14 +11526,16 @@ elif selected_page == "📊 Pro Checklist":
                             if "trend" in output and output["trend"]:
                                 st.markdown("**📈 Trend Analysis:**")
                                 for bullet in output["trend"]:
-                                    st.markdown(f"- {bullet}")
+                                    clean_bullet = clean_citation_tags(bullet)
+                                    st.markdown(f"- {clean_bullet}")
                                 st.markdown("")
                             
                             # Momentum
                             if "momentum" in output and output["momentum"]:
                                 st.markdown("**🚀 Momentum:**")
                                 for bullet in output["momentum"]:
-                                    st.markdown(f"- {bullet}")
+                                    clean_bullet = clean_citation_tags(bullet)
+                                    st.markdown(f"- {clean_bullet}")
                                 st.markdown("")
                             
                             # Key Levels
@@ -11445,14 +11564,16 @@ elif selected_page == "📊 Pro Checklist":
                             if "risk_notes" in output and output["risk_notes"]:
                                 st.markdown("**⚠️ Risks to Watch:**")
                                 for bullet in output["risk_notes"]:
-                                    st.markdown(f"- {bullet}")
+                                    clean_bullet = clean_citation_tags(bullet)
+                                    st.markdown(f"- {clean_bullet}")
                                 st.markdown("")
                             
                             # What to Watch Next 5 Days
                             if "what_to_watch_next_5_days" in output and output["what_to_watch_next_5_days"]:
                                 st.markdown("**👀 What to Watch (Next 5 Days):**")
                                 for bullet in output["what_to_watch_next_5_days"]:
-                                    st.markdown(f"- {bullet}")
+                                    clean_bullet = clean_citation_tags(bullet)
+                                    st.markdown(f"- {clean_bullet}")
                             
                             st.info("✅ **Fact-locked AI**: All statements grounded in technical facts above")
                         
@@ -11468,7 +11589,8 @@ elif selected_page == "📊 Pro Checklist":
                                 st.markdown("##### 🐂 Bull Case:")
                                 for item in output["bull_case"]:
                                     point = item.get("point", "")
-                                    st.markdown(f"- {point}")
+                                    clean_point = clean_citation_tags(point)
+                                    st.markdown(f"- {clean_point}")
                                 st.markdown("")
                             
                             # Bear Case
@@ -11476,12 +11598,14 @@ elif selected_page == "📊 Pro Checklist":
                                 st.markdown("##### 🐻 Bear Case:")
                                 for item in output["bear_case"]:
                                     point = item.get("point", "")
-                                    st.markdown(f"- {point}")
+                                    clean_point = clean_citation_tags(point)
+                                    st.markdown(f"- {clean_point}")
                                 st.markdown("")
                             
                             # Neutral Take
                             if "neutral_take" in output:
-                                st.markdown(f"**⚖️ Neutral Take:** {output['neutral_take']}")
+                                clean_neutral = clean_citation_tags(output["neutral_take"])
+                                st.markdown(f"**⚖️ Neutral Take:** {clean_neutral}")
                                 st.markdown("")
                             
                             # Conditions to Change View
@@ -11489,7 +11613,8 @@ elif selected_page == "📊 Pro Checklist":
                                 st.markdown("**🔄 Conditions That Would Change This View:**")
                                 for cond in output["two_conditions_to_change_view"]:
                                     condition_text = cond.get("condition", "")
-                                    st.markdown(f"- {condition_text}")
+                                    clean_condition = clean_citation_tags(condition_text)
+                                    st.markdown(f"- {clean_condition}")
                             
                             st.info("✅ **Fact-locked AI**: All arguments based on technical facts above")
                 
