@@ -2095,6 +2095,102 @@ Include real URLs from reputable financial news sources like Reuters, Bloomberg,
     
     return []
 
+
+def call_perplexity_json(prompt: str, max_tokens: int = 2000, temperature: float = 0.1) -> dict:
+    """
+    Calls Perplexity and returns parsed JSON dict if possible, else None.
+    Enforces JSON-only responses with no markdown.
+    
+    Args:
+        prompt: The user prompt (should instruct Perplexity to return JSON only)
+        max_tokens: Maximum response tokens
+        temperature: Response randomness (lower = more deterministic)
+    
+    Returns:
+        dict if JSON parsed successfully, None otherwise
+    """
+    import json
+    
+    perplexity_api_key = os.environ.get('PERPLEXITY_API_KEY', '')
+    if not perplexity_api_key:
+        return None
+    
+    try:
+        perplexity_url = "https://api.perplexity.ai/chat/completions"
+        perplexity_headers = {
+            "Authorization": f"Bearer {perplexity_api_key}",
+            "Content-Type": "application/json"
+        }
+        perplexity_payload = {
+            "model": "sonar",
+            "messages": [
+                {"role": "system", "content": "You are a technical assistant. Return ONLY valid JSON with no markdown, no code blocks, no preamble, no explanation. Just pure JSON."},
+                {"role": "user", "content": prompt}
+            ],
+            "max_tokens": max_tokens,
+            "temperature": temperature
+        }
+        
+        response = requests.post(perplexity_url, headers=perplexity_headers, json=perplexity_payload, timeout=20)
+        
+        if response.status_code == 200:
+            content = response.json().get('choices', [{}])[0].get('message', {}).get('content', '')
+            
+            if not content:
+                return None
+            
+            # Try to parse JSON from the response
+            try:
+                # First try direct parse
+                return json.loads(content)
+            except json.JSONDecodeError:
+                # Try to extract JSON from markdown code blocks
+                content = content.strip()
+                
+                # Remove markdown code fences
+                if content.startswith('```json'):
+                    content = content[7:]
+                elif content.startswith('```'):
+                    content = content[3:]
+                
+                if content.endswith('```'):
+                    content = content[:-3]
+                
+                content = content.strip()
+                
+                # Try parsing again
+                try:
+                    return json.loads(content)
+                except json.JSONDecodeError:
+                    # Last resort: find JSON object/array
+                    start_obj = content.find('{')
+                    start_arr = content.find('[')
+                    
+                    if start_obj == -1 and start_arr == -1:
+                        return None
+                    
+                    # Determine which comes first
+                    if start_obj != -1 and (start_arr == -1 or start_obj < start_arr):
+                        # Object
+                        end = content.rfind('}')
+                        if end > start_obj:
+                            json_str = content[start_obj:end+1]
+                            return json.loads(json_str)
+                    else:
+                        # Array
+                        end = content.rfind(']')
+                        if end > start_arr:
+                            json_str = content[start_arr:end+1]
+                            return json.loads(json_str)
+                    
+                    return None
+        
+        return None
+    
+    except Exception as e:
+        return None
+
+
 @st.cache_data(ttl=3600)
 def get_earnings_calendar(ticker):
     """Get next earnings date"""
@@ -6011,6 +6107,97 @@ def render_chart_callouts(facts: dict) -> list:
     return bullets
 
 
+def check_if_stretched_for_mean_reversion(facts: dict) -> tuple:
+    """
+    STEP 5: Check if price is stretched enough to warrant 'Mean reversion zone' label.
+    Returns: (is_stretched: bool, direction: str)
+    direction can be "up", "down", or ""
+    """
+    if not facts or facts.get("last_close") is None:
+        return False, ""
+    
+    pct_above_sma50 = facts.get("pct_above_sma50")
+    return_20d = facts.get("return_20d")
+    rsi = facts.get("rsi14_last")
+    
+    # Calculate stretch metrics
+    stretch_from_sma = abs(pct_above_sma50) if pct_above_sma50 is not None else 0
+    stretch_from_return = abs(return_20d) if return_20d is not None else 0
+    
+    # Stretch criteria: must meet at least ONE of these
+    is_stretched = (stretch_from_sma >= 8 or stretch_from_return >= 12)
+    
+    if not is_stretched:
+        return False, ""
+    
+    # Determine direction of stretch
+    if rsi is not None and return_20d is not None:
+        # GUARDRAIL: If RSI ≥ 75 AND return_20d > +5% AND price > SMA50 → NOT mean reversion
+        if rsi >= 75 and return_20d > 5 and pct_above_sma50 is not None and pct_above_sma50 > 0:
+            return False, ""  # Too strong for mean reversion - use Overbought momentum instead
+        
+        # Determine if stretched up or down
+        if return_20d > 0 and rsi > 55:
+            return True, "up"
+        elif return_20d < 0 and rsi < 45:
+            return True, "down"
+    
+    return is_stretched, "neutral"
+
+
+def generate_trader_actions(facts: dict, pattern_label: str) -> list:
+    """
+    STEP 6: Generate 5-7 educational bullets about what traders typically watch/do.
+    Returns list of action strings.
+    """
+    if not facts or not facts.get("last_close"):
+        return []
+    
+    actions = []
+    rsi = facts.get("rsi14_last")
+    pct_above_sma50 = facts.get("pct_above_sma50")
+    pct_above_sma200 = facts.get("pct_above_sma200")
+    sma50_slope = facts.get("sma50_slope")
+    distance_to_resistance_pct = facts.get("distance_to_resistance_pct")
+    distance_to_support_pct = facts.get("distance_to_support_pct")
+    vol_spike = facts.get("volume_spike")
+    vol_regime = facts.get("vol_regime")
+    
+    # RSI overbought
+    if rsi is not None and rsi >= 70:
+        actions.append("Watch for cooldown/pullback — overbought readings often precede short-term dips")
+    
+    # Near resistance
+    if distance_to_resistance_pct is not None and distance_to_resistance_pct < 3:
+        actions.append("Breakout traders wait for close ABOVE resistance + volume confirmation before entering")
+    
+    # Above SMA50 with rising slope
+    if pct_above_sma50 is not None and pct_above_sma50 > 0 and sma50_slope is not None and sma50_slope > 0:
+        actions.append("Pullback-to-SMA50 often watched as re-entry zone in uptrends (dip-buying opportunity)")
+    
+    # Volume spike
+    if vol_spike:
+        actions.append("Volume spikes make moves more 'meaningful' — suggests institutional/smart-money activity")
+    
+    # Below SMA200
+    if pct_above_sma200 is not None and pct_above_sma200 < 0:
+        actions.append("Below SMA200: many wait for reclaim before considering long positions (long-term weakness)")
+    
+    # Near support
+    if distance_to_support_pct is not None and distance_to_support_pct < 3:
+        actions.append("Support test: bounce confirms support strength; break below signals potential breakdown")
+    
+    # Low volatility
+    if vol_regime == "low":
+        actions.append("Low volatility 'squeezes' often precede larger directional moves (coiling spring effect)")
+    
+    # RSI oversold
+    if rsi is not None and rsi <= 30:
+        actions.append("Oversold conditions: contrarian traders watch for reversal signals (but downtrends can stay oversold)")
+    
+    return actions[:7]  # Max 7
+
+
 def detect_rule_based_pattern(facts: dict, simple_mode: bool = False) -> tuple:
     """Deterministic pattern label + confidence + reasons + watch level + watch note.
     Guardrails: avoids nonsensical labels (ex: RSI 88 shouldn't be 'mean reversion zone')."""
@@ -6105,7 +6292,33 @@ def detect_rule_based_pattern(facts: dict, simple_mode: bool = False) -> tuple:
         note = f"Watch ${lvl:,.2f}: holding above it supports a bounce scenario." if lvl else "Watch support: holding it supports a bounce scenario."
         return (label, conf, reasons[:3], watch, note)
 
-    # 6) Range / sideways (possible mean reversion behavior)
+    # 6) Mean reversion zone (ONLY when stretched)
+    is_stretched, stretch_direction = check_if_stretched_for_mean_reversion(facts)
+    if is_stretched:
+        if stretch_direction == "up":
+            label = "Mean reversion zone" if not simple_mode else "Overextended up"
+            conf = "Medium"
+            reasons = [
+                f"Price is stretched {facts.get('pct_above_sma50', 0):.1f}% above SMA50 (overextended).",
+                f"RSI at {rsi:.0f} suggests momentum may be cooling.",
+                "Mean reversion risk: stretched moves often pullback to moving averages."
+            ]
+            watch = facts.get("sma50") or facts.get("sma200")
+            note = f"Watch ${watch:,.2f}: pullback to this level is common after overextension." if watch else "Watch for pullback to moving averages."
+            return (label, conf, reasons[:3], watch, note)
+        elif stretch_direction == "down":
+            label = "Mean reversion zone" if not simple_mode else "Oversold bounce potential"
+            conf = "Medium"
+            reasons = [
+                f"Price is stretched {abs(facts.get('pct_above_sma50', 0)):.1f}% below SMA50 (overextended down).",
+                f"RSI at {rsi:.0f} suggests selling may be stretched.",
+                "Mean reversion potential: oversold stretches often bounce back toward moving averages."
+            ]
+            watch = facts.get("sma50") or facts.get("support_level")
+            note = f"Watch ${watch:,.2f}: bounce back toward this level is common after oversold stretch." if watch else "Watch for bounce back toward moving averages."
+            return (label, conf, reasons[:3], watch, note)
+    
+    # 7) Range / sideways (flat movement)
     flat_sma = (facts.get("sma50_slope") is not None and abs(facts["sma50_slope"]) < 0.5)
     flat_ret = (ret20 is not None and abs(ret20) < 3) and (ret60 is None or abs(ret60) < 6)
     rsi_mid = (rsi is not None and 40 <= rsi <= 60)
@@ -6122,8 +6335,8 @@ def detect_rule_based_pattern(facts: dict, simple_mode: bool = False) -> tuple:
             watch = lvl
             note = "Watch support/resistance boundaries — breaks can start a new trend."
             return (label, conf, reasons[:3], watch, note)
-
-    # 7) Default: Uptrend / Downtrend continuation
+    
+    # 8) Default: Uptrend / Downtrend continuation
     if up_bias and (ret20 is None or ret20 >= 0):
         label = "Uptrend continuation" if not simple_mode else "Going up steadily"
         conf = "Medium"
@@ -6135,16 +6348,17 @@ def detect_rule_based_pattern(facts: dict, simple_mode: bool = False) -> tuple:
         watch = facts.get("sma50") or facts.get("support_level")
         note = f"Watch ${watch:,.2f} as support; holding above it keeps the uptrend intact." if watch else "Watch support; holding keeps the uptrend intact."
         return (label, conf, reasons[:3], watch, note)
-
-    label = "Distribution / weakness" if not simple_mode else "Getting weaker"
+    
+    # Downtrend continuation (replacing "Distribution / weakness")
+    label = "Downtrend continuation" if not simple_mode else "Going down steadily"
     conf = "Medium"
-    reasons = ["Price is below key moving average(s), which can align with weakness."]
+    reasons = ["Price is below key moving average(s), supporting a downtrend bias."]
     if rsi is not None and rsi < 45:
-        reasons.append("RSI is weak, which supports a bearish bias.")
+        reasons.append("RSI is weak, which supports continued bearish momentum.")
     if ret20 is not None and ret20 < 0:
-        reasons.append("Recent returns are negative, reinforcing downside risk.")
+        reasons.append("Recent returns are negative, reinforcing downside trend.")
     watch = facts.get("support_level") or facts.get("sma50")
-    note = f"Watch ${watch:,.2f}: losing this level can keep weakness intact." if watch else "Watch support; losing it can keep weakness intact."
+    note = f"Watch ${watch:,.2f}: breaking below this level can accelerate downtrend." if watch else "Watch support; breaking it can accelerate downtrend."
     return (label, conf, reasons[:3], watch, note)
 
 
@@ -10372,41 +10586,67 @@ elif selected_page == "📊 Pro Checklist":
     # Fix selectbox dropdown colors to match input styling
     st.markdown("""
     <style>
-    /* Style the selectbox closed state - RED like text input */
+    /* STEP 1: Red dropdown theme - closed AND opened states */
+    
+    /* Closed state - RED like text input */
     [data-testid="stSelectbox"] > div > div {
         background-color: #FF4B4B !important;
         color: white !important;
     }
     
-    /* Style the dropdown button/selector - RED */
+    /* Dropdown button/selector - RED */
     [data-testid="stSelectbox"] [data-baseweb="select"] > div {
         background-color: #FF4B4B !important;
         color: white !important;
     }
     
-    /* Style the dropdown popover/menu container - DARK for opened menu */
-    [data-baseweb="popover"] {
-        background-color: #262730 !important;
+    /* CRITICAL: Opened popover/menu - RED theme */
+    div[data-baseweb="popover"] {
+        background-color: #FF4B4B !important;
     }
     
-    /* Style dropdown menu items - DARK background */
-    [data-baseweb="menu"] {
-        background-color: #262730 !important;
+    /* Listbox container - RED */
+    div[data-baseweb="popover"] ul[role="listbox"] {
+        background-color: #FF4B4B !important;
+        border: none !important;
     }
     
-    [data-baseweb="menu"] li {
-        background-color: #262730 !important;
+    /* Individual options - RED background */
+    div[data-baseweb="popover"] li[role="option"] {
+        background-color: #FF4B4B !important;
+        color: white !important;
+        padding: 8px 12px !important;
+    }
+    
+    /* Hover state - Darker red */
+    div[data-baseweb="popover"] li[role="option"]:hover {
+        background-color: #CC3333 !important;
         color: white !important;
     }
     
-    /* Hover state for dropdown items - Lighter gray */
-    [data-baseweb="menu"] li:hover {
-        background-color: #3A3B45 !important;
+    /* Selected/active item - Deepest red */
+    div[data-baseweb="popover"] li[role="option"][aria-selected="true"] {
+        background-color: #AA2222 !important;
+        color: white !important;
+        font-weight: bold !important;
     }
     
-    /* Selected/active item - RED */
-    [data-baseweb="menu"] li[aria-selected="true"] {
+    /* Menu items in general */
+    [data-baseweb="menu"] {
         background-color: #FF4B4B !important;
+    }
+    
+    [data-baseweb="menu"] li {
+        background-color: #FF4B4B !important;
+        color: white !important;
+    }
+    
+    [data-baseweb="menu"] li:hover {
+        background-color: #CC3333 !important;
+    }
+    
+    [data-baseweb="menu"] li[aria-selected="true"] {
+        background-color: #AA2222 !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -10735,6 +10975,23 @@ elif selected_page == "📊 Pro Checklist":
             else:
                 st.warning("⚠️ OHLC not available — showing line chart fallback.")
         
+        # ============= CHART CALLOUTS (STEP 4) =============
+        st.markdown("---")
+        st.markdown("### 📌 Key Observations")
+        
+        # Compute technical facts if not already done
+        tech_facts = compute_technical_facts(price_history)
+        if 'pro_tech_facts' not in st.session_state:
+            st.session_state.pro_tech_facts = tech_facts
+        
+        # Generate and display callouts
+        callouts = render_chart_callouts(tech_facts)
+        if callouts:
+            for callout in callouts:
+                st.markdown(f"- {callout}")
+        else:
+            st.caption("*Insufficient data for observations*")
+        
         # ============= PATTERN DETECTION =============
         st.markdown("---")
         st.markdown("### 🔍 Pattern Detection (AI + Rules)")
@@ -10756,8 +11013,14 @@ elif selected_page == "📊 Pro Checklist":
                 features = calculate_pattern_features(price_history)
                 
                 if features:
-                    # Display feature summary in expandable section
-                    with st.expander("📊 Technical Metrics", expanded=False):
+                    # STEP 2: Technical Metrics with RED header
+                    st.markdown("""
+                    <div style="background-color: #FF4B4B; padding: 10px; border-radius: 5px; margin: 10px 0;">
+                        <h4 style="color: white; margin: 0;">📊 Technical Metrics</h4>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    with st.expander("View Details", expanded=False):
                         col_f1, col_f2, col_f3, col_f4 = st.columns(4)
                         with col_f1:
                             st.metric("Current Price", f"${features['current_price']}")
@@ -10814,6 +11077,20 @@ elif selected_page == "📊 Pro Checklist":
                         st.info("💡 **Remember**: This is just one way to look at the chart. Always do your own research!")
                     else:
                         st.info("ℹ️ **Note**: Pattern detection combines rule-based signals with AI interpretation. Not financial advice.")
+                    
+                    # ============= STEP 6: WHAT TRADERS DO NEXT =============
+                    st.markdown("---")
+                    st.markdown("### ✅ What Traders Generally Do Next (Educational)")
+                    st.caption("*Common approaches traders use when analyzing similar setups*")
+                    
+                    trader_actions = generate_trader_actions(tech_facts, pattern_label)
+                    if trader_actions:
+                        for action in trader_actions:
+                            st.markdown(f"- {action}")
+                    else:
+                        st.caption("*Insufficient data for trader action suggestions*")
+                    
+                    st.caption("*📚 Educational only — not a recommendation. Always do your own research.*")
                 
                 else:
                     st.warning("⚠️ Not enough data to detect patterns. Try a different ticker or timeframe.")
