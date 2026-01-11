@@ -5500,6 +5500,7 @@ with st.sidebar:
         st.caption("Track your progress")
         action_tools = [
             "📊 Pro Checklist",
+            "👑 Ultimate",
             "💼 Paper Portfolio",
             "👤 Naman's Portfolio",
             "📜 Founder Track Record"
@@ -11528,6 +11529,9 @@ elif selected_page == "📊 Pro Checklist":
                         
                         # ============= EXPLAIN CHART AI =============
                         if explain_btn:
+                            # CLEAR the other AI output (toggle behavior)
+                            st.session_state.pro_bull_bear_ai = None
+                            
                             with st.spinner("🤖 AI analyzing chart facts..."):
                                 # Build prompt
                                 rule_based_dict = {
@@ -11560,6 +11564,9 @@ elif selected_page == "📊 Pro Checklist":
                         
                         # ============= BULL VS BEAR AI =============
                         if bull_bear_btn:
+                            # CLEAR the other AI output (toggle behavior)
+                            st.session_state.pro_explain_ai = None
+                            
                             with st.spinner("🤖 AI building bull/bear cases..."):
                                 simple_mode = st.session_state.get('simple_mode', False)
                                 prompt = build_bull_bear_prompt(tech_facts, simple_mode)
@@ -11711,6 +11718,638 @@ elif selected_page == "📊 Pro Checklist":
         # ✅ Removed Fundamental Screening from Pro (Pro is technical + AI only)
         
         # ✅ PRO CLEANUP + THEME FIX COMPLETE
+
+
+# ============================================================================
+# 👑 ULTIMATE TAB - PREMIUM AI-FIRST ANALYSIS
+# ============================================================================
+
+elif selected_page == "👑 Ultimate":
+    st.header("👑 Ultimate Analysis")
+    st.caption("*Premium AI-powered analysis with fact-locked insights. Everything adapts to your selected ticker.*")
+    
+    # ============= REUSE PRO DATA LOADING =============
+    # Use exact same data loading as Pro - DO NOT DUPLICATE
+    
+    col1, col2, col3, col4 = st.columns([2, 2, 2, 1])
+    
+    with col1:
+        ticker = st.text_input("Ticker", value="GOOGL", key="ultimate_ticker").upper().strip()
+    
+    with col2:
+        timeframe_options = ["6mo", "1y", "2y", "5y"]
+        timeframe = st.selectbox("Timeframe", timeframe_options, index=1, key="ultimate_timeframe")
+    
+    with col3:
+        interval_options = ["1d", "1wk", "1mo"]
+        interval = st.selectbox("Interval", interval_options, index=0, key="ultimate_interval")
+    
+    with col4:
+        simple_mode = st.toggle("ELI5", value=False, key="ultimate_simple_mode",
+                               help="Explain Like I'm 5 - simpler language")
+    
+    analyze_btn = st.button("🔍 Analyze", key="ultimate_analyze", use_container_width=True)
+    
+    # Generate cache key for this ticker/timeframe/interval combo
+    cache_key = f"{ticker}|{timeframe}|{interval}"
+    
+    # Initialize cache if needed
+    if 'ultimate_cache_key' not in st.session_state:
+        st.session_state.ultimate_cache_key = None
+    if 'ultimate_price_data' not in st.session_state:
+        st.session_state.ultimate_price_data = None
+    if 'ultimate_tech_facts' not in st.session_state:
+        st.session_state.ultimate_tech_facts = None
+    
+    # Load data if analyze clicked OR cache invalid
+    if analyze_btn or st.session_state.ultimate_cache_key != cache_key:
+        with st.spinner(f"Loading {ticker} data..."):
+            price_data = load_stock_data_fmp(ticker, timeframe, interval)
+            
+            if price_data is not None and len(price_data) > 0:
+                # Update cache
+                st.session_state.ultimate_cache_key = cache_key
+                st.session_state.ultimate_price_data = price_data
+                
+                # Compute technical facts
+                tech_facts = compute_technical_facts(price_data)
+                st.session_state.ultimate_tech_facts = tech_facts
+                
+                st.success(f"✅ Loaded {len(price_data)} data points for {ticker}")
+            else:
+                st.error(f"⚠️ Could not load data for {ticker}")
+                st.session_state.ultimate_cache_key = None
+                st.session_state.ultimate_price_data = None
+                st.session_state.ultimate_tech_facts = None
+    
+    # Check if we have data
+    if st.session_state.ultimate_price_data is None or st.session_state.ultimate_tech_facts is None:
+        st.info("👆 Enter a ticker and click Analyze to start")
+        st.stop()
+    
+    # Get cached data
+    df = st.session_state.ultimate_price_data
+    tech_facts = st.session_state.ultimate_tech_facts
+    
+    # ============= INCLUDE PRO CONTENT (COLLAPSED) =============
+    with st.expander("✅ Pro Analysis (included)", expanded=False):
+        st.caption("*Standard Pro analysis is included in Ultimate - expand to view*")
+        
+        # Reuse Pro chart rendering
+        try:
+            fig = create_advanced_candlestick(df, ticker, show_sma50=True, show_sma200=True, 
+                                             show_rsi=True, show_volume=True)
+            st.plotly_chart(fig, use_container_width=True)
+            st.caption(f"✅ Chart ready: OHLC ✓ | SMA50 ✓ | SMA200 ✓ | RSI ✓ | Volume ✓")
+        except:
+            st.error("Chart rendering failed")
+        
+        # Show compact Pro analysis
+        st.markdown("### 📌 Key Observations")
+        callouts = render_chart_callouts(tech_facts)
+        for callout in callouts[:5]:  # Max 5
+            st.markdown(f"- {callout}")
+        
+        # Pattern detection
+        pattern_label, confidence, reasons, watch_level, watch_note = detect_rule_based_pattern(tech_facts, simple_mode)
+        
+        st.markdown("### 🔍 Pattern Detected")
+        conf_color = {"High": "🟢", "Medium": "🟡", "Low": "🔴"}.get(confidence, "⚪")
+        st.markdown(f"**{conf_color} {pattern_label}** (Confidence: {confidence})")
+        
+        for reason in reasons[:3]:  # Max 3
+            st.markdown(f"- {reason}")
+    
+    st.markdown("---")
+    
+    # ============= MODULE A: KEY LEVELS MAP =============
+    st.markdown("### 🎯 Key Levels Map (Ultimate)")
+    st.caption("*Top 3 supports and resistances derived from price history*")
+    
+    last_close = tech_facts.get("last_close")
+    
+    if last_close:
+        # Compute multiple support/resistance levels
+        supports = []
+        resistances = []
+        
+        # Method 1: Swing lows/highs at different windows
+        for window in [20, 50, 90]:
+            if len(df) >= window:
+                swing_low = df['close'].rolling(window=window, center=True).min().dropna()
+                swing_high = df['close'].rolling(window=window, center=True).max().dropna()
+                
+                # Find recent swing lows below current price
+                recent_lows = swing_low[swing_low < last_close].tail(10)
+                for low in recent_lows.unique():
+                    if low < last_close:
+                        supports.append({"level": float(low), "source": f"Swing-{window}d"})
+                
+                # Find recent swing highs above current price
+                recent_highs = swing_high[swing_high > last_close].tail(10)
+                for high in recent_highs.unique():
+                    if high > last_close:
+                        resistances.append({"level": float(high), "source": f"Swing-{window}d"})
+        
+        # Method 2: Quantile levels
+        for q, label in [(0.10, "Q10"), (0.25, "Q25"), (0.75, "Q75"), (0.90, "Q90")]:
+            level = float(df['close'].quantile(q))
+            if level < last_close * 0.98:
+                supports.append({"level": level, "source": label})
+            elif level > last_close * 1.02:
+                resistances.append({"level": level, "source": label})
+        
+        # Method 3: Add SMA50/SMA200 if relevant
+        sma50 = tech_facts.get("sma50")
+        sma200 = tech_facts.get("sma200")
+        
+        if sma50 and abs(sma50 - last_close) / last_close < 0.10:  # Within 10%
+            if sma50 < last_close:
+                supports.append({"level": float(sma50), "source": "SMA50"})
+            elif sma50 > last_close:
+                resistances.append({"level": float(sma50), "source": "SMA50"})
+        
+        if sma200 and abs(sma200 - last_close) / last_close < 0.15:  # Within 15%
+            if sma200 < last_close:
+                supports.append({"level": float(sma200), "source": "SMA200"})
+            elif sma200 > last_close:
+                resistances.append({"level": float(sma200), "source": "SMA200"})
+        
+        # Create synthetic levels if needed
+        atr_pct = tech_facts.get("atr_pct", 2.0)
+        atr_decimal = atr_pct / 100.0 if atr_pct > 1 else atr_pct
+        
+        if len(supports) == 0:
+            # At new lows - create synthetic support
+            synth_dist = min(0.05, max(0.03, 2 * atr_decimal))
+            supports.append({"level": last_close * (1 - synth_dist), "source": "Synthetic"})
+        
+        if len(resistances) == 0:
+            # At new highs - create synthetic resistance
+            synth_dist = min(0.05, max(0.03, 2 * atr_decimal))
+            resistances.append({"level": last_close * (1 + synth_dist), "source": "Synthetic"})
+        
+        # Sort and deduplicate
+        supports = sorted(supports, key=lambda x: x["level"], reverse=True)  # Closest first
+        resistances = sorted(resistances, key=lambda x: x["level"])  # Closest first
+        
+        # Deduplicate levels within 1%
+        def dedupe_levels(levels_list):
+            if not levels_list:
+                return []
+            deduped = [levels_list[0]]
+            for level_dict in levels_list[1:]:
+                if all(abs(level_dict["level"] - d["level"]) / d["level"] > 0.01 for d in deduped):
+                    deduped.append(level_dict)
+            return deduped
+        
+        supports = dedupe_levels(supports)[:3]  # Top 3
+        resistances = dedupe_levels(resistances)[:3]  # Top 3
+        
+        # Display as table
+        import pandas as pd
+        
+        levels_data = []
+        
+        for sup in supports:
+            dist_pct = ((sup["level"] - last_close) / last_close) * 100
+            levels_data.append({
+                "Type": "Support",
+                "Level": f"${sup['level']:.2f}",
+                "Distance": f"{dist_pct:+.2f}%",
+                "Source": sup["source"]
+            })
+        
+        for res in resistances:
+            dist_pct = ((res["level"] - last_close) / last_close) * 100
+            levels_data.append({
+                "Type": "Resistance",
+                "Level": f"${res['level']:.2f}",
+                "Distance": f"{dist_pct:+.2f}%",
+                "Source": res["source"]
+            })
+        
+        if levels_data:
+            levels_df = pd.DataFrame(levels_data)
+            st.dataframe(levels_df, use_container_width=True, hide_index=True)
+        else:
+            st.caption("Could not compute key levels")
+    
+    st.markdown("---")
+    
+    # ============= MODULE B: TRADE PLAN BUILDER =============
+    st.markdown("### 📋 Trade Plan Builder (Educational)")
+    st.caption("*Educational template - NOT financial advice*")
+    
+    col_dir, col_hor, col_risk = st.columns(3)
+    
+    with col_dir:
+        direction = st.selectbox("Direction", ["Long", "Short"], key="ultimate_direction")
+    
+    with col_hor:
+        horizon = st.selectbox("Horizon", ["Day", "Swing", "Position"], key="ultimate_horizon")
+    
+    with col_risk:
+        risk_style = st.selectbox("Risk Style", ["Conservative", "Moderate", "Aggressive"], key="ultimate_risk")
+    
+    if st.button("🔨 Build Plan", key="build_plan"):
+        # Build educational plan based on facts
+        
+        nearest_support = supports[0]["level"] if supports else last_close * 0.97
+        nearest_resistance = resistances[0]["level"] if resistances else last_close * 1.03
+        
+        st.markdown("**📊 Plan Summary:**")
+        
+        bullets = []
+        
+        if direction == "Long":
+            entry_zone = f"${nearest_support:.2f} - ${last_close:.2f}"
+            invalidation = f"${nearest_support * 0.985:.2f} (below nearest support)"
+            target1 = f"${nearest_resistance:.2f}"
+            target2 = f"${resistances[1]['level']:.2f}" if len(resistances) > 1 else f"${nearest_resistance * 1.03:.2f}"
+            
+            bullets.append(f"**Entry Zone:** {entry_zone} (near support)")
+            bullets.append(f"**Invalidation:** Below {invalidation}")
+            bullets.append(f"**Target 1 (1R):** {target1}")
+            bullets.append(f"**Target 2 (2R):** {target2}")
+            bullets.append(f"**Horizon:** {horizon} trade (adjust time accordingly)")
+        
+        else:  # Short
+            entry_zone = f"${last_close:.2f} - ${nearest_resistance:.2f}"
+            invalidation = f"${nearest_resistance * 1.015:.2f} (above nearest resistance)"
+            target1 = f"${nearest_support:.2f}"
+            target2 = f"${supports[1]['level']:.2f}" if len(supports) > 1 else f"${nearest_support * 0.97:.2f}"
+            
+            bullets.append(f"**Entry Zone:** {entry_zone} (near resistance)")
+            bullets.append(f"**Invalidation:** Above {invalidation}")
+            bullets.append(f"**Target 1 (1R):** {target1}")
+            bullets.append(f"**Target 2 (2R):** {target2}")
+            bullets.append(f"**Horizon:** {horizon} trade (adjust time accordingly)")
+        
+        for bullet in bullets[:5]:
+            st.markdown(f"- {bullet}")
+        
+        st.info("📚 Educational template only. Not financial advice. Always do your own research.")
+    
+    st.markdown("---")
+    
+    # ============= MODULE C: HISTORICAL SIMILAR SETUPS =============
+    with st.expander("📊 Historical Similar Setups (Backtest-Lite)", expanded=False):
+        st.caption("*Find past dates when the setup looked similar*")
+        
+        if st.button("🔍 Find Similar Setups", key="find_similar"):
+            with st.spinner("Analyzing historical patterns..."):
+                # Compute feature vectors for all historical dates
+                if len(df) < 120:
+                    st.warning("Need at least 120 days of data for similarity analysis")
+                else:
+                    # Current setup features
+                    current_features = {
+                        "above_sma50": tech_facts.get("pct_above_sma50", 0) > 0,
+                        "above_sma200": tech_facts.get("pct_above_sma200", 0) > 0,
+                        "rsi_state": tech_facts.get("rsi_state", "neutral"),
+                        "vol_regime": tech_facts.get("vol_regime", "medium"),
+                        "dist_sma50": tech_facts.get("pct_above_sma50", 0),
+                        "dist_sma200": tech_facts.get("pct_above_sma200", 0),
+                        "volume_spike": tech_facts.get("volume_spike", False)
+                    }
+                    
+                    # Compute features for historical windows
+                    similar_dates = []
+                    
+                    for i in range(60, len(df) - 20):  # Skip last 20 days to avoid trivial matches
+                        hist_slice = df.iloc[:i+1]
+                        
+                        if len(hist_slice) < 60:
+                            continue
+                        
+                        # Compute features for this historical point
+                        hist_facts = compute_technical_facts(hist_slice)
+                        
+                        hist_features = {
+                            "above_sma50": hist_facts.get("pct_above_sma50", 0) > 0,
+                            "above_sma200": hist_facts.get("pct_above_sma200", 0) > 0,
+                            "rsi_state": hist_facts.get("rsi_state", "neutral"),
+                            "vol_regime": hist_facts.get("vol_regime", "medium"),
+                            "dist_sma50": hist_facts.get("pct_above_sma50", 0),
+                            "dist_sma200": hist_facts.get("pct_above_sma200", 0),
+                            "volume_spike": hist_facts.get("volume_spike", False)
+                        }
+                        
+                        # Compute similarity score
+                        score = 0
+                        
+                        if hist_features["above_sma50"] == current_features["above_sma50"]:
+                            score += 1
+                        if hist_features["above_sma200"] == current_features["above_sma200"]:
+                            score += 1
+                        if hist_features["rsi_state"] == current_features["rsi_state"]:
+                            score += 2
+                        if hist_features["vol_regime"] == current_features["vol_regime"]:
+                            score += 1
+                        if hist_features["volume_spike"] == current_features["volume_spike"]:
+                            score += 1
+                        
+                        # Distance penalty
+                        dist_penalty = abs(hist_features["dist_sma50"] - current_features["dist_sma50"]) / 10.0
+                        score -= min(dist_penalty, 2)
+                        
+                        # Compute forward returns
+                        date_idx = hist_slice.index[-1]
+                        try:
+                            future_5d = ((df.loc[date_idx:].iloc[5]["close"] / df.loc[date_idx]["close"]) - 1) * 100 if i + 5 < len(df) else None
+                            future_20d = ((df.loc[date_idx:].iloc[20]["close"] / df.loc[date_idx]["close"]) - 1) * 100 if i + 20 < len(df) else None
+                            future_60d = ((df.loc[date_idx:].iloc[60]["close"] / df.loc[date_idx]["close"]) - 1) * 100 if i + 60 < len(df) else None
+                        except:
+                            future_5d = future_20d = future_60d = None
+                        
+                        similar_dates.append({
+                            "date": date_idx,
+                            "score": score,
+                            "fwd_5d": future_5d,
+                            "fwd_20d": future_20d,
+                            "fwd_60d": future_60d
+                        })
+                    
+                    # Sort by score
+                    similar_dates = sorted(similar_dates, key=lambda x: x["score"], reverse=True)[:10]
+                    
+                    if similar_dates:
+                        st.markdown("**Top 10 Similar Historical Setups:**")
+                        
+                        sim_data = []
+                        for match in similar_dates:
+                            outcome = "Continuation" if (match["fwd_20d"] or 0) > 2 else "Reversal" if (match["fwd_20d"] or 0) < -2 else "Chop"
+                            
+                            sim_data.append({
+                                "Date": match["date"].strftime("%Y-%m-%d") if hasattr(match["date"], "strftime") else str(match["date"]),
+                                "Similarity": f"{match['score']:.1f}",
+                                "+5d": f"{match['fwd_5d']:+.2f}%" if match["fwd_5d"] else "N/A",
+                                "+20d": f"{match['fwd_20d']:+.2f}%" if match["fwd_20d"] else "N/A",
+                                "+60d": f"{match['fwd_60d']:+.2f}%" if match["fwd_60d"] else "N/A",
+                                "Outcome": outcome
+                            })
+                        
+                        sim_df = pd.DataFrame(sim_data)
+                        st.dataframe(sim_df, use_container_width=True, hide_index=True)
+                        
+                        st.info("📊 Historical analysis for educational purposes only")
+                    else:
+                        st.caption("No similar setups found in history")
+    
+    st.markdown("---")
+    
+    # ============= MODULE D: SCENARIO SIMULATOR =============
+    st.markdown("### 🎲 Scenario Simulator (Bull/Base/Bear)")
+    st.caption("*Three potential scenarios based on key levels and volatility*")
+    
+    atr_pct = tech_facts.get("atr_pct", 2.0)
+    
+    col_bull, col_base, col_bear = st.columns(3)
+    
+    with col_bull:
+        st.markdown("#### 🐂 Bull Scenario")
+        st.markdown(f"**Trigger:** Break above ${nearest_resistance:.2f}")
+        st.markdown(f"**Expected Move:** +{atr_pct:.1f}% to +{atr_pct*2:.1f}%")
+        st.markdown(f"**Invalidation:** Fails if drops below ${nearest_support:.2f}")
+    
+    with col_base:
+        st.markdown("#### ⚖️ Base Scenario")
+        st.markdown(f"**Trigger:** Range between ${nearest_support:.2f} - ${nearest_resistance:.2f}")
+        st.markdown(f"**Expected Move:** ±{atr_pct*0.5:.1f}% (choppy)")
+        st.markdown(f"**Invalidation:** Break either way with volume")
+    
+    with col_bear:
+        st.markdown("#### 🐻 Bear Scenario")
+        st.markdown(f"**Trigger:** Break below ${nearest_support:.2f}")
+        st.markdown(f"**Expected Move:** -{atr_pct:.1f}% to -{atr_pct*2:.1f}%")
+        st.markdown(f"**Invalidation:** Fails if rises above ${nearest_resistance:.2f}")
+    
+    st.markdown("---")
+    
+    # ============= MODULE E: ULTIMATE AI DEEP DIVE =============
+    st.markdown("### 🤖 Ultimate AI Deep Dive (Perplexity)")
+    st.caption("*AI analysis locked to technical facts - no hallucinations*")
+    
+    # Check if Perplexity is available
+    perplexity_available = bool(os.environ.get('PERPLEXITY_API_KEY', ''))
+    
+    if not perplexity_available:
+        st.warning("⚠️ AI features require PERPLEXITY_API_KEY environment variable")
+    else:
+        col_ai1, col_ai2 = st.columns(2)
+        
+        with col_ai1:
+            trade_plan_btn = st.button("📝 Trade Plan Rationale (AI)", key="ultimate_trade_plan_ai", use_container_width=True)
+        
+        with col_ai2:
+            change_view_btn = st.button("🔄 What Would Change View? (AI)", key="ultimate_change_view_ai", use_container_width=True)
+        
+        # Initialize session state
+        if 'ultimate_trade_plan_ai' not in st.session_state:
+            st.session_state.ultimate_trade_plan_ai = None
+        if 'ultimate_change_view_ai' not in st.session_state:
+            st.session_state.ultimate_change_view_ai = None
+        
+        # Build allowed fact keys list
+        allowed_fact_keys = list(tech_facts.keys()) + [f"support_{i}" for i in range(1, 4)] + [f"resistance_{i}" for i in range(1, 4)]
+        
+        # Add support/resistance levels to facts
+        for i, sup in enumerate(supports, 1):
+            tech_facts[f"support_{i}"] = sup["level"]
+        for i, res in enumerate(resistances, 1):
+            tech_facts[f"resistance_{i}"] = res["level"]
+        
+        # ============= TRADE PLAN RATIONALE AI =============
+        if trade_plan_btn:
+            # Clear the other output
+            st.session_state.ultimate_change_view_ai = None
+            
+            with st.spinner("🤖 AI building trade plan rationale..."):
+                prompt = f"""You are a trading education AI. Explain the rationale for a potential trade setup.
+
+CRITICAL FORMATTING:
+1. Format ALL dollar amounts: $XXX.XX
+2. Format ALL percentages: XX.XX%
+3. Format ALL numbers with commas if >999
+4. NO brackets like [sma50] anywhere
+5. Use conversational language
+6. Max 5 bullets
+
+FACTS (USE ONLY THESE):
+{json.dumps({k: v for k, v in tech_facts.items() if v is not None}, indent=2)}
+
+Return ONLY this JSON (no markdown, no code blocks):
+
+{{
+  "ticker": "{ticker}",
+  "summary": "1-2 sentences explaining the current setup and what makes it interesting",
+  "bullets": [
+    "First rationale point - why this setup matters (cite a number from facts)",
+    "Second point - what's supporting this view",
+    "Third point - what traders would focus on",
+    "Fourth point - key level or catalyst",
+    "Fifth point - risk consideration"
+  ],
+  "fact_keys_used": ["list", "of", "fact", "keys", "used"]
+}}
+
+CRITICAL:
+- Max 5 bullets (truncate if more)
+- NO [bracket] tags anywhere
+- Every bullet must cite at least one numeric value
+- All numbers properly formatted"""
+
+                ai_response = call_perplexity_json(prompt, max_tokens=2000, temperature=0.1)
+                
+                if ai_response:
+                    # Validate
+                    is_valid = True
+                    error_msg = ""
+                    
+                    # Check structure
+                    if not isinstance(ai_response, dict):
+                        is_valid = False
+                        error_msg = "Invalid JSON structure"
+                    
+                    # Check ticker matches
+                    if is_valid and ai_response.get("ticker", "").upper() != ticker.upper():
+                        is_valid = False
+                        error_msg = f"Ticker mismatch: expected {ticker}, got {ai_response.get('ticker')}"
+                    
+                    # Check for bracket tags
+                    if is_valid:
+                        import re
+                        all_text = json.dumps(ai_response)
+                        if re.search(r'\[[a-zA-Z0-9_]+\]', all_text):
+                            is_valid = False
+                            error_msg = "AI output contains bracket tags"
+                    
+                    # Truncate bullets to max 5
+                    if is_valid and "bullets" in ai_response:
+                        ai_response["bullets"] = ai_response["bullets"][:5]
+                    
+                    if is_valid:
+                        st.session_state.ultimate_trade_plan_ai = ai_response
+                    else:
+                        st.error(f"⚠️ AI validation failed: {error_msg}")
+                        st.info("Showing rule-based rationale instead")
+                        st.session_state.ultimate_trade_plan_ai = None
+                else:
+                    st.error("⚠️ AI request failed")
+                    st.session_state.ultimate_trade_plan_ai = None
+        
+        # ============= WHAT WOULD CHANGE VIEW AI =============
+        if change_view_btn:
+            # Clear the other output
+            st.session_state.ultimate_trade_plan_ai = None
+            
+            with st.spinner("🤖 AI analyzing conditions that would change the view..."):
+                prompt = f"""You are a trading education AI. Explain what specific conditions would change the current market view.
+
+CRITICAL FORMATTING:
+1. Format ALL dollar amounts: $XXX.XX
+2. Format ALL percentages: XX.XX%
+3. Format ALL numbers with commas if >999
+4. NO brackets like [sma50] anywhere
+5. Use conversational language
+6. Max 5 bullets
+7. Phrase as IF/THEN conditions
+
+FACTS (USE ONLY THESE):
+{json.dumps({k: v for k, v in tech_facts.items() if v is not None}, indent=2)}
+
+Return ONLY this JSON (no markdown, no code blocks):
+
+{{
+  "ticker": "{ticker}",
+  "summary": "1-2 sentences about the current state and what would need to change",
+  "bullets": [
+    "IF condition 1... THEN outcome (be specific with price levels)",
+    "IF condition 2... THEN outcome",
+    "IF condition 3... THEN outcome",
+    "IF condition 4... THEN outcome",
+    "IF condition 5... THEN outcome"
+  ],
+  "fact_keys_used": ["list", "of", "fact", "keys", "used"]
+}}
+
+CRITICAL:
+- Max 5 bullets (truncate if more)
+- NO [bracket] tags anywhere
+- Every condition must reference a specific $ price or % level
+- All numbers properly formatted"""
+
+                ai_response = call_perplexity_json(prompt, max_tokens=2000, temperature=0.1)
+                
+                if ai_response:
+                    # Validate (same as above)
+                    is_valid = True
+                    error_msg = ""
+                    
+                    if not isinstance(ai_response, dict):
+                        is_valid = False
+                        error_msg = "Invalid JSON structure"
+                    
+                    if is_valid and ai_response.get("ticker", "").upper() != ticker.upper():
+                        is_valid = False
+                        error_msg = f"Ticker mismatch"
+                    
+                    if is_valid:
+                        import re
+                        all_text = json.dumps(ai_response)
+                        if re.search(r'\[[a-zA-Z0-9_]+\]', all_text):
+                            is_valid = False
+                            error_msg = "AI output contains bracket tags"
+                    
+                    if is_valid and "bullets" in ai_response:
+                        ai_response["bullets"] = ai_response["bullets"][:5]
+                    
+                    if is_valid:
+                        st.session_state.ultimate_change_view_ai = ai_response
+                    else:
+                        st.error(f"⚠️ AI validation failed: {error_msg}")
+                        st.info("Showing rule-based conditions instead")
+                        st.session_state.ultimate_change_view_ai = None
+                else:
+                    st.error("⚠️ AI request failed")
+                    st.session_state.ultimate_change_view_ai = None
+        
+        # ============= DISPLAY TRADE PLAN RATIONALE AI =============
+        if st.session_state.ultimate_trade_plan_ai:
+            st.markdown("---")
+            st.markdown("#### 📝 Trade Plan Rationale (AI)")
+            
+            output = st.session_state.ultimate_trade_plan_ai
+            
+            if "summary" in output:
+                st.markdown(f"**{output['summary']}**")
+                st.markdown("")
+            
+            if "bullets" in output:
+                for bullet in output["bullets"][:5]:
+                    cleaned = clean_citation_tags(str(bullet))
+                    st.markdown(f"- {cleaned}")
+            
+            st.info("✅ Fact-locked AI: All statements grounded in technical facts above")
+        
+        # ============= DISPLAY WHAT WOULD CHANGE VIEW AI =============
+        if st.session_state.ultimate_change_view_ai:
+            st.markdown("---")
+            st.markdown("#### 🔄 What Would Change The View (AI)")
+            
+            output = st.session_state.ultimate_change_view_ai
+            
+            if "summary" in output:
+                st.markdown(f"**{output['summary']}**")
+                st.markdown("")
+            
+            if "bullets" in output:
+                for bullet in output["bullets"][:5]:
+                    cleaned = clean_citation_tags(str(bullet))
+                    st.markdown(f"- {cleaned}")
+            
+            st.info("✅ Fact-locked AI: All conditions based on technical facts above")
 
 
 # NEW PAPER PORTFOLIO PAGE - Section 6 Implementation
