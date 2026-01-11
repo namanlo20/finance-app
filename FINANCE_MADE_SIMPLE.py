@@ -10844,6 +10844,13 @@ elif selected_page == "👑 Become a VIP":
         if st.button("Select Pro", key="select_pro_vip", use_container_width=True):
             st.session_state.selected_tier = "Pro"
             st.rerun()
+        
+        # Deep-link demo button
+        if st.button("🎯 Try Pro Demo →", key="try_pro_demo", use_container_width=True, type="secondary"):
+            st.session_state.selected_page = "📊 Pro Checklist"
+            if 'demo_ticker' not in st.session_state or not st.session_state.demo_ticker:
+                st.session_state.demo_ticker = "NVDA"
+            st.rerun()
     
     with col_ultimate:
         border_color = "#FFD700" if st.session_state.selected_tier == "Ultimate" else "#333"
@@ -10858,6 +10865,13 @@ elif selected_page == "👑 Become a VIP":
         """, unsafe_allow_html=True)
         if st.button("Select Ultimate", key="select_ultimate_vip", use_container_width=True):
             st.session_state.selected_tier = "Ultimate"
+            st.rerun()
+        
+        # Deep-link demo button
+        if st.button("🎯 Try Ultimate Demo →", key="try_ultimate_demo", use_container_width=True, type="secondary"):
+            st.session_state.selected_page = "👑 Ultimate"
+            if 'demo_ticker' not in st.session_state or not st.session_state.demo_ticker:
+                st.session_state.demo_ticker = "NVDA"
             st.rerun()
     
     # Feature Comparison Table
@@ -10976,7 +10990,23 @@ elif selected_page == "👑 Become a VIP":
 
 
 elif selected_page == "📊 Pro Checklist":
-    st.header("📊 Pro Checklist")
+    # ============= YELLOW PILL HEADER =============
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, #FFD60A 0%, #FFA500 100%); 
+                padding: 15px 25px; 
+                border-radius: 15px; 
+                text-align: center; 
+                margin-bottom: 25px;
+                box-shadow: 0 4px 15px rgba(255, 214, 10, 0.3);">
+        <h2 style="margin: 0; color: #1a1a1a; font-size: 24px; font-weight: bold;">
+            🟡 PRO — AI Chart Explain
+        </h2>
+        <p style="margin: 5px 0 0 0; color: rgba(26,26,26,0.8); font-size: 14px;">
+            Pattern detection • AI analysis • 5-bullet insights
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
     st.caption("*Advanced technical analysis + fundamental screening*")
     
     # Disclaimer box (always visible)
@@ -11073,8 +11103,11 @@ elif selected_page == "📊 Pro Checklist":
     # ============= INPUT ROW =============
     col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
     
+    # Use demo ticker if coming from VIP page
+    default_ticker = st.session_state.get('demo_ticker', st.session_state.selected_ticker)
+    
     with col1:
-        ticker_check = st.text_input("Ticker or Company Name:", value=st.session_state.selected_ticker, key="checklist_ticker")
+        ticker_check = st.text_input("Ticker or Company Name:", value=default_ticker, key="checklist_ticker")
     
     with col2:
         timeframe = st.selectbox("Timeframe", ["3M", "6M", "1Y", "2Y", "5Y"], index=2, key="checklist_timeframe")
@@ -11725,7 +11758,23 @@ elif selected_page == "📊 Pro Checklist":
 # ============================================================================
 
 elif selected_page == "👑 Ultimate":
-    st.header("👑 Ultimate Analysis")
+    # ============= PURPLE PILL HEADER =============
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, #9D4EDD 0%, #7B2CBF 100%); 
+                padding: 15px 25px; 
+                border-radius: 15px; 
+                text-align: center; 
+                margin-bottom: 25px;
+                box-shadow: 0 4px 15px rgba(157, 78, 221, 0.3);">
+        <h2 style="margin: 0; color: white; font-size: 24px;">
+            🟣 ULTIMATE — AI Planner + Backtest-Lite
+        </h2>
+        <p style="margin: 5px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">
+            Institutional-grade analysis • 7-10 bullet deep-dives • Premium exclusive
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
     st.caption("*Premium AI-powered analysis with fact-locked insights. Everything adapts to your selected ticker.*")
     
     # ============= RED THEME STYLING =============
@@ -11779,8 +11828,11 @@ elif selected_page == "👑 Ultimate":
     
     col1, col2, col3, col4 = st.columns([2, 2, 2, 1])
     
+    # Use demo ticker if coming from VIP page
+    default_ticker = st.session_state.get('demo_ticker', "GOOGL")
+    
     with col1:
-        ticker = st.text_input("Ticker", value="GOOGL", key="ultimate_ticker").upper().strip()
+        ticker = st.text_input("Ticker", value=default_ticker, key="ultimate_ticker").upper().strip()
     
     with col2:
         timeframe_options = ["6mo", "1y", "2y", "5y"]
@@ -11846,6 +11898,220 @@ elif selected_page == "👑 Ultimate":
     # Get cached data
     df = st.session_state.ultimate_price_data
     tech_facts = st.session_state.ultimate_tech_facts
+    
+    # ============= PREMIUM CANDLESTICK CHART =============
+    st.markdown("---")
+    st.markdown(f"### 📊 {ticker} Price Chart")
+    
+    # Chart setup
+    price_history = df
+    show_sma50 = True
+    show_sma200 = True
+    show_rsi = True
+    show_volume = True
+    
+    # Check if we have OHLC data
+    has_ohlc = all(col in price_history.columns for col in ['open', 'high', 'low', 'close'])
+    chart_features = []
+    
+    if has_ohlc:
+        chart_features.append("OHLC")
+        
+        # Determine number of rows
+        num_rows = 1
+        subplot_titles_list = [f'{ticker} Price']
+        
+        if show_rsi:
+            num_rows += 1
+            subplot_titles_list.append('RSI (14)')
+        
+        if show_volume and 'volume' in price_history.columns:
+            num_rows += 1
+            subplot_titles_list.append('Volume')
+        
+        # Calculate row heights
+        if num_rows == 1:
+            row_heights = [1.0]
+        elif num_rows == 2:
+            row_heights = [0.7, 0.3]
+        else:  # 3 rows
+            row_heights = [0.6, 0.2, 0.2]
+        
+        # Create candlestick chart
+        fig_price = make_subplots(
+            rows=num_rows,
+            cols=1,
+            shared_xaxes=True,
+            vertical_spacing=0.03,
+            row_heights=row_heights,
+            subplot_titles=tuple(subplot_titles_list)
+        )
+        
+        # Add candlestick
+        fig_price.add_trace(
+            go.Candlestick(
+                x=price_history['date'],
+                open=price_history['open'],
+                high=price_history['high'],
+                low=price_history['low'],
+                close=price_history['close'],
+                name='Price',
+                increasing_line_color='#00FF00',
+                decreasing_line_color='#FF4444'
+            ),
+            row=1, col=1
+        )
+        
+        # Add volume
+        if show_volume and 'volume' in price_history.columns:
+            colors = ['#00FF00' if price_history['close'].iloc[i] >= price_history['open'].iloc[i] else '#FF4444' 
+                      for i in range(len(price_history))]
+            
+            volume_row = num_rows
+            
+            fig_price.add_trace(
+                go.Bar(
+                    x=price_history['date'],
+                    y=price_history['volume'],
+                    name='Volume',
+                    marker_color=colors,
+                    opacity=0.5
+                ),
+                row=volume_row, col=1
+            )
+            chart_features.append("Volume")
+    else:
+        # Fallback line chart
+        chart_features.append("Line")
+        fig_price = go.Figure()
+        price_col = 'close' if 'close' in price_history.columns else 'price'
+        
+        fig_price.add_trace(go.Scatter(
+            x=price_history['date'],
+            y=price_history[price_col],
+            mode='lines',
+            name='Price',
+            line=dict(color='#9D4EDD', width=2),
+            fill='tozeroy',
+            fillcolor='rgba(157, 78, 221, 0.2)',
+            hovertemplate='%{x}<br>Price: $%{y:.2f}<extra></extra>'
+        ))
+    
+    # Add SMAs
+    close_col = 'close' if 'close' in price_history.columns else 'price'
+    
+    if show_sma50 and len(price_history) >= 50:
+        sma50 = price_history[close_col].rolling(window=50, min_periods=1).mean()
+        sma_trace_50 = go.Scatter(
+            x=price_history['date'],
+            y=sma50,
+            mode='lines',
+            name='SMA 50',
+            line=dict(color='#FFA500', width=2)
+        )
+        
+        if has_ohlc:
+            fig_price.add_trace(sma_trace_50, row=1, col=1)
+        else:
+            fig_price.add_trace(sma_trace_50)
+        
+        chart_features.append("SMA50")
+    
+    if show_sma200 and len(price_history) >= 200:
+        sma200 = price_history[close_col].rolling(window=200, min_periods=1).mean()
+        sma_trace_200 = go.Scatter(
+            x=price_history['date'],
+            y=sma200,
+            mode='lines',
+            name='SMA 200',
+            line=dict(color='#9D4EDD', width=2)
+        )
+        
+        if has_ohlc:
+            fig_price.add_trace(sma_trace_200, row=1, col=1)
+        else:
+            fig_price.add_trace(sma_trace_200)
+        
+        chart_features.append("SMA200")
+    
+    # Add RSI
+    if show_rsi and len(price_history) >= 14:
+        delta = price_history[close_col].diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+        rs = gain / loss
+        rsi = 100 - (100 / (1 + rs))
+        
+        rsi_row = 2 if show_rsi else None
+        if rsi_row and has_ohlc:
+            fig_price.add_trace(
+                go.Scatter(
+                    x=price_history['date'],
+                    y=rsi,
+                    mode='lines',
+                    name='RSI',
+                    line=dict(color='#FFD700', width=2)
+                ),
+                row=rsi_row, col=1
+            )
+            
+            # Add overbought/oversold lines
+            fig_price.add_hline(y=70, line_dash="dash", line_color="red", opacity=0.5, row=rsi_row, col=1)
+            fig_price.add_hline(y=30, line_dash="dash", line_color="green", opacity=0.5, row=rsi_row, col=1)
+            
+            fig_price.update_yaxes(title_text="RSI", range=[0, 100], row=rsi_row, col=1)
+            
+            chart_features.append("RSI")
+    
+    # Update layout
+    fig_price.update_layout(
+        title=f"{ticker} Price History ({timeframe})",
+        xaxis_title="Date",
+        yaxis_title="Price ($)",
+        height=600,
+        template='plotly_dark',
+        margin=dict(l=0, r=0, t=40, b=0),
+        hovermode='x unified',
+        showlegend=True,
+        xaxis_rangeslider_visible=False
+    )
+    
+    # Add rangeslider
+    if has_ohlc:
+        fig_price.update_xaxes(
+            rangeslider=dict(
+                visible=True,
+                thickness=0.05,
+                bgcolor="rgba(150, 150, 150, 0.1)"
+            ),
+            row=num_rows, col=1
+        )
+    else:
+        fig_price.update_xaxes(
+            rangeslider=dict(
+                visible=True,
+                thickness=0.05,
+                bgcolor="rgba(150, 150, 150, 0.1)"
+            )
+        )
+    
+    # Update axis labels
+    if has_ohlc:
+        fig_price.update_yaxes(title_text="Price ($)", row=1, col=1)
+        if show_volume:
+            fig_price.update_yaxes(title_text="Volume", row=num_rows, col=1)
+    
+    # Display chart
+    st.plotly_chart(fig_price, use_container_width=True)
+    
+    # Status line
+    if has_ohlc:
+        status_parts = [f"{feat} ✓" for feat in chart_features]
+        st.success(f"✅ Chart ready: {' | '.join(status_parts)}")
+    else:
+        st.warning("⚠️ OHLC not available — showing line chart fallback.")
+    
+    st.markdown("---")
     
     # ============= INCLUDE PRO CONTENT (COLLAPSED) =============
     with st.expander("✅ Pro Analysis (included)", expanded=False):
