@@ -2201,6 +2201,73 @@ def call_perplexity_json(prompt: str, max_tokens: int = 2000, temperature: float
         return None
 
 
+def call_openai_json(prompt: str, max_tokens: int = 2000, temperature: float = 0.1) -> dict:
+    """
+    Calls OpenAI GPT-4o-mini and returns parsed JSON dict.
+    Uses JSON mode for guaranteed valid JSON responses.
+    
+    Args:
+        prompt: The user prompt (should instruct to return JSON only)
+        max_tokens: Maximum response tokens
+        temperature: Response randomness (lower = more deterministic)
+    
+    Returns:
+        dict if JSON parsed successfully, None otherwise
+    """
+    import json
+    
+    openai_api_key = os.environ.get('OPENAI_API_KEY', '')
+    if not openai_api_key:
+        return None
+    
+    try:
+        openai_url = "https://api.openai.com/v1/chat/completions"
+        openai_headers = {
+            "Authorization": f"Bearer {openai_api_key}",
+            "Content-Type": "application/json"
+        }
+        openai_payload = {
+            "model": "gpt-4o-mini",  # Cheap and reliable!
+            "messages": [
+                {"role": "system", "content": "You are a financial analysis AI. Return ONLY valid JSON with no markdown, no code blocks, no preamble. Just pure JSON."},
+                {"role": "user", "content": prompt}
+            ],
+            "response_format": {"type": "json_object"},  # JSON MODE - guarantees valid JSON!
+            "max_tokens": max_tokens,
+            "temperature": temperature
+        }
+        
+        response = requests.post(openai_url, headers=openai_headers, json=openai_payload, timeout=30)
+        
+        # DEBUG: Log response status
+        print(f"[DEBUG] OpenAI API Status: {response.status_code}")
+        
+        if response.status_code == 200:
+            content = response.json().get('choices', [{}])[0].get('message', {}).get('content', '')
+            
+            # DEBUG: Log content received
+            print(f"[DEBUG] OpenAI content received: {len(content) if content else 0} chars")
+            
+            if not content:
+                return None
+            
+            # With JSON mode, this should always work
+            try:
+                return json.loads(content)
+            except json.JSONDecodeError as e:
+                print(f"[DEBUG] OpenAI JSON parse error: {str(e)}")
+                return None
+        
+        # Non-200 response
+        print(f"[DEBUG] OpenAI API Error: Status {response.status_code}")
+        print(f"[DEBUG] Response: {response.text[:500]}")
+        return None
+    
+    except Exception as e:
+        print(f"[DEBUG] OpenAI Exception: {str(e)}")
+        return None
+
+
 @st.cache_data(ttl=3600)
 def get_earnings_calendar(ticker):
     """Get next earnings date"""
@@ -12460,21 +12527,21 @@ elif selected_page == "👑 Ultimate":
     st.markdown("---")
     
     # ============= MODULE E: ULTIMATE AI DEEP DIVE =============
-    st.markdown("### 🤖 Ultimate AI Deep Dive (Perplexity)")
-    st.caption("*AI analysis locked to technical facts - no hallucinations*")
+    st.markdown("### 🤖 Ultimate AI Deep Dive")
+    st.caption("*AI-powered analysis using OpenAI GPT-4o-mini - Institutional-grade insights*")
     
-    # Check if Perplexity is available
-    perplexity_available = bool(os.environ.get('PERPLEXITY_API_KEY', ''))
+    # Check if OpenAI is available
+    openai_available = bool(os.environ.get('OPENAI_API_KEY', ''))
     
-    if not perplexity_available:
-        st.warning("⚠️ **Perplexity API Key Required**")
+    if not openai_available:
+        st.warning("⚠️ **OpenAI API Key Required**")
         st.info("""
         **Setup Steps:**
-        1. Get API key from: https://www.perplexity.ai/settings/api
-        2. Set environment variable: `PERPLEXITY_API_KEY=pplx-xxxxx`
+        1. Get API key from: https://platform.openai.com/api-keys
+        2. Set environment variable: `OPENAI_API_KEY=sk-xxxxx`
         3. Restart the app
         
-        **Cost:** ~$0.20 per 1000 requests (very affordable!)
+        **Cost:** ~$0.0004 per request (token-based pricing)
         """)
     
     # ALWAYS show buttons (even without API key)
@@ -12503,8 +12570,8 @@ elif selected_page == "👑 Ultimate":
     
     # ============= TRADE PLAN RATIONALE AI =============
     if trade_plan_btn:
-        if not perplexity_available:
-            st.error("⚠️ Cannot proceed - PERPLEXITY_API_KEY not set. See setup instructions above.")
+        if not openai_available:
+            st.error("⚠️ Cannot proceed - OPENAI_API_KEY not set. See setup instructions above.")
         else:
             # Clear the other output
             st.session_state.ultimate_change_view_output = None
@@ -12552,7 +12619,7 @@ CRITICAL REQUIREMENTS:
 - Consider multiple timeframes and scenarios
 - Address BOTH bullish AND bearish perspectives"""
 
-                ai_response = call_perplexity_json(prompt, max_tokens=3500, temperature=0.1)
+                ai_response = call_openai_json(prompt, max_tokens=3500, temperature=0.1)
                 
                 if ai_response:
                     # Validate
@@ -12590,19 +12657,19 @@ CRITICAL REQUIREMENTS:
                         st.info("Try clicking the button again. If it persists, check your API key.")
                         st.session_state.ultimate_trade_plan_output = None
                 else:
-                    st.error("⚠️ Perplexity API request failed - no response received")
+                    st.error("⚠️ OpenAI API request failed - no response received")
                     st.info("""
                     **Check these:**
-                    - Is PERPLEXITY_API_KEY set correctly?
-                    - Do you have API credits? (check https://www.perplexity.ai/settings/api)
+                    - Is OPENAI_API_KEY set correctly?
+                    - Do you have API credits? (check https://platform.openai.com/account/billing)
                     - Check debug logs in console for actual error
                     """)
                     st.session_state.ultimate_trade_plan_output = None
     
     # ============= WHAT WOULD CHANGE VIEW AI =============
     if change_view_btn:
-        if not perplexity_available:
-            st.error("⚠️ Cannot proceed - PERPLEXITY_API_KEY not set. See setup instructions above.")
+        if not openai_available:
+            st.error("⚠️ Cannot proceed - OPENAI_API_KEY not set. See setup instructions above.")
         else:
             # Clear the other output
             st.session_state.ultimate_trade_plan_output = None
@@ -12652,7 +12719,7 @@ CRITICAL REQUIREMENTS:
 - Address multiple timeframes (intraday, swing, position)
 - All numbers properly formatted with $, %, commas"""
 
-                ai_response = call_perplexity_json(prompt, max_tokens=3500, temperature=0.1)
+                ai_response = call_openai_json(prompt, max_tokens=3500, temperature=0.1)
                 
                 if ai_response:
                     # Validate (same as above)
@@ -12687,11 +12754,11 @@ CRITICAL REQUIREMENTS:
                         st.info("Try clicking the button again. If it persists, check your API key.")
                         st.session_state.ultimate_change_view_output = None
                 else:
-                    st.error("⚠️ Perplexity API request failed - no response received")
+                    st.error("⚠️ OpenAI API request failed - no response received")
                     st.info("""
                     **Check these:**
-                    - Is PERPLEXITY_API_KEY set correctly?
-                    - Do you have API credits? (check https://www.perplexity.ai/settings/api)
+                    - Is OPENAI_API_KEY set correctly?
+                    - Do you have API credits? (check https://platform.openai.com/account/billing)
                     - Check debug logs in console for actual error
                     """)
                     st.session_state.ultimate_change_view_output = None
