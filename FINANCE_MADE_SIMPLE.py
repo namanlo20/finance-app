@@ -2268,6 +2268,117 @@ def call_openai_json(prompt: str, max_tokens: int = 2000, temperature: float = 0
         return None
 
 
+def extract_portfolio_from_screenshot(image_data_list):
+    """
+    Use OpenAI Vision to extract portfolio holdings from 1-5 screenshots.
+    
+    Args:
+        image_data_list: List of base64-encoded image strings
+    
+    Returns:
+        dict with holdings, confidence, unreadable_items
+    """
+    import json
+    import base64
+    
+    openai_api_key = os.environ.get('OPENAI_API_KEY', '')
+    if not openai_api_key:
+        return None
+    
+    try:
+        # Build messages with multiple images
+        message_content = [
+            {
+                "type": "text",
+                "text": """Extract ALL stock holdings from these portfolio screenshots. 
+                
+CRITICAL: Return ONLY valid JSON with this exact structure:
+{
+  "holdings": [
+    {
+      "ticker_or_name": "AAPL or Apple Inc.",
+      "shares": 10.5 or null,
+      "weight": 25.3 or null,
+      "market_value": 1250.50 or null
+    }
+  ],
+  "confidence": "High" or "Medium" or "Low",
+  "unreadable_items": ["list of any holdings you couldn't parse clearly"]
+}
+
+Rules:
+- Extract ticker if visible, else company name
+- Include shares, weight%, or market value if visible (null if not)
+- Mark confidence High only if ALL holdings clearly visible
+- List any unclear/partial holdings in unreadable_items
+- Return ONLY JSON, no markdown, no explanation"""
+            }
+        ]
+        
+        # Add each image
+        for img_data in image_data_list:
+            message_content.append({
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:image/jpeg;base64,{img_data}"
+                }
+            })
+        
+        openai_url = "https://api.openai.com/v1/chat/completions"
+        openai_headers = {
+            "Authorization": f"Bearer {openai_api_key}",
+            "Content-Type": "application/json"
+        }
+        openai_payload = {
+            "model": "gpt-4o",  # Vision model
+            "messages": [
+                {
+                    "role": "user",
+                    "content": message_content
+                }
+            ],
+            "max_tokens": 2000,
+            "temperature": 0.1
+        }
+        
+        response = requests.post(openai_url, headers=openai_headers, json=openai_payload, timeout=60)
+        
+        print(f"[DEBUG] OpenAI Vision Status: {response.status_code}")
+        
+        if response.status_code == 200:
+            content = response.json().get('choices', [{}])[0].get('message', {}).get('content', '')
+            
+            print(f"[DEBUG] Vision content: {len(content) if content else 0} chars")
+            
+            if not content:
+                return None
+            
+            # Parse JSON
+            try:
+                # Remove markdown if present
+                content = content.strip()
+                if content.startswith('```json'):
+                    content = content[7:]
+                elif content.startswith('```'):
+                    content = content[3:]
+                if content.endswith('```'):
+                    content = content[:-3]
+                content = content.strip()
+                
+                return json.loads(content)
+            except json.JSONDecodeError as e:
+                print(f"[DEBUG] Vision JSON parse error: {str(e)}")
+                return None
+        
+        print(f"[DEBUG] Vision API Error: {response.status_code}")
+        print(f"[DEBUG] Response: {response.text[:500]}")
+        return None
+    
+    except Exception as e:
+        print(f"[DEBUG] Vision Exception: {str(e)}")
+        return None
+
+
 @st.cache_data(ttl=3600)
 def get_earnings_calendar(ticker):
     """Get next earnings date"""
@@ -12800,6 +12911,380 @@ CRITICAL REQUIREMENTS:
                     st.markdown(f"{i}. {cleaned}")
             
             st.info("✅ Premium Fact-Locked AI: Comprehensive scenario analysis • Ultimate tier exclusive")
+    
+    
+    # ============= PORTFOLIO REVIEW (ULTIMATE EXCLUSIVE) =============
+    st.markdown("---")
+    st.markdown("### 💼 Portfolio Review (Ultimate)")
+    st.caption("*Upload screenshots or analyze your paper portfolio - AI-powered insights*")
+    
+    # Sub-tabs for different input methods
+    review_tab1, review_tab2 = st.tabs(["📸 Upload Screenshots (Recommended)", "📊 Review My Paper Portfolio"])
+    
+    with review_tab1:
+        st.markdown("#### Upload Portfolio Screenshots")
+        st.info("📱 Take screenshots from Robinhood, Fidelity, Schwab, or any broker. AI will extract your holdings.")
+        
+        # File uploader for 1-5 images
+        uploaded_files = st.file_uploader(
+            "Upload 1-5 screenshots of your portfolio",
+            type=["png", "jpg", "jpeg", "webp"],
+            accept_multiple_files=True,
+            help="Clear screenshots work best. Multiple images OK if portfolio is long."
+        )
+        
+        if uploaded_files:
+            if len(uploaded_files) > 5:
+                st.warning("⚠️ Maximum 5 screenshots. Using first 5 only.")
+                uploaded_files = uploaded_files[:5]
+            
+            st.success(f"✅ {len(uploaded_files)} screenshot(s) uploaded")
+            
+            # Show thumbnails
+            cols = st.columns(len(uploaded_files))
+            for idx, (col, file) in enumerate(zip(cols, uploaded_files)):
+                with col:
+                    st.image(file, caption=f"Screenshot {idx+1}", use_column_width=True)
+            
+            if st.button("🔍 Extract & Analyze Portfolio", type="primary", use_container_width=True):
+                with st.spinner("🤖 AI extracting holdings from screenshots..."):
+                    # Convert images to base64
+                    image_data_list = []
+                    for file in uploaded_files:
+                        import base64
+                        bytes_data = file.getvalue()
+                        base64_data = base64.b64encode(bytes_data).decode('utf-8')
+                        image_data_list.append(base64_data)
+                    
+                    # Extract with OpenAI Vision
+                    extraction = extract_portfolio_from_screenshot(image_data_list)
+                    
+                    if not extraction:
+                        st.error("❌ Failed to extract portfolio. Please try clearer screenshots or use CSV upload.")
+                    else:
+                        confidence = extraction.get('confidence', 'Low')
+                        holdings = extraction.get('holdings', [])
+                        unreadable = extraction.get('unreadable_items', [])
+                        
+                        # Fail-soft if confidence != High
+                        if confidence != "High":
+                            st.warning(f"⚠️ Extraction confidence: **{confidence}**. Results may be incomplete.")
+                            if unreadable:
+                                st.warning(f"Could not read: {', '.join(unreadable)}")
+                            st.info("💡 **Tip:** Try uploading clearer screenshots or use the CSV upload option for best results.")
+                        
+                        # Show extracted holdings
+                        st.markdown("#### 📋 Extracted Holdings")
+                        if holdings:
+                            holdings_df = pd.DataFrame(holdings)
+                            st.dataframe(holdings_df, use_container_width=True)
+                            
+                            # Normalize tickers
+                            normalized_holdings = []
+                            total_value = 0
+                            
+                            with st.spinner("📊 Fetching sector data..."):
+                                for holding in holdings:
+                                    ticker_raw = holding.get('ticker_or_name', '').upper().strip()
+                                    
+                                    # Try to extract ticker (handle cases like "AAPL - Apple Inc.")
+                                    ticker = ticker_raw.split(' ')[0].split('-')[0].strip()
+                                    
+                                    # Get current price and sector
+                                    quote = get_quote(ticker)
+                                    sector = "Unknown"
+                                    if quote and quote.get('price'):
+                                        current_price = quote['price']
+                                        
+                                        # Try to get sector from FMP
+                                        try:
+                                            profile_url = f"{BASE_URL}/profile/{ticker}?apikey={FMP_API_KEY}"
+                                            profile_resp = requests.get(profile_url, timeout=5)
+                                            if profile_resp.status_code == 200:
+                                                profile_data = profile_resp.json()
+                                                if profile_data and len(profile_data) > 0:
+                                                    sector = profile_data[0].get('sector', 'Unknown')
+                                        except:
+                                            pass
+                                        
+                                        # Calculate market value
+                                        if holding.get('market_value'):
+                                            market_value = float(holding['market_value'])
+                                        elif holding.get('shares'):
+                                            market_value = float(holding['shares']) * current_price
+                                        else:
+                                            market_value = 0
+                                        
+                                        normalized_holdings.append({
+                                            'ticker': ticker,
+                                            'sector': sector,
+                                            'shares': holding.get('shares'),
+                                            'market_value': market_value,
+                                            'weight': holding.get('weight')
+                                        })
+                                        total_value += market_value
+                            
+                            # Compute deterministic metrics
+                            if normalized_holdings and total_value > 0:
+                                # Recalculate weights
+                                for holding in normalized_holdings:
+                                    holding['weight_pct'] = (holding['market_value'] / total_value) * 100 if total_value > 0 else 0
+                                
+                                # Sector allocation
+                                sector_totals = {}
+                                for holding in normalized_holdings:
+                                    sector = holding['sector']
+                                    sector_totals[sector] = sector_totals.get(sector, 0) + holding['market_value']
+                                
+                                sector_allocation = {sector: (value / total_value) * 100 for sector, value in sector_totals.items()}
+                                
+                                # Find largest holding
+                                largest_holding = max(normalized_holdings, key=lambda x: x['market_value'])
+                                
+                                # Calculate concentration risk
+                                concentration_risk = largest_holding['weight_pct']
+                                
+                                # Diversification score (simple: 10 - HHI/1000, capped at 10)
+                                hhi = sum([(weight_pct ** 2) for weight_pct in [h['weight_pct'] for h in normalized_holdings]])
+                                diversification_score = max(0, min(10, 10 - (hhi / 1000)))
+                                
+                                # Prepare metrics for AI
+                                portfolio_metrics = {
+                                    "total_value": total_value,
+                                    "num_positions": len(normalized_holdings),
+                                    "largest_holding": {
+                                        "ticker": largest_holding['ticker'],
+                                        "percent": largest_holding['weight_pct']
+                                    },
+                                    "sector_allocation": sector_allocation,
+                                    "concentration_risk": concentration_risk,
+                                    "diversification_score": diversification_score,
+                                    "holdings": normalized_holdings
+                                }
+                                
+                                # Display Summary Card
+                                st.markdown("#### 📊 Portfolio Summary")
+                                col1, col2, col3, col4 = st.columns(4)
+                                col1.metric("Total Value", f"${total_value:,.2f}")
+                                col2.metric("Positions", len(normalized_holdings))
+                                col3.metric("Largest", f"{largest_holding['ticker']} ({largest_holding['weight_pct']:.1f}%)")
+                                col4.metric("Diversification", f"{diversification_score:.1f}/10")
+                                
+                                # Sector Chart
+                                if len(sector_allocation) > 0:
+                                    import plotly.graph_objects as go
+                                    fig_sector = go.Figure(data=[go.Pie(
+                                        labels=list(sector_allocation.keys()),
+                                        values=list(sector_allocation.values()),
+                                        hole=0.3
+                                    )])
+                                    fig_sector.update_layout(
+                                        title="Sector Allocation",
+                                        height=400,
+                                        template="plotly_dark"
+                                    )
+                                    st.plotly_chart(fig_sector, use_container_width=True)
+                                
+                                # AI Analysis
+                                with st.spinner("🤖 AI analyzing your portfolio..."):
+                                    ai_prompt = f"""Analyze this portfolio (facts provided). Educational analysis only - no specific buy/sell advice.
+
+PORTFOLIO METRICS (DETERMINISTIC):
+- Total Value: ${portfolio_metrics['total_value']:,.2f}
+- Number of Positions: {portfolio_metrics['num_positions']}
+- Largest Holding: {portfolio_metrics['largest_holding']['ticker']} at {portfolio_metrics['largest_holding']['percent']:.1f}%
+- Concentration Risk: {portfolio_metrics['concentration_risk']:.1f}%
+- Diversification Score: {portfolio_metrics['diversification_score']:.1f}/10
+- Sector Breakdown: {json.dumps(portfolio_metrics['sector_allocation'])}
+
+Return ONLY this JSON structure:
+{{
+  "grade": "A" or "B" or "C" or "D",
+  "summary": "One sentence portfolio assessment",
+  "top_risks": [
+    "Risk 1 with specific % from facts (MAX 5 BULLETS)",
+    "Risk 2...",
+    ...
+  ],
+  "improvement_playbook": [
+    "Improvement 1 in educational conditional phrasing (MAX 5 BULLETS)",
+    "Improvement 2...",
+    ...
+  ],
+  "confidence": "High" or "Medium" or "Low"
+}}
+
+CRITICAL RULES:
+- MAX 5 bullets for top_risks
+- MAX 5 bullets for improvement_playbook
+- Cite specific numbers from facts
+- Use conditional phrasing: "Consider", "If seeking", "For those targeting"
+- NO specific "sell X%" advice
+- Educational tone only"""
+                                    
+                                    ai_review = call_openai_json(ai_prompt, max_tokens=2000, temperature=0.1)
+                                    
+                                    if ai_review:
+                                        # Display AI Review
+                                        with st.expander("🤖 AI Portfolio Review", expanded=True):
+                                            grade = ai_review.get('grade', 'C')
+                                            grade_colors = {'A': '#4CAF50', 'B': '#8BC34A', 'C': '#FFC107', 'D': '#FF5722'}
+                                            grade_color = grade_colors.get(grade, '#FFC107')
+                                            
+                                            st.markdown(f"""
+                                            <div style="background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%); 
+                                                        padding: 20px; border-radius: 12px; border: 2px solid {grade_color}; margin-bottom: 15px;">
+                                                <h2 style="color: {grade_color}; margin: 0;">Grade: {grade}</h2>
+                                                <p style="color: #e0e0e0; margin: 10px 0 0 0; font-size: 16px;">{ai_review.get('summary', '')}</p>
+                                            </div>
+                                            """, unsafe_allow_html=True)
+                                            
+                                            # Top Risks
+                                            st.markdown("**⚠️ Top Risks:**")
+                                            top_risks = ai_review.get('top_risks', [])[:5]  # MAX 5
+                                            for i, risk in enumerate(top_risks, 1):
+                                                st.markdown(f"{i}. {risk}")
+                                            
+                                            st.markdown("")
+                                            
+                                            # Improvement Playbook
+                                            st.markdown("**📈 Improvement Playbook:**")
+                                            improvements = ai_review.get('improvement_playbook', [])[:5]  # MAX 5
+                                            for i, improvement in enumerate(improvements, 1):
+                                                st.markdown(f"{i}. {improvement}")
+                                            
+                                            # Trust line
+                                            confidence = ai_review.get('confidence', 'Medium')
+                                            confidence_icon = "✅" if confidence == "High" else "⚠️"
+                                            st.info(f"{confidence_icon} Analysis based on extracted portfolio data • Confidence: {confidence} • Ultimate tier exclusive")
+                                    
+                                    else:
+                                        # Fallback analysis
+                                        st.warning("⚠️ AI analysis unavailable. Showing deterministic summary:")
+                                        st.markdown(f"""
+                                        **Portfolio Grade:** {"A" if diversification_score >= 8 else "B" if diversification_score >= 6 else "C" if diversification_score >= 4 else "D"}
+                                        
+                                        **Key Facts:**
+                                        - Your largest holding ({largest_holding['ticker']}) represents {largest_holding['weight_pct']:.1f}% of portfolio
+                                        - Diversification score: {diversification_score:.1f}/10
+                                        - {len(normalized_holdings)} total positions
+                                        """)
+                            
+                            else:
+                                st.warning("Could not calculate portfolio metrics. Please check holdings data.")
+                        
+                        else:
+                            st.error("No holdings extracted. Please try different screenshots.")
+    
+    with review_tab2:
+        st.markdown("#### Review Your Paper Portfolio")
+        
+        # Check if user has paper portfolio
+        if 'portfolio' in st.session_state and len(st.session_state.portfolio) > 0:
+            paper_portfolio = st.session_state.portfolio
+            
+            st.info(f"📊 Found {len(paper_portfolio)} position(s) in your Paper Portfolio")
+            
+            if st.button("🔍 Analyze Paper Portfolio", type="primary", use_container_width=True):
+                with st.spinner("🤖 AI analyzing your paper portfolio..."):
+                    # Calculate metrics deterministically
+                    total_value = 0
+                    normalized_holdings = []
+                    
+                    for pos in paper_portfolio:
+                        quote = get_quote(pos['ticker'])
+                        if quote:
+                            current_price = quote['price']
+                            market_value = pos['shares'] * current_price
+                            total_value += market_value
+                            
+                            # Get sector
+                            sector = "Unknown"
+                            try:
+                                profile_url = f"{BASE_URL}/profile/{pos['ticker']}?apikey={FMP_API_KEY}"
+                                profile_resp = requests.get(profile_url, timeout=5)
+                                if profile_resp.status_code == 200:
+                                    profile_data = profile_resp.json()
+                                    if profile_data and len(profile_data) > 0:
+                                        sector = profile_data[0].get('sector', 'Unknown')
+                            except:
+                                pass
+                            
+                            normalized_holdings.append({
+                                'ticker': pos['ticker'],
+                                'sector': sector,
+                                'shares': pos['shares'],
+                                'market_value': market_value,
+                                'avg_price': pos['avg_price']
+                            })
+                    
+                    if total_value > 0:
+                        # Calculate weights
+                        for holding in normalized_holdings:
+                            holding['weight_pct'] = (holding['market_value'] / total_value) * 100
+                        
+                        # Sector allocation
+                        sector_totals = {}
+                        for holding in normalized_holdings:
+                            sector = holding['sector']
+                            sector_totals[sector] = sector_totals.get(sector, 0) + holding['market_value']
+                        
+                        sector_allocation = {sector: (value / total_value) * 100 for sector, value in sector_totals.items()}
+                        
+                        # Metrics
+                        largest_holding = max(normalized_holdings, key=lambda x: x['market_value'])
+                        concentration_risk = largest_holding['weight_pct']
+                        hhi = sum([(h['weight_pct'] ** 2) for h in normalized_holdings])
+                        diversification_score = max(0, min(10, 10 - (hhi / 1000)))
+                        
+                        # Display
+                        st.markdown("#### 📊 Portfolio Summary")
+                        col1, col2, col3, col4 = st.columns(4)
+                        col1.metric("Total Value", f"${total_value:,.2f}")
+                        col2.metric("Positions", len(normalized_holdings))
+                        col3.metric("Largest", f"{largest_holding['ticker']} ({largest_holding['weight_pct']:.1f}%)")
+                        col4.metric("Diversification", f"{diversification_score:.1f}/10")
+                        
+                        # Run same AI analysis as screenshot flow
+                        portfolio_metrics = {
+                            "total_value": total_value,
+                            "num_positions": len(normalized_holdings),
+                            "largest_holding": {
+                                "ticker": largest_holding['ticker'],
+                                "percent": largest_holding['weight_pct']
+                            },
+                            "sector_allocation": sector_allocation,
+                            "concentration_risk": concentration_risk,
+                            "diversification_score": diversification_score
+                        }
+                        
+                        ai_prompt = f"""Analyze this paper portfolio. Educational analysis only.
+
+PORTFOLIO METRICS:
+{json.dumps(portfolio_metrics, indent=2)}
+
+Return JSON with grade, summary, top_risks (MAX 5), improvement_playbook (MAX 5), confidence."""
+                        
+                        ai_review = call_openai_json(ai_prompt, max_tokens=2000, temperature=0.1)
+                        
+                        if ai_review:
+                            with st.expander("🤖 AI Portfolio Review", expanded=True):
+                                grade = ai_review.get('grade', 'C')
+                                st.markdown(f"### Grade: {grade}")
+                                st.markdown(ai_review.get('summary', ''))
+                                
+                                st.markdown("**⚠️ Top Risks:**")
+                                for i, risk in enumerate(ai_review.get('top_risks', [])[:5], 1):
+                                    st.markdown(f"{i}. {risk}")
+                                
+                                st.markdown("**📈 Improvement Playbook:**")
+                                for i, improvement in enumerate(ai_review.get('improvement_playbook', [])[:5], 1):
+                                    st.markdown(f"{i}. {improvement}")
+                                
+                                st.info(f"✅ Analysis based on paper portfolio data • Confidence: {ai_review.get('confidence', 'Medium')}")
+        
+        else:
+            st.info("💼 You don't have any positions in your Paper Portfolio yet. Go to the Paper Portfolio tab to start trading!")
 
 
 # NEW PAPER PORTFOLIO PAGE - Section 6 Implementation
@@ -13025,25 +13510,36 @@ elif selected_page == "💼 Paper Portfolio":
         if not order:
             return
         
+        # Simple header (matches screenshot)
         st.markdown(f"### {order['action']} {order['ticker']}")
+        st.markdown(f"**Shares:** {order['shares']:.4f}")
+        st.markdown(f"**Estimated Price:** ${order['price']:.2f}")  
+        st.markdown(f"**Estimated Total:** ${order['total']:.2f}")
         
-        # Order details
-        st.markdown(f"""
-        **Shares:** {order['shares']:.4f}  
-        **Estimated Price:** ${order['price']:.2f}  
-        **Estimated Total:** ${order['total']:.2f}  
-        """)
+        st.markdown("")
         
-        # Post-trade cash
+        # Post-trade cash with LIGHT pastel styling (matches screenshot)
         post_cash = order['post_cash']
         if post_cash < 0:
-            st.error(f"⚠️ **Insufficient Funds**  \nYou need ${abs(post_cash):,.2f} more")
+            # Red for insufficient funds
+            st.error(f"⚠️ **Insufficient Funds** - You need ${abs(post_cash):,.2f} more")
         else:
-            st.success(f"**Remaining Cash:** ${post_cash:,.2f}")
+            # Light GREEN background for remaining cash (like screenshot)
+            st.markdown(f"""
+            <div style="background-color: rgba(200, 255, 200, 0.3); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                <p style="margin: 0; color: #1e1e1e;"><strong>Remaining Cash:</strong> ${post_cash:,.2f}</p>
+            </div>
+            """, unsafe_allow_html=True)
         
-        # Concentration warning
+        # Concentration warning with LIGHT BLUE background (like screenshot)
         if order['post_concentration'] > 0:
-            st.info(f"**Post-trade Concentration:** {order['post_concentration']:.1f}% in {order['ticker']}")
+            st.markdown(f"""
+            <div style="background-color: rgba(200, 220, 255, 0.3); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                <p style="margin: 0; color: #1e1e1e;">
+                    <strong>Post-trade Concentration:</strong> {order['post_concentration']:.1f}% in {order['ticker']}
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
             
             # Show personalized warning if risk quiz taken
             risk_tier = st.session_state.user_profile.get('risk_tier', 'unknown')
@@ -13058,26 +13554,59 @@ elif selected_page == "💼 Paper Portfolio":
         
         with col1:
             if st.button("✅ Confirm", use_container_width=True, type="primary", disabled=(post_cash < 0)):
-                success, message = execute_trade(
-                    order['action'], 
-                    order['ticker'], 
-                    order['shares'], 
-                    order['price'],
-                    order['portfolio_type']
-                )
-                
-                if success:
-                    # Update concentration flags
-                    if order['portfolio_type'] == 'user':
-                        update_concentration_flags(st.session_state.portfolio)
+                # FIXED: Added try-except for error handling + force rerun
+                try:
+                    success, message = execute_trade(
+                        order['action'], 
+                        order['ticker'], 
+                        order['shares'], 
+                        order['price'],
+                        order['portfolio_type']
+                    )
                     
-                    st.session_state.show_order_modal = False
-                    st.session_state.pending_order = None
-                    save_user_progress()
-                    st.success(message)
-                    st.rerun()
-                else:
-                    st.error(message)
+                    if success:
+                        # Update concentration flags
+                        if order['portfolio_type'] == 'user':
+                            update_concentration_flags(st.session_state.portfolio)
+                        
+                        # CRITICAL: Clear modal state BEFORE rerun
+                        st.session_state.show_order_modal = False
+                        st.session_state.pending_order = None
+                        
+                        # Save progress
+                        save_user_progress()
+                        
+                        # FIXED: Force reload trades from DB for immediate update
+                        if order['portfolio_type'] == 'founder':
+                            # Reload founder portfolio immediately
+                            founder_db_transactions = load_trades_from_db(None, portfolio_type='founder')
+                            if founder_db_transactions:
+                                st.session_state.founder_transactions = founder_db_transactions
+                                founder_cash, _ = calculate_cash_from_db(None, portfolio_type='founder')
+                                st.session_state.founder_cash = founder_cash
+                                st.session_state.founder_portfolio = rebuild_portfolio_from_trades(founder_db_transactions)
+                        else:
+                            # Reload user portfolio immediately
+                            user_id = st.session_state.get("user_id")
+                            if user_id:
+                                db_transactions = load_trades_from_db(user_id, portfolio_type='user')
+                                if db_transactions:
+                                    st.session_state.transactions = db_transactions
+                                    cash, _ = calculate_cash_from_db(user_id, portfolio_type='user')
+                                    st.session_state.cash = cash
+                                    st.session_state.portfolio = rebuild_portfolio_from_trades(db_transactions)
+                        
+                        st.success(message)
+                        st.rerun()  # Force full page refresh
+                    else:
+                        # FIXED: Show actual error message
+                        st.error(f"Trade failed: {message}")
+                        
+                except Exception as e:
+                    # FIXED: No more silent failures!
+                    st.error(f"❌ Trade execution error: {str(e)}")
+                    import traceback
+                    st.code(traceback.format_exc())  # Show full error for debugging
         
         with col2:
             if st.button("❌ Cancel", use_container_width=True, type="secondary"):
@@ -13167,7 +13696,7 @@ elif selected_page == "💼 Paper Portfolio":
                 shares = dollars / current_price
                 total_cost = dollars
             
-            # Live preview
+            # Live preview with FIXED styling
             st.markdown("---")
             st.markdown("#### 📋 Preview")
             
@@ -13190,9 +13719,10 @@ elif selected_page == "💼 Paper Portfolio":
                 sim_weights = compute_portfolio_concentration(sim_portfolio)
                 post_concentration = sim_weights.get(ticker, 0) * 100
                 
+                # Preview box with DARK NAVY background (matches screenshot)
                 st.info(f"""
                 **Estimated Shares:** {shares:.4f}  
-                **Estimated Cost:** ${total_cost:.2f}  
+                **Estimated Cost:** ${total_cost:,.2f}  
                 **Remaining Cash:** ${post_cash:,.2f}  
                 **Post-trade {ticker}:** {post_concentration:.1f}% of portfolio
                 """)
@@ -13219,9 +13749,10 @@ elif selected_page == "💼 Paper Portfolio":
                 proceeds = shares * current_price
                 post_cash = cash + proceeds
                 
+                # Preview box with DARK NAVY background (matches screenshot)
                 st.info(f"""
                 **Selling Shares:** {shares:.4f}  
-                **Estimated Proceeds:** ${proceeds:.2f}  
+                **Estimated Proceeds:** ${proceeds:,.2f}  
                 **Remaining Cash:** ${post_cash:,.2f}
                 """)
             
