@@ -6172,154 +6172,6 @@ def compute_technical_facts(df: pd.DataFrame) -> dict:
     return facts
 
 
-
-# ============= PRO/ULTIMATE PREMIUM UI HELPERS =============
-
-def _fmt_money(x):
-    try:
-        if x is None or (isinstance(x, float) and (np.isnan(x) or np.isinf(x))):
-            return "—"
-        return f"${float(x):,.2f}"
-    except Exception:
-        return "—"
-
-def _fmt_num(x, decimals=1):
-    try:
-        if x is None or (isinstance(x, float) and (np.isnan(x) or np.isinf(x))):
-            return "—"
-        return f"{float(x):.{decimals}f}"
-    except Exception:
-        return "—"
-
-def render_facts_row(tech_facts: dict):
-    """Compact facts row under chart (Pro + Ultimate)."""
-    if not isinstance(tech_facts, dict):
-        st.caption("Facts: —")
-        return
-
-    last_close = tech_facts.get("last_close")
-    sma50 = tech_facts.get("sma50")
-    sma200 = tech_facts.get("sma200")
-    rsi = tech_facts.get("rsi14_last")
-    vol_regime = tech_facts.get("vol_regime")
-    support = tech_facts.get("support_level")
-    resistance = tech_facts.get("resistance_level")
-
-    items = [
-        ("Last", _fmt_money(last_close)),
-        ("SMA50", _fmt_money(sma50)),
-    ]
-    if sma200 is not None:
-        items.append(("SMA200", _fmt_money(sma200)))
-    items += [
-        ("RSI(14)", _fmt_num(rsi, 1)),
-        ("Vol", (str(vol_regime).title() if vol_regime else "—")),
-        ("Support", _fmt_money(support)),
-        ("Resistance", _fmt_money(resistance)),
-    ]
-
-    cols = st.columns(len(items))
-    for col, (k, v) in zip(cols, items):
-        with col:
-            st.caption(f"**{k}:** {v}")
-
-def build_setup_summary_bullets(tech_facts: dict, pattern_label: str = None, confidence: str = None):
-    """Max 5 bullets setup summary, fact-driven."""
-    bullets = []
-    if not isinstance(tech_facts, dict):
-        return bullets
-
-    last_close = tech_facts.get("last_close")
-    sma50 = tech_facts.get("sma50")
-    sma200 = tech_facts.get("sma200")
-    rsi = tech_facts.get("rsi14_last")
-    rsi_state = tech_facts.get("rsi_state")
-    vol_regime = tech_facts.get("vol_regime")
-    atr_pct = tech_facts.get("atr_pct")
-    support = tech_facts.get("support_level")
-    resistance = tech_facts.get("resistance_level")
-
-    if last_close is not None and sma50 is not None:
-        relation = "above" if last_close > sma50 else "below"
-        bullets.append(f"Price is {relation} SMA50 ({_fmt_money(sma50)}) with last at {_fmt_money(last_close)}.")
-    elif last_close is not None:
-        bullets.append(f"Last close: {_fmt_money(last_close)}.")
-
-    if sma200 is not None and last_close is not None:
-        relation = "above" if last_close > sma200 else "below"
-        bullets.append(f"Price is {relation} SMA200 ({_fmt_money(sma200)}).")
-
-    if rsi is not None:
-        state = (rsi_state or "neutral")
-        bullets.append(f"RSI(14) is {_fmt_num(rsi,1)} ({state}).")
-
-    if vol_regime:
-        atr_txt = f" ATR≈{_fmt_num(atr_pct,1)}%" if atr_pct is not None else ""
-        bullets.append(f"Volatility regime: {str(vol_regime).title()}.{atr_txt}")
-
-    if support is not None and resistance is not None and last_close is not None:
-        bullets.append(f"Nearest levels: support {_fmt_money(support)} / resistance {_fmt_money(resistance)}.")
-
-    if pattern_label:
-        conf = f" (Confidence: {confidence})" if confidence else ""
-        bullets.append(f"Rule-based pattern: {pattern_label}{conf}.")
-
-    return bullets[:5]
-
-def build_exit_framework_bullets(tech_facts: dict):
-    """Educational exit framework, max 5 bullets, each references a numeric fact."""
-    bullets = []
-    if not isinstance(tech_facts, dict):
-        return bullets
-
-    last_close = tech_facts.get("last_close")
-    sma50 = tech_facts.get("sma50")
-    sma200 = tech_facts.get("sma200")
-    rsi = tech_facts.get("rsi14_last")
-    rsi_prev = tech_facts.get("rsi14_prev")
-    vol_regime = tech_facts.get("vol_regime")
-    support = tech_facts.get("support_level")
-    resistance = tech_facts.get("resistance_level")
-    atr_pct = tech_facts.get("atr_pct")
-
-    # 1) Support break / invalidation
-    if support is not None:
-        bullets.append(f"If price closes below {_fmt_money(support)} (support), traders often treat that as invalidation and reassess risk.")
-
-    # 2) Trend deterioration vs SMA50
-    if last_close is not None and sma50 is not None:
-        if last_close < sma50:
-            bullets.append(f"With last at {_fmt_money(last_close)} below SMA50 {_fmt_money(sma50)}, traders often watch for trend deterioration and consider reducing risk.")
-        else:
-            bullets.append(f"If price loses SMA50 {_fmt_money(sma50)} after being above it, traders often view that as a trend warning.")
-
-    # 3) Momentum fade (RSI)
-    if rsi is not None:
-        if rsi_prev is not None and rsi_prev > 70 and rsi < 50:
-            bullets.append(f"If RSI falls from >70 to {_fmt_num(rsi,1)} and price loses key levels, traders often frame it as momentum fade.")
-        elif rsi >= 70:
-            bullets.append(f"With RSI at {_fmt_num(rsi,1)} (>70), traders often watch for reversal signals near resistance {_fmt_money(resistance)}.")
-        elif rsi <= 30:
-            bullets.append(f"With RSI at {_fmt_num(rsi,1)} (<30), traders often avoid panic exits and instead watch whether support {_fmt_money(support)} holds.")
-
-    # 4) Volatility regime shift
-    if vol_regime:
-        atr_txt = f" ATR≈{_fmt_num(atr_pct,1)}%" if atr_pct is not None else ""
-        bullets.append(f"If volatility shifts to {str(vol_regime).title()},{atr_txt} traders often reduce size or tighten risk to stay in control.")
-
-    # 5) Resistance rejection / profit protection
-    if resistance is not None:
-        bullets.append(f"Near resistance {_fmt_money(resistance)}, traders often consider profit-protect rules (e.g., trailing concept) if price rejects the level.")
-
-    # Deduplicate-ish
-    seen = set()
-    out = []
-    for b in bullets:
-        key = re.sub(r"\s+", " ", b.strip())
-        if key not in seen:
-            seen.add(key)
-            out.append(b)
-    return out[:5]
 def render_chart_callouts(facts: dict) -> list:
     """Generate 3–5 deterministic callouts based on facts (no AI).
     Returns list of bullet strings."""
@@ -11247,26 +11099,6 @@ elif selected_page == "📊 Pro Checklist":
     checklist_current = 1 if st.session_state.checklist_analyzed else 0
     checklist_total = 1
     render_progress_bar(checklist_current, checklist_total, "Checklist Progress", disable_celebrations=True)
-
-
-    # ============= QUICK TICKER PICKS (DEMO CHIPS) =============
-    st.markdown("**Quick picks:**")
-    chip_groups = [
-        ("Hot AI", ["NVDA", "AMZN", "META"]),
-        ("Volatility", ["TSLA", "COIN", "PLTR"]),
-        ("Classic", ["AAPL", "MSFT", "GOOGL"]),
-    ]
-    for label, tickers in chip_groups:
-        cols = st.columns([1] + [1]*len(tickers))
-        with cols[0]:
-            st.caption(label)
-        for c, tkr in zip(cols[1:], tickers):
-            with c:
-                if st.button(tkr, key=f"pro_chip_{label}_{tkr}", use_container_width=True):
-                    st.session_state.checklist_ticker = tkr
-                    st.session_state.demo_ticker = tkr
-                    st.session_state.checklist_analyzed = False
-                    st.rerun()
     
     # ============= INPUT ROW =============
     col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
@@ -11292,14 +11124,8 @@ elif selected_page == "📊 Pro Checklist":
         interval = st.selectbox("Interval", interval_options, index=0, key="checklist_interval")
     
     with col4:
-        experience = st.radio(
-            "Experience",
-            ["Beginner", "Intermediate"],
-            horizontal=True,
-            key="pro_experience",
-            help="Changes wording only (facts stay the same)."
-        )
-        simple_mode = (experience == "Beginner")
+        # ELI5 toggle
+        simple_mode = st.toggle("Explain like I'm 5", value=False, key="eli5_toggle")
         analyze_button = st.button("Analyze", key="checklist_analyze", use_container_width=True)
     
     # Store simple_mode in session state for use across features
@@ -11584,12 +11410,7 @@ elif selected_page == "📊 Pro Checklist":
             
             # Display chart (same as Company Analysis)
             st.plotly_chart(fig_price, use_container_width=True)
-
-            # ============= FACTS ROW (COMPACT) =============
-            tech_facts = compute_technical_facts(price_history)
-            st.session_state.pro_tech_facts = tech_facts
-            render_facts_row(tech_facts)
-
+            
             # ============= COMPACT STATUS LINE =============
             if has_ohlc:
                 status_parts = [f"{feat} ✓" for feat in chart_features]
@@ -11601,9 +11422,10 @@ elif selected_page == "📊 Pro Checklist":
         st.markdown("---")
         st.markdown("### 📌 Key Observations")
         
-        # Use cached technical facts (computed above) — fail-soft
-        tech_facts = st.session_state.get('pro_tech_facts') or compute_technical_facts(price_history)
-        st.session_state.pro_tech_facts = tech_facts
+        # Compute technical facts if not already done
+        tech_facts = compute_technical_facts(price_history)
+        if 'pro_tech_facts' not in st.session_state:
+            st.session_state.pro_tech_facts = tech_facts
         
         # Generate and display callouts
         callouts = render_chart_callouts(tech_facts)
@@ -11613,17 +11435,6 @@ elif selected_page == "📊 Pro Checklist":
         else:
             st.caption("*Insufficient data for observations*")
         
-
-
-        # ============= WHEN WOULD I SELL? (EDUCATIONAL) =============
-        st.markdown("---")
-        st.markdown("### 🧭 When traders consider exiting (educational)")
-        exit_bullets = build_exit_framework_bullets(tech_facts)
-        if exit_bullets:
-            for b in exit_bullets[:5]:
-                st.markdown(f"- {b}")
-        else:
-            st.caption("*Insufficient data to generate exit framework*")
         # ============= PATTERN DETECTION =============
         st.markdown("---")
         st.markdown("### 🔍 Pattern Detection (AI + Rules)")
@@ -11732,7 +11543,6 @@ elif selected_page == "📊 Pro Checklist":
                     # Initialize session state for AI outputs
                     if 'pro_explain_ai' not in st.session_state:
                         st.session_state.pro_explain_ai = None
-                        st.session_state.pro_explain_ai_status = "failed"
                     if 'pro_bull_bear_ai' not in st.session_state:
                         st.session_state.pro_bull_bear_ai = None
                     
@@ -11777,7 +11587,6 @@ elif selected_page == "📊 Pro Checklist":
                                     
                                     if is_valid:
                                         st.session_state.pro_explain_ai = ai_response
-                                        st.session_state.pro_explain_ai_status = "verified"
                                     else:
                                         st.error(f"⚠️ AI validation failed: {error_msg}")
                                         st.info("Showing rule-based analysis instead.")
@@ -11812,44 +11621,74 @@ elif selected_page == "📊 Pro Checklist":
                                     st.error("⚠️ AI request failed. Try again.")
                                     st.session_state.pro_bull_bear_ai = None
                         
-                        
                         # ============= DISPLAY EXPLAIN CHART AI OUTPUT =============
-                        if st.session_state.get('pro_explain_ai'):
+                        if st.session_state.pro_explain_ai:
                             st.markdown("---")
                             st.markdown("#### 🔍 AI Chart Explanation")
-
-                            trust = st.session_state.get("pro_explain_ai_status")
-                            if trust == "verified":
-                                st.success("✅ AI response verified against computed facts")
-                            elif trust == "failed":
-                                st.warning("⚠️ AI response failed validation — showing deterministic summary")
-
-                            output = st.session_state.get('pro_explain_ai') or {}
-
+                            
+                            output = st.session_state.pro_explain_ai
+                            
                             # Summary
-                            if "summary" in output and output["summary"]:
-                                clean_summary = clean_citation_tags(output["summary"])
-                                st.markdown(f"**📝 Summary:** {clean_summary}")
+                            if "summary_one_liner" in output:
+                                st.markdown(f"**{output['summary_one_liner']}**")
                                 st.markdown("")
-
-                            # Key reasons
-                            if "key_reasons" in output and output["key_reasons"]:
-                                st.markdown("**🔑 Key Reasons:**")
-                                for r in output["key_reasons"][:5]:
-                                    clean_r = clean_citation_tags(r)
-                                    st.markdown(f"- {clean_r}")
+                            
+                            # Trend
+                            if "trend" in output and output["trend"]:
+                                st.markdown("**📈 Trend Analysis:**")
+                                for bullet in output["trend"]:
+                                    clean_bullet = clean_citation_tags(bullet)
+                                    st.markdown(f"- {clean_bullet}")
                                 st.markdown("")
-
+                            
+                            # Momentum
+                            if "momentum" in output and output["momentum"]:
+                                st.markdown("**🚀 Momentum:**")
+                                for bullet in output["momentum"]:
+                                    clean_bullet = clean_citation_tags(bullet)
+                                    st.markdown(f"- {clean_bullet}")
+                                st.markdown("")
+                            
+                            # Key Levels
+                            if "key_levels" in output:
+                                st.markdown("**🎯 Key Levels:**")
+                                levels = output["key_levels"]
+                                
+                                if "support" in levels and levels["support"].get("level"):
+                                    sup_level = levels["support"]["level"]
+                                    sup_dist = levels["support"].get("distance_pct", 0)
+                                    st.markdown(f"- **Support:** ${sup_level:.2f} ({sup_dist:+.1f}% away)")
+                                
+                                if "resistance" in levels and levels["resistance"].get("level"):
+                                    res_level = levels["resistance"]["level"]
+                                    res_dist = levels["resistance"].get("distance_pct", 0)
+                                    st.markdown(f"- **Resistance:** ${res_level:.2f} ({res_dist:+.1f}% away)")
+                                
+                                if "watch_level" in levels and levels["watch_level"].get("level"):
+                                    watch_lvl = levels["watch_level"]["level"]
+                                    watch_note = levels["watch_level"].get("note", "")
+                                    st.markdown(f"- **Watch:** ${watch_lvl:.2f} — {watch_note}")
+                                
+                                st.markdown("")
+                            
+                            # Risk Notes
+                            if "risk_notes" in output and output["risk_notes"]:
+                                st.markdown("**⚠️ Risks to Watch:**")
+                                for bullet in output["risk_notes"]:
+                                    clean_bullet = clean_citation_tags(bullet)
+                                    st.markdown(f"- {clean_bullet}")
+                                st.markdown("")
+                            
                             # What to Watch Next 5 Days
                             if "what_to_watch_next_5_days" in output and output["what_to_watch_next_5_days"]:
                                 st.markdown("**👀 What to Watch (Next 5 Days):**")
-                                for bullet in output["what_to_watch_next_5_days"][:5]:
+                                for bullet in output["what_to_watch_next_5_days"]:
                                     clean_bullet = clean_citation_tags(bullet)
                                     st.markdown(f"- {clean_bullet}")
-
+                            
                             st.info("✅ **Fact-locked AI**: All statements grounded in technical facts above")
-
-# ============= DISPLAY BULL VS BEAR AI OUTPUT =============
+                        
+                        # ============= DISPLAY BULL VS BEAR AI OUTPUT =============
                         if st.session_state.pro_bull_bear_ai:
                             st.markdown("---")
                             st.markdown("####⚖️ Bull vs Bear Analysis (AI)")
@@ -11937,13 +11776,6 @@ elif selected_page == "👑 Ultimate":
     """, unsafe_allow_html=True)
     
     st.caption("*Premium AI-powered analysis with fact-locked insights. Everything adapts to your selected ticker.*")
-
-    # ============= SAFE SESSION STATE INIT (Ultimate AI outputs) =============
-    st.session_state.setdefault("ultimate_trade_plan_output", None)
-    st.session_state.setdefault("ultimate_change_view_output", None)
-    st.session_state.setdefault("ultimate_trade_plan_status", None)
-    st.session_state.setdefault("ultimate_change_view_status", None)
-
     
     # ============= RED THEME STYLING =============
     st.markdown("""
@@ -11998,26 +11830,6 @@ elif selected_page == "👑 Ultimate":
     
     # Use demo ticker if coming from VIP page
     default_ticker = st.session_state.get('demo_ticker', "GOOGL")
-
-    # ============= QUICK TICKER PICKS (DEMO CHIPS) =============
-    st.markdown("**Quick picks:**")
-    chip_groups = [
-        ("Hot AI", ["NVDA", "AMZN", "META"]),
-        ("Volatility", ["TSLA", "COIN", "PLTR"]),
-        ("Classic", ["AAPL", "MSFT", "GOOGL"]),
-    ]
-    for label, tickers in chip_groups:
-        cols = st.columns([1] + [1]*len(tickers))
-        with cols[0]:
-            st.caption(label)
-        for c, tkr in zip(cols[1:], tickers):
-            with c:
-                if st.button(tkr, key=f"ultimate_chip_{label}_{tkr}", use_container_width=True):
-                    st.session_state.ultimate_ticker = tkr
-                    st.session_state.demo_ticker = tkr
-                    st.session_state.ultimate_cache_key = None
-                    st.rerun()
-
     
     with col1:
         ticker = st.text_input("Ticker", value=default_ticker, key="ultimate_ticker").upper().strip()
@@ -12031,14 +11843,8 @@ elif selected_page == "👑 Ultimate":
         interval = st.selectbox("Interval", interval_options, index=0, key="ultimate_interval")
     
     with col4:
-        experience = st.radio(
-            "Experience",
-            ["Beginner", "Intermediate"],
-            horizontal=True,
-            key="ultimate_experience",
-            help="Changes wording only (facts stay the same)."
-        )
-        simple_mode = (experience == "Beginner")
+        simple_mode = st.toggle("ELI5", value=False, key="ultimate_simple_mode",
+                               help="Explain Like I'm 5 - simpler language")
     
     analyze_btn = st.button("🔍 Analyze", key="ultimate_analyze", use_container_width=True)
     
@@ -12297,10 +12103,7 @@ elif selected_page == "👑 Ultimate":
     
     # Display chart
     st.plotly_chart(fig_price, use_container_width=True)
-
-    # ============= FACTS ROW (COMPACT) =============
-    render_facts_row(tech_facts)
-
+    
     # Status line
     if has_ohlc:
         status_parts = [f"{feat} ✓" for feat in chart_features]
@@ -12310,22 +12113,6 @@ elif selected_page == "👑 Ultimate":
     
     st.markdown("---")
     
-
-
-    # ============= SETUP SUMMARY (DEFAULT VISIBLE) =============
-    st.markdown("### ✅ Setup Summary")
-    pattern_label, confidence, reasons, watch_level, watch_note = detect_rule_based_pattern(tech_facts, simple_mode)
-    summary_bullets = build_setup_summary_bullets(tech_facts, pattern_label, confidence)
-    for b in summary_bullets[:5]:
-        st.markdown(f"- {b}")
-
-
-    # ============= WHEN WOULD I SELL? (EDUCATIONAL) =============
-    st.markdown("---")
-    st.markdown("### 🧭 When traders consider exiting (educational)")
-    exit_bullets = build_exit_framework_bullets(tech_facts)
-    for b in exit_bullets[:5]:
-        st.markdown(f"- {b}")
     # ============= INCLUDE PRO CONTENT (COLLAPSED) =============
     with st.expander("✅ Pro Analysis (included)", expanded=False):
         st.caption("*Standard Pro analysis is included in Ultimate - expand to view*")
@@ -12349,179 +12136,178 @@ elif selected_page == "👑 Ultimate":
     st.markdown("---")
     
     # ============= MODULE A: KEY LEVELS MAP =============
-    with st.expander("🎯 Key Levels Map (Ultimate)", expanded=False):
-        st.markdown("### 🎯 Key Levels Map (Ultimate)")
-        st.caption("*Top 3 supports and resistances derived from price history*")
+    st.markdown("### 🎯 Key Levels Map (Ultimate)")
+    st.caption("*Top 3 supports and resistances derived from price history*")
     
-        last_close = tech_facts.get("last_close")
+    last_close = tech_facts.get("last_close")
     
-        if last_close:
-            # Compute multiple support/resistance levels
-            supports = []
-            resistances = []
+    if last_close:
+        # Compute multiple support/resistance levels
+        supports = []
+        resistances = []
         
-            # Method 1: Swing lows/highs at different windows
-            for window in [20, 50, 90]:
-                if len(df) >= window:
-                    swing_low = df['close'].rolling(window=window, center=True).min().dropna()
-                    swing_high = df['close'].rolling(window=window, center=True).max().dropna()
+        # Method 1: Swing lows/highs at different windows
+        for window in [20, 50, 90]:
+            if len(df) >= window:
+                swing_low = df['close'].rolling(window=window, center=True).min().dropna()
+                swing_high = df['close'].rolling(window=window, center=True).max().dropna()
                 
-                    # Find recent swing lows below current price
-                    recent_lows = swing_low[swing_low < last_close].tail(10)
-                    for low in recent_lows.unique():
-                        if low < last_close:
-                            supports.append({"level": float(low), "source": f"Swing-{window}d"})
+                # Find recent swing lows below current price
+                recent_lows = swing_low[swing_low < last_close].tail(10)
+                for low in recent_lows.unique():
+                    if low < last_close:
+                        supports.append({"level": float(low), "source": f"Swing-{window}d"})
                 
-                    # Find recent swing highs above current price
-                    recent_highs = swing_high[swing_high > last_close].tail(10)
-                    for high in recent_highs.unique():
-                        if high > last_close:
-                            resistances.append({"level": float(high), "source": f"Swing-{window}d"})
+                # Find recent swing highs above current price
+                recent_highs = swing_high[swing_high > last_close].tail(10)
+                for high in recent_highs.unique():
+                    if high > last_close:
+                        resistances.append({"level": float(high), "source": f"Swing-{window}d"})
         
-            # Method 2: Quantile levels
-            for q, label in [(0.10, "Q10"), (0.25, "Q25"), (0.75, "Q75"), (0.90, "Q90")]:
-                level = float(df['close'].quantile(q))
-                if level < last_close * 0.98:
-                    supports.append({"level": level, "source": label})
-                elif level > last_close * 1.02:
-                    resistances.append({"level": level, "source": label})
+        # Method 2: Quantile levels
+        for q, label in [(0.10, "Q10"), (0.25, "Q25"), (0.75, "Q75"), (0.90, "Q90")]:
+            level = float(df['close'].quantile(q))
+            if level < last_close * 0.98:
+                supports.append({"level": level, "source": label})
+            elif level > last_close * 1.02:
+                resistances.append({"level": level, "source": label})
         
-            # Method 3: Add SMA50/SMA200 if relevant
-            sma50 = tech_facts.get("sma50")
-            sma200 = tech_facts.get("sma200")
+        # Method 3: Add SMA50/SMA200 if relevant
+        sma50 = tech_facts.get("sma50")
+        sma200 = tech_facts.get("sma200")
         
-            if sma50 and abs(sma50 - last_close) / last_close < 0.10:  # Within 10%
-                if sma50 < last_close:
-                    supports.append({"level": float(sma50), "source": "SMA50"})
-                elif sma50 > last_close:
-                    resistances.append({"level": float(sma50), "source": "SMA50"})
+        if sma50 and abs(sma50 - last_close) / last_close < 0.10:  # Within 10%
+            if sma50 < last_close:
+                supports.append({"level": float(sma50), "source": "SMA50"})
+            elif sma50 > last_close:
+                resistances.append({"level": float(sma50), "source": "SMA50"})
         
-            if sma200 and abs(sma200 - last_close) / last_close < 0.15:  # Within 15%
-                if sma200 < last_close:
-                    supports.append({"level": float(sma200), "source": "SMA200"})
-                elif sma200 > last_close:
-                    resistances.append({"level": float(sma200), "source": "SMA200"})
+        if sma200 and abs(sma200 - last_close) / last_close < 0.15:  # Within 15%
+            if sma200 < last_close:
+                supports.append({"level": float(sma200), "source": "SMA200"})
+            elif sma200 > last_close:
+                resistances.append({"level": float(sma200), "source": "SMA200"})
         
-            # Create synthetic levels if needed
-            atr_pct = tech_facts.get("atr_pct", 2.0)
-            atr_decimal = atr_pct / 100.0 if atr_pct > 1 else atr_pct
+        # Create synthetic levels if needed
+        atr_pct = tech_facts.get("atr_pct", 2.0)
+        atr_decimal = atr_pct / 100.0 if atr_pct > 1 else atr_pct
         
-            if len(supports) == 0:
-                # At new lows - create synthetic support
-                synth_dist = min(0.05, max(0.03, 2 * atr_decimal))
-                supports.append({"level": last_close * (1 - synth_dist), "source": "Synthetic"})
+        if len(supports) == 0:
+            # At new lows - create synthetic support
+            synth_dist = min(0.05, max(0.03, 2 * atr_decimal))
+            supports.append({"level": last_close * (1 - synth_dist), "source": "Synthetic"})
         
-            if len(resistances) == 0:
-                # At new highs - create synthetic resistance
-                synth_dist = min(0.05, max(0.03, 2 * atr_decimal))
-                resistances.append({"level": last_close * (1 + synth_dist), "source": "Synthetic"})
+        if len(resistances) == 0:
+            # At new highs - create synthetic resistance
+            synth_dist = min(0.05, max(0.03, 2 * atr_decimal))
+            resistances.append({"level": last_close * (1 + synth_dist), "source": "Synthetic"})
         
-            # Sort and deduplicate
-            supports = sorted(supports, key=lambda x: x["level"], reverse=True)  # Closest first
-            resistances = sorted(resistances, key=lambda x: x["level"])  # Closest first
+        # Sort and deduplicate
+        supports = sorted(supports, key=lambda x: x["level"], reverse=True)  # Closest first
+        resistances = sorted(resistances, key=lambda x: x["level"])  # Closest first
         
-            # Deduplicate levels within 1%
-            def dedupe_levels(levels_list):
-                if not levels_list:
-                    return []
-                deduped = [levels_list[0]]
-                for level_dict in levels_list[1:]:
-                    if all(abs(level_dict["level"] - d["level"]) / d["level"] > 0.01 for d in deduped):
-                        deduped.append(level_dict)
-                return deduped
+        # Deduplicate levels within 1%
+        def dedupe_levels(levels_list):
+            if not levels_list:
+                return []
+            deduped = [levels_list[0]]
+            for level_dict in levels_list[1:]:
+                if all(abs(level_dict["level"] - d["level"]) / d["level"] > 0.01 for d in deduped):
+                    deduped.append(level_dict)
+            return deduped
         
-            supports = dedupe_levels(supports)[:3]  # Top 3
-            resistances = dedupe_levels(resistances)[:3]  # Top 3
+        supports = dedupe_levels(supports)[:3]  # Top 3
+        resistances = dedupe_levels(resistances)[:3]  # Top 3
         
-            # Display as table
-            import pandas as pd
+        # Display as table
+        import pandas as pd
         
-            levels_data = []
+        levels_data = []
         
-            for sup in supports:
-                dist_pct = ((sup["level"] - last_close) / last_close) * 100
-                levels_data.append({
-                    "Type": "Support",
-                    "Level": f"${sup['level']:.2f}",
-                    "Distance": f"{dist_pct:+.2f}%",
-                    "Source": sup["source"]
-                })
+        for sup in supports:
+            dist_pct = ((sup["level"] - last_close) / last_close) * 100
+            levels_data.append({
+                "Type": "Support",
+                "Level": f"${sup['level']:.2f}",
+                "Distance": f"{dist_pct:+.2f}%",
+                "Source": sup["source"]
+            })
         
-            for res in resistances:
-                dist_pct = ((res["level"] - last_close) / last_close) * 100
-                levels_data.append({
-                    "Type": "Resistance",
-                    "Level": f"${res['level']:.2f}",
-                    "Distance": f"{dist_pct:+.2f}%",
-                    "Source": res["source"]
-                })
+        for res in resistances:
+            dist_pct = ((res["level"] - last_close) / last_close) * 100
+            levels_data.append({
+                "Type": "Resistance",
+                "Level": f"${res['level']:.2f}",
+                "Distance": f"{dist_pct:+.2f}%",
+                "Source": res["source"]
+            })
         
-            if levels_data:
-                levels_df = pd.DataFrame(levels_data)
-                st.dataframe(levels_df, use_container_width=True, hide_index=True)
-            else:
-                st.caption("Could not compute key levels")
+        if levels_data:
+            levels_df = pd.DataFrame(levels_data)
+            st.dataframe(levels_df, use_container_width=True, hide_index=True)
+        else:
+            st.caption("Could not compute key levels")
         
-            # ============= COMPUTE NEAREST LEVELS (FOR USE IN LATER MODULES) =============
-            # These are needed by Trade Plan Builder AND Scenario Simulator
-            nearest_support = supports[0]["level"] if supports else last_close * 0.97
-            nearest_resistance = resistances[0]["level"] if resistances else last_close * 1.03
+        # ============= COMPUTE NEAREST LEVELS (FOR USE IN LATER MODULES) =============
+        # These are needed by Trade Plan Builder AND Scenario Simulator
+        nearest_support = supports[0]["level"] if supports else last_close * 0.97
+        nearest_resistance = resistances[0]["level"] if resistances else last_close * 1.03
     
     st.markdown("---")
-    with st.expander("📋 Trade Plan Builder (Educational)", expanded=False):
-        # ============= MODULE B: TRADE PLAN BUILDER =============
-        st.markdown("### 📋 Trade Plan Builder (Educational)")
-        st.caption("*Educational template - NOT financial advice*")
     
-        col_dir, col_hor, col_risk = st.columns(3)
+    # ============= MODULE B: TRADE PLAN BUILDER =============
+    st.markdown("### 📋 Trade Plan Builder (Educational)")
+    st.caption("*Educational template - NOT financial advice*")
     
-        with col_dir:
-            direction = st.selectbox("Direction", ["Long", "Short"], key="ultimate_direction")
+    col_dir, col_hor, col_risk = st.columns(3)
     
-        with col_hor:
-            horizon = st.selectbox("Horizon", ["Day", "Swing", "Position"], key="ultimate_horizon")
+    with col_dir:
+        direction = st.selectbox("Direction", ["Long", "Short"], key="ultimate_direction")
     
-        with col_risk:
-            risk_style = st.selectbox("Risk Style", ["Conservative", "Moderate", "Aggressive"], key="ultimate_risk")
+    with col_hor:
+        horizon = st.selectbox("Horizon", ["Day", "Swing", "Position"], key="ultimate_horizon")
     
-        if st.button("🔨 Build Plan", key="build_plan"):
-            # Build educational plan based on facts (using pre-computed nearest levels)
+    with col_risk:
+        risk_style = st.selectbox("Risk Style", ["Conservative", "Moderate", "Aggressive"], key="ultimate_risk")
     
-            st.markdown("**📊 Plan Summary:**")
-    
-            bullets = []
-    
-            if direction == "Long":
-                entry_zone = f"${nearest_support:.2f} - ${last_close:.2f}"
-                invalidation = f"${nearest_support * 0.985:.2f} (below nearest support)"
-                target1 = f"${nearest_resistance:.2f}"
-                target2 = f"${resistances[1]['level']:.2f}" if len(resistances) > 1 else f"${nearest_resistance * 1.03:.2f}"
+    if st.button("🔨 Build Plan", key="build_plan"):
+        # Build educational plan based on facts (using pre-computed nearest levels)
         
-                bullets.append(f"**Entry Zone:** {entry_zone} (near support)")
-                bullets.append(f"**Invalidation:** Below {invalidation}")
-                bullets.append(f"**Target 1 (1R):** {target1}")
-                bullets.append(f"**Target 2 (2R):** {target2}")
-                bullets.append(f"**Horizon:** {horizon} trade (adjust time accordingly)")
-    
-            else:  # Short
-                entry_zone = f"${last_close:.2f} - ${nearest_resistance:.2f}"
-                invalidation = f"${nearest_resistance * 1.015:.2f} (above nearest resistance)"
-                target1 = f"${nearest_support:.2f}"
-                target2 = f"${supports[1]['level']:.2f}" if len(supports) > 1 else f"${nearest_support * 0.97:.2f}"
+        st.markdown("**📊 Plan Summary:**")
         
-                bullets.append(f"**Entry Zone:** {entry_zone} (near resistance)")
-                bullets.append(f"**Invalidation:** Above {invalidation}")
-                bullets.append(f"**Target 1 (1R):** {target1}")
-                bullets.append(f"**Target 2 (2R):** {target2}")
-                bullets.append(f"**Horizon:** {horizon} trade (adjust time accordingly)")
-    
-            for bullet in bullets[:5]:
-                st.markdown(f"- {bullet}")
-    
-            st.info("📚 Educational template only. Not financial advice. Always do your own research.")
+        bullets = []
+        
+        if direction == "Long":
+            entry_zone = f"${nearest_support:.2f} - ${last_close:.2f}"
+            invalidation = f"${nearest_support * 0.985:.2f} (below nearest support)"
+            target1 = f"${nearest_resistance:.2f}"
+            target2 = f"${resistances[1]['level']:.2f}" if len(resistances) > 1 else f"${nearest_resistance * 1.03:.2f}"
+            
+            bullets.append(f"**Entry Zone:** {entry_zone} (near support)")
+            bullets.append(f"**Invalidation:** Below {invalidation}")
+            bullets.append(f"**Target 1 (1R):** {target1}")
+            bullets.append(f"**Target 2 (2R):** {target2}")
+            bullets.append(f"**Horizon:** {horizon} trade (adjust time accordingly)")
+        
+        else:  # Short
+            entry_zone = f"${last_close:.2f} - ${nearest_resistance:.2f}"
+            invalidation = f"${nearest_resistance * 1.015:.2f} (above nearest resistance)"
+            target1 = f"${nearest_support:.2f}"
+            target2 = f"${supports[1]['level']:.2f}" if len(supports) > 1 else f"${nearest_support * 0.97:.2f}"
+            
+            bullets.append(f"**Entry Zone:** {entry_zone} (near resistance)")
+            bullets.append(f"**Invalidation:** Above {invalidation}")
+            bullets.append(f"**Target 1 (1R):** {target1}")
+            bullets.append(f"**Target 2 (2R):** {target2}")
+            bullets.append(f"**Horizon:** {horizon} trade (adjust time accordingly)")
+        
+        for bullet in bullets[:5]:
+            st.markdown(f"- {bullet}")
+        
+        st.info("📚 Educational template only. Not financial advice. Always do your own research.")
     
     st.markdown("---")
-
+    
     # ============= MODULE C: HISTORICAL SIMILAR SETUPS =============
     with st.expander("📊 Historical Similar Setups (Backtest-Lite)", expanded=False):
         st.caption("*Find past dates when the setup looked similar*")
@@ -12684,10 +12470,8 @@ elif selected_page == "👑 Ultimate":
         # Initialize session state
         if 'ultimate_trade_plan_ai' not in st.session_state:
             st.session_state.ultimate_trade_plan_output = None
-            st.session_state.ultimate_trade_plan_status = "failed"
         if 'ultimate_change_view_ai' not in st.session_state:
             st.session_state.ultimate_change_view_output = None
-            st.session_state.ultimate_change_view_status = "failed"
         
         # Build allowed fact keys list
         allowed_fact_keys = list(tech_facts.keys()) + [f"support_{i}" for i in range(1, 4)] + [f"resistance_{i}" for i in range(1, 4)]
@@ -12702,7 +12486,6 @@ elif selected_page == "👑 Ultimate":
         if trade_plan_btn:
             # Clear the other output
             st.session_state.ultimate_change_view_output = None
-            st.session_state.ultimate_change_view_status = "failed"
             
             with st.spinner("🤖 AI building comprehensive trade plan rationale..."):
                 prompt = f"""You are an ELITE trading education AI for premium subscribers. Provide comprehensive, institutional-grade analysis.
@@ -12778,7 +12561,6 @@ CRITICAL REQUIREMENTS:
                     
                     if is_valid:
                         st.session_state.ultimate_trade_plan_output = ai_response
-                        st.session_state.ultimate_trade_plan_status = "verified"
                     else:
                         st.error(f"⚠️ AI validation failed: {error_msg}")
                         st.info("Showing rule-based rationale instead")
@@ -12786,11 +12568,11 @@ CRITICAL REQUIREMENTS:
                 else:
                     st.error("⚠️ AI request failed")
                     st.session_state.ultimate_trade_plan_output = None
+        
         # ============= WHAT WOULD CHANGE VIEW AI =============
         if change_view_btn:
             # Clear the other output
             st.session_state.ultimate_trade_plan_output = None
-            st.session_state.ultimate_trade_plan_status = "failed"
             
             with st.spinner("🤖 AI analyzing comprehensive scenario triggers..."):
                 prompt = f"""You are an ELITE trading education AI for premium subscribers. Provide comprehensive scenario analysis with specific trigger conditions.
@@ -12865,7 +12647,6 @@ CRITICAL REQUIREMENTS:
                     
                     if is_valid:
                         st.session_state.ultimate_change_view_output = ai_response
-                        st.session_state.ultimate_change_view_status = "verified"
                     else:
                         st.error(f"⚠️ AI validation failed: {error_msg}")
                         st.info("Showing rule-based conditions instead")
@@ -12873,17 +12654,13 @@ CRITICAL REQUIREMENTS:
                 else:
                     st.error("⚠️ AI request failed")
                     st.session_state.ultimate_change_view_output = None
+        
         # ============= DISPLAY TRADE PLAN RATIONALE AI =============
-        if st.session_state.get('ultimate_trade_plan_output'):
+        if st.session_state.ultimate_trade_plan_output:
             st.markdown("---")
             st.markdown("#### 📝 Comprehensive Trade Plan Rationale (Premium AI)")
-            trust = st.session_state.get("ultimate_trade_plan_status")
-            if trust == "verified":
-                st.success("✅ AI response verified against computed facts")
-            elif trust == "failed":
-                st.warning("⚠️ AI response failed validation — showing deterministic summary")
             
-            output = st.session_state.get('ultimate_trade_plan_output')
+            output = st.session_state.ultimate_trade_plan_output
             
             if "summary" in output:
                 st.markdown(f"**{output['summary']}**")
@@ -12898,16 +12675,11 @@ CRITICAL REQUIREMENTS:
             st.info("✅ Premium Fact-Locked AI: Comprehensive analysis grounded in technical facts • Ultimate tier exclusive")
         
         # ============= DISPLAY WHAT WOULD CHANGE VIEW AI =============
-        if st.session_state.get('ultimate_change_view_output'):
+        if st.session_state.ultimate_change_view_output:
             st.markdown("---")
             st.markdown("#### 🔄 Scenario Triggers & Inflection Points (Premium AI)")
-            trust = st.session_state.get("ultimate_change_view_status")
-            if trust == "verified":
-                st.success("✅ AI response verified against computed facts")
-            elif trust == "failed":
-                st.warning("⚠️ AI response failed validation — showing deterministic summary")
             
-            output = st.session_state.get('ultimate_change_view_output')
+            output = st.session_state.ultimate_change_view_output
             
             if "summary" in output:
                 st.markdown(f"**{output['summary']}**")
