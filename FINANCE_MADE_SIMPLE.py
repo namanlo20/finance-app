@@ -11278,14 +11278,14 @@ elif selected_page == "📰 Market Intelligence":
             return None, "Perplexity API key not configured"
         
         try:
-            query = """Provide 10-15 of today's most important financial market news stories. 
-            Format as a numbered list with:
-            - Brief headline (bold)
-            - 1-sentence summary
-            - Relevant ticker symbols in [brackets]
+            query = """What are the top 10 most important financial and stock market news stories today? 
             
-            Cover: Market movements, Fed news, major earnings, sector trends, economic data, company news.
-            Keep each story to 2-3 lines max."""
+            Format as a clean numbered list:
+            1. **Headline** - Brief 1-sentence summary [Ticker if relevant]
+            2. **Headline** - Brief 1-sentence summary [Ticker if relevant]
+            
+            Focus on: Market movements, Fed/economic data, major earnings, M&A, sector trends.
+            Keep each item to 2 lines maximum."""
             
             headers = {
                 "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
@@ -11295,10 +11295,10 @@ elif selected_page == "📰 Market Intelligence":
             payload = {
                 "model": "llama-3.1-sonar-small-128k-online",
                 "messages": [
-                    {"role": "system", "content": "You are a financial news analyst. Provide concise, factual market updates. Keep each story brief and scannable."},
                     {"role": "user", "content": query}
                 ],
-                "max_tokens": 2000
+                "temperature": 0.2,
+                "max_tokens": 1500
             }
             
             response = requests.post(
@@ -11311,11 +11311,19 @@ elif selected_page == "📰 Market Intelligence":
             if response.status_code == 200:
                 data = response.json()
                 content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-                return content, None
+                if content:
+                    return content, None
+                return None, "Empty response from API"
             else:
-                return None, f"API error: {response.status_code}"
+                error_msg = f"API error: {response.status_code}"
+                try:
+                    error_detail = response.json()
+                    error_msg += f" - {error_detail}"
+                except:
+                    pass
+                return None, error_msg
         except Exception as e:
-            return None, str(e)
+            return None, f"Error: {str(e)}"
     
     # Fetch and display top news
     with st.spinner("🔄 Fetching latest market news..."):
@@ -11439,108 +11447,80 @@ elif selected_page == "📰 Market Intelligence":
     
     # Function to get this week's earnings
     def get_weekly_earnings():
-        """Fetch this week's earnings from FMP"""
-        if not FMP_API_KEY:
-            return []
+        """Fetch this week's earnings using Perplexity API"""
+        if not PERPLEXITY_API_KEY:
+            return None, "Perplexity API key not configured"
         
         try:
-            from datetime import datetime, timedelta
+            query = """What are the most important earnings reports happening this week (Monday through Friday)?
             
-            # Get date range for this week (next 7 days)
-            today = datetime.now()
-            end_date = today + timedelta(days=7)
+            Format as a simple list by day:
             
-            # Format dates for FMP API
-            start_str = today.strftime('%Y-%m-%d')
-            end_str = end_date.strftime('%Y-%m-%d')
+            **Monday, January 13:**
+            - SYMBOL (Company Name) - Before/After Market - EPS estimate if available
             
-            # Use FMP v3 earnings-calendar endpoint
-            url = f"{BASE_URL}/v3/earnings-calendar"
-            params = {
-                "from": start_str,
-                "to": end_str,
-                "apikey": FMP_API_KEY
+            **Tuesday, January 14:**
+            - SYMBOL (Company Name) - Before/After Market - EPS estimate if available
+            
+            Focus on well-known companies with market cap over $5B.
+            Include 3-5 companies per day maximum.
+            Only include companies actually reporting this week."""
+            
+            headers = {
+                "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
+                "Content-Type": "application/json"
             }
             
-            response = requests.get(url, params=params, timeout=15)
+            payload = {
+                "model": "llama-3.1-sonar-small-128k-online",
+                "messages": [
+                    {"role": "user", "content": query}
+                ],
+                "temperature": 0.2,
+                "max_tokens": 1000
+            }
+            
+            response = requests.post(
+                "https://api.perplexity.ai/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=30
+            )
             
             if response.status_code == 200:
-                earnings_data = response.json()
-                
-                # Filter and sort
-                if earnings_data and isinstance(earnings_data, list):
-                    # Sort by date
-                    sorted_earnings = sorted(earnings_data, key=lambda x: x.get('date', ''))
-                    return sorted_earnings[:30]  # Top 30
-                return []
+                data = response.json()
+                content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                if content and len(content) > 50:
+                    return content, None
+                return None, "No earnings data returned"
             else:
-                print(f"FMP earnings API error: {response.status_code}")
-                return []
+                error_msg = f"API error: {response.status_code}"
+                try:
+                    error_detail = response.json()
+                    error_msg += f" - {error_detail}"
+                except:
+                    pass
+                return None, error_msg
         except Exception as e:
-            print(f"Error fetching earnings: {e}")
-            return []
+            return None, f"Error: {str(e)}"
     
     with st.spinner("📊 Loading earnings calendar..."):
-        weekly_earnings = get_weekly_earnings()
+        weekly_earnings, earnings_error = get_weekly_earnings()
     
     if weekly_earnings:
-        # Group by date
-        from collections import defaultdict
-        earnings_by_date = defaultdict(list)
-        
-        for earning in weekly_earnings:
-            date = earning.get('date', 'Unknown')
-            earnings_by_date[date].append(earning)
-        
-        # Display by date
-        for date, earnings in sorted(earnings_by_date.items()):
-            # Format date nicely
-            try:
-                from datetime import datetime
-                date_obj = datetime.strptime(date, '%Y-%m-%d')
-                display_date = date_obj.strftime('%A, %B %d')  # e.g., "Monday, January 13"
-            except:
-                display_date = date
-            
-            st.markdown(f"**{display_date}**")
-            
-            for earning in earnings[:5]:  # Top 5 per day
-                symbol = earning.get('symbol', 'N/A')
-                time = earning.get('time', 'N/A')
-                eps_estimate = earning.get('epsEstimated', 'N/A')
-                revenue_estimate = earning.get('revenueEstimated', 'N/A')
-                
-                # Get company name
-                try:
-                    profile_url = f"{BASE_URL}/profile/{symbol}?apikey={FMP_API_KEY}"
-                    profile_resp = requests.get(profile_url, timeout=5)
-                    if profile_resp.status_code == 200:
-                        profile_data = profile_resp.json()
-                        if profile_data and len(profile_data) > 0:
-                            company_name = profile_data[0].get('companyName', symbol)
-                        else:
-                            company_name = symbol
-                    else:
-                        company_name = symbol
-                except:
-                    company_name = symbol
-                
-                # Display earning
-                time_emoji = "🌅" if time == "bmo" else "🌆" if time == "amc" else "📊"
-                time_display = "Before Market" if time == "bmo" else "After Market" if time == "amc" else "During Market"
-                
-                st.markdown(f"""
-                <div style="background: rgba(50, 50, 80, 0.3); padding: 15px; border-radius: 8px; 
-                            border-left: 4px solid #ff3333; margin-bottom: 10px;">
-                    <div style="color: #FFFFFF;">
-                        <strong style="color: #ff3333; font-size: 18px;">{symbol}</strong> - {company_name}<br>
-                        {time_emoji} <em>{time_display}</em><br>
-                        <span style="color: #90caf9;">EPS Est: {eps_estimate}</span>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            st.markdown("")  # Spacing
+        # Display formatted earnings from Perplexity
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
+                    border: 2px solid #ff3333; border-radius: 15px; padding: 30px; margin: 20px 0;">
+            <div style="color: #FFFFFF; font-size: 16px; line-height: 1.8;">
+                {weekly_earnings}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    elif earnings_error:
+        st.warning(f"Could not fetch earnings: {earnings_error}")
+        st.info("📊 **Major banks typically report mid-January** (JPM, WFC, C)")
+        st.caption("Try refreshing or check if Perplexity API key is configured correctly.")
     else:
         st.info("No major earnings scheduled for this week.")
     
