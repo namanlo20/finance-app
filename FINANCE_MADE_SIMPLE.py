@@ -8249,6 +8249,7 @@ elif selected_page == "📖 Basics":
         filtered_lessons.append(lesson)
     
     # Show recommended if no filters
+    recommended_ids = []
     if selected_level == "All Levels" and not selected_topics and not search_query:
         recommended = get_recommended_lessons()
         if recommended:
@@ -8257,15 +8258,18 @@ elif selected_page == "📖 Basics":
                 if lesson_id in LEARN_HUB_LESSONS:
                     lesson = LEARN_HUB_LESSONS[lesson_id]
                     _render_lesson_card(lesson)
+                    recommended_ids.append(lesson_id)  # Track which we showed
             st.markdown("---")
             st.markdown("### All Lessons")
     
-    # Render lesson list
+    # Render lesson list (exclude already-shown recommended ones)
     if not filtered_lessons:
         st.info("No lessons match your filters. Try adjusting your selection.")
     else:
         for lesson in filtered_lessons:
-            _render_lesson_card(lesson)
+            # Skip if already shown in recommended section
+            if lesson["id"] not in recommended_ids:
+                _render_lesson_card(lesson)
     
     # ============= LESSON VIEWER =============
     if st.session_state.learn_selected_lesson_id:
