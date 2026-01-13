@@ -2305,7 +2305,7 @@ def call_perplexity_json(prompt: str, max_tokens: int = 2000, temperature: float
             "Content-Type": "application/json"
         }
         perplexity_payload = {
-            "model": "llama-3.1-sonar-large-128k-online",  # FIXED: Use correct model name
+            "model": "sonar",  # FIXED: Use correct model name
             "messages": [
                 {"role": "system", "content": "You are a technical assistant. Return ONLY valid JSON with no markdown, no code blocks, no preamble, no explanation. Just pure JSON."},
                 {"role": "user", "content": prompt}
@@ -3755,7 +3755,7 @@ Guidelines:
         }
         
         payload = {
-            "model": "llama-3.1-sonar-small-128k-online",
+            "model": "sonar",
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_message}
@@ -11293,7 +11293,7 @@ elif selected_page == "📰 Market Intelligence":
             }
             
             payload = {
-                "model": "llama-3.1-sonar-small-128k-online",
+                "model": "sonar-small-online",
                 "messages": [
                     {"role": "user", "content": query}
                 ],
@@ -11396,7 +11396,7 @@ elif selected_page == "📰 Market Intelligence":
                 }
                 
                 payload = {
-                    "model": "llama-3.1-sonar-large-128k-online",
+                    "model": "sonar",
                     "messages": [
                         {"role": "system", "content": "You are a portfolio analyst. Provide relevant, actionable news summaries for the user's holdings."},
                         {"role": "user", "content": query}
@@ -11472,7 +11472,7 @@ elif selected_page == "📰 Market Intelligence":
             }
             
             payload = {
-                "model": "llama-3.1-sonar-small-128k-online",
+                "model": "sonar-small-online",
                 "messages": [
                     {"role": "user", "content": query}
                 ],
@@ -11562,7 +11562,7 @@ elif selected_page == "📰 Market Intelligence":
                 }
                 
                 payload = {
-                    "model": "llama-3.1-sonar-large-128k-online",
+                    "model": "sonar",
                     "messages": [
                         {"role": "system", "content": "You are a financial news analyst. Provide concise, factual market updates with clear sections and bullet points. Make it easy to scan quickly."},
                         {"role": "user", "content": query}
