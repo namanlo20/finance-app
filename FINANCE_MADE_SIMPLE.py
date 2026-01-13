@@ -7340,688 +7340,1059 @@ if selected_page == "🏠 Start Here":
 # IMPORTANT: This page is fully accessible WITHOUT authentication
 # Progress is stored in session_state for logged-out users
 # Progress is persisted to Supabase only for logged-in users
+# COMPLETE LEARN HUB IMPLEMENTATION
+# This replaces lines 7343-8025 in the main file
+
 elif selected_page == "📖 Basics":
-    # Initialize completed lessons set in session state
-    if 'completed_lessons' not in st.session_state:
-        st.session_state.completed_lessons = set()
+    """
+    📖 LEARN HUB - Complete Learning System
+    - 55 total lessons (15 original + 40 new)
+    - XP & Badge system
+    - Progress tracking (session + Supabase)
+    - Quiz engine
+    - Personalized recommendations
+    """
     
-    # Initialize expanded lesson tracking
+    # ============= SESSION STATE INITIALIZATION =============
+    # Initialize all Learn Hub state variables
+    if 'learn_current_level' not in st.session_state:
+        st.session_state.learn_current_level = "All Levels"
+    if 'learn_topic_filter' not in st.session_state:
+        st.session_state.learn_topic_filter = []
+    if 'learn_search' not in st.session_state:
+        st.session_state.learn_search = ""
+    if 'learn_selected_lesson_id' not in st.session_state:
+        st.session_state.learn_selected_lesson_id = None
+    if 'learn_completed_lessons' not in st.session_state:
+        st.session_state.learn_completed_lessons = set()
+    if 'learn_best_scores' not in st.session_state:
+        st.session_state.learn_best_scores = {}
+    if 'learn_xp_total' not in st.session_state:
+        st.session_state.learn_xp_total = 0
+    if 'learn_badges' not in st.session_state:
+        st.session_state.learn_badges = set()
+    if 'learn_streak_days' not in st.session_state:
+        st.session_state.learn_streak_days = 0
+    if 'learn_last_completed_date' not in st.session_state:
+        st.session_state.learn_last_completed_date = None
+    if 'quiz_current_question' not in st.session_state:
+        st.session_state.quiz_current_question = 0
+    if 'quiz_answers' not in st.session_state:
+        st.session_state.quiz_answers = []
+    if 'quiz_score' not in st.session_state:
+        st.session_state.quiz_score = None
+    if 'completed_lessons' not in st.session_state:
+        st.session_state.completed_lessons = set()  # For original lessons
     if 'expanded_lesson' not in st.session_state:
         st.session_state.expanded_lesson = None
     
-    # Non-blocking setup nudge card (optional on Basics)
-    render_setup_nudge()
+    # ============= SUPABASE PERSISTENCE FUNCTIONS =============
+    def load_learn_progress_from_db():
+        """Load learning progress from Supabase (if signed in)"""
+        if not SUPABASE_ENABLED:
+            return
+        
+        user_id = st.session_state.get('user_id')
+        if not user_id:
+            return
+        
+        try:
+            # Load lesson progress
+            progress_result = supabase.table('lesson_progress').select('*').eq('user_id', user_id).execute()
+            if progress_result.data:
+                for row in progress_result.data:
+                    if row['completed']:
+                        st.session_state.learn_completed_lessons.add(row['lesson_id'])
+                    if row['best_score'] > 0:
+                        st.session_state.learn_best_scores[row['lesson_id']] = row['best_score']
+            
+            # Load user stats
+            stats_result = supabase.table('user_learning_stats').select('*').eq('user_id', user_id).execute()
+            if stats_result.data and len(stats_result.data) > 0:
+                stats = stats_result.data[0]
+                st.session_state.learn_xp_total = stats.get('xp_total', 0)
+                st.session_state.learn_badges = set(stats.get('badges', []))
+                st.session_state.learn_streak_days = stats.get('streak_days', 0)
+                st.session_state.learn_last_completed_date = stats.get('last_completed_date')
+        
+        except Exception as e:
+            print(f"[DEBUG] Learn Hub DB load error: {e}")
+            # Fail-soft: continue with session state
     
-    # Robinhood-style header
-    _render_robinhood_header()
+    def save_learn_progress_to_db(lesson_id, score):
+        """Save learning progress to Supabase (if signed in)"""
+        if not SUPABASE_ENABLED:
+            return
+        
+        user_id = st.session_state.get('user_id')
+        if not user_id:
+            return
+        
+        try:
+            from datetime import datetime, date
+            
+            # Update lesson progress
+            lesson_data = {
+                'user_id': user_id,
+                'lesson_id': lesson_id,
+                'completed': True,
+                'best_score': score,
+                'completed_at': datetime.now().isoformat(),
+                'updated_at': datetime.now().isoformat()
+            }
+            
+            supabase.table('lesson_progress').upsert(lesson_data).execute()
+            
+            # Update user stats
+            today = date.today()
+            last_date = st.session_state.learn_last_completed_date
+            
+            # Calculate streak
+            if last_date:
+                if isinstance(last_date, str):
+                    last_date = date.fromisoformat(last_date)
+                days_diff = (today - last_date).days
+                if days_diff == 1:
+                    st.session_state.learn_streak_days += 1
+                elif days_diff > 1:
+                    st.session_state.learn_streak_days = 1
+            else:
+                st.session_state.learn_streak_days = 1
+            
+            st.session_state.learn_last_completed_date = today.isoformat()
+            
+            stats_data = {
+                'user_id': user_id,
+                'xp_total': st.session_state.learn_xp_total,
+                'badges': list(st.session_state.learn_badges),
+                'streak_days': st.session_state.learn_streak_days,
+                'last_completed_date': st.session_state.learn_last_completed_date,
+                'updated_at': datetime.now().isoformat()
+            }
+            
+            supabase.table('user_learning_stats').upsert(stats_data).execute()
+        
+        except Exception as e:
+            print(f"[DEBUG] Learn Hub DB save error: {e}")
+            # Fail-soft: continue without DB
     
-    # Profile Summary Chip
-    profile = st.session_state.user_profile
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        st.markdown(f"""
-        <div style="background: rgba(255,255,255,0.08); padding: 15px; border-radius: 10px; margin-bottom: 20px; border-left: 4px solid #00D9FF;">
-            <p style="color: #B0B0B0; margin: 0; font-size: 0.9em;">Your Profile</p>
-            <p style="color: #FFFFFF; margin: 5px 0 0 0;">
-                <strong>Experience:</strong> {profile['experience_level'].title()} 
-                &nbsp;&nbsp;|&nbsp;&nbsp; 
-                <strong>Risk:</strong> {profile['risk_tier'].title()} 
-                &nbsp;&nbsp;|&nbsp;&nbsp; 
-                <strong>Learning:</strong> {profile['learning_style'].title()}
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-    with col2:
-        if st.button("⚙️ Update Profile", use_container_width=True):
-            st.session_state.show_update_profile = True
-            st.rerun()
+    # Load progress on page load
+    load_learn_progress_from_db()
     
-    # Global progress tracking
-    total_lessons = 15
-    completed_count = len(st.session_state.completed_lessons)
-    progress_percentage = (completed_count / total_lessons) * 100
-    
-    st.markdown(f"""
-    <div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-        <p style="color: #FFFFFF; margin: 0;">You've completed {completed_count} of {total_lessons} lessons.</p>
-        <div style="background: rgba(255,255,255,0.2); height: 20px; border-radius: 10px; margin-top: 10px; overflow: hidden;">
-            <div style="background: linear-gradient(90deg, #00D9FF, #0099FF); height: 100%; width: {progress_percentage}%; transition: width 0.3s;"></div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Soft sign-up nudge (NON-BLOCKING) - only show for logged-out users with progress
-    if not st.session_state.get('is_logged_in', False):
-        if completed_count >= 3 and completed_count < total_lessons:
-            st.info("💡 **Tip:** Create a free account to save your progress and resume later on any device.")
-        elif completed_count == total_lessons:
-            st.success("🎉 **Amazing work!** Create a free account to save your achievement and access more features.")
-    
-    # Robinhood-style progress header (XP / Level / Badges)
-    # _render_robinhood_header()
-
-    # Define all lessons structure
-    lessons_structure = {
-        "1": {
-            "title": "Stocks Are Businesses",
-            "lessons": [
-                {"id": "1.1", "title": "What You Own When You Buy a Stock"},
-                {"id": "1.2", "title": "Price ≠ Value"},
-                {"id": "1.3", "title": "Why Investing Feels Scary"}
-            ]
+    # ============= LESSON LIBRARY =============
+    # Complete lesson data with quizzes
+    LEARN_HUB_LESSONS = {
+        # BEGINNER LESSONS
+        "B1": {
+            "id": "B1",
+            "level": "Beginner",
+            "topics": ["Foundations"],
+            "title": "Market Mechanics",
+            "time_min": 5,
+            "why_it_matters": "Foundation of how markets work and why prices move",
+            "summary": [
+                "Buying stock represents ownership in a company",
+                "Prices reflect future expectations, not just today",
+                "Market cap = price × shares outstanding",
+                "Volatility is normal - expectations constantly update"
+            ],
+            "key_ideas": [
+                "Stock represents fractional ownership",
+                "Price = collective guess about future value",
+                "News moves stocks by changing expectations",
+                "Higher uncertainty = wider price swings",
+                "Long-term: cash flows matter most"
+            ],
+            "common_mistakes": [
+                "Thinking stock price = company quality",
+                "Expecting price to match analysis instantly",
+                "Ignoring that markets are forward-looking",
+                "Panic when volatility happens",
+                "Confusing noise with signal"
+            ],
+            "checklist": [
+                "Understand stock = ownership",
+                "Recognize prices reflect expectations",
+                "Accept volatility as normal",
+                "Focus on fundamentals over time"
+            ],
+            "quiz": [
+                {
+                    "question": "Buying stock represents:",
+                    "options": ["A) Ownership", "B) Loan to company", "C) Coupon for products", "D) Guarantee of profits"],
+                    "correct": 0,
+                    "explanation": "Stocks give you fractional ownership in a company, including claims on future profits."
+                },
+                {
+                    "question": "Prices move mainly due to:",
+                    "options": ["A) Dividends daily", "B) Expectations", "C) CEOs set them", "D) Illegal activity"],
+                    "correct": 1,
+                    "explanation": "Stock prices primarily move based on changing expectations about future performance."
+                },
+                {
+                    "question": "Market cap is:",
+                    "options": ["A) Price × Revenue", "B) Price × Shares", "C) Profit / Price", "D) Debt / Equity"],
+                    "correct": 1,
+                    "explanation": "Market capitalization = stock price × total shares outstanding."
+                }
+            ],
+            "apply_action": {"type": "company_analysis", "ticker": "AAPL"},
+            "xp": 10
         },
-        "2": {
-            "title": "The Investment Thesis",
-            "lessons": [
-                {"id": "2.1", "title": "What a Thesis Means"},
-                {"id": "2.2", "title": "When It's OK to Sell"},
-                {"id": "2.3", "title": "When It's NOT OK to Sell"}
-            ]
+        
+        "B2": {
+            "id": "B2",
+            "level": "Beginner",
+            "topics": ["Foundations", "Buy & Hold"],
+            "title": "Compounding + Time Horizon",
+            "time_min": 7,
+            "why_it_matters": "Time is your biggest advantage in investing",
+            "summary": [
+                "Compounding means returns on returns",
+                "Long horizons let you ride through volatility cycles",
+                "Patience beats constant trading for most investors",
+                "Years matter more than timing"
+            ],
+            "key_ideas": [
+                "Compounding requires time to work",
+                "Short-term noise doesn't matter over decades",
+                "Switching constantly destroys compounding",
+                "Emergency cash prevents forced selling",
+                "Long-term reduces timing risk"
+            ],
+            "common_mistakes": [
+                "Expecting instant results",
+                "Trading too frequently",
+                "Not having emergency reserves",
+                "Giving up after one bad year",
+                "Comparing to short-term winners"
+            ],
+            "checklist": [
+                "Set realistic time horizon (5+ years)",
+                "Keep emergency cash separate",
+                "Resist urge to constantly trade",
+                "Focus on years, not days"
+            ],
+            "quiz": [
+                {
+                    "question": "Compounding needs:",
+                    "options": ["A) Daily trades", "B) Time", "C) No dividends", "D) Penny stocks"],
+                    "correct": 1,
+                    "explanation": "Compounding requires time to let returns build on previous returns."
+                },
+                {
+                    "question": "Long time horizon helps by:",
+                    "options": ["A) Eliminating risk", "B) Letting you ride cycles", "C) Can't drop", "D) Guaranteed wins"],
+                    "correct": 1,
+                    "explanation": "Long horizons allow you to ride through market cycles and volatility."
+                },
+                {
+                    "question": "Common mistake:",
+                    "options": ["A) Diversifying", "B) Switching constantly", "C) Emergency cash", "D) Learning"],
+                    "correct": 1,
+                    "explanation": "Constant switching destroys compounding and increases costs."
+                }
+            ],
+            "apply_action": {"type": "market_overview"},
+            "xp": 10
         },
-        "3": {
-            "title": "Valuation Matters",
-            "lessons": [
-                {"id": "3.1", "title": "Great Company, Bad Buy"},
-                {"id": "3.2", "title": "P/E and P/S (Simple)"},
-                {"id": "3.3", "title": "Using History as Guardrails"}
-            ]
+        
+        "B3": {
+            "id": "B3",
+            "level": "Beginner",
+            "topics": ["ETFs", "Risk"],
+            "title": "Index Funds vs Single Stocks",
+            "time_min": 6,
+            "why_it_matters": "Understanding diversification and risk management basics",
+            "summary": [
+                "Index funds spread risk across many companies",
+                "Single stocks are more volatile but can outperform",
+                "Core-satellite approach: index core + selective stocks",
+                "Loss aversion makes volatility feel worse than it is"
+            ],
+            "key_ideas": [
+                "Index reduces single-company risk",
+                "Volatility doesn't equal bad investment",
+                "Most active investors underperform index",
+                "Core-satellite balances safety and opportunity",
+                "Know your loss tolerance before investing"
+            ],
+            "common_mistakes": [
+                "All-or-nothing thinking",
+                "Comparing to best performer only",
+                "Underestimating emotional impact",
+                "No plan for downturns",
+                "Thinking index = boring/safe"
+            ],
+            "checklist": [
+                "Decide index % vs stock picking %",
+                "Accept index means average returns",
+                "Build core before satellites",
+                "Test loss tolerance with small amounts"
+            ],
+            "quiz": [
+                {
+                    "question": "Index fund reduces:",
+                    "options": ["A) Interest rates", "B) Single-company risk", "C) Inflation", "D) Foreign exchange risk"],
+                    "correct": 1,
+                    "explanation": "Index funds spread risk across many companies, reducing single-company risk."
+                },
+                {
+                    "question": "Core-satellite means:",
+                    "options": ["A) Cash + bonds", "B) Index core + small stock bets", "C) Options only", "D) One sector only"],
+                    "correct": 1,
+                    "explanation": "Core-satellite = stable index foundation + smaller individual stock positions."
+                },
+                {
+                    "question": "Loss aversion means:",
+                    "options": ["A) Love taking risks", "B) Losses hurt more than gains feel good", "C) Always buy dips", "D) Dividends only"],
+                    "correct": 1,
+                    "explanation": "Loss aversion = psychological tendency where losses feel twice as bad as equal gains feel good."
+                }
+            ],
+            "apply_action": {"type": "risk_quiz"},
+            "xp": 10
         },
-        "4": {
-            "title": "Losing Money (Risk & Psychology)",
-            "lessons": [
-                {"id": "4.1", "title": "Everyone Takes Losses"},
-                {"id": "4.2", "title": "Cutting Losses vs Panic Selling"},
-                {"id": "4.3", "title": "Hope Is Not a Strategy"}
-            ]
+        
+        "B4": {
+            "id": "B4",
+            "level": "Beginner",
+            "topics": ["ETFs"],
+            "title": "ETFs 101",
+            "time_min": 5,
+            "why_it_matters": "Understanding how ETFs work and their costs",
+            "summary": [
+                "ETF holds a basket of stocks in one ticker",
+                "Expense ratio is annual fee (keep it low)",
+                "Tracking means matching a benchmark",
+                "More liquid than mutual funds"
+            ],
+            "key_ideas": [
+                "Buy/sell like stocks during market hours",
+                "Diversification in one purchase",
+                "Low-cost ETFs often beat active funds",
+                "Check holdings and expense ratio",
+                "Some ETFs are leveraged or inverse (risky)"
+            ],
+            "common_mistakes": [
+                "Ignoring expense ratios",
+                "Trading ETFs too frequently",
+                "Not understanding what's inside",
+                "Buying thematic ETFs without research",
+                "Confusing ETFs with individual stocks"
+            ],
+            "checklist": [
+                "Check expense ratio (aim <0.20%)",
+                "Review top 10 holdings",
+                "Understand the index it tracks",
+                "Consider trading volume for liquidity"
+            ],
+            "quiz": [
+                {
+                    "question": "ETF holds:",
+                    "options": ["A) Cash only", "B) Basket of securities", "C) One stock", "D) Only bonds"],
+                    "correct": 1,
+                    "explanation": "ETFs hold a basket of securities (stocks, bonds, etc.) in one tradeable package."
+                },
+                {
+                    "question": "Expense ratio is:",
+                    "options": ["A) One-time tax", "B) Annual fee", "C) Commission", "D) Dividend"],
+                    "correct": 1,
+                    "explanation": "Expense ratio is the annual fee charged as a percentage of assets."
+                },
+                {
+                    "question": "Tracking means:",
+                    "options": ["A) Match benchmark performance", "B) Password tracking", "C) Earnings tracking", "D) Rate tracking"],
+                    "correct": 0,
+                    "explanation": "Tracking refers to how closely an ETF matches its benchmark index."
+                }
+            ],
+            "apply_action": {"type": "market_overview"},
+            "xp": 10
         },
-        "5": {
-            "title": "Time Is the Cheat Code",
-            "lessons": [
-                {"id": "5.1", "title": "Time in Market > Timing"},
-                {"id": "5.2", "title": "Lump Sum vs DCA"},
-                {"id": "5.3", "title": "Why SPY Beats Most People"}
-            ]
+        
+        "B5": {
+            "id": "B5",
+            "level": "Beginner",
+            "topics": ["Risk", "Diversification"],
+            "title": "Diversification Basics",
+            "time_min": 6,
+            "why_it_matters": "Reduce risk by not putting all eggs in one basket",
+            "summary": [
+                "Diversification reduces single error impact",
+                "10 stocks in one sector isn't diversified",
+                "Idiosyncratic risk = company-specific",
+                "Different drivers matter more than different names"
+            ],
+            "key_ideas": [
+                "True diversification = different drivers",
+                "Sector concentration is hidden risk",
+                "International exposure adds diversity",
+                "Correlation matters (do they move together?)",
+                "Over-diversification dilutes returns"
+            ],
+            "common_mistakes": [
+                "Thinking more stocks = more diversified",
+                "All tech stocks = not diversified",
+                "Ignoring correlations",
+                "No bonds or cash cushion",
+                "Diversifying into things you don't understand"
+            ],
+            "checklist": [
+                "Check sector breakdown",
+                "Aim for different industries",
+                "Consider adding bonds/cash",
+                "Review correlations during stress"
+            ],
+            "quiz": [
+                {
+                    "question": "Diversification:",
+                    "options": ["A) Adds excitement", "B) Reduces single error impact", "C) Guarantees profits", "D) Removes volatility"],
+                    "correct": 1,
+                    "explanation": "Diversification reduces the impact of any single investment mistake or company-specific risk."
+                },
+                {
+                    "question": "10 stocks in one sector:",
+                    "options": ["A) Well diversified", "B) Theme-concentrated", "C) Risk-free", "D) Always better"],
+                    "correct": 1,
+                    "explanation": "Multiple stocks in same sector = concentration risk, not true diversification."
+                },
+                {
+                    "question": "Idiosyncratic risk:",
+                    "options": ["A) Market-wide", "B) Company-specific", "C) Foreign exchange", "D) Interest rate"],
+                    "correct": 1,
+                    "explanation": "Idiosyncratic risk is specific to individual companies and can be reduced through diversification."
+                }
+            ],
+            "apply_action": {"type": "sector_explorer"},
+            "xp": 10
+        },
+        
+        # INTERMEDIATE LESSONS (sample)
+        "I1": {
+            "id": "I1",
+            "level": "Intermediate",
+            "topics": ["Financials"],
+            "title": "Read Financials Quickly",
+            "time_min": 8,
+            "why_it_matters": "Extract key insights from financial statements fast",
+            "summary": [
+                "Gross margin shows profit after direct costs",
+                "Operating margin includes operating expenses",
+                "FCF margin = free cash flow / revenue",
+                "Trends matter more than single quarters"
+            ],
+            "key_ideas": [
+                "Income statement = profitability",
+                "Balance sheet = financial health",
+                "Cash flow statement = actual cash moves",
+                "Margins reveal pricing power and efficiency",
+                "Compare to competitors and history"
+            ],
+            "common_mistakes": [
+                "Focusing only on revenue growth",
+                "Ignoring cash flow vs earnings",
+                "Not comparing to peers",
+                "Missing one-time items",
+                "Ignoring balance sheet health"
+            ],
+            "checklist": [
+                "Check revenue trend (3-5 years)",
+                "Review gross and operating margins",
+                "Verify FCF is positive and growing",
+                "Check debt levels vs cash flow"
+            ],
+            "quiz": [
+                {
+                    "question": "Gross margin is:",
+                    "options": ["A) Total debt", "B) Profit after direct costs", "C) Cash on hand", "D) Dividend yield"],
+                    "correct": 1,
+                    "explanation": "Gross margin = (Revenue - Cost of Goods Sold) / Revenue"
+                },
+                {
+                    "question": "Operating margin includes:",
+                    "options": ["A) Taxes", "B) Operating expenses", "C) Capex only", "D) Dividends only"],
+                    "correct": 1,
+                    "explanation": "Operating margin accounts for operating expenses like R&D, sales, marketing."
+                },
+                {
+                    "question": "FCF margin is:",
+                    "options": ["A) FCF / Revenue", "B) Revenue / Shares", "C) Debt / Equity", "D) P/S ratio"],
+                    "correct": 0,
+                    "explanation": "FCF margin = Free Cash Flow / Revenue, shows % of sales converted to cash."
+                }
+            ],
+            "apply_action": {"type": "financial_health"},
+            "xp": 15
+        },
+        
+        "I2": {
+            "id": "I2",
+            "level": "Intermediate",
+            "topics": ["Valuation", "Buy & Hold"],
+            "title": "Growth Quality",
+            "time_min": 7,
+            "why_it_matters": "Distinguish durable growth from hype",
+            "summary": [
+                "Durable growth = repeat demand + pricing power",
+                "Hype risk = expectations exceed reality",
+                "Recurring revenue tends to be more predictable",
+                "Quality matters more than growth rate alone"
+            ],
+            "key_ideas": [
+                "Check if growth is organic vs M&A",
+                "Customer retention signals quality",
+                "Margin expansion with growth = excellent",
+                "One-time tailwinds don't last",
+                "TAM size matters but execution matters more"
+            ],
+            "common_mistakes": [
+                "Chasing growth without checking quality",
+                "Ignoring competitive moats",
+                "Overpaying for future growth",
+                "Not checking customer concentration",
+                "Assuming growth continues forever"
+            ],
+            "checklist": [
+                "Verify revenue is recurring",
+                "Check customer retention rates",
+                "Review if margins improving with scale",
+                "Assess competitive advantages"
+            ],
+            "quiz": [
+                {
+                    "question": "Durable growth supported by:",
+                    "options": ["A) One-time events", "B) Repeat demand + pricing", "C) Dilution", "D) Debt"],
+                    "correct": 1,
+                    "explanation": "Sustainable growth comes from repeatable demand and ability to maintain/raise prices."
+                },
+                {
+                    "question": "Hype risk:",
+                    "options": ["A) Too much cash", "B) Expectations > reality", "C) Too many customers", "D) Low volatility"],
+                    "correct": 1,
+                    "explanation": "Hype risk occurs when market expectations exceed what fundamentals can deliver."
+                },
+                {
+                    "question": "Recurring revenue tends to be:",
+                    "options": ["A) More predictable", "B) Always lower margin", "C) Illegal", "D) Only for banks"],
+                    "correct": 0,
+                    "explanation": "Recurring revenue models (subscriptions) provide more predictable cash flows."
+                }
+            ],
+            "apply_action": {"type": "company_analysis", "ticker": "MSFT"},
+            "xp": 15
+        },
+        
+        # ADVANCED LESSONS (sample)
+        "A1": {
+            "id": "A1",
+            "level": "Advanced",
+            "topics": ["Risk", "Diversification"],
+            "title": "Correlation Traps",
+            "time_min": 8,
+            "why_it_matters": "Avoid hidden concentration risk from correlated holdings",
+            "summary": [
+                "Hidden correlation = different names, same drivers",
+                "Many semiconductor stocks = theme concentration",
+                "Diversification works when drivers are different",
+                "Stress tests reveal true correlations"
+            ],
+            "key_ideas": [
+                "Correlations change during crashes",
+                "Check what drives each business",
+                "Geographic diversity helps but isn't enough",
+                "Cyclical stocks often move together",
+                "True hedges are hard to find"
+            ],
+            "common_mistakes": [
+                "Assuming different tickers = diversified",
+                "Ignoring supply chain links",
+                "Missing thematic exposures",
+                "Not stress-testing portfolio",
+                "Overconfidence in diversification"
+            ],
+            "checklist": [
+                "List key driver for each holding",
+                "Check if drivers are truly different",
+                "Review how portfolio behaved in past crashes",
+                "Consider adding uncorrelated assets"
+            ],
+            "quiz": [
+                {
+                    "question": "Hidden correlation:",
+                    "options": ["A) Different drivers", "B) Same theme drivers", "C) Cash holdings", "D) Bond holdings"],
+                    "correct": 1,
+                    "explanation": "Hidden correlation = holdings appear different but driven by same factors."
+                },
+                {
+                    "question": "Many semiconductor stocks can be:",
+                    "options": ["A) Diversified", "B) Theme concentrated", "C) Risk-free", "D) Bond-like"],
+                    "correct": 1,
+                    "explanation": "Multiple semicon stocks = sector/theme concentration, not true diversification."
+                },
+                {
+                    "question": "Diversification works when:",
+                    "options": ["A) Holdings similar", "B) Drivers different", "C) All tech", "D) All momentum"],
+                    "correct": 1,
+                    "explanation": "True diversification requires different fundamental drivers, not just different names."
+                }
+            ],
+            "apply_action": {"type": "portfolio_review"},
+            "xp": 20
+        },
+        
+        # BEHAVIOR & PSYCHOLOGY (sample)
+        "P1": {
+            "id": "P1",
+            "level": "Behavior",
+            "topics": ["Psychology"],
+            "title": "Loss Aversion",
+            "time_min": 6,
+            "why_it_matters": "Understand why losses hurt more than gains feel good",
+            "summary": [
+                "Loss aversion = losses hurt ~2x more than equal gains",
+                "Causes panic selling at worst times",
+                "Defense = pre-committed process",
+                "Rules beat emotions"
+            ],
+            "key_ideas": [
+                "Biological bias, not weakness",
+                "Leads to holding losers too long",
+                "Also leads to selling winners too early",
+                "Can't eliminate but can manage",
+                "Position sizing reduces pain"
+            ],
+            "common_mistakes": [
+                "Ignoring the bias exists",
+                "Making decisions during peak emotion",
+                "No predetermined rules",
+                "Checking portfolio constantly",
+                "Letting paper losses drive decisions"
+            ],
+            "checklist": [
+                "Set rules before entering positions",
+                "Size positions so losses are tolerable",
+                "Review thesis, not just price",
+                "Use checklists during stress"
+            ],
+            "quiz": [
+                {
+                    "question": "Loss aversion:",
+                    "options": ["A) Love volatility", "B) Losses hurt more than gains feel good", "C) Gains worse", "D) ETFs only"],
+                    "correct": 1,
+                    "explanation": "Loss aversion = psychological bias where losses feel ~2x worse than equivalent gains."
+                },
+                {
+                    "question": "Causes:",
+                    "options": ["A) Calm buying", "B) Panic selling", "C) Better diversity", "D) Lower taxes"],
+                    "correct": 1,
+                    "explanation": "Loss aversion often causes panic selling during market downturns."
+                },
+                {
+                    "question": "Defense:",
+                    "options": ["A) Faster reactions", "B) Pre-committed process", "C) More news", "D) Leverage"],
+                    "correct": 1,
+                    "explanation": "Pre-committed rules and processes help counteract loss aversion bias."
+                }
+            ],
+            "apply_action": {"type": "risk_quiz"},
+            "xp": 15
+        },
+        
+        # PORTFOLIO REPAIR (sample)
+        "R1": {
+            "id": "R1",
+            "level": "Repair",
+            "topics": ["Portfolio Analysis"],
+            "title": "Weak Company Checklist",
+            "time_min": 7,
+            "why_it_matters": "Identify deteriorating businesses before it's too late",
+            "summary": [
+                "Weakness = multi-year declining revenue + margins",
+                "Debt danger = cash flow weak + debt grows",
+                "Dilution hurts per-share ownership",
+                "Exit criteria matter more than entry"
+            ],
+            "key_ideas": [
+                "One bad quarter isn't a trend",
+                "Check competitive position changes",
+                "Rising costs without pricing power = problem",
+                "Management excuses multiply",
+                "Balance sheet deterioration accelerates"
+            ],
+            "common_mistakes": [
+                "Averaging down into weakness",
+                "Ignoring fundamentals for price",
+                "Hope as a strategy",
+                "Not setting exit rules",
+                "Comparing only to past highs"
+            ],
+            "checklist": [
+                "Review 3-year revenue trend",
+                "Check margin direction",
+                "Verify debt coverage ratio",
+                "Assess competitive losses"
+            ],
+            "quiz": [
+                {
+                    "question": "Weakness sign:",
+                    "options": ["A) Stable revenue", "B) Multi-year declining revenue + margins", "C) Strong FCF", "D) Low debt"],
+                    "correct": 1,
+                    "explanation": "Sustained revenue and margin decline signals fundamental business deterioration."
+                },
+                {
+                    "question": "Debt danger:",
+                    "options": ["A) Cash flow strong", "B) Cash flow weak + debt grows", "C) Volatility rises", "D) Dividends grow"],
+                    "correct": 1,
+                    "explanation": "Weak cash flow + rising debt = dangerous combination, limits options."
+                },
+                {
+                    "question": "Dilution hurts:",
+                    "options": ["A) Ownership up", "B) Per-share claim down", "C) Lowers taxes", "D) Guarantees growth"],
+                    "correct": 1,
+                    "explanation": "Dilution increases share count, reducing your ownership percentage."
+                }
+            ],
+            "apply_action": {"type": "portfolio_review"},
+            "xp": 15
         }
     }
-    # ========= BASICS LESSON CONTENT (Robinhood-style micro-lessons) =========
-    # NOTE: This is intentionally self-contained and does NOT touch auth/portfolio math.
-    LESSON_CONTENT = {
-        "1.1": {
-            "goal": "Understand what a share actually represents.",
-            "image": "assets/lesson_ownership.png",
-            "core": [
-                "A stock is a tiny slice of a real business.",
-                "You own a claim on future profits (and growth), not a piece of the CEO’s desk.",
-                "Price moves fast. The business changes slower."
-            ],
-            "example": "If a company has 1,000,000 shares and you buy 10 shares → you own 0.001% of the business.",
-            "mistake": "Mistake: “I bought $500 of Apple, so I own $500 of Apple’s cash.” You own shares, not the cash drawer.",
-            "quiz": [
-                {"q": "If profits double but the stock doesn’t move, did the business improve?", "choices": ["Yes", "No"], "a": "Yes", "why": "Business results improved even if price didn’t react yet."},
-                {"q": "If the stock halves but profits stay the same, did the business automatically get worse?", "choices": ["Yes", "No"], "a": "No", "why": "Price can move for emotional reasons. Check fundamentals."}
-            ],
-            "action": "Pick ONE company you like and finish this sentence: “This business makes money by ________.”",
-            "tldr": "You’re buying a business slice — not a lottery ticket."
-        },
-        "1.2": {
-            "goal": "Stop confusing price with value.",
-            "image": "assets/lesson_price_value.png",
-            "core": [
-                "Price = what someone pays today.",
-                "Value = what the business is worth based on future cash it can produce.",
-                "A high stock price doesn’t mean “expensive” and a low price doesn’t mean “cheap”."
-            ],
-            "example": "A $5 stock can be “bigger” than a $500 stock if it has way more shares. Use Market Cap for size.",
-            "mistake": "Mistake: judging a stock by price instead of market cap + business quality.",
-            "quiz": [
-                {"q": "Which is bigger: a $5 stock or a $500 stock?", "choices": ["$5 stock", "$500 stock", "You can’t know from price alone"], "a": "You can’t know from price alone", "why": "You need shares outstanding / market cap."},
-                {"q": "True or False: Price can be wrong short-term.", "choices": ["True", "False"], "a": "True", "why": "Markets are emotional in the short run."}
-            ],
-            "action": "Look up market cap for 3 stocks you know. Rank them from biggest to smallest.",
-            "tldr": "Price is a tag. Value is the thing."
-        },
-        "1.3": {
-            "goal": "Understand why your brain panics — and how to stay calm.",
-            "image": "assets/lesson_risk.png",
-            "core": [
-                "Losses feel worse than gains (your brain is dramatic on purpose).",
-                "Headlines are designed to grab attention, not help you invest.",
-                "Rules beat vibes. Always."
-            ],
-            "example": "If your stock drops 10% on no real news, the business might be unchanged — but your brain screams anyway.",
-            "mistake": "Mistake: checking prices all day and turning investing into a stress hobby.",
-            "quiz": [
-                {"q": "If your stock drops but the company grows revenue, what matters more long-term?", "choices": ["The red chart today", "The business results"], "a": "The business results", "why": "Long-term returns follow business performance."},
-                {"q": "If you can’t sleep because of a stock, what’s the likely issue?", "choices": ["Too much risk for you", "Markets are broken"], "a": "Too much risk for you", "why": "Position size/risk tolerance mismatch."}
-            ],
-            "action": "Set a simple rule: “I check long‑term holdings once a week.”",
-            "tldr": "Fear is normal. A plan makes you stable."
-        },
-        "2.1": {
-            "goal": "Have a reason BEFORE you buy.",
-            "image": "assets/lesson_thesis.png",
-            "core": [
-                "A thesis is your why: why the business wins, what could break it, and what would make you sell.",
-                "A thesis is short. If it’s a novel, it’s not a thesis.",
-                "No thesis = panic selling later."
-            ],
-            "example": "Template: “I’m buying ___ because ___. If ___ happens, I’m wrong. I’ll hold until ___.”",
-            "mistake": "Mistake: “I bought because it was trending.” That’s not a thesis, it’s a vibe.",
-            "quiz": [
-                {"q": "Is “I bought because TikTok said so” a thesis?", "choices": ["Yes", "No"], "a": "No", "why": "A thesis must include business reasons and what would prove you wrong."},
-                {"q": "Does a thesis help prevent panic selling?", "choices": ["Yes", "No"], "a": "Yes", "why": "It gives you rules when emotions spike."}
-            ],
-            "action": "Write a 2‑sentence thesis for ONE stock you own or want to own.",
-            "tldr": "Reason → risk → exit plan."
-        },
-        "2.2": {
-            "goal": "Know when selling is smart.",
-            "image": "assets/lesson_sell.png",
-            "core": [
-                "Good reasons: thesis broke, risk too high, better opportunity, or you need cash for life.",
-                "Bad reasons: headlines, a red day, or “it feels weird.”",
-                "Selling should be a decision, not a reaction."
-            ],
-            "example": "If the company’s core product demand collapses and competitors win — your thesis might be broken.",
-            "mistake": "Mistake: selling just because the chart looks scary today.",
-            "quiz": [
-                {"q": "If your thesis is intact but the stock is down 20%, should you auto-sell?", "choices": ["Yes", "No"], "a": "No", "why": "Re-check the business first."},
-                {"q": "If the business changes permanently, should you reconsider the investment?", "choices": ["Yes", "No"], "a": "Yes", "why": "Thesis broken = reassess or exit."}
-            ],
-            "action": "Create one sell rule: “If ___ happens, I reassess.”",
-            "tldr": "Sell rules > emotions."
-        },
-        "2.3": {
-            "goal": "Avoid the 3 most common bad sell triggers.",
-            "image": "assets/lesson_sell.png",
-            "core": [
-                "Bad trigger #1: selling because you’re bored.",
-                "Bad trigger #2: selling because someone else got loud online.",
-                "Bad trigger #3: selling just to ‘feel productive’."
-            ],
-            "example": "A boring stock can be a great long-term compounder. Boring is often a feature.",
-            "mistake": "Mistake: confusing activity with progress.",
-            "quiz": [
-                {"q": "Which is a bad reason to sell?", "choices": ["Thesis broke", "You got bored", "You need rent money"], "a": "You got bored", "why": "Boredom isn’t fundamental."},
-                {"q": "True/False: Doing more trades usually means better results.", "choices": ["True", "False"], "a": "False", "why": "Most people trade themselves into worse outcomes."}
-            ],
-            "action": "If you feel the urge to trade, wait 24 hours and write the reason first.",
-            "tldr": "Less motion, more intention."
-        },
-        "3.1": {
-            "goal": "Learn why a great company can still be a bad buy.",
-            "image": "assets/lesson_price_value.png",
-            "core": [
-                "Quality + price paid both matter.",
-                "You can overpay for an amazing business.",
-                "Valuation is your guardrail against hype."
-            ],
-            "example": "A great phone is great… but not if it costs $50,000.",
-            "mistake": "Mistake: “Great company = automatic buy.”",
-            "quiz": [
-                {"q": "Can a great company be a bad stock purchase?", "choices": ["Yes", "No"], "a": "Yes", "why": "Price can be too high for future returns."},
-                {"q": "What matters more: company OR price?", "choices": ["Company only", "Price only", "Both"], "a": "Both", "why": "Returns depend on business + valuation."}
-            ],
-            "action": "Pick a company you love. Write a ‘fair price’ range you’d feel good paying.",
-            "tldr": "Great business + smart price = winning combo."
-        },
-        "3.2": {
-            "goal": "Understand P/E and P/S without finance jargon.",
-            "image": "assets/lesson_thesis.png",
-            "core": [
-                "P/E: how many dollars investors pay for $1 of profit.",
-                "P/S: how many dollars investors pay for $1 of revenue (helpful when profits are low).",
-                "Compare ratios inside the same sector, not random industries."
-            ],
-            "example": "If P/E = 20, investors pay ~$20 for $1 of yearly profit (roughly).",
-            "mistake": "Mistake: comparing a bank’s P/E to a software company’s P/E like it means the same thing.",
-            "quiz": [
-                {"q": "If P/E goes up but earnings don’t, what happened?", "choices": ["Stock got more expensive", "Earnings rose", "Nothing changed"], "a": "Stock got more expensive", "why": "Price rose relative to earnings."},
-                {"q": "P/S is most useful when…", "choices": ["Profits are negative or tiny", "Profits are huge", "The CEO tweets"], "a": "Profits are negative or tiny", "why": "Revenue is often more stable than earnings early on."}
-            ],
-            "action": "Compare P/E and P/S for two companies in the SAME sector.",
-            "tldr": "Ratios are context tools, not magic spells."
-        },
-        "3.3": {
-            "goal": "Use history as guardrails (not predictions).",
-            "image": "assets/lesson_time.png",
-            "core": [
-                "5Y/10Y averages give context: cheap vs history, normal, or expensive.",
-                "History doesn’t guarantee anything — it just reduces dumb mistakes.",
-                "Use it like bumpers in bowling."
-            ],
-            "example": "If current P/E is far above 10Y average, you may be paying for perfection.",
-            "mistake": "Mistake: “Cheap vs history” = guaranteed win.",
-            "quiz": [
-                {"q": "Is “cheap vs history” a guarantee?", "choices": ["Yes", "No"], "a": "No", "why": "The future can differ from the past."},
-                {"q": "Is it still helpful context?", "choices": ["Yes", "No"], "a": "Yes", "why": "It helps you avoid buying pure hype."}
-            ],
-            "action": "Add a personal rule: if valuation is ‘expensive vs history’, you need a stronger thesis.",
-            "tldr": "History is a guardrail, not a crystal ball."
-        },
-        "4.1": {
-            "goal": "Normalize losses so beginners don’t quit.",
-            "image": "assets/lesson_risk.png",
-            "core": [
-                "Every investor takes losses. The difference is how you react.",
-                "Judge yourself by process, not one outcome.",
-                "Risk is the price of long-term returns."
-            ],
-            "example": "A -10% month is normal in stocks. The question: did your thesis change?",
-            "mistake": "Mistake: thinking a loss means you’re ‘bad’ at investing.",
-            "quiz": [
-                {"q": "If you never take losses, what are you probably doing?", "choices": ["Learning a lot", "Taking no risk / not investing", "Winning every time"], "a": "Taking no risk / not investing", "why": "Losses are part of participation."},
-                {"q": "Best goal for beginners:", "choices": ["Perfect picks", "Perfect timing", "Good decisions consistently"], "a": "Good decisions consistently", "why": "Consistency beats perfection."}
-            ],
-            "action": "Write: “I will judge myself by my process, not one trade.”",
-            "tldr": "Losses are tuition. Don’t rage-quit school."
-        },
-        "4.2": {
-            "goal": "Separate smart exits from emotional exits.",
-            "image": "assets/lesson_sell.png",
-            "core": [
-                "Cut losses when the thesis breaks.",
-                "Panic selling is selling because you’re scared, not because you’re right.",
-                "Use a ‘thesis check’ before any sell."
-            ],
-            "example": "Question to ask: “Did anything change in the BUSINESS, or only the chart?”",
-            "mistake": "Mistake: selling just to stop feeling uncomfortable.",
-            "quiz": [
-                {"q": "If the business is fine but price is down, is selling always smart?", "choices": ["Yes", "No"], "a": "No", "why": "Price can be noise."},
-                {"q": "If your thesis is wrong, should you hold forever?", "choices": ["Yes", "No"], "a": "No", "why": "Learn, exit, move on."}
-            ],
-            "action": "Before you sell anything: write one sentence explaining why (business reason).",
-            "tldr": "Feelings aren’t fundamentals."
-        },
-        "4.3": {
-            "goal": "Replace hope with a plan.",
-            "image": "assets/lesson_thesis.png",
-            "core": [
-                "“I hope it comes back” is not a strategy.",
-                "Plans have triggers, timelines, and reasons.",
-                "Your plan makes you calm during chaos."
-            ],
-            "example": "Plan example: “If revenue declines 2 quarters in a row, I reassess.”",
-            "mistake": "Mistake: holding forever because selling would feel like admitting defeat.",
-            "quiz": [
-                {"q": "If you can’t explain why you own it, what should you do?", "choices": ["Buy more", "Pause and reassess", "Ignore it"], "a": "Pause and reassess", "why": "Clarity beats confusion."},
-                {"q": "Hope works best with…", "choices": ["A plan", "A rumor", "A random tweet"], "a": "A plan", "why": "Plans turn hope into discipline."}
-            ],
-            "action": "Write: “If ___ happens, I sell or reassess.”",
-            "tldr": "Hope is a feeling. Strategy is a system."
-        },
-        "5.1": {
-            "goal": "Stop waiting for the perfect moment.",
-            "image": "assets/lesson_time.png",
-            "core": [
-                "Timing tops/bottoms is hard (even pros miss).",
-                "Consistency beats brilliance for most people.",
-                "Time is your edge — let it work."
-            ],
-            "example": "Missing a few strong market days can crush long-term results. Consistency keeps you in the game.",
-            "mistake": "Mistake: waiting for a dip forever and never starting.",
-            "quiz": [
-                {"q": "What’s easier: timing tops/bottoms or being consistent?", "choices": ["Timing", "Consistency"], "a": "Consistency", "why": "Consistency doesn’t require prediction."},
-                {"q": "Big risk of waiting forever:", "choices": ["Missing growth", "Paying less taxes"], "a": "Missing growth", "why": "Opportunity cost is real."}
-            ],
-            "action": "Pick a schedule you can maintain: weekly or monthly investing.",
-            "tldr": "Start > perfect start."
-        },
-        "5.2": {
-            "goal": "Choose a plan you can stick to (emotion-proof).",
-            "image": "assets/lesson_dca.png",
-            "core": [
-                "Lump sum: more upside if markets rise soon, but harder emotionally.",
-                "DCA: smoother emotionally, reduces regret.",
-                "Best plan is the one you actually follow."
-            ],
-            "example": "If you panic easily, DCA can keep you consistent.",
-            "mistake": "Mistake: switching plans every week based on headlines.",
-            "quiz": [
-                {"q": "Best choice depends on…", "choices": ["Your emotions + tolerance", "A guru’s tweet"], "a": "Your emotions + tolerance", "why": "Behavior drives outcomes."},
-                {"q": "Which beats doing nothing?", "choices": ["Lump sum", "DCA", "Both"], "a": "Both", "why": "Starting matters more than micro-optimizing."}
-            ],
-            "action": "Commit to ONE approach for 6 months. No switching.",
-            "tldr": "The best strategy is the one you stick with."
-        },
-        "5.3": {
-            "goal": "Understand the ‘default smart choice’ for most people.",
-            "image": "assets/lesson_spy.png",
-            "core": [
-                "SPY (S&P 500) wins because it’s diversified and reduces single-stock mistakes.",
-                "Most underperformance is behavior, not intelligence.",
-                "If you’re unsure, broad index funds are a strong default."
-            ],
-            "example": "Owning many businesses reduces the odds one mistake ruins you.",
-            "mistake": "Mistake: trying to outsmart the market before learning the basics.",
-            "quiz": [
-                {"q": "What beats most beginners: 1 stock or owning many?", "choices": ["1 stock", "Many"], "a": "Many", "why": "Diversification reduces single-company risk."},
-                {"q": "Biggest investor enemy:", "choices": ["Emotion", "Math"], "a": "Emotion", "why": "Most mistakes are emotional."}
-            ],
-            "action": "If you’re building a plan, choose a simple ‘core’ (broad index) first.",
-            "tldr": "Default smart move: diversify."
-        },
-    }
-
-    MODULE_CHECKPOINTS = {
-        "1": {
-            "title": "Checkpoint: Business Thinking",
-            "xp": 50,
-            "questions": [
-                {"q": "A stock represents…", "choices": ["A slice of a business", "A guaranteed return", "A company’s cash"], "a": "A slice of a business"},
-                {"q": "Price is…", "choices": ["What someone pays today", "The true value", "The company’s revenue"], "a": "What someone pays today"},
-                {"q": "Value is closer to…", "choices": ["Future cash power", "Today’s headline", "A vibe"], "a": "Future cash power"},
-                {"q": "Fear comes from…", "choices": ["Brain wiring + uncertainty", "Markets being illegal"], "a": "Brain wiring + uncertainty"},
-                {"q": "Best beginner move when scared:", "choices": ["Make rules", "Refresh the chart 50x"], "a": "Make rules"},
-            ],
-        },
-        "2": {
-            "title": "Checkpoint: Thesis + Sell Rules",
-            "xp": 50,
-            "questions": [
-                {"q": "A thesis should include…", "choices": ["Why, what breaks it, exit", "Only the ticker"], "a": "Why, what breaks it, exit"},
-                {"q": "Good reason to sell:", "choices": ["Thesis broke", "Bored"], "a": "Thesis broke"},
-                {"q": "Bad reason to sell:", "choices": ["Red day panic", "Need rent money"], "a": "Red day panic"},
-                {"q": "Before selling you should…", "choices": ["Do a thesis check", "Flip a coin"], "a": "Do a thesis check"},
-                {"q": "More trading usually means…", "choices": ["More mistakes", "Guaranteed better returns"], "a": "More mistakes"},
-            ],
-        },
-        "3": {
-            "title": "Checkpoint: Valuation Basics",
-            "xp": 50,
-            "questions": [
-                {"q": "Great company can be bad buy because…", "choices": ["Overpaying", "It’s illegal"], "a": "Overpaying"},
-                {"q": "P/E roughly means…", "choices": ["Price per $1 profit", "Profit per $1 price"], "a": "Price per $1 profit"},
-                {"q": "P/S helps when…", "choices": ["Profits are small/negative", "CEO is famous"], "a": "Profits are small/negative"},
-                {"q": "History averages are…", "choices": ["Context", "Guarantees"], "a": "Context"},
-                {"q": "Cheap vs history is…", "choices": ["Not a sure thing", "A sure thing"], "a": "Not a sure thing"},
-            ],
-        },
-        "4": {
-            "title": "Checkpoint: Risk Psychology",
-            "xp": 50,
-            "questions": [
-                {"q": "Losses are…", "choices": ["Normal", "Proof you’re cursed"], "a": "Normal"},
-                {"q": "Panic selling is selling because…", "choices": ["Fear", "Thesis broke"], "a": "Fear"},
-                {"q": "Cutting losses is best when…", "choices": ["Thesis broke", "Chart is red"], "a": "Thesis broke"},
-                {"q": "Hope becomes useful when…", "choices": ["You have a plan", "You ignore it"], "a": "You have a plan"},
-                {"q": "Best metric for self-judgment:", "choices": ["Process", "One trade outcome"], "a": "Process"},
-            ],
-        },
-        "5": {
-            "title": "Checkpoint: Time + Defaults",
-            "xp": 50,
-            "questions": [
-                {"q": "Time in market usually beats…", "choices": ["Timing", "Learning"], "a": "Timing"},
-                {"q": "DCA helps mostly with…", "choices": ["Emotions", "Guaranteed returns"], "a": "Emotions"},
-                {"q": "Lump sum can win when…", "choices": ["Markets rise soon", "Markets don’t exist"], "a": "Markets rise soon"},
-                {"q": "SPY helps because…", "choices": ["Diversification", "Magic"], "a": "Diversification"},
-                {"q": "Biggest investor enemy:", "choices": ["Emotion", "Decimals"], "a": "Emotion"},
-            ],
-        },
-    }
-
-    def _render_lesson_content(lesson_id: str):
-        data = LESSON_CONTENT.get(lesson_id)
-        if not data:
-            st.info("Lesson content missing — add it to LESSON_CONTENT.")
-            return
-
-        # image (safe if missing) - compact Robinhood/Duolingo style
-        img_path = data.get("image")
-        if img_path and os.path.exists(img_path):
-            # Wrap image in custom container for size control (ultra-compact 16vh)
-            st.markdown("""
-            <style>
-            .lesson-image-container {
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                margin: 10px 0;
-                max-height: 16vh;
-                overflow: hidden;
-            }
-            .lesson-image-container img {
-                max-height: 16vh;
-                max-width: 100%;
-                width: auto;
-                height: auto;
-                object-fit: contain;
-                border-radius: 12px;
-                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-            }
-            </style>
-            """, unsafe_allow_html=True)
-            
-            # Render image with width parameter (no deprecation warning)
-            st.image(img_path, width=None)
-
-        st.markdown(f"**Goal:** {data.get('goal','')}")
-        st.markdown("**Core idea**")
-        for b in data.get("core", []):
-            st.markdown(f"- {b}")
-
-        with st.expander("Example", expanded=False):
-            st.markdown(data.get("example",""))
-
-        with st.expander("Common mistake", expanded=False):
-            st.markdown(data.get("mistake",""))
-
-        st.markdown("**Quick quiz (instant feedback)**")
-        quiz = data.get("quiz", [])
-        correct = 0
-        for i, q in enumerate(quiz):
-            key = f"quiz_{lesson_id}_{i}"
-            pick = st.radio(q["q"], q["choices"], key=key, horizontal=False)
-            if pick == q["a"]:
-                correct += 1
-        # submit
-        if st.button("Check answers", key=f"check_{lesson_id}", type="secondary"):
-            for i, q in enumerate(quiz):
-                pick = st.session_state.get(f"quiz_{lesson_id}_{i}")
-                if pick == q["a"]:
-                    st.success(f"Q{i+1}: Correct — {q['why']}")
-                else:
-                    st.error(f"Q{i+1}: Not quite. Correct answer: **{q['a']}** — {q['why']}")
-            if correct == len(quiz) and len(quiz) > 0:
-                _award_xp(5, "Perfect quiz")
-                _show_confetti_once(f"quiz_{lesson_id}")
-
-        st.markdown("**One action you can do today**")
-        st.info(data.get("action",""))
-
-        st.markdown(f"**TL;DR:** {data.get('tldr','')}")
-
-        # Mini interactive widget per lesson (lightweight + fun)
-        st.markdown("**Mini tool**")
-        if lesson_id in {"1.1", "1.2"}:
-            shares = st.slider("How many shares do you own?", 1, 500, 10, key=f"shares_{lesson_id}")
-            total = st.number_input("Total shares outstanding (rough guess is fine)", min_value=1, value=1_000_000, step=1000, key=f"out_{lesson_id}")
-            pct = (shares / total) * 100.0
-            st.write(f"Your ownership: **{pct:.6f}%**")
-        elif lesson_id in {"2.1"}:
-            st.text_input("Write a 1‑sentence thesis (just type it)", key=f"thesis_{lesson_id}", placeholder="I’m buying ___ because ___. If ___ happens, I’m wrong.")
-        elif lesson_id in {"5.2"}:
-            plan = st.radio("Which plan fits your personality today?", ["DCA (steady)", "Lump Sum (bold)"], key=f"plan_{lesson_id}")
-            st.caption("No wrong answer — pick what you can stick to.")
-        else:
-            st.caption("Keep it simple: learn → quiz → one action.")
-
-    def _render_module_checkpoint(module_num: str, module_completed: int, module_total: int):
-        _ensure_basics_gamification_state()
-        cp = MODULE_CHECKPOINTS.get(module_num)
-        if not cp:
-            return
-
-        # Only show when lessons complete
-        if module_completed < module_total:
-            return
-
-        passed = module_num in st.session_state.get("checkpoint_passed", set())
-
-        st.markdown("---")
-        st.markdown(f"## ✅ {cp['title']}")
-        st.caption("5 questions. Get 4/5 to pass and earn a badge + confetti.")
-        if passed:
-            st.success("Checkpoint passed. Badge unlocked.")
-            return
-
-        answers = []
-        for i, q in enumerate(cp["questions"]):
-            answers.append(st.radio(q["q"], q["choices"], key=f"cp_{module_num}_{i}"))
-
-        if st.button("Submit checkpoint", key=f"submit_cp_{module_num}", type="primary"):
-            score = 0
-            for i, q in enumerate(cp["questions"]):
-                if st.session_state.get(f"cp_{module_num}_{i}") == q["a"]:
-                    score += 1
-            if score >= 4:
-                st.success(f"Passed! Score: {score}/5")
-                st.session_state.checkpoint_passed.add(module_num)
-                st.session_state.basics_badges.add(module_num)
-                _award_xp(int(cp.get("xp", 50)), f"Module {module_num} checkpoint")
-                _show_confetti_once(f"cp_{module_num}")
-                st.rerun()
-            else:
-                st.error(f"Score: {score}/5 — you need 4/5. Try again (no shame).")
-
     
-    # Find first incomplete lesson
-    first_incomplete = None
-    for module_num in ["1", "2", "3", "4", "5"]:
-        for lesson in lessons_structure[module_num]["lessons"]:
-            if lesson["id"] not in st.session_state.completed_lessons:
-                first_incomplete = lesson
-                break
-        if first_incomplete:
-            break
+    # ============= BADGE DEFINITIONS =============
+    BADGES = {
+        "first_lesson": {"name": "🌱 First Lesson", "desc": "Complete your first lesson"},
+        "beginner_5": {"name": "📚 Beginner Graduate", "desc": "Complete 5 beginner lessons"},
+        "index_ready": {"name": "📊 Index Ready", "desc": "Master index funds and diversification"},
+        "quality_starter": {"name": "💎 Quality Starter", "desc": "Learn quality analysis fundamentals"},
+        "risk_aware": {"name": "🛡️ Risk Aware", "desc": "Master risk management"},
+        "calm_in_storm": {"name": "🧘 Calm in Storm", "desc": "Master behavioral discipline"},
+        "portfolio_mechanic": {"name": "🔧 Portfolio Mechanic", "desc": "Complete 3 repair lessons"},
+        "intermediate_complete": {"name": "🎓 Intermediate Complete", "desc": "Finish all intermediate lessons"},
+        "learn_hub_master": {"name": "👑 Learn Hub Master", "desc": "Complete all lessons"}
+    }
     
-    # "Continue where you left off" card
-    if completed_count < total_lessons:
-        # Case 1: Incomplete lessons
-        st.markdown(f"""
-        <div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 15px; border: 2px solid #FFD700; margin-bottom: 20px;">
-            <p style="color: #B0B0B0; margin: 0;">Next up:</p>
-            <h3 style="color: #FFFFFF; margin: 10px 0;">{first_incomplete["id"]} {first_incomplete["title"]}</h3>
-        </div>
-        """, unsafe_allow_html=True)
+    # ============= UTILITY FUNCTIONS =============
+    def award_badges():
+        """Check and award badges based on progress"""
+        completed = st.session_state.learn_completed_lessons
+        badges = st.session_state.learn_badges
         
-        # NO AUTHENTICATION REQUIRED - button works for everyone
-        if st.button("Continue", key="continue_lesson_btn", type="primary"):
-            st.session_state.expanded_lesson = first_incomplete["id"]
-            st.rerun()
-    else:
-        # Case 2: All lessons completed
-        st.markdown("""
-        <div style="background: rgba(0,255,0,0.1); padding: 20px; border-radius: 15px; border: 2px solid #00FF00; margin-bottom: 20px; text-align: center;">
-            <h3 style="color: #FFFFFF; margin: 0;">You've completed the Basics course 🎉</h3>
-        </div>
-        """, unsafe_allow_html=True)
+        # First lesson
+        if len(completed) >= 1 and "first_lesson" not in badges:
+            badges.add("first_lesson")
+            return "first_lesson"
         
-        if st.button("Review lessons", key="review_lessons_btn", type="secondary"):
-            st.session_state.expanded_lesson = None
-            st.rerun()
+        # Beginner 5
+        beginner_completed = sum(1 for l_id in completed if l_id.startswith("B"))
+        if beginner_completed >= 5 and "beginner_5" not in badges:
+            badges.add("beginner_5")
+            return "beginner_5"
+        
+        # Index Ready
+        if "B3" in completed and "B5" in completed and "index_ready" not in badges:
+            badges.add("index_ready")
+            return "index_ready"
+        
+        # Risk Aware
+        if "B5" in completed and "A1" in completed and "risk_aware" not in badges:
+            badges.add("risk_aware")
+            return "risk_aware"
+        
+        # Calm in Storm
+        if "P1" in completed and "calm_in_storm" not in badges:
+            badges.add("calm_in_storm")
+            return "calm_in_storm"
+        
+        # Portfolio Mechanic
+        repair_completed = sum(1 for l_id in completed if l_id.startswith("R"))
+        if repair_completed >= 3 and "portfolio_mechanic" not in badges:
+            badges.add("portfolio_mechanic")
+            return "portfolio_mechanic"
+        
+        return None
+    
+    def get_recommended_lessons():
+        """Get personalized lesson recommendations"""
+        completed = st.session_state.learn_completed_lessons
+        all_lessons = list(LEARN_HUB_LESSONS.keys())
+        
+        # Remove completed
+        available = [l_id for l_id in all_lessons if l_id not in completed]
+        
+        if not available:
+            return []
+        
+        # New user - start with basics
+        if len(completed) == 0:
+            return ["B1", "B2", "B3"]
+        
+        # Beginner path
+        beginner_lessons = [l_id for l_id in available if l_id.startswith("B")]
+        if beginner_lessons and len(completed) < 5:
+            return beginner_lessons[:3]
+        
+        # After B3, recommend psychology
+        if "B3" in completed and "P1" not in completed:
+            return ["P1"] + [l for l in available if l != "P1"][:2]
+        
+        # Default: return first 3 available
+        return available[:3]
+    
+    # ============= UI RENDERING =============
+    # Non-blocking setup nudge
+    render_setup_nudge()
+    
+    # Header
+    st.markdown("# 📖 Learn Hub")
+    st.caption("*Educational only. Not financial advice.*")
+    
+    # Progress row
+    total_lessons = len(LEARN_HUB_LESSONS)
+    completed_count = len(st.session_state.learn_completed_lessons)
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Completed", f"{completed_count}/{total_lessons}")
+    with col2:
+        st.metric("XP", st.session_state.learn_xp_total)
+    with col3:
+        st.metric("Badges", len(st.session_state.learn_badges))
+    with col4:
+        streak = st.session_state.learn_streak_days
+        st.metric("Streak", f"{streak} days" if streak > 0 else "—")
+    
+    # Show badges
+    if st.session_state.learn_badges:
+        st.markdown("**🏆 Badges:**")
+        badge_chips = " ".join([
+            f'<span style="background:#333; padding:5px 10px; border-radius:20px; margin:2px; display:inline-block;">{BADGES[b]["name"]}</span>'
+            for b in st.session_state.learn_badges if b in BADGES
+        ])
+        st.markdown(badge_chips, unsafe_allow_html=True)
     
     st.markdown("---")
     
-    # Render 5 modules
-    for module_num in ["1", "2", "3", "4", "5"]:
-        module_data = lessons_structure[module_num]
-        module_title = module_data["title"]
-        module_lessons = module_data["lessons"]
+    # Level selector
+    levels = ["All Levels", "Beginner", "Intermediate", "Advanced", "Behavior", "Repair"]
+    selected_level = st.radio(
+        "Filter by level:",
+        levels,
+        horizontal=True,
+        key="learn_level_selector"
+    )
+    st.session_state.learn_current_level = selected_level
+    
+    # Topic filter (multiselect)
+    topics = ["Foundations", "Buy & Hold", "Valuation", "Financials", "Risk", "Diversification", 
+              "ETFs", "Psychology", "Portfolio Analysis"]
+    selected_topics = st.multiselect("Filter by topic:", topics, key="learn_topic_selector")
+    st.session_state.learn_topic_filter = selected_topics
+    
+    # Search
+    search_query = st.text_input("🔍 Search lessons:", placeholder="e.g., diversification", key="learn_search_input")
+    st.session_state.learn_search = search_query
+    
+    st.markdown("---")
+    
+    # Filter lessons
+    filtered_lessons = []
+    for lesson_id, lesson in LEARN_HUB_LESSONS.items():
+        # Level filter
+        if selected_level != "All Levels" and lesson["level"] != selected_level:
+            continue
         
-        # Calculate module progress
-        module_completed = sum(1 for lesson in module_lessons if lesson["id"] in st.session_state.completed_lessons)
-        module_total = len(module_lessons)
+        # Topic filter
+        if selected_topics and not any(t in lesson["topics"] for t in selected_topics):
+            continue
         
-        # Module header with progress
-        with st.expander(f"Module {module_num}: {module_title} ({module_completed} / {module_total} completed)", 
-                         expanded=True):
+        # Search filter
+        if search_query and search_query.lower() not in lesson["title"].lower():
+            continue
+        
+        filtered_lessons.append(lesson)
+    
+    # Show recommended if no filters
+    if selected_level == "All Levels" and not selected_topics and not search_query:
+        recommended = get_recommended_lessons()
+        if recommended:
+            st.markdown("### 🎯 Recommended for You")
+            for lesson_id in recommended:
+                if lesson_id in LEARN_HUB_LESSONS:
+                    lesson = LEARN_HUB_LESSONS[lesson_id]
+                    _render_lesson_card(lesson)
+            st.markdown("---")
+            st.markdown("### All Lessons")
+    
+    # Render lesson list
+    if not filtered_lessons:
+        st.info("No lessons match your filters. Try adjusting your selection.")
+    else:
+        for lesson in filtered_lessons:
+            _render_lesson_card(lesson)
+    
+    # ============= HELPER FUNCTIONS FOR RENDERING =============
+    def _render_lesson_card(lesson):
+        """Render a lesson card"""
+        lesson_id = lesson["id"]
+        is_completed = lesson_id in st.session_state.learn_completed_lessons
+        best_score = st.session_state.learn_best_scores.get(lesson_id, 0)
+        
+        # Status badge
+        if is_completed:
+            status = f"✅ Completed ({best_score}/3)"
+            status_color = "#4CAF50"
+        else:
+            status = "◯ Not Started"
+            status_color = "#999"
+        
+        with st.expander(f"{'✅' if is_completed else '📚'} {lesson['title']} ({lesson['time_min']} min)"):
+            st.markdown(f"**Level:** {lesson['level']} | **Topics:** {', '.join(lesson['topics'])}")
+            st.markdown(f"<span style='color:{status_color}'>{status}</span>", unsafe_allow_html=True)
+            st.markdown("")
+            st.markdown(f"**Why it matters:** {lesson['why_it_matters']}")
             
-            # Render each lesson card
-            for lesson in module_lessons:
-                lesson_id = lesson["id"]
-                lesson_title = lesson["title"]
-                is_completed = lesson_id in st.session_state.completed_lessons
-                is_expanded = st.session_state.expanded_lesson == lesson_id
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("📖 Start Lesson", key=f"start_{lesson_id}", use_container_width=True):
+                    st.session_state.learn_selected_lesson_id = lesson_id
+                    st.session_state.quiz_current_question = 0
+                    st.session_state.quiz_answers = []
+                    st.session_state.quiz_score = None
+                    st.rerun()
+            
+            with col2:
+                if st.button("📝 Take Quiz", key=f"quiz_{lesson_id}", use_container_width=True):
+                    st.session_state.learn_selected_lesson_id = lesson_id
+                    st.session_state.quiz_current_question = 0
+                    st.session_state.quiz_answers = []
+                    st.session_state.quiz_score = None
+                    st.rerun()
+    
+    # ============= LESSON VIEWER =============
+    if st.session_state.learn_selected_lesson_id:
+        selected_lesson_id = st.session_state.learn_selected_lesson_id
+        
+        if selected_lesson_id in LEARN_HUB_LESSONS:
+            lesson = LEARN_HUB_LESSONS[selected_lesson_id]
+            
+            st.markdown("---")
+            st.markdown(f"# 📚 {lesson['title']}")
+            st.markdown(f"**{lesson['level']} | {lesson['time_min']} minutes | {', '.join(lesson['topics'])}**")
+            
+            if st.button("← Back to Lesson List"):
+                st.session_state.learn_selected_lesson_id = None
+                st.rerun()
+            
+            st.markdown("---")
+            
+            # Why it matters
+            st.markdown("### 💡 Why It Matters")
+            st.info(lesson['why_it_matters'])
+            
+            # Summary
+            st.markdown("### 📋 Summary")
+            for point in lesson['summary']:
+                st.markdown(f"• {point}")
+            
+            # Key ideas
+            with st.expander("🔑 Key Ideas", expanded=True):
+                for idea in lesson['key_ideas']:
+                    st.markdown(f"• {idea}")
+            
+            # Common mistakes
+            with st.expander("⚠️ Common Mistakes"):
+                for mistake in lesson['common_mistakes']:
+                    st.markdown(f"• {mistake}")
+            
+            # Checklist
+            with st.expander("✅ Checklist"):
+                for item in lesson['checklist']:
+                    st.checkbox(item, key=f"check_{selected_lesson_id}_{lesson['checklist'].index(item)}")
+            
+            st.markdown("---")
+            
+            # QUIZ ENGINE
+            st.markdown("### 📝 Quiz (3 Questions)")
+            
+            quiz = lesson['quiz']
+            current_q = st.session_state.quiz_current_question
+            
+            if st.session_state.quiz_score is None:
+                # Show question
+                if current_q < len(quiz):
+                    question_data = quiz[current_q]
+                    st.markdown(f"**Question {current_q + 1}/{len(quiz)}:**")
+                    st.markdown(f"*{question_data['question']}*")
+                    
+                    # Answer options
+                    answer = st.radio(
+                        "Select your answer:",
+                        question_data['options'],
+                        key=f"quiz_answer_{selected_lesson_id}_{current_q}"
+                    )
+                    
+                    if st.button("Check Answer", type="primary"):
+                        selected_index = question_data['options'].index(answer)
+                        is_correct = selected_index == question_data['correct']
+                        st.session_state.quiz_answers.append(is_correct)
+                        
+                        if is_correct:
+                            st.success("✅ Correct!")
+                        else:
+                            st.error(f"❌ Incorrect. {question_data['explanation']}")
+                        
+                        # Move to next question or finish
+                        if current_q < len(quiz) - 1:
+                            st.session_state.quiz_current_question += 1
+                            st.rerun()
+                        else:
+                            # Calculate score
+                            score = sum(st.session_state.quiz_answers)
+                            st.session_state.quiz_score = score
+                            
+                            # Award XP if passed and new best
+                            if score >= 2:
+                                old_best = st.session_state.learn_best_scores.get(selected_lesson_id, 0)
+                                if score > old_best or selected_lesson_id not in st.session_state.learn_completed_lessons:
+                                    st.session_state.learn_completed_lessons.add(selected_lesson_id)
+                                    st.session_state.learn_best_scores[selected_lesson_id] = score
+                                    st.session_state.learn_xp_total += lesson['xp']
+                                    
+                                    # Award badge
+                                    new_badge = award_badges()
+                                    
+                                    # Save to DB
+                                    save_learn_progress_to_db(selected_lesson_id, score)
+                            
+                            st.rerun()
+            
+            else:
+                # Show results
+                score = st.session_state.quiz_score
+                st.markdown(f"### Your Score: {score}/3")
                 
-                # Lesson card
-                status_text = "Completed" if is_completed else "Not started"
-                status_color = "#00FF00" if is_completed else "#B0B0B0"
-                border_color = "#00D9FF" if is_expanded else "rgba(255,255,255,0.2)"
+                if score == 3:
+                    st.success("🎉 Perfect score!")
+                elif score >= 2:
+                    st.success(f"✅ Passed! (+{lesson['xp']} XP)")
+                else:
+                    st.warning("Try again to pass (need 2/3)")
                 
-                st.markdown(f"""
-                <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px; 
-                            border: 2px solid {border_color}; margin-bottom: 15px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div>
-                            <h4 style="color: #FFFFFF; margin: 0;">{lesson_id} {lesson_title}</h4>
-                            <p style="color: {status_color}; margin: 5px 0 0 0; font-size: 0.9em;">{status_text}</p>
-                        </div>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                # Lesson controls - NO AUTHENTICATION REQUIRED
-                col1, col2 = st.columns([1, 1])
-                
+                col1, col2 = st.columns(2)
                 with col1:
-                    # Start lesson button - works for ALL users (logged in or out)
-                    if st.button("Start lesson", key=f"start_{lesson_id}", use_container_width=True):
-                        st.session_state.expanded_lesson = lesson_id
+                    if st.button("Retake Quiz"):
+                        st.session_state.quiz_current_question = 0
+                        st.session_state.quiz_answers = []
+                        st.session_state.quiz_score = None
                         st.rerun()
                 
                 with col2:
-                    # Mark complete button - works for ALL users (logged in or out)
-                    if st.button("Mark complete" if not is_completed else "Completed ✓", 
-                                key=f"complete_{lesson_id}", 
-                                use_container_width=True,
-                                disabled=is_completed):
-                        st.session_state.completed_lessons.add(lesson_id)
-                        _award_xp(10, f"Lesson {lesson_id} complete")
-                        # Attempt Supabase persistence ONLY for logged-in users
-                        # Falls back silently if user is not logged in - DOES NOT BLOCK UI
-                        if st.session_state.get('is_logged_in', False):
-                            try:
-                                save_user_progress()
-                            except:
-                                pass
+                    if st.button("← Back to Lessons"):
+                        st.session_state.learn_selected_lesson_id = None
+                        st.session_state.quiz_current_question = 0
+                        st.session_state.quiz_answers = []
+                        st.session_state.quiz_score = None
                         st.rerun()
-                
-                # Expanded lesson panel - NO AUTHENTICATION REQUIRED
-                if is_expanded:
-                    _render_lesson_content(lesson_id)
-
-
-                    
-                    # Mark complete button in expanded view - works for ALL users
-                    if st.button("Mark complete", key=f"complete_expanded_{lesson_id}", type="primary"):
-                        st.session_state.completed_lessons.add(lesson_id)
-                        _award_xp(10, f"Lesson {lesson_id} complete")
-                        st.session_state.expanded_lesson = None
-                        # Attempt Supabase persistence ONLY for logged-in users
-                        # Falls back silently if user is not logged in - DOES NOT BLOCK UI
-                        if st.session_state.get('is_logged_in', False):
-                            try:
-                                save_user_progress()
-                            except:
-                                pass
-                        st.rerun()
-                
-                
-    # ============= MODULE CHECKPOINTS (badges + confetti) =============
-    st.markdown("---")
-    st.markdown("## 🧪 Module Checkpoints")
-    st.caption("Finish a module’s lessons to unlock its checkpoint. Pass (4/5) to earn a badge.")
-
-    for _m in ["1", "2", "3", "4", "5"]:
-        _md = lessons_structure[_m]
-        _lessons = _md["lessons"]
-        _completed = sum(1 for _l in _lessons if _l["id"] in st.session_state.completed_lessons)
-        _total = len(_lessons)
-        _render_module_checkpoint(_m, _completed, _total)
-
-    st.markdown("<br>", unsafe_allow_html=True)
 
 elif selected_page == "📚 Finance 101":
     
