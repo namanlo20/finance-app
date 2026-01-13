@@ -4408,17 +4408,21 @@ def get_global_market_sentiment():
     """
     SINGLE SOURCE OF TRUTH for market sentiment.
     All components (sidebar, gauge, AI) must use this function.
-    Cached for 5 minutes to ensure consistency across the app.
+    Updates every time - shows real-time market mood based on SPY.
     """
     try:
-        spy_data = get_historical_price("SPY", 1)
+        # Get SPY data for last 30 days to calculate 20-day momentum
+        spy_data = get_historical_price("SPY", years=0.1)  # ~36 days
+        
         if not spy_data.empty and 'price' in spy_data.columns and len(spy_data) >= 20:
             spy_data = spy_data.sort_values('date')
             current_price = spy_data['price'].iloc[-1]
-            price_20d_ago = spy_data['price'].iloc[-20] if len(spy_data) >= 20 else spy_data['price'].iloc[0]
+            price_20d_ago = spy_data['price'].iloc[-20]
             
+            # Calculate 20-day momentum
             momentum_20d = ((current_price - price_20d_ago) / price_20d_ago) * 100
             
+            # Map momentum to sentiment score (0-100)
             if momentum_20d <= -10:
                 sentiment_score = 10
             elif momentum_20d <= -5:
@@ -4439,12 +4443,13 @@ def get_global_market_sentiment():
                 "score": sentiment_score,
                 "label": label,
                 "color": color,
-                "momentum_20d": momentum_20d,
-                "spy_price": current_price
+                "momentum_20d": round(momentum_20d, 2),
+                "spy_price": round(current_price, 2)
             }
-    except:
-        pass
+    except Exception as e:
+        print(f"[DEBUG] Market sentiment error: {e}")
     
+    # Fallback to neutral if data unavailable
     return {
         "score": 50,
         "label": "Neutral (Steady)",
@@ -11288,7 +11293,7 @@ elif selected_page == "📰 Market Intelligence":
             }
             
             payload = {
-                "model": "llama-3.1-sonar-large-128k-online",
+                "model": "llama-3.1-sonar-small-128k-online",
                 "messages": [
                     {"role": "system", "content": "You are a financial news analyst. Provide concise, factual market updates. Keep each story brief and scannable."},
                     {"role": "user", "content": query}
@@ -11435,35 +11440,42 @@ elif selected_page == "📰 Market Intelligence":
     # Function to get this week's earnings
     def get_weekly_earnings():
         """Fetch this week's earnings from FMP"""
+        if not FMP_API_KEY:
+            return []
+        
         try:
             from datetime import datetime, timedelta
             
-            # Get date range for this week (Monday to Friday)
+            # Get date range for this week (next 7 days)
             today = datetime.now()
-            # Find this Monday
-            days_since_monday = today.weekday()
-            this_monday = today - timedelta(days=days_since_monday)
-            this_friday = this_monday + timedelta(days=4)
+            end_date = today + timedelta(days=7)
             
-            # Format dates
-            start_date = this_monday.strftime('%Y-%m-%d')
-            end_date = this_friday.strftime('%Y-%m-%d')
+            # Format dates for FMP API
+            start_str = today.strftime('%Y-%m-%d')
+            end_str = end_date.strftime('%Y-%m-%d')
             
-            # Fetch earnings calendar
-            url = f"{BASE_URL}/earning_calendar?from={start_date}&to={end_date}&apikey={FMP_API_KEY}"
-            response = requests.get(url, timeout=15)
+            # Use FMP v3 earnings-calendar endpoint
+            url = f"{BASE_URL}/v3/earnings-calendar"
+            params = {
+                "from": start_str,
+                "to": end_str,
+                "apikey": FMP_API_KEY
+            }
+            
+            response = requests.get(url, params=params, timeout=15)
             
             if response.status_code == 200:
                 earnings_data = response.json()
                 
-                # Filter for bigger companies (market cap > $10B if available)
-                # Sort by date
-                if earnings_data:
+                # Filter and sort
+                if earnings_data and isinstance(earnings_data, list):
                     # Sort by date
                     sorted_earnings = sorted(earnings_data, key=lambda x: x.get('date', ''))
-                    return sorted_earnings[:20]  # Top 20
+                    return sorted_earnings[:30]  # Top 30
                 return []
-            return []
+            else:
+                print(f"FMP earnings API error: {response.status_code}")
+                return []
         except Exception as e:
             print(f"Error fetching earnings: {e}")
             return []
