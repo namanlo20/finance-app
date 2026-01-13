@@ -27,6 +27,9 @@ BASE_URL = "https://financialmodelingprep.com/stable"  # Keep this hardcoded - i
 PERPLEXITY_API_KEY = os.environ.get("PERPLEXITY_API_KEY", "")
 USE_AI_ANALYSIS = bool(PERPLEXITY_API_KEY)
 
+# OpenAI API for AI Coach chatbot
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+
 # Portfolio Configuration - Starting cash for paper trading
 STARTING_CASH = float(os.environ.get("STARTING_CASH", "100000"))
 
@@ -1066,6 +1069,186 @@ FINANCIAL_METRICS_EXPLAINED = {
     }
 }
 
+
+
+# ============= AI COACH - PERSISTENT CHATBOT =============
+# Educational cross-tab AI assistant with 4 modes
+
+def initialize_ai_coach_state():
+    """Initialize AI Coach session state"""
+    defaults = {
+        'ai_coach_open': False,
+        'ai_coach_mode': 'explain',
+        'ai_coach_history': [],
+        'ai_coach_show_receipts': False,
+        'ai_coach_context': {}
+    }
+    for key, value in defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = value
+
+def build_ai_context(tab, ticker=None, facts=None):
+    """Build deterministic context - NEVER invents data"""
+    ctx = {"tab": tab, "ticker": ticker, "facts": facts or {}}
+    
+    # Add learn progress
+    if 'learn_completed_lessons' in st.session_state:
+        ctx["learn"] = {
+            "completed": len(st.session_state.learn_completed_lessons),
+            "xp": st.session_state.get('learn_xp_total', 0)
+        }
+    
+    # Add portfolio stats
+    if 'portfolio' in st.session_state and st.session_state.portfolio:
+        port = st.session_state.portfolio
+        total = sum(p.get('current_value', 0) for p in port)
+        if total > 0:
+            holdings = {p['ticker']: p.get('current_value', 0) for p in port}
+            top = max(holdings, key=holdings.get)
+            ctx["portfolio"] = {
+                "top_holding": top,
+                "top_pct": round((holdings[top]/total)*100, 1),
+                "positions": len(holdings)
+            }
+    return ctx
+
+def call_ai(message, mode, context):
+    """Call OpenAI for AI Coach response"""
+    if not OPENAI_API_KEY:
+        return {"answer": ["AI Coach unavailable (no API key)"], "lessons": [], "receipts": []}
+    
+    try:
+        system = f"""You're an educational investing coach in {mode} mode.
+Rules:
+- NEVER give buy/sell advice
+- Use ONLY provided context facts
+- Be beginner-friendly
+- Respond in JSON: {{"answer":["bullet1","bullet2"],"lessons":[{{"id":"B1","label":"Title"}}],"receipts":["fact1"]}}
+- Max 4 bullets"""
+        
+        resp = requests.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers={"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"},
+            json={
+                "model": "gpt-4o-mini",
+                "messages": [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": f"Q: {message}\n\nContext: {json.dumps(context)}"}
+                ],
+                "temperature": 0.7,
+                "max_tokens": 400
+            },
+            timeout=25
+        )
+        
+        if resp.status_code == 200:
+            content = resp.json()["choices"][0]["message"]["content"].strip()
+            content = content.replace("```json", "").replace("```", "").strip()
+            return json.loads(content)
+    except:
+        pass
+    
+    return {"answer": ["I had trouble with that. Try rephrasing?"], "lessons": [], "receipts": []}
+
+def render_ai_coach(tab, ticker=None, facts=None):
+    """Render floating AI Coach button + panel"""
+    initialize_ai_coach_state()
+    st.session_state.ai_coach_context = build_ai_context(tab, ticker, facts)
+    
+    # Inject CSS for floating button
+    st.markdown("""
+    <style>
+    .ai-float-btn {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #ff3333 0%, #cc0000 100%);
+        box-shadow: 0 4px 12px rgba(255,51,51,0.4);
+        z-index: 9999;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        border: none;
+        color: white;
+    }
+    .ai-float-btn:hover {
+        transform: scale(1.1);
+        box-shadow: 0 6px 16px rgba(255,51,51,0.6);
+    }
+    </style>
+    <div class="ai-float-btn" onclick="document.querySelector('[data-testid=\\'ai_toggle\\']').click()">🤖</div>
+    """, unsafe_allow_html=True)
+    
+    # Toggle button (hidden, triggered by CSS)
+    if st.button("", key="ai_toggle", help="AI Coach"):
+        st.session_state.ai_coach_open = not st.session_state.ai_coach_open
+        st.rerun()
+    
+    # Panel (sidebar-style when open)
+    if st.session_state.ai_coach_open:
+        with st.sidebar:
+            st.markdown("---")
+            st.markdown("### 🤖 AI Coach")
+            st.caption("*Educational only. Not financial advice.*")
+            
+            # Mode selector
+            modes = {"explain": "📊 Explain", "learn": "📚 Learn", "portfolio": "💼 Portfolio", "earnings": "📈 Earnings"}
+            mode = st.radio("Mode:", list(modes.keys()), format_func=lambda x: modes[x], horizontal=True, key="ai_mode")
+            st.session_state.ai_coach_mode = mode
+            
+            # Clear button
+            if st.button("Clear Chat", use_container_width=True):
+                st.session_state.ai_coach_history = []
+                st.rerun()
+            
+            st.markdown("---")
+            
+            # Chat history
+            for msg in st.session_state.ai_coach_history:
+                if msg["role"] == "user":
+                    st.markdown(f"**You:** {msg['content']}")
+                else:
+                    st.markdown("**AI Coach:**")
+                    for bullet in msg.get("answer", []):
+                        st.markdown(f"• {bullet}")
+                    
+                    # Lesson links
+                    for lesson in msg.get("lessons", []):
+                        if st.button(f"→ {lesson['label']}", key=f"l_{lesson['id']}_{len(st.session_state.ai_coach_history)}"):
+                            st.session_state.learn_selected_lesson_id = lesson['id']
+                            st.session_state.page_selection = "📖 Basics"
+                            st.rerun()
+                    
+                    # Receipts
+                    if st.session_state.ai_coach_show_receipts and msg.get("receipts"):
+                        with st.expander("📋 Facts"):
+                            for r in msg["receipts"]:
+                                st.caption(f"✓ {r}")
+                st.markdown("")
+            
+            # Input
+            user_input = st.text_input("Ask:", placeholder="e.g., What's RSI?", key="ai_input")
+            
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                send = st.button("Send", type="primary", use_container_width=True)
+            with col2:
+                st.checkbox("📋", value=st.session_state.ai_coach_show_receipts, key="receipts", 
+                           on_change=lambda: setattr(st.session_state, 'ai_coach_show_receipts', st.session_state.receipts))
+            
+            if send and user_input:
+                st.session_state.ai_coach_history.append({"role": "user", "content": user_input})
+                
+                with st.spinner("🤔"):
+                    response = call_ai(user_input, st.session_state.ai_coach_mode, st.session_state.ai_coach_context)
+                
+                st.session_state.ai_coach_history.append({"role": "assistant", **response})
+                st.rerun()
 
 # ============= GAMIFICATION HELPERS (Robinhood-style) =============
 def _ensure_basics_gamification_state():
@@ -8396,6 +8579,9 @@ elif selected_page == "📖 Basics":
                         st.session_state.quiz_answers = []
                         st.session_state.quiz_score = None
                         st.rerun()
+    
+    # AI Coach integration
+    render_ai_coach("Learn Hub", ticker=None, facts=None)
 
 elif selected_page == "📚 Finance 101":
     
@@ -10362,6 +10548,9 @@ elif selected_page == "📊 Company Analysis":
         else:
             st.warning(f"⚠️ Could not calculate scenarios for {ticker}. Historical price data may not be available.")
             st.info("💡 **Tip:** Try a major stock like AAPL, MSFT, or GOOGL")
+    
+    # AI Coach integration with ticker context
+    render_ai_coach("Company Analysis", ticker=ticker if ticker and ticker != "AAPL" else None, facts=None)
 
 
 elif selected_page == "📊 Market Overview":
