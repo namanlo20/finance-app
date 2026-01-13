@@ -10585,8 +10585,8 @@ elif selected_page == "📈 Financial Health":
 # ============= MARKET INTELLIGENCE TAB =============
 elif selected_page == "📰 Market Intelligence":
     
-    st.header("Market Intelligence")
-    st.markdown("**AI-Powered Market News & Analysis**")
+    st.header("📰 Market Intelligence & News")
+    st.markdown("**Stay informed with AI-powered market insights, news, and earnings**")
     
     # ============= MARKET MOOD SPEEDOMETER =============
     st.markdown("---")
@@ -10623,64 +10623,25 @@ elif selected_page == "📰 Market Intelligence":
     
     st.markdown("---")
     
-    # Ticker Search Box - accepts company names OR tickers
-    st.markdown("### Search for Stock-Specific News")
-    intel_input = st.text_input(
-        "Enter a company name or ticker (leave empty for Magnificent 7 news):",
-        "",
-        placeholder="e.g., Apple, Tesla, GOOGL, Microsoft",
-        key="intel_ticker_search"
-    )
+    # ============= TOP MARKET NEWS (NEW!) =============
+    st.markdown("### 📰 Latest Market News")
+    st.caption("AI-powered news summaries from Perplexity")
     
-    # Resolve company name to ticker
-    intel_ticker = resolve_company_to_ticker(intel_input) if intel_input.strip() else None
-    
-    # Show resolved ticker if different from input
-    if intel_input.strip() and intel_ticker and intel_ticker.upper() != intel_input.strip().upper():
-        st.caption(f"Searching for: **{intel_ticker}**")
-    
-    # Fit Check Panel (only if ticker selected)
-    if intel_ticker:
-        render_fit_check_panel(intel_ticker)
-        st.markdown("---")
-    
-    # Function to get market news via Perplexity API
-    def get_market_intelligence(ticker=None, is_mag7=False):
-        """Fetch market news using Perplexity API"""
+    # Function to get top news
+    def get_top_market_news():
+        """Fetch top market news using Perplexity API"""
         if not PERPLEXITY_API_KEY:
             return None, "Perplexity API key not configured"
         
         try:
-            if ticker and ticker.strip():
-                query = f"Latest news, catalysts, and market analysis for {ticker.upper()} stock. Include recent price movements, analyst opinions, and any significant company developments. Format with clear sections and bullet points."
-            elif is_mag7:
-                query = """Latest news for the Magnificent 7 tech stocks (Apple, Microsoft, Google/Alphabet, Amazon, Nvidia, Meta, Tesla). 
-                For each company, provide 1-2 recent headlines or developments.
-                Format with clear sections:
-                - Apple (AAPL)
-                - Microsoft (MSFT)
-                - Google (GOOGL)
-                - Amazon (AMZN)
-                - Nvidia (NVDA)
-                - Meta (META)
-                - Tesla (TSLA)
-                Focus on recent price movements, earnings, product launches, and analyst opinions."""
-            else:
-                query = """Today's US stock market news summary. Format with clear sections:
-                
-                **Market Overview**
-                - S&P 500 and major index performance
-                
-                **Interest Rates & Fed**
-                - Latest Fed commentary and rate expectations
-                
-                **Key Earnings**
-                - Notable earnings reports
-                
-                **Market Movers**
-                - Top gaining and losing stocks
-                
-                Keep each section concise with bullet points."""
+            query = """Provide 10-15 of today's most important financial market news stories. 
+            Format as a numbered list with:
+            - Brief headline (bold)
+            - 1-sentence summary
+            - Relevant ticker symbols in [brackets]
+            
+            Cover: Market movements, Fed news, major earnings, sector trends, economic data, company news.
+            Keep each story to 2-3 lines max."""
             
             headers = {
                 "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
@@ -10688,12 +10649,12 @@ elif selected_page == "📰 Market Intelligence":
             }
             
             payload = {
-                "model": "sonar",
+                "model": "llama-3.1-sonar-large-128k-online",
                 "messages": [
-                    {"role": "system", "content": "You are a financial news analyst. Provide concise, factual market updates with clear sections and bullet points. Make it easy to scan quickly."},
+                    {"role": "system", "content": "You are a financial news analyst. Provide concise, factual market updates. Keep each story brief and scannable."},
                     {"role": "user", "content": query}
                 ],
-                "max_tokens": 1500
+                "max_tokens": 2000
             }
             
             response = requests.post(
@@ -10712,84 +10673,322 @@ elif selected_page == "📰 Market Intelligence":
         except Exception as e:
             return None, str(e)
     
-    # Fetch and display news - DEFAULT TO MAG 7 when no ticker
-    with st.spinner("Fetching latest market intelligence..."):
-        if intel_ticker:
-            news_content, error = get_market_intelligence(intel_ticker)
-        else:
-            # Default to Magnificent 7 news
-            news_content, error = get_market_intelligence(None, is_mag7=True)
+    # Fetch and display top news
+    with st.spinner("🔄 Fetching latest market news..."):
+        top_news, error = get_top_market_news()
     
-    if news_content:
-        if intel_ticker:
-            st.markdown(f"### 📊 {intel_ticker.upper()} - Latest News & Analysis")
-        else:
-            st.markdown("### 🌟 Magnificent 7 - Latest News")
-            st.caption("Apple, Microsoft, Google, Amazon, Nvidia, Meta, Tesla")
-        
+    if top_news:
+        # Display in a card with RED accent (matches app theme)
         st.markdown(f"""
         <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
-                    border: 2px solid #00D9FF; border-radius: 15px; padding: 30px; margin: 20px 0;">
+                    border: 2px solid #ff3333; border-radius: 15px; padding: 30px; margin: 20px 0;">
             <div style="color: #FFFFFF; font-size: 16px; line-height: 1.8;">
-                {news_content}
+                {top_news}
             </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Link to Perplexity for deeper exploration
+        st.markdown("""
+        <div style="text-align: center; margin-top: 20px;">
+            <a href="https://www.perplexity.ai" target="_blank" 
+               style="background-color: #ff3333; color: white; padding: 12px 30px; 
+                      border-radius: 8px; text-decoration: none; font-weight: bold; 
+                      display: inline-block;">
+                🔍 Explore More on Perplexity
+            </a>
         </div>
         """, unsafe_allow_html=True)
     elif error:
         st.warning(f"Could not fetch news: {error}")
         st.info("Try again later or check if the Perplexity API key is configured correctly.")
     
-    # Also show FMP news headlines - NEVER EMPTY
     st.markdown("---")
-    st.markdown("### 📰 Recent Headlines")
     
-    fmp_news = []
-    if intel_ticker:
-        fmp_news = get_stock_specific_news(intel_ticker.upper(), 10)
+    # ============= NEWS AFFECTING YOUR PORTFOLIO (NEW!) =============
+    # Only show if user has portfolio positions
+    user_portfolio = st.session_state.get('portfolio', [])
+    founder_portfolio = st.session_state.get('founder_portfolio', [])
     
-    # If no ticker or no news found, get MAG 7 news
-    if not fmp_news:
-        # Fetch news for Magnificent 7 stocks
-        for mag_ticker in MAG_7_TICKERS:
+    # Combine both portfolios to check if user has any positions
+    all_positions = user_portfolio + founder_portfolio
+    
+    if all_positions:
+        st.markdown("### 📊 News Affecting Your Portfolio")
+        st.caption("Personalized news for stocks you own")
+        
+        # Get unique tickers from portfolio
+        portfolio_tickers = list(set([pos['ticker'] for pos in all_positions]))
+        
+        # Function to get portfolio-specific news
+        def get_portfolio_news(tickers):
+            """Fetch news for specific tickers"""
+            if not PERPLEXITY_API_KEY:
+                return None, "Perplexity API key not configured"
+            
             try:
-                ticker_news = get_stock_specific_news(mag_ticker, 2)
-                if ticker_news:
-                    fmp_news.extend(ticker_news)
+                tickers_str = ", ".join(tickers[:10])  # Limit to first 10 tickers
+                query = f"""Latest news and developments for these stocks: {tickers_str}
+                
+                For each stock with significant news, provide:
+                - **[TICKER]** Brief headline
+                - 1-2 sentence summary
+                - Impact assessment (positive/negative/neutral)
+                
+                Focus on: earnings, analyst ratings, product launches, regulatory news, major price movements.
+                Skip stocks with no recent news. Keep it concise."""
+                
+                headers = {
+                    "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
+                    "Content-Type": "application/json"
+                }
+                
+                payload = {
+                    "model": "llama-3.1-sonar-large-128k-online",
+                    "messages": [
+                        {"role": "system", "content": "You are a portfolio analyst. Provide relevant, actionable news summaries for the user's holdings."},
+                        {"role": "user", "content": query}
+                    ],
+                    "max_tokens": 1500
+                }
+                
+                response = requests.post(
+                    "https://api.perplexity.ai/chat/completions",
+                    headers=headers,
+                    json=payload,
+                    timeout=30
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                    return content, None
+                else:
+                    return None, f"API error: {response.status_code}"
+            except Exception as e:
+                return None, str(e)
+        
+        with st.spinner(f"🔄 Fetching news for your {len(portfolio_tickers)} holdings..."):
+            portfolio_news, port_error = get_portfolio_news(portfolio_tickers)
+        
+        if portfolio_news:
+            # Show which stocks you own
+            st.info(f"📈 **Your Holdings:** {', '.join(portfolio_tickers)}")
+            
+            # Display portfolio news with GREEN accent
+            st.markdown(f"""
+            <div style="background: linear-gradient(135deg, #1a2e1a 0%, #162e21 100%); 
+                        border: 2px solid #4CAF50; border-radius: 15px; padding: 30px; margin: 20px 0;">
+                <div style="color: #FFFFFF; font-size: 16px; line-height: 1.8;">
+                    {portfolio_news}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        elif port_error:
+            st.warning(f"Could not fetch portfolio news: {port_error}")
+        
+        st.markdown("---")
+    
+    # ============= EARNINGS CALENDAR (NEW!) =============
+    st.markdown("### 📅 Earnings Calendar - This Week")
+    st.caption("Biggest earnings releases this week")
+    
+    # Function to get this week's earnings
+    def get_weekly_earnings():
+        """Fetch this week's earnings from FMP"""
+        try:
+            from datetime import datetime, timedelta
+            
+            # Get date range for this week (Monday to Friday)
+            today = datetime.now()
+            # Find this Monday
+            days_since_monday = today.weekday()
+            this_monday = today - timedelta(days=days_since_monday)
+            this_friday = this_monday + timedelta(days=4)
+            
+            # Format dates
+            start_date = this_monday.strftime('%Y-%m-%d')
+            end_date = this_friday.strftime('%Y-%m-%d')
+            
+            # Fetch earnings calendar
+            url = f"{BASE_URL}/earning_calendar?from={start_date}&to={end_date}&apikey={FMP_API_KEY}"
+            response = requests.get(url, timeout=15)
+            
+            if response.status_code == 200:
+                earnings_data = response.json()
+                
+                # Filter for bigger companies (market cap > $10B if available)
+                # Sort by date
+                if earnings_data:
+                    # Sort by date
+                    sorted_earnings = sorted(earnings_data, key=lambda x: x.get('date', ''))
+                    return sorted_earnings[:20]  # Top 20
+                return []
+            return []
+        except Exception as e:
+            print(f"Error fetching earnings: {e}")
+            return []
+    
+    with st.spinner("📊 Loading earnings calendar..."):
+        weekly_earnings = get_weekly_earnings()
+    
+    if weekly_earnings:
+        # Group by date
+        from collections import defaultdict
+        earnings_by_date = defaultdict(list)
+        
+        for earning in weekly_earnings:
+            date = earning.get('date', 'Unknown')
+            earnings_by_date[date].append(earning)
+        
+        # Display by date
+        for date, earnings in sorted(earnings_by_date.items()):
+            # Format date nicely
+            try:
+                from datetime import datetime
+                date_obj = datetime.strptime(date, '%Y-%m-%d')
+                display_date = date_obj.strftime('%A, %B %d')  # e.g., "Monday, January 13"
             except:
-                pass
-        # Sort by date if available
-        try:
-            fmp_news = sorted(fmp_news, key=lambda x: x.get('publishedDate', ''), reverse=True)[:10]
-        except:
-            fmp_news = fmp_news[:10]
-    
-    # Fallback to general market news if still empty
-    if not fmp_news:
-        try:
-            news_url = f"{BASE_URL}/news/stock-news-sentiments-rss-feed?apikey={FMP_API_KEY}"
-            response = requests.get(news_url, timeout=10)
-            fmp_news = response.json()[:10] if response.status_code == 200 else []
-        except:
-            fmp_news = []
-    
-    if fmp_news:
-        for article in fmp_news[:10]:
-            title = article.get('title', 'No title')
-            published = article.get('publishedDate', '')[:10] if article.get('publishedDate') else ''
-            symbol = article.get('symbol', '')
-            url = article.get('url', '')
-            symbol_tag = f"[{symbol}] " if symbol else ""
-            if url:
-                st.markdown(f"- {symbol_tag}[{title}]({url}) ({published})")
-            else:
-                st.markdown(f"- {symbol_tag}**{title}** ({published})")
+                display_date = date
+            
+            st.markdown(f"**{display_date}**")
+            
+            for earning in earnings[:5]:  # Top 5 per day
+                symbol = earning.get('symbol', 'N/A')
+                time = earning.get('time', 'N/A')
+                eps_estimate = earning.get('epsEstimated', 'N/A')
+                revenue_estimate = earning.get('revenueEstimated', 'N/A')
+                
+                # Get company name
+                try:
+                    profile_url = f"{BASE_URL}/profile/{symbol}?apikey={FMP_API_KEY}"
+                    profile_resp = requests.get(profile_url, timeout=5)
+                    if profile_resp.status_code == 200:
+                        profile_data = profile_resp.json()
+                        if profile_data and len(profile_data) > 0:
+                            company_name = profile_data[0].get('companyName', symbol)
+                        else:
+                            company_name = symbol
+                    else:
+                        company_name = symbol
+                except:
+                    company_name = symbol
+                
+                # Display earning
+                time_emoji = "🌅" if time == "bmo" else "🌆" if time == "amc" else "📊"
+                time_display = "Before Market" if time == "bmo" else "After Market" if time == "amc" else "During Market"
+                
+                st.markdown(f"""
+                <div style="background: rgba(50, 50, 80, 0.3); padding: 15px; border-radius: 8px; 
+                            border-left: 4px solid #ff3333; margin-bottom: 10px;">
+                    <div style="color: #FFFFFF;">
+                        <strong style="color: #ff3333; font-size: 18px;">{symbol}</strong> - {company_name}<br>
+                        {time_emoji} <em>{time_display}</em><br>
+                        <span style="color: #90caf9;">EPS Est: {eps_estimate}</span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            st.markdown("")  # Spacing
     else:
-        # All API sources failed - show honest error message (not fake headlines)
-        st.warning("⚠️ Unable to load news headlines at this time. Please try again in a few moments.")
-        st.caption("This can happen if the news APIs are temporarily unavailable or rate-limited.")
+        st.info("No major earnings scheduled for this week.")
+    
+    st.markdown("---")
+    
+    # ============= STOCK-SPECIFIC NEWS SEARCH =============
+    st.markdown("### 🔍 Search Stock News")
+    intel_input = st.text_input(
+        "Enter a company name or ticker:",
+        "",
+        placeholder="e.g., Apple, Tesla, GOOGL, Microsoft",
+        key="intel_ticker_search"
+    )
+    
+    # Resolve company name to ticker
+    intel_ticker = resolve_company_to_ticker(intel_input) if intel_input.strip() else None
+    
+    # Show resolved ticker if different from input
+    if intel_input.strip() and intel_ticker and intel_ticker.upper() != intel_input.strip().upper():
+        st.caption(f"Searching for: **{intel_ticker}**")
+    
+    # Fit Check Panel (only if ticker selected)
+    if intel_ticker:
+        render_fit_check_panel(intel_ticker)
+        st.markdown("---")
+        
+        # Function to get market news via Perplexity API
+        def get_stock_intelligence(ticker):
+            """Fetch stock-specific news using Perplexity API"""
+            if not PERPLEXITY_API_KEY:
+                return None, "Perplexity API key not configured"
+            
+            try:
+                query = f"Latest news, catalysts, and market analysis for {ticker.upper()} stock. Include recent price movements, analyst opinions, and any significant company developments. Format with clear sections and bullet points."
+                
+                headers = {
+                    "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
+                    "Content-Type": "application/json"
+                }
+                
+                payload = {
+                    "model": "llama-3.1-sonar-large-128k-online",
+                    "messages": [
+                        {"role": "system", "content": "You are a financial news analyst. Provide concise, factual market updates with clear sections and bullet points. Make it easy to scan quickly."},
+                        {"role": "user", "content": query}
+                    ],
+                    "max_tokens": 1500
+                }
+                
+                response = requests.post(
+                    "https://api.perplexity.ai/chat/completions",
+                    headers=headers,
+                    json=payload,
+                    timeout=30
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                    return content, None
+                else:
+                    return None, f"API error: {response.status_code}"
+            except Exception as e:
+                return None, str(e)
+        
+        # Fetch and display stock news
+        with st.spinner(f"Fetching latest {intel_ticker} intelligence..."):
+            stock_news, stock_error = get_stock_intelligence(intel_ticker)
+        
+        if stock_news:
+            st.markdown(f"### 📊 {intel_ticker.upper()} - Latest News & Analysis")
+            
+            st.markdown(f"""
+            <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
+                        border: 2px solid #00D9FF; border-radius: 15px; padding: 30px; margin: 20px 0;">
+                <div style="color: #FFFFFF; font-size: 16px; line-height: 1.8;">
+                    {stock_news}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        elif stock_error:
+            st.warning(f"Could not fetch {intel_ticker} news: {stock_error}")
+        
+        # FMP news headlines for this stock
+        fmp_news = get_stock_specific_news(intel_ticker.upper(), 10)
+        if fmp_news:
+            st.markdown("#### Recent Headlines")
+            for article in fmp_news:
+                title = article.get('title', 'No title')
+                published = article.get('publishedDate', '')[:10] if article.get('publishedDate') else ''
+                url = article.get('url', '')
+                if url:
+                    st.markdown(f"- [{title}]({url}) ({published})")
+                else:
+                    st.markdown(f"- **{title}** ({published})")
     
     st.markdown("---")
     st.caption("*News powered by Perplexity AI and Financial Modeling Prep. This is not financial advice.*")
+
 
 
 elif selected_page == "👤 Naman's Portfolio":
@@ -12924,6 +13123,22 @@ CRITICAL REQUIREMENTS:
     with review_tab1:
         st.markdown("#### Upload Portfolio Screenshots")
         st.info("📱 Take screenshots from Robinhood, Fidelity, Schwab, or any broker. AI will extract your holdings.")
+        
+        # RED BACKGROUND for upload area (matches app theme)
+        st.markdown("""
+        <style>
+        div[data-testid="stFileUploader"] {
+            background-color: rgba(255, 50, 50, 0.1);
+            border: 2px solid #ff3333;
+            border-radius: 10px;
+            padding: 20px;
+        }
+        div[data-testid="stFileUploader"] > label {
+            color: #ff3333 !important;
+            font-weight: bold;
+        }
+        </style>
+        """, unsafe_allow_html=True)
         
         # File uploader for 1-5 images
         uploaded_files = st.file_uploader(
