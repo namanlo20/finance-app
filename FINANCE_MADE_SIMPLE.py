@@ -8798,6 +8798,9 @@ elif selected_page == "📚 Finance 101":
         for term in ["P/E Ratio", "P/S Ratio", "Market Cap", "Beta", "Debt-to-Equity", "Quick Ratio"]:
             with st.expander(term):
                 st.write(GLOSSARY[term])
+    
+    # AI Coach integration
+    render_ai_coach("Finance 101", ticker=None, facts=None)
 
 
 elif selected_page == "🧠 Risk Quiz":
@@ -9006,7 +9009,9 @@ elif selected_page == "🧠 Risk Quiz":
             if st.button("🔄 Retake Quiz", use_container_width=True, type="secondary"):
                 st.session_state.risk_quiz_submitted = False
                 st.rerun()
-
+    
+    # AI Coach integration
+    render_ai_coach("Risk Quiz", ticker=None, facts=None)
 
 
 elif selected_page == "📊 Company Analysis":
@@ -10838,7 +10843,8 @@ elif selected_page == "📊 Market Overview":
             st.write(f"Debug: selected_sectors = {selected_sectors}")
             st.write(f"Debug: rows list was empty after processing")
 
-
+    # AI Coach integration
+    render_ai_coach("Market Overview", ticker=None, facts=None)
 
 
 elif selected_page == "📈 Financial Health":
@@ -11143,6 +11149,9 @@ elif selected_page == "📈 Financial Health":
     else:
         st.warning(f"No ratio data available for {ticker}. Try a different ticker.")
         st.info("**Tip:** Try major stocks like AAPL, MSFT, GOOGL, or AMZN")
+    
+    # AI Coach integration
+    render_ai_coach("Financial Health", ticker=ratio_ticker if ratio_ticker else None, facts=None)
 
 
 # ============= MARKET INTELLIGENCE TAB =============
@@ -11551,6 +11560,9 @@ elif selected_page == "📰 Market Intelligence":
     
     st.markdown("---")
     st.caption("*News powered by Perplexity AI and Financial Modeling Prep. This is not financial advice.*")
+    
+    # AI Coach integration
+    render_ai_coach("Market Intelligence", ticker=None, facts=None)
 
 
 
@@ -12701,6 +12713,9 @@ elif selected_page == "📊 Pro Checklist":
         # ✅ Removed Fundamental Screening from Pro (Pro is technical + AI only)
         
         # ✅ PRO CLEANUP + THEME FIX COMPLETE
+    
+    # AI Coach integration
+    render_ai_coach("Pro Checklist", ticker=pro_ticker if pro_ticker else None, facts=None)
 
 
 # ============================================================================
@@ -14063,6 +14078,9 @@ Return JSON with grade, summary, top_risks (MAX 5), improvement_playbook (MAX 5)
         
         else:
             st.info("💼 You don't have any positions in your Paper Portfolio yet. Go to the Paper Portfolio tab to start trading!")
+    
+    # AI Coach integration
+    render_ai_coach("Portfolio Review", ticker=None, facts=None)
 
 
 # NEW PAPER PORTFOLIO PAGE - Section 6 Implementation
@@ -14774,6 +14792,10 @@ elif selected_page == "💼 Paper Portfolio":
         save_user_progress()
         st.success("Portfolio reset! You have $50,000 to start fresh.")
         st.rerun()
+    
+    # AI Coach integration
+    render_ai_coach("Paper Portfolio", ticker=None, facts=None)
+
 elif selected_page == "✅ Portfolio Risk Analyzer":
     st.header("📈 Portfolio Risk Analyzer")
     st.write("Deep risk analysis with AI-powered roasts 😈")
@@ -15043,6 +15065,9 @@ elif selected_page == "✅ Portfolio Risk Analyzer":
                             st.info(rec)
                     else:
                         st.success("✅ Portfolio looks well-balanced!")
+    
+    # AI Coach integration
+    render_ai_coach("Portfolio Risk Analyzer", ticker=None, facts=None)
 
 # ============= FOUNDER TRACK RECORD (PUBLIC READ-ONLY) =============
 elif selected_page == "📜 Founder Track Record":
