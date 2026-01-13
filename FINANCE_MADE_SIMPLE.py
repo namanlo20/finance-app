@@ -5859,7 +5859,8 @@ with st.sidebar:
             "📊 Company Analysis",
             "📈 Financial Health",
             "📰 Market Intelligence",
-            "📊 Market Overview"
+            "📊 Market Overview",
+            "🔍 AI Stock Screener"
         ]
         for tool in analysis_tools:
             if st.button(tool, key=f"btn_{tool}", use_container_width=True):
@@ -10847,6 +10848,72 @@ elif selected_page == "📊 Market Overview":
     render_ai_coach("Market Overview", ticker=None, facts=None)
 
 
+# ============= AI STOCK SCREENER PAGE =============
+elif selected_page == "🔍 AI Stock Screener":
+    # Red pill header matching the app theme
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, #FF4B4B 0%, #CC0000 100%); 
+                padding: 15px 25px; 
+                border-radius: 15px; 
+                text-align: center; 
+                margin-bottom: 25px;
+                box-shadow: 0 4px 15px rgba(255, 51, 51, 0.3);">
+        <h2 style="margin: 0; color: #FFFFFF; font-size: 24px; font-weight: bold;">
+            🔍 AI Stock Screener — Just Ask!
+        </h2>
+        <p style="margin: 5px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">
+            Natural language screening • AI-powered • Ultimate tier exclusive
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("### 🚀 Coming Soon!")
+    st.info("""
+    **Natural Language Stock Screening:**
+    
+    Just type what you want in plain English:
+    - "Find stocks growing revenue 10%+, with strong FCF margins, but trading at lower multiples"
+    - "Show me undervalued tech companies under $10B"
+    - "Give me dividend growers with low debt"
+    
+    AI will parse your query, search the database, and show you matching stocks with justifications!
+    
+    **This feature is being integrated now. Check back soon!**
+    """)
+    
+    st.markdown("---")
+    st.markdown("### 💡 Example Queries")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("""
+        **Growth + Value:**
+        - Find tech stocks growing 15%+ with high FCF
+        - Show me small caps with explosive growth but cheap
+        
+        **Quality + Income:**
+        - Give me dividend aristocrats with low debt
+        - Find stocks with ROE over 30% and low leverage
+        """)
+    
+    with col2:
+        st.markdown("""
+        **Value Plays:**
+        - Show me undervalued stocks with P/E under 12
+        - Find companies trading below book value
+        
+        **Custom Criteria:**
+        - Stocks improving margins with growing revenue
+        - Companies with high FCF yield but low P/S
+        """)
+    
+    st.markdown("---")
+    st.caption("*This screener module is available separately. Contact for integration.*")
+    
+    # AI Coach integration
+    render_ai_coach("AI Stock Screener", ticker=None, facts=None)
+
+
 elif selected_page == "📈 Financial Health":
     
     st.header("📈 Financial Health - Historical Trends")
@@ -12715,7 +12782,7 @@ elif selected_page == "📊 Pro Checklist":
         # ✅ PRO CLEANUP + THEME FIX COMPLETE
     
     # AI Coach integration
-    render_ai_coach("Pro Checklist", ticker=pro_ticker if pro_ticker else None, facts=None)
+    render_ai_coach("Pro Checklist", ticker=ticker_check if 'ticker_check' in locals() else None, facts=None)
 
 
 # ============================================================================
