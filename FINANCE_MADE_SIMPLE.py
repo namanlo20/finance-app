@@ -15,6 +15,7 @@ import json
 import time
 
 import re
+import urllib.parse
 # Build stamp for deploy verification
 BUILD_STAMP = os.getenv("RENDER_GIT_COMMIT", "")[:7] or str(int(time.time()))
 
@@ -4127,7 +4128,7 @@ def show_welcome_popup():
         }
         </style>
         <!-- Auto-dismiss after 10 seconds using meta refresh (no JS needed, works in same tab) -->
-        <meta http-equiv="refresh" content="10;url=?dismiss_welcome=1">
+        <meta http-equiv="refresh" content="10;url={_url_with_query_updates(dismiss_welcome=1)}">
         <div class="welcome-overlay">
             <div class="welcome-popup">
                 <!-- X button using HTML form GET submit (works in same tab, no JS needed) -->
@@ -4160,10 +4161,40 @@ def _page_slug(page_name: str) -> str:
     except Exception:
         return "page"
 
+
+def _normalized_query_params() -> dict:
+    """Return current query params as a simple str->str dict (Streamlit may store lists)."""
+    qp = {}
+    try:
+        for k, v in st.query_params.items():
+            if isinstance(v, (list, tuple)):
+                if v:
+                    qp[k] = str(v[0])
+            elif v is not None:
+                qp[k] = str(v)
+    except Exception:
+        pass
+    return qp
+
+
+def _url_with_query_updates(**updates) -> str:
+    """Build a same-page URL query string, preserving existing params and applying updates."""
+    qp = _normalized_query_params()
+    for k, v in updates.items():
+        if v is None:
+            qp.pop(k, None)
+        else:
+            qp[k] = str(v)
+    return "?" + urllib.parse.urlencode(qp)
+
 def show_tab_summary_popup(selected_page: str):
     """Show a per-tab summary popup once per session (dismiss with X or auto-dismiss in 10s)."""
     # Skip if page label is missing
     if not selected_page:
+        return
+
+    # IMPORTANT: Start Here uses the dedicated welcome popup only (avoid stacked overlays)
+    if "Start Here" in str(selected_page):
         return
 
     # Initialize state
@@ -4403,7 +4434,7 @@ def show_tab_summary_popup(selected_page: str):
     }}
     </style>
 
-    <meta http-equiv="refresh" content="10;url=?dismiss_tab={page_key}">
+    <meta http-equiv="refresh" content="10;url={_url_with_query_updates(dismiss_tab=page_key)}">
     <div class="tab-summary-overlay">
       <div class="tab-summary-popup">
         <form class="tab-close-form" method="get">
