@@ -36,6 +36,138 @@ STARTING_CASH = float(os.environ.get("STARTING_CASH", "100000"))
 st.set_page_config(page_title="Investing Made Simple", layout="wide", page_icon="💰")
 
 
+# ============================================
+# PAGE TOUR POPUP SYSTEM
+# ============================================
+
+def should_show_popup(page_id):
+    """Check if popup should be shown for this page"""
+    if 'dismissed_popups' not in st.session_state:
+        st.session_state.dismissed_popups = set()
+    
+    # Already dismissed this session
+    if page_id in st.session_state.dismissed_popups:
+        return False
+    
+    # Check database for logged-in users
+    user_id = st.session_state.get('user_id')
+    if user_id:
+        try:
+            if 'seen_popups_db' not in st.session_state:
+                # Load from Supabase
+                from supabase import create_client
+                SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+                SUPABASE_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
+                if SUPABASE_URL and SUPABASE_KEY:
+                    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+                    result = supabase.table('profiles').select('seen_page_tours').eq('id', user_id).execute()
+                    if result.data and len(result.data) > 0:
+                        seen = result.data[0].get('seen_page_tours', [])
+                        st.session_state.seen_popups_db = set(seen) if seen else set()
+                    else:
+                        st.session_state.seen_popups_db = set()
+            
+            return page_id not in st.session_state.seen_popups_db
+        except:
+            return True  # Fail-soft: show popup
+    
+    return True
+
+
+def dismiss_popup(page_id):
+    """Dismiss popup and persist to database"""
+    if 'dismissed_popups' not in st.session_state:
+        st.session_state.dismissed_popups = set()
+    st.session_state.dismissed_popups.add(page_id)
+    
+    # Persist for logged-in users
+    user_id = st.session_state.get('user_id')
+    if user_id:
+        try:
+            from supabase import create_client
+            SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+            SUPABASE_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
+            if SUPABASE_URL and SUPABASE_KEY:
+                supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+                
+                if 'seen_popups_db' not in st.session_state:
+                    st.session_state.seen_popups_db = set()
+                st.session_state.seen_popups_db.add(page_id)
+                
+                seen_list = list(st.session_state.seen_popups_db)
+                supabase.table('profiles').update({
+                    'seen_page_tours': seen_list
+                }).eq('id', user_id).execute()
+        except:
+            pass  # Fail-soft
+
+
+def show_page_popup(page_id, title, bullets, pro_tip):
+    """Show page popup with auto-dismiss"""
+    if not should_show_popup(page_id):
+        return
+    
+    # Auto-dismiss timer
+    timer_key = f'popup_timer_{page_id}'
+    if timer_key not in st.session_state:
+        st.session_state[timer_key] = time.time()
+    
+    elapsed = time.time() - st.session_state[timer_key]
+    
+    if elapsed >= 10:
+        dismiss_popup(page_id)
+        st.rerun()
+        return
+    
+    remaining = int(10 - elapsed)
+    
+    # Render popup
+    bullets_html = '<br>'.join([f'• {b}' for b in bullets])
+    
+    modal_html = f"""
+    <div id="popup-modal" style="
+        position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        z-index: 10000; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        border: 2px solid #ff3333; border-radius: 20px; padding: 30px;
+        max-width: 500px; width: 90%; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    ">
+        <button onclick="document.getElementById('popup-modal').style.display='none';
+                        document.getElementById('popup-overlay').style.display='none';
+                        document.getElementById('dismiss-btn-{page_id}').click();"
+                style="position: absolute; top: 10px; right: 10px;
+                       background: #ff3333; color: white; border: none;
+                       border-radius: 50%; width: 32px; height: 32px;
+                       font-size: 20px; cursor: pointer; font-weight: bold;">×</button>
+        
+        <h2 style="color: #FFFFFF; margin-bottom: 20px; font-size: 22px;">{title}</h2>
+        <div style="color: #FFFFFF; line-height: 2; font-size: 15px;">
+            {bullets_html}
+        </div>
+        <div style="background: rgba(255, 165, 0, 0.15); padding: 15px;
+                    border-radius: 10px; border-left: 4px solid #FFA500; margin-top: 20px;">
+            <p style="margin: 0; color: #FFA500; font-size: 14px;">{pro_tip}</p>
+        </div>
+        <p style="color: #999; text-align: center; margin-top: 20px; font-size: 13px;">
+            Auto-closes in {remaining} seconds...
+        </p>
+    </div>
+    <div id="popup-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                                   background: rgba(0, 0, 0, 0.7); z-index: 9999;"></div>
+    """
+    
+    st.markdown(modal_html, unsafe_allow_html=True)
+    
+    # Hidden dismiss button
+    if st.button("", key=f"dismiss-btn-{page_id}"):
+        dismiss_popup(page_id)
+        st.rerun()
+    
+    # Auto-refresh
+    time.sleep(1)
+    st.rerun()
+
+
+
 
 # --- GLOBAL UI THEME OVERRIDES (dropdowns = red background) ---
 st.markdown("""
@@ -639,12 +771,103 @@ else:
     [data-testid="stHeader"] { background: #FFFFFF !important; }
     [data-testid="stSidebar"] { background: #F5F5F5 !important; padding-top: 80px !important; }
     
-    /* Force black text on white background */
+    /* CRITICAL: Force black text on white background - EVERYWHERE */
     html, body, .stApp, [data-testid="stAppViewContainer"], 
     [data-testid="stSidebar"], p, span, div, label, li, td, th,
     .stMarkdown, .stText, [data-testid="stMarkdownContainer"],
     .element-container, .stRadio label, .stSelectbox label,
     .stTextInput label, .stSlider label, .stCheckbox label {
+        color: #000000 !important;
+    }
+    
+    /* Sidebar text MUST be dark */
+    [data-testid="stSidebar"] * {
+        color: #000000 !important;
+    }
+    [data-testid="stSidebar"] .stMarkdown,
+    [data-testid="stSidebar"] p,
+    [data-testid="stSidebar"] span,
+    [data-testid="stSidebar"] label {
+        color: #000000 !important;
+    }
+    
+    /* INPUT FIELDS - White background, dark text, visible border */
+    .stTextInput input, .stTextArea textarea, .stNumberInput input {
+        background: #FFFFFF !important;
+        color: #000000 !important;
+        border: 2px solid #CCCCCC !important;
+    }
+    .stTextInput input:focus, .stTextArea textarea:focus, .stNumberInput input:focus {
+        border-color: #FF4444 !important;
+    }
+    
+    /* DROPDOWNS - White background, dark text */
+    [data-testid="stSelectbox"] > div > div {
+        background: #FFFFFF !important;
+        color: #000000 !important;
+        border: 2px solid #CCCCCC !important;
+    }
+    [data-testid="stSelectbox"] [data-baseweb="select"] > div {
+        background: #FFFFFF !important;
+        color: #000000 !important;
+    }
+    [data-testid="stSelectbox"] [data-baseweb="select"] > div > div {
+        color: #000000 !important;
+    }
+    
+    /* Dropdown menu options */
+    [data-baseweb="menu"] {
+        background: #FFFFFF !important;
+        border: 2px solid #CCCCCC !important;
+    }
+    [data-baseweb="menu"] li {
+        background: #FFFFFF !important;
+        color: #000000 !important;
+    }
+    [data-baseweb="menu"] li:hover {
+        background: #F0F0F0 !important;
+        color: #000000 !important;
+    }
+    [data-baseweb="menu"] li[aria-selected="true"] {
+        background: #FF4444 !important;
+        color: #FFFFFF !important;
+    }
+    
+    /* EXPANDERS */
+    .streamlit-expanderHeader {
+        background: #F5F5F5 !important;
+        color: #000000 !important;
+        border: 1px solid #CCCCCC !important;
+    }
+    .streamlit-expanderContent {
+        background: #FAFAFA !important;
+        color: #000000 !important;
+    }
+    [data-testid="stExpander"] {
+        border: 1px solid #CCCCCC !important;
+    }
+    [data-testid="stExpanderContent"] * {
+        color: #000000 !important;
+    }
+    
+    /* TABS */
+    .stTabs [data-baseweb="tab-list"] {
+        background: #F5F5F5 !important;
+    }
+    .stTabs [data-baseweb="tab-list"] button {
+        color: #000000 !important;
+    }
+    .stTabs [data-baseweb="tab-list"] button[aria-selected="true"] {
+        color: #FF4444 !important;
+        border-bottom-color: #FF4444 !important;
+    }
+    
+    /* ALERTS */
+    .stAlert {
+        background: #F5F5F5 !important;
+        border: 1px solid #CCCCCC !important;
+    }
+    .stAlert * {
         color: #000000 !important;
     }
     
@@ -657,7 +880,10 @@ else:
     }
     
     /* Dataframe/Table text */
-    .stDataFrame, .dataframe, table, tr, td, th { color: #000000 !important; }
+    .stDataFrame, .dataframe, table, tr, td, th { 
+        color: #000000 !important; 
+        background: #FFFFFF !important;
+    }
     
     .why-box { 
         background: rgba(255,255,255,0.9); 
@@ -7584,6 +7810,18 @@ elif selected_page == "📖 Basics":
     - Personalized recommendations
     """
     
+    # Show page popup
+    show_page_popup(
+        'learn_hub',
+        '📚 Learn Hub - Master Investing',
+        [
+            '🎓 55 interactive lessons covering all topics',
+            '🏆 Earn XP and badges as you progress',
+            '📝 Take quizzes to test your knowledge'
+        ],
+        '💡 TIP: Complete lessons in order to build a strong foundation!'
+    )
+    
     # ============= SESSION STATE INITIALIZATION =============
     # Initialize all Learn Hub state variables
     if 'learn_current_level' not in st.session_state:
@@ -8636,6 +8874,18 @@ elif selected_page == "📚 Finance 101":
     st.header("📚 Finance 101")
     st.caption("*Learn the language of investing through visual cards and interactive examples.*")
     
+    # Show page popup
+    show_page_popup(
+        'finance_101',
+        '🎓 Finance 101 - Quick Basics',
+        [
+            '📖 Learn key financial terms and concepts',
+            '💰 Understand stocks, bonds, and ETFs',
+            '📊 Master financial statement basics'
+        ],
+        '💡 TIP: Great starting point if you\'re new to investing!'
+    )
+    
     # ============= TOP 5 METRICS SECTION (C - moved from Company Analysis) =============
     st.markdown("---")
     st.markdown("## 🏆 The 5 Metrics That Actually Matter")
@@ -9063,6 +9313,18 @@ elif selected_page == "🧠 Risk Quiz":
 
 
 elif selected_page == "📊 Company Analysis":
+    
+    # Show page popup
+    show_page_popup(
+        'company_analysis',
+        '🔍 Company Analysis - Deep Dive',
+        [
+            '📊 View financial metrics and ratios',
+            '📈 Analyze stock charts with indicators',
+            '💼 Compare companies side-by-side'
+        ],
+        '💡 TIP: Research here before making investment decisions!'
+    )
     
     # Robinhood-style guidance
     st.caption("*This page explains how this company makes money and where the risks are.*")
@@ -11271,6 +11533,18 @@ elif selected_page == "📈 Financial Health":
 # ============= MARKET INTELLIGENCE TAB =============
 elif selected_page == "📰 Market Intelligence":
     
+    # Show page popup
+    show_page_popup(
+        'market_intelligence',
+        '📰 Market Intelligence - Stay Informed',
+        [
+            '📰 AI-powered news summaries',
+            '📅 Upcoming earnings calendar',
+            '💡 Search news for specific stocks'
+        ],
+        '💡 TIP: Check daily to stay ahead of market-moving events!'
+    )
+    
     st.header("📰 Market Intelligence & News")
     st.markdown("**Stay informed with AI-powered market insights, news, and earnings**")
     
@@ -11326,14 +11600,15 @@ elif selected_page == "📰 Market Intelligence":
             "llama-3.1-sonar-small-128k-online"
         ]
         
-        query = """What are the top 10 most important financial and stock market news stories today? 
+        query = """What are today's top 10 financial market news stories?
 
-Format as a clean numbered list:
-1. **Headline** - Brief 1-sentence summary [Ticker if relevant]
-2. **Headline** - Brief 1-sentence summary [Ticker if relevant]
+CRITICAL: Format as clean bullet points, ONE item per line:
 
-Focus on: Market movements, Fed/economic data, major earnings, M&A, sector trends.
-Keep each item to 2 lines maximum."""
+• **Headline** - One sentence summary [Ticker]
+• **Headline** - One sentence summary [Ticker]
+
+Focus on: earnings, Fed news, market movements, economic data, major M&A.
+Keep each bullet to ONE line only."""
         
         headers = {
             "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
@@ -11529,19 +11804,22 @@ Keep each item to 2 lines maximum."""
             "llama-3.1-sonar-small-128k-online"
         ]
         
-        query = """What are the most important earnings reports happening this week (Monday through Friday)?
+        query = """List ALL companies reporting earnings this week (January 13-17, 2026), including banks like JPMorgan, Citigroup, Wells Fargo, Bank of America.
 
-Format as a simple list by day:
-
-**Monday, January 13:**
-- SYMBOL (Company Name) - Before/After Market - EPS estimate if available
+Format by day as clean bullet points:
 
 **Tuesday, January 14:**
-- SYMBOL (Company Name) - Before/After Market - EPS estimate if available
+• JPM (JPMorgan Chase) - Before Market - EPS $4.98
+• WFC (Wells Fargo) - Before Market
+• [any others reporting]
 
-Focus on well-known companies with market cap over $5B.
-Include 3-5 companies per day maximum.
-Only include companies actually reporting this week."""
+**Wednesday, January 15:**
+• C (Citigroup) - Before Market
+• [any others reporting]
+
+Include ALL companies reporting, especially major banks and financials.
+If a day has no earnings, say "No major earnings scheduled."
+Be specific with company names and tickers."""
         
         headers = {
             "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
@@ -12109,6 +12387,19 @@ elif selected_page == "👑 Become a VIP":
 
 
 elif selected_page == "📊 Pro Checklist":
+    
+    # Show page popup
+    show_page_popup(
+        'pro_checklist',
+        '📊 Pro Checklist - Chart Analysis',
+        [
+            '📈 AI-powered technical pattern detection',
+            '🤖 Get AI explanations of chart patterns',
+            '✅ Complete pre-investment checklist'
+        ],
+        '💡 TIP: Combine technical and fundamental analysis for better decisions!'
+    )
+    
     # ============= YELLOW PILL HEADER =============
     st.markdown("""
     <div style="background: linear-gradient(135deg, #FFD60A 0%, #FFA500 100%); 
@@ -12880,6 +13171,19 @@ elif selected_page == "📊 Pro Checklist":
 # ============================================================================
 
 elif selected_page == "👑 Ultimate":
+    
+    # Show page popup
+    show_page_popup(
+        'ultimate',
+        '👑 Ultimate - Portfolio Review',
+        [
+            '📸 Upload portfolio screenshots for AI analysis',
+            '🤖 Get personalized feedback on your holdings',
+            '💡 Discover improvement opportunities'
+        ],
+        '💡 TIP: Upload screenshots from your broker app for best results!'
+    )
+    
     # ============= PURPLE PILL HEADER =============
     st.markdown("""
     <div style="background: linear-gradient(135deg, #9D4EDD 0%, #7B2CBF 100%); 
@@ -14244,6 +14548,19 @@ Return JSON with grade, summary, top_risks (MAX 5), improvement_playbook (MAX 5)
 # This will replace lines 8367-8765 in the main file
 
 elif selected_page == "💼 Paper Portfolio":
+    
+    # Show page popup
+    show_page_popup(
+        'paper_portfolio',
+        '💼 Paper Portfolio - Practice Trading',
+        [
+            '🎮 Trade with fake money ($100,000 balance)',
+            '📊 Track your performance vs the market',
+            '🧠 Learn without risk'
+        ],
+        '💡 TIP: Practice your strategy here before using real money!'
+    )
+    
     st.header("💼 Paper Portfolio")
     st.caption("*Practice trading with fake money. Track your performance vs the market.*")
     
