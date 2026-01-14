@@ -6215,8 +6215,9 @@ render_right_side_ticker()
 # ============= AI CHATBOT (BOTTOM-RIGHT) =============
 render_ai_chatbot()
 
-# ============= WELCOME POPUP FOR FIRST-TIME USERS =============
-show_welcome_popup()
+# ============= WELCOME POPUP (START HERE ONLY, FIRST VISIT) =============
+if st.session_state.get('selected_page') == "🏠 Start Here":
+    show_welcome_popup()
 
 # ============= AUTH POPUPS =============
 if st.session_state.get('show_login_popup', False):
@@ -6283,6 +6284,22 @@ with st.sidebar:
     # Initialize selected page in session state if not exists
     if 'selected_page' not in st.session_state:
         st.session_state.selected_page = "🏠 Start Here"
+
+    # Keep URL in sync with the current page so auto-dismiss refreshes don't dump users back to Start Here.
+    # Deep-linking: if someone lands on ?page=<slug>, open that page.
+    _all_pages = [
+        "🏠 Start Here","📖 Basics","📚 Finance 101","🧠 Risk Quiz",
+        "📊 Company Analysis","📈 Financial Health","📰 Market Intelligence","📊 Market Overview","🔍 AI Stock Screener",
+        "📊 Pro Checklist","👑 Ultimate","💼 Paper Portfolio","👤 Naman's Portfolio","📜 Founder Track Record",
+        "👑 Become a VIP"
+    ]
+    _page_slug_to_label = { _page_slug(p): p for p in _all_pages }
+
+    _qp_page = st.query_params.get("page")
+    if isinstance(_qp_page, (list, tuple)):
+        _qp_page = _qp_page[0] if _qp_page else None
+    if _qp_page and _qp_page in _page_slug_to_label:
+        st.session_state.selected_page = _page_slug_to_label[_qp_page]
     
     # 1. START HERE GROUP
     with st.expander("### 1. 📖 Start Here", expanded=True):
@@ -6296,6 +6313,7 @@ with st.sidebar:
         for tool in start_here_tools:
             if st.button(tool, key=f"btn_{tool}", use_container_width=True):
                 st.session_state.selected_page = tool
+                st.query_params["page"] = _page_slug(tool)
                 st.rerun()
     
     # 2. THE ANALYSIS GROUP
@@ -6311,6 +6329,7 @@ with st.sidebar:
         for tool in analysis_tools:
             if st.button(tool, key=f"btn_{tool}", use_container_width=True):
                 st.session_state.selected_page = tool
+                st.query_params["page"] = _page_slug(tool)
                 st.rerun()
     
     # 3. THE ACTION GROUP
@@ -6326,10 +6345,17 @@ with st.sidebar:
         for tool in action_tools:
             if st.button(tool, key=f"btn_{tool}", use_container_width=True):
                 st.session_state.selected_page = tool
+                st.query_params["page"] = _page_slug(tool)
                 st.rerun()
     
     # Get the selected page from session state
     selected_page = st.session_state.selected_page
+    _curr_page_qp = st.query_params.get("page")
+    if isinstance(_curr_page_qp, (list, tuple)):
+        _curr_page_qp = _curr_page_qp[0] if _curr_page_qp else None
+    _desired_page_qp = _page_slug(selected_page)
+    if _curr_page_qp != _desired_page_qp:
+        st.query_params["page"] = _desired_page_qp
 
     # Per-tab summary popup (dismiss with X or auto-closes)
     show_tab_summary_popup(selected_page)
