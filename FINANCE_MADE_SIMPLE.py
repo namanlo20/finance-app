@@ -37,11 +37,11 @@ st.set_page_config(page_title="Investing Made Simple", layout="wide", page_icon=
 
 
 # ============================================
-# PAGE TOUR POPUP SYSTEM
+# PAGE POPUP SYSTEM - CLEAN VERSION
 # ============================================
 
 def should_show_popup(page_id):
-    """Check if popup should be shown for this page"""
+    """Check if popup should be shown"""
     if 'dismissed_popups' not in st.session_state:
         st.session_state.dismissed_popups = set()
     
@@ -54,115 +54,99 @@ def should_show_popup(page_id):
     if user_id:
         try:
             if 'seen_popups_db' not in st.session_state:
-                # Load from Supabase
-                from supabase import create_client
-                SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
-                SUPABASE_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
-                if SUPABASE_URL and SUPABASE_KEY:
-                    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-                    result = supabase.table('profiles').select('seen_page_tours').eq('id', user_id).execute()
-                    if result.data and len(result.data) > 0:
-                        seen = result.data[0].get('seen_page_tours', [])
-                        st.session_state.seen_popups_db = set(seen) if seen else set()
-                    else:
-                        st.session_state.seen_popups_db = set()
-            
+                st.session_state.seen_popups_db = set()
             return page_id not in st.session_state.seen_popups_db
         except:
-            return True  # Fail-soft: show popup
+            return True
     
     return True
 
 
-def dismiss_popup(page_id):
-    """Dismiss popup and persist to database"""
-    if 'dismissed_popups' not in st.session_state:
-        st.session_state.dismissed_popups = set()
-    st.session_state.dismissed_popups.add(page_id)
-    
-    # Persist for logged-in users
-    user_id = st.session_state.get('user_id')
-    if user_id:
-        try:
-            from supabase import create_client
-            SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
-            SUPABASE_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
-            if SUPABASE_URL and SUPABASE_KEY:
-                supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-                
-                if 'seen_popups_db' not in st.session_state:
-                    st.session_state.seen_popups_db = set()
-                st.session_state.seen_popups_db.add(page_id)
-                
-                seen_list = list(st.session_state.seen_popups_db)
-                supabase.table('profiles').update({
-                    'seen_page_tours': seen_list
-                }).eq('id', user_id).execute()
-        except:
-            pass  # Fail-soft
-
-
-def show_page_popup(page_id, title, bullets, pro_tip):
-    """Show page popup with auto-dismiss"""
+def show_page_popup(page_id, title, summary, cool_feature):
+    """Show clean popup with summary and cool feature"""
     if not should_show_popup(page_id):
         return
     
-    # Auto-dismiss timer
+    # Use streamlit's native dialog (if available) or clean container
+    with st.container():
+        # Create overlay effect
+        st.markdown("""
+        <style>
+        .popup-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 9999;
+        }
+        </style>
+        <div class="popup-overlay"></div>
+        """, unsafe_allow_html=True)
+        
+        # Center container
+        col1, col2, col3 = st.columns([1, 2, 1])
+        
+        with col2:
+            st.markdown(f"""
+            <div style="
+                background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                border: 2px solid #ff3333;
+                border-radius: 20px;
+                padding: 30px;
+                margin-top: 100px;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            ">
+                <h2 style="color: #FFFFFF; margin-bottom: 20px;">{title}</h2>
+                <p style="color: #FFFFFF; font-size: 16px; line-height: 1.8; margin-bottom: 20px;">
+                    {summary}
+                </p>
+                <div style="
+                    background: rgba(255, 165, 0, 0.15);
+                    padding: 15px;
+                    border-radius: 10px;
+                    border-left: 4px solid #FFA500;
+                ">
+                    <p style="margin: 0; color: #FFA500; font-size: 15px;">
+                        🌟 <strong>Cool Feature:</strong> {cool_feature}
+                    </p>
+                </div>
+                <p style="color: #999; text-align: center; margin-top: 20px; font-size: 13px;">
+                    Auto-closes in 10 seconds...
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Close button
+            if st.button("✕ Close", key=f"close_popup_{page_id}", type="primary"):
+                st.session_state.dismissed_popups.add(page_id)
+                
+                # Persist to database if logged in
+                user_id = st.session_state.get('user_id')
+                if user_id:
+                    try:
+                        if 'seen_popups_db' not in st.session_state:
+                            st.session_state.seen_popups_db = set()
+                        st.session_state.seen_popups_db.add(page_id)
+                        # Save to Supabase here if available
+                    except:
+                        pass
+                
+                st.rerun()
+    
+    # Auto-dismiss after 10 seconds
+    import time
     timer_key = f'popup_timer_{page_id}'
     if timer_key not in st.session_state:
         st.session_state[timer_key] = time.time()
     
     elapsed = time.time() - st.session_state[timer_key]
-    
     if elapsed >= 10:
-        dismiss_popup(page_id)
-        st.rerun()
-        return
-    
-    remaining = int(10 - elapsed)
-    
-    # Render popup
-    bullets_html = '<br>'.join([f'• {b}' for b in bullets])
-    
-    modal_html = f"""
-    <div id="popup-modal" style="
-        position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-        z-index: 10000; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-        border: 2px solid #ff3333; border-radius: 20px; padding: 30px;
-        max-width: 500px; width: 90%; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-    ">
-        <button onclick="document.getElementById('popup-modal').style.display='none';
-                        document.getElementById('popup-overlay').style.display='none';
-                        document.getElementById('dismiss-btn-{page_id}').click();"
-                style="position: absolute; top: 10px; right: 10px;
-                       background: #ff3333; color: white; border: none;
-                       border-radius: 50%; width: 32px; height: 32px;
-                       font-size: 20px; cursor: pointer; font-weight: bold;">×</button>
-        
-        <h2 style="color: #FFFFFF; margin-bottom: 20px; font-size: 22px;">{title}</h2>
-        <div style="color: #FFFFFF; line-height: 2; font-size: 15px;">
-            {bullets_html}
-        </div>
-        <div style="background: rgba(255, 165, 0, 0.15); padding: 15px;
-                    border-radius: 10px; border-left: 4px solid #FFA500; margin-top: 20px;">
-            <p style="margin: 0; color: #FFA500; font-size: 14px;">{pro_tip}</p>
-        </div>
-        <p style="color: #999; text-align: center; margin-top: 20px; font-size: 13px;">
-            Auto-closes in {remaining} seconds...
-        </p>
-    </div>
-    <div id="popup-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-                                   background: rgba(0, 0, 0, 0.7); z-index: 9999;"></div>
-    """
-    
-    st.markdown(modal_html, unsafe_allow_html=True)
-    
-    # Hidden dismiss button
-    if st.button("", key=f"dismiss-btn-{page_id}"):
-        dismiss_popup(page_id)
+        st.session_state.dismissed_popups.add(page_id)
         st.rerun()
     
-    # Auto-refresh
+    # Refresh to update countdown
     time.sleep(1)
     st.rerun()
 
@@ -7814,12 +7798,8 @@ elif selected_page == "📖 Basics":
     show_page_popup(
         'learn_hub',
         '📚 Learn Hub - Master Investing',
-        [
-            '🎓 55 interactive lessons covering all topics',
-            '🏆 Earn XP and badges as you progress',
-            '📝 Take quizzes to test your knowledge'
-        ],
-        '💡 TIP: Complete lessons in order to build a strong foundation!'
+        'Complete 55 interactive lessons covering everything from stocks to options. Earn XP and badges as you progress through beginner, intermediate, and advanced topics.',
+        'Take quizzes after each lesson to test your knowledge and unlock achievements!'
     )
     
     # ============= SESSION STATE INITIALIZATION =============
@@ -8878,12 +8858,8 @@ elif selected_page == "📚 Finance 101":
     show_page_popup(
         'finance_101',
         '🎓 Finance 101 - Quick Basics',
-        [
-            '📖 Learn key financial terms and concepts',
-            '💰 Understand stocks, bonds, and ETFs',
-            '📊 Master financial statement basics'
-        ],
-        '💡 TIP: Great starting point if you\'re new to investing!'
+        'Learn essential financial terms and concepts. Understand the difference between stocks, bonds, and ETFs. Master reading financial statements.',
+        'Visual card system makes complex topics easy to understand!'
     )
     
     # ============= TOP 5 METRICS SECTION (C - moved from Company Analysis) =============
@@ -9318,12 +9294,8 @@ elif selected_page == "📊 Company Analysis":
     show_page_popup(
         'company_analysis',
         '🔍 Company Analysis - Deep Dive',
-        [
-            '📊 View financial metrics and ratios',
-            '📈 Analyze stock charts with indicators',
-            '💼 Compare companies side-by-side'
-        ],
-        '💡 TIP: Research here before making investment decisions!'
+        'Enter any stock ticker to see financial metrics, ratios, and charts. Compare companies side-by-side. Understand how the company makes money and where the risks are.',
+        'AI-powered explanations break down complex metrics into simple terms!'
     )
     
     # Robinhood-style guidance
@@ -11537,12 +11509,8 @@ elif selected_page == "📰 Market Intelligence":
     show_page_popup(
         'market_intelligence',
         '📰 Market Intelligence - Stay Informed',
-        [
-            '📰 AI-powered news summaries',
-            '📅 Upcoming earnings calendar',
-            '💡 Search news for specific stocks'
-        ],
-        '💡 TIP: Check daily to stay ahead of market-moving events!'
+        'Get AI-powered news summaries, upcoming earnings calendar, and market sentiment analysis. Search for news on specific stocks to stay ahead of market-moving events.',
+        'Real-time market sentiment gauge shows fear vs greed levels!'
     )
     
     st.header("📰 Market Intelligence & News")
@@ -12392,12 +12360,8 @@ elif selected_page == "📊 Pro Checklist":
     show_page_popup(
         'pro_checklist',
         '📊 Pro Checklist - Chart Analysis',
-        [
-            '📈 AI-powered technical pattern detection',
-            '🤖 Get AI explanations of chart patterns',
-            '✅ Complete pre-investment checklist'
-        ],
-        '💡 TIP: Combine technical and fundamental analysis for better decisions!'
+        'Upload a stock chart and get AI-powered technical pattern detection. Learn what chart patterns mean and complete a pre-investment checklist before making trades.',
+        'AI explains chart patterns in plain English - no jargon!'
     )
     
     # ============= YELLOW PILL HEADER =============
@@ -13176,12 +13140,8 @@ elif selected_page == "👑 Ultimate":
     show_page_popup(
         'ultimate',
         '👑 Ultimate - Portfolio Review',
-        [
-            '📸 Upload portfolio screenshots for AI analysis',
-            '🤖 Get personalized feedback on your holdings',
-            '💡 Discover improvement opportunities'
-        ],
-        '💡 TIP: Upload screenshots from your broker app for best results!'
+        'Upload screenshots of your portfolio from any broker app. Get personalized AI feedback on your holdings, discover improvement opportunities, and see what professional investors would change.',
+        'AI analyzes your entire portfolio in seconds - diversification, risk, allocation!'
     )
     
     # ============= PURPLE PILL HEADER =============
@@ -14553,12 +14513,8 @@ elif selected_page == "💼 Paper Portfolio":
     show_page_popup(
         'paper_portfolio',
         '💼 Paper Portfolio - Practice Trading',
-        [
-            '🎮 Trade with fake money ($100,000 balance)',
-            '📊 Track your performance vs the market',
-            '🧠 Learn without risk'
-        ],
-        '💡 TIP: Practice your strategy here before using real money!'
+        'Trade with $100,000 of fake money. Track your performance against the market. Learn without risking real capital. Test your investment strategies before going live.',
+        'See your YTD return and compare against SPY benchmark!'
     )
     
     st.header("💼 Paper Portfolio")
