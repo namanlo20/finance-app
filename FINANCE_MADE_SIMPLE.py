@@ -4675,37 +4675,79 @@ def validate_and_insert_trade(user_id, portfolio_type, action, ticker, shares, p
     # For SELL trades: Skip cash validation (always increases cash)
     # But we should validate position exists (TODO: implement position check)
     
-    # ============= INSERT INTO DATABASE =============
+    # ============= INSERT INTO DATABASE (OPTIONAL) =============
+    db_saved = False
     try:
-        trade_data = {
-            "portfolio_type": portfolio_type,
-            "ticker": ticker.upper(),
-            "trade_type": action.upper(),
-            "quantity": float(shares),
-            "price": float(price),
-            "total": float(estimated_cost),
-            "timestamp": datetime.now().isoformat()
-        }
-        
-        # Add user_id only for user trades
-        if portfolio_type == 'user':
-            trade_data["user_id"] = user_id
-        else:
-            # Founder trades: Use current logged-in user (must be founder)
-            trade_data["user_id"] = user_id if user_id else None
-        
-        # Insert into DB
-        result = supabase.table("trades").insert(trade_data).execute()
-        
-        if not result.data:
-            return False, "❌ Trade failed to save to database."
-        
-        # Success!
-        action_word = "Bought" if action == "Buy" else "Sold"
-        return True, f"✅ {action_word} {shares} shares of {ticker} at ${price:.2f}"
+        if SUPABASE_ENABLED:
+            trade_data = {
+                "portfolio_type": portfolio_type,
+                "ticker": ticker.upper(),
+                "trade_type": action.upper(),
+                "quantity": float(shares),
+                "price": float(price),
+                "total": float(estimated_cost),
+                "timestamp": datetime.now().isoformat()
+            }
+            
+            # Add user_id only for user trades
+            if portfolio_type == 'user':
+                trade_data["user_id"] = user_id
+            else:
+                # Founder trades: Use current logged-in user (must be founder)
+                trade_data["user_id"] = user_id if user_id else None
+            
+            # Try to insert into DB
+            result = supabase.table("trades").insert(trade_data).execute()
+            
+            if result.data:
+                db_saved = True
         
     except Exception as e:
-        return False, f"❌ Database error: {str(e)}"
+        # Database failed, but continue with session state
+        print(f"[DEBUG] Database save failed (will use session state): {str(e)}")
+        db_saved = False
+    
+    # ============= UPDATE SESSION STATE (ALWAYS) =============
+    # Even if DB fails, we save to session state so trades work
+    transaction = {
+        'date': datetime.now().strftime('%Y-%m-%d %H:%M'),
+        'type': action.upper(),
+        'ticker': ticker.upper(),
+        'shares': shares,
+        'price': price,
+        'total': estimated_cost,
+        'gain_loss': 0
+    }
+    
+    # Add to appropriate portfolio
+    if portfolio_type == 'founder':
+        st.session_state.founder_transactions.insert(0, transaction)
+        
+        # Update founder cash
+        if action == "Buy":
+            st.session_state.founder_cash -= estimated_cost
+        else:
+            st.session_state.founder_cash += estimated_cost
+        
+        # Update founder portfolio
+        st.session_state.founder_portfolio = rebuild_portfolio_from_trades(st.session_state.founder_transactions)
+    else:
+        st.session_state.transactions.insert(0, transaction)
+        
+        # Update user cash
+        if action == "Buy":
+            st.session_state.cash -= estimated_cost
+        else:
+            st.session_state.cash += estimated_cost
+        
+        # Update user portfolio
+        st.session_state.portfolio = rebuild_portfolio_from_trades(st.session_state.transactions)
+    
+    # Success!
+    action_word = "Bought" if action == "Buy" else "Sold"
+    db_status = " (saved to database)" if db_saved else " (saved locally)"
+    return True, f"✅ {action_word} {shares} shares of {ticker} at ${price:.2f}{db_status}"
+
 
 
 def load_trades_from_db(user_id, portfolio_type='user'):
@@ -11273,57 +11315,86 @@ elif selected_page == "📰 Market Intelligence":
     
     # Function to get top news
     def get_top_market_news():
-        """Fetch top market news using Perplexity API"""
+        """Fetch top market news using Perplexity API with fallback models"""
         if not PERPLEXITY_API_KEY:
             return None, "Perplexity API key not configured"
         
-        try:
-            query = """What are the top 10 most important financial and stock market news stories today? 
-            
-            Format as a clean numbered list:
-            1. **Headline** - Brief 1-sentence summary [Ticker if relevant]
-            2. **Headline** - Brief 1-sentence summary [Ticker if relevant]
-            
-            Focus on: Market movements, Fed/economic data, major earnings, M&A, sector trends.
-            Keep each item to 2 lines maximum."""
-            
-            headers = {
-                "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
-                "Content-Type": "application/json"
-            }
-            
-            payload = {
-                "model": "sonar-small-online",
-                "messages": [
-                    {"role": "user", "content": query}
-                ],
-                "temperature": 0.2,
-                "max_tokens": 1500
-            }
-            
-            response = requests.post(
-                "https://api.perplexity.ai/chat/completions",
-                headers=headers,
-                json=payload,
-                timeout=30
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
-                content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-                if content:
-                    return content, None
-                return None, "Empty response from API"
-            else:
-                error_msg = f"API error: {response.status_code}"
-                try:
-                    error_detail = response.json()
-                    error_msg += f" - {error_detail}"
-                except:
-                    pass
-                return None, error_msg
-        except Exception as e:
-            return None, f"Error: {str(e)}"
+        # Try multiple models in order of preference
+        models_to_try = [
+            "sonar-small-online",
+            "sonar",
+            "llama-3.1-sonar-small-128k-online"
+        ]
+        
+        query = """What are the top 10 most important financial and stock market news stories today? 
+
+Format as a clean numbered list:
+1. **Headline** - Brief 1-sentence summary [Ticker if relevant]
+2. **Headline** - Brief 1-sentence summary [Ticker if relevant]
+
+Focus on: Market movements, Fed/economic data, major earnings, M&A, sector trends.
+Keep each item to 2 lines maximum."""
+        
+        headers = {
+            "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        
+        last_error = None
+        
+        # Try each model
+        for model_name in models_to_try:
+            try:
+                payload = {
+                    "model": model_name,
+                    "messages": [
+                        {"role": "user", "content": query}
+                    ],
+                    "temperature": 0.2,
+                    "max_tokens": 1500
+                }
+                
+                response = requests.post(
+                    "https://api.perplexity.ai/chat/completions",
+                    headers=headers,
+                    json=payload,
+                    timeout=30
+                )
+                
+                # Log response for debugging
+                print(f"[DEBUG] Perplexity response ({model_name}): status={response.status_code}")
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                    if content and len(content) > 50:
+                        print(f"[DEBUG] Success with model: {model_name}")
+                        return content, None
+                    else:
+                        last_error = f"Empty response from {model_name}"
+                        continue
+                else:
+                    # Try to get error details
+                    try:
+                        error_data = response.json()
+                        last_error = f"{model_name}: {response.status_code} - {error_data}"
+                    except:
+                        last_error = f"{model_name}: HTTP {response.status_code}"
+                    
+                    print(f"[DEBUG] {last_error}")
+                    continue
+                    
+            except requests.exceptions.Timeout:
+                last_error = f"{model_name}: Request timeout"
+                print(f"[DEBUG] {last_error}")
+                continue
+            except Exception as e:
+                last_error = f"{model_name}: {str(e)}"
+                print(f"[DEBUG] {last_error}")
+                continue
+        
+        # All models failed
+        return None, f"All models failed. Last error: {last_error}"
     
     # Fetch and display top news
     with st.spinner("🔄 Fetching latest market news..."):
@@ -11447,62 +11518,89 @@ elif selected_page == "📰 Market Intelligence":
     
     # Function to get this week's earnings
     def get_weekly_earnings():
-        """Fetch this week's earnings using Perplexity API"""
+        """Fetch this week's earnings using Perplexity API with fallback models"""
         if not PERPLEXITY_API_KEY:
             return None, "Perplexity API key not configured"
         
-        try:
-            query = """What are the most important earnings reports happening this week (Monday through Friday)?
-            
-            Format as a simple list by day:
-            
-            **Monday, January 13:**
-            - SYMBOL (Company Name) - Before/After Market - EPS estimate if available
-            
-            **Tuesday, January 14:**
-            - SYMBOL (Company Name) - Before/After Market - EPS estimate if available
-            
-            Focus on well-known companies with market cap over $5B.
-            Include 3-5 companies per day maximum.
-            Only include companies actually reporting this week."""
-            
-            headers = {
-                "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
-                "Content-Type": "application/json"
-            }
-            
-            payload = {
-                "model": "sonar-small-online",
-                "messages": [
-                    {"role": "user", "content": query}
-                ],
-                "temperature": 0.2,
-                "max_tokens": 1000
-            }
-            
-            response = requests.post(
-                "https://api.perplexity.ai/chat/completions",
-                headers=headers,
-                json=payload,
-                timeout=30
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
-                content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-                if content and len(content) > 50:
-                    return content, None
-                return None, "No earnings data returned"
-            else:
-                error_msg = f"API error: {response.status_code}"
-                try:
-                    error_detail = response.json()
-                    error_msg += f" - {error_detail}"
-                except:
-                    pass
-                return None, error_msg
-        except Exception as e:
-            return None, f"Error: {str(e)}"
+        # Try multiple models
+        models_to_try = [
+            "sonar-small-online",
+            "sonar",
+            "llama-3.1-sonar-small-128k-online"
+        ]
+        
+        query = """What are the most important earnings reports happening this week (Monday through Friday)?
+
+Format as a simple list by day:
+
+**Monday, January 13:**
+- SYMBOL (Company Name) - Before/After Market - EPS estimate if available
+
+**Tuesday, January 14:**
+- SYMBOL (Company Name) - Before/After Market - EPS estimate if available
+
+Focus on well-known companies with market cap over $5B.
+Include 3-5 companies per day maximum.
+Only include companies actually reporting this week."""
+        
+        headers = {
+            "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        
+        last_error = None
+        
+        # Try each model
+        for model_name in models_to_try:
+            try:
+                payload = {
+                    "model": model_name,
+                    "messages": [
+                        {"role": "user", "content": query}
+                    ],
+                    "temperature": 0.2,
+                    "max_tokens": 1000
+                }
+                
+                response = requests.post(
+                    "https://api.perplexity.ai/chat/completions",
+                    headers=headers,
+                    json=payload,
+                    timeout=30
+                )
+                
+                print(f"[DEBUG] Perplexity earnings ({model_name}): status={response.status_code}")
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                    if content and len(content) > 50:
+                        print(f"[DEBUG] Earnings success with model: {model_name}")
+                        return content, None
+                    else:
+                        last_error = f"Empty response from {model_name}"
+                        continue
+                else:
+                    try:
+                        error_data = response.json()
+                        last_error = f"{model_name}: {response.status_code} - {error_data}"
+                    except:
+                        last_error = f"{model_name}: HTTP {response.status_code}"
+                    
+                    print(f"[DEBUG] {last_error}")
+                    continue
+                    
+            except requests.exceptions.Timeout:
+                last_error = f"{model_name}: Request timeout"
+                print(f"[DEBUG] {last_error}")
+                continue
+            except Exception as e:
+                last_error = f"{model_name}: {str(e)}"
+                print(f"[DEBUG] {last_error}")
+                continue
+        
+        # All models failed
+        return None, f"All models failed. Last error: {last_error}"
     
     with st.spinner("📊 Loading earnings calendar..."):
         weekly_earnings, earnings_error = get_weekly_earnings()
@@ -14373,25 +14471,25 @@ elif selected_page == "💼 Paper Portfolio":
         
         st.markdown("")
         
-        # Post-trade cash with LIGHT pastel styling (matches screenshot)
+        # Post-trade cash with DARK GREEN background for readability
         post_cash = order['post_cash']
         if post_cash < 0:
             # Red for insufficient funds
             st.error(f"⚠️ **Insufficient Funds** - You need ${abs(post_cash):,.2f} more")
         else:
-            # Light GREEN background for remaining cash (like screenshot)
+            # DARK GREEN background (readable on dark theme)
             st.markdown(f"""
-            <div style="background-color: rgba(200, 255, 200, 0.3); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                <p style="margin: 0; color: #1e1e1e;"><strong>Remaining Cash:</strong> ${post_cash:,.2f}</p>
+            <div style="background-color: rgba(40, 100, 40, 0.8); padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 2px solid #4CAF50;">
+                <p style="margin: 0; color: #FFFFFF; font-size: 16px;"><strong>✅ Remaining Cash:</strong> ${post_cash:,.2f}</p>
             </div>
             """, unsafe_allow_html=True)
         
-        # Concentration warning with LIGHT BLUE background (like screenshot)
+        # Concentration warning with DARK BLUE background (readable)
         if order['post_concentration'] > 0:
             st.markdown(f"""
-            <div style="background-color: rgba(200, 220, 255, 0.3); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                <p style="margin: 0; color: #1e1e1e;">
-                    <strong>Post-trade Concentration:</strong> {order['post_concentration']:.1f}% in {order['ticker']}
+            <div style="background-color: rgba(30, 50, 90, 0.8); padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 2px solid #2196F3;">
+                <p style="margin: 0; color: #FFFFFF; font-size: 16px;">
+                    <strong>⚠️ Post-trade Concentration:</strong> {order['post_concentration']:.1f}% in {order['ticker']}
                 </p>
             </div>
             """, unsafe_allow_html=True)
