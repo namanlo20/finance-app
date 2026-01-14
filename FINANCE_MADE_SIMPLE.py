@@ -14,8 +14,6 @@ import os
 import json
 import time
 
-import re
-import urllib.parse
 # Build stamp for deploy verification
 BUILD_STAMP = os.getenv("RENDER_GIT_COMMIT", "")[:7] or str(int(time.time()))
 
@@ -4128,7 +4126,7 @@ def show_welcome_popup():
         }
         </style>
         <!-- Auto-dismiss after 10 seconds using meta refresh (no JS needed, works in same tab) -->
-        <meta http-equiv="refresh" content="10;url={_url_with_query_updates(dismiss_welcome=1)}">
+        <meta http-equiv="refresh" content="10;url=?dismiss_welcome=1">
         <div class="welcome-overlay">
             <div class="welcome-popup">
                 <!-- X button using HTML form GET submit (works in same tab, no JS needed) -->
@@ -4150,306 +4148,6 @@ def show_welcome_popup():
             </div>
         </div>
         ''', unsafe_allow_html=True)
-
-
-# ============= TAB SUMMARY POPUPS (PER-PAGE) =============
-def _page_slug(page_name: str) -> str:
-    """Stable slug for a page label (used in query params / session state keys)."""
-    try:
-        slug = re.sub(r"[^a-zA-Z0-9]+", "_", str(page_name)).strip("_").lower()
-        return slug or "page"
-    except Exception:
-        return "page"
-
-
-def _normalized_query_params() -> dict:
-    """Return current query params as a simple str->str dict (Streamlit may store lists)."""
-    qp = {}
-    try:
-        for k, v in st.query_params.items():
-            if isinstance(v, (list, tuple)):
-                if v:
-                    qp[k] = str(v[0])
-            elif v is not None:
-                qp[k] = str(v)
-    except Exception:
-        pass
-    return qp
-
-
-def _url_with_query_updates(**updates) -> str:
-    """Build a same-page URL query string, preserving existing params and applying updates."""
-    qp = _normalized_query_params()
-    for k, v in updates.items():
-        if v is None:
-            qp.pop(k, None)
-        else:
-            qp[k] = str(v)
-    return "?" + urllib.parse.urlencode(qp)
-
-def show_tab_summary_popup(selected_page: str):
-    """Show a per-tab summary popup once per session (dismiss with X or auto-dismiss in 10s)."""
-    # Skip if page label is missing
-    if not selected_page:
-        return
-
-    # IMPORTANT: Start Here uses the dedicated welcome popup only (avoid stacked overlays)
-    if "Start Here" in str(selected_page):
-        return
-
-    # Initialize state
-    if "tab_summary_seen" not in st.session_state:
-        st.session_state.tab_summary_seen = {}
-
-    page_key = _page_slug(selected_page)
-
-    # Handle dismiss via query param (from X button OR meta refresh)
-    dismiss_tab = st.query_params.get("dismiss_tab")
-    if isinstance(dismiss_tab, (list, tuple)):
-        dismiss_tab = dismiss_tab[0] if dismiss_tab else None
-
-    if dismiss_tab and dismiss_tab == page_key:
-        st.session_state.tab_summary_seen[page_key] = True
-        if "dismiss_tab" in st.query_params:
-            del st.query_params["dismiss_tab"]
-        st.rerun()
-
-    # If already seen, do nothing
-    if st.session_state.tab_summary_seen.get(page_key, False):
-        return
-
-    # Page summaries (edit copy here)
-    summaries = {
-        "🏠 Start Here": {
-            "title": "Start Here — your 60‑second kickoff",
-            "bullets": [
-                "See exactly what this app can do for you (analysis, learning, paper trading).",
-                "Get the fastest path: Risk Quiz → Basics → Company Analysis → Paper Portfolio.",
-                "Know what’s free vs. what upgrades unlock—no guessing.",
-            ],
-        },
-        "📖 Basics": {
-            "title": "Basics — build real investing confidence (fast)",
-            "bullets": [
-                "Bite‑size lessons that explain the ‘why’ without the fluff.",
-                "Quick checks so you actually retain the concepts.",
-                "Earn progress/XP as you move—built to keep momentum.",
-            ],
-        },
-        "📚 Finance 101": {
-            "title": "Finance 101 — level up the fundamentals",
-            "bullets": [
-                "Core topics that make stock research easier (ratios, statements, cash flow).",
-                "Practical examples tied to real companies—not textbook theory.",
-                "Perfect pre‑work before you use the Pro/Ultimate tools.",
-            ],
-        },
-        "🧠 Risk Quiz": {
-            "title": "Risk Quiz — personalize everything in minutes",
-            "bullets": [
-                "Answer 7 quick questions to get your risk style (Conservative → Aggressive).",
-                "Use your tier to guide watchlists, position sizing, and ‘what to focus on’.",
-                "Less overwhelm, more clarity—especially if you’re newer.",
-            ],
-        },
-        "📊 Company Analysis": {
-            "title": "Company Analysis — go from ‘ticker’ to conviction",
-            "bullets": [
-                "Instant fundamentals: growth, margins, valuation, and key metrics in one place.",
-                "Clean, decision‑oriented layout: what’s strong, what’s weak, what to watch next.",
-                "Built to save you time: fewer tabs, more signal.",
-            ],
-        },
-        "📊 Market Overview": {
-            "title": "Market Overview — the big picture at a glance",
-            "bullets": [
-                "Scan the market fast: sectors, leaders, and the day’s key moves.",
-                "Spot where money is rotating so you know what to research next.",
-                "Great for a daily 2‑minute check‑in.",
-            ],
-        },
-        "🔍 AI Stock Screener": {
-            "title": "AI Stock Screener — find winners without scrolling forever",
-            "bullets": [
-                "Filter the universe down to a focused shortlist in seconds.",
-                "Surface ideas by sector, size, and quality signals—then click into deep dives.",
-                "Designed to prevent ‘empty table’ frustration: defaults show results.",
-            ],
-        },
-        "📈 Financial Health": {
-            "title": "Financial Health — stress‑test a company quickly",
-            "bullets": [
-                "Balance‑sheet and cash‑flow sanity checks that catch red flags early.",
-                "See leverage, liquidity, and durability—before you fall in love with a chart.",
-                "Built for ‘risk first’ investors.",
-            ],
-        },
-        "📰 Market Intelligence": {
-            "title": "Market Intelligence — context that makes charts make sense",
-            "bullets": [
-                "High‑signal headlines + market context so you’re not trading blind.",
-                "Use it to sanity‑check narratives and avoid chasing noise.",
-                "Quickly connects ‘what happened’ to ‘what it could mean’.",
-            ],
-        },
-        "💼 Paper Portfolio": {
-            "title": "Paper Portfolio — practice like it’s real (without the risk)",
-            "bullets": [
-                "Build a portfolio with virtual cash and track performance over time.",
-                "See holdings, cost basis, P/L, and trade history—just like a real account.",
-                "Best way to learn discipline before putting real money at stake.",
-            ],
-        },
-        "👤 Naman's Portfolio": {
-            "title": "Naman’s Portfolio — founder picks in one view",
-            "bullets": [
-                "See how the founder paper portfolio is positioned right now.",
-                "Use it for ideas and study—NOT advice (educational by design).",
-                "Compare holdings and rationale against your own watchlist.",
-            ],
-        },
-        "📜 Founder Track Record": {
-            "title": "Founder Track Record — full transparency, no cherry‑picking",
-            "bullets": [
-                "Immutable trade ledger so you can see every move (wins and losses).",
-                "Holdings snapshot + performance summary in one clean page.",
-                "Built to earn trust: history stays visible.",
-            ],
-        },
-        "👑 Become a VIP": {
-            "title": "VIP — unlock the ‘speed + depth’ upgrades",
-            "bullets": [
-                "See exactly what VIP adds: faster workflows, deeper data, and exports (where enabled).",
-                "Core learning stays accessible—VIP is about acceleration, not paywalls.",
-                "Upgrade when you’re ready to move faster and go deeper.",
-            ],
-        },
-        "📊 Pro Checklist": {
-            "title": "PRO — your step‑by‑step ‘what to do next’ investing system",
-            "bullets": [
-                "A structured checklist that turns research into a repeatable workflow.",
-                "Know what to evaluate (and in what order) so you stop second‑guessing.",
-                "Built for consistency: same process for every ticker, every time.",
-                "Perfect bridge from ‘learning’ to ‘executing’—without the chaos.",
-            ],
-        },
-        "👑 Ultimate": {
-            "title": "ULTIMATE — advanced AI‑assisted research + edge tools",
-            "bullets": [
-                "Premium-grade workflows for faster, smarter decision‑making (no fluff).",
-                "Deep analysis prompts + advanced checks that surface hidden risks and catalysts.",
-                "Designed for power users: more signal, fewer rabbit holes.",
-                "If you want an ‘investor cockpit’, this is it.",
-            ],
-        },
-        "✅ Portfolio Risk Analyzer": {
-            "title": "Portfolio Risk Analyzer — portfolio-level clarity",
-            "bullets": [
-                "Scan concentration, exposure, and risk balance across your holdings.",
-                "Catch ‘too much in one theme’ before the market teaches you the hard way.",
-                "Turn a pile of positions into a portfolio with intention.",
-            ],
-        },
-    }
-
-
-    summary = summaries.get(selected_page, {
-        "title": f"{selected_page} — quick overview",
-        "bullets": ["This tab contains tools and content related to this section of the app."],
-    })
-
-    bullets_html = "".join([f"<li>{b}</li>" for b in summary.get("bullets", [])])
-    # Auto-dismiss via meta refresh (same technique as welcome popup)
-    st.markdown(f'''
-    <style>
-    .tab-summary-overlay {{
-        position: fixed;
-        top: 0; left: 0; right: 0; bottom: 0;
-        background: rgba(0, 0, 0, 0.85);
-        z-index: 10002;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-    }}
-    .tab-summary-popup {{
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-        border: 2px solid #FF4444;
-        border-radius: 18px;
-        padding: 28px 28px 22px 28px;
-        max-width: 560px;
-        width: calc(100% - 40px);
-        position: relative;
-        text-align: left;
-        box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-    }}
-    .tab-summary-title {{
-        color: #FFFFFF;
-        font-size: 22px;
-        font-weight: 800;
-        margin: 0 0 10px 0;
-    }}
-    .tab-summary-sub {{
-        color: rgba(255,255,255,0.85);
-        margin: 0 0 14px 0;
-        font-size: 14px;
-    }}
-    .tab-summary-popup ul {{
-        color: #FFFFFF;
-        line-height: 1.8;
-        padding-left: 18px;
-        margin: 0;
-        font-size: 14px;
-    }}
-    .tab-close-form {{
-        position: absolute;
-        top: 14px;
-        right: 14px;
-        margin: 0;
-        padding: 0;
-    }}
-    .tab-close-btn {{
-        background: transparent;
-        border: 2px solid #FF4444;
-        color: #FF4444;
-        font-size: 18px;
-        width: 34px;
-        height: 34px;
-        border-radius: 50%;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.2s ease;
-        padding: 0;
-        line-height: 1;
-    }}
-    .tab-close-btn:hover {{
-        background: #FF4444;
-        color: #FFFFFF;
-    }}
-    .tab-summary-foot {{
-        margin-top: 14px;
-        color: rgba(255,255,255,0.65);
-        font-size: 12px;
-    }}
-    </style>
-
-    <meta http-equiv="refresh" content="10;url={_url_with_query_updates(dismiss_tab=page_key)}">
-    <div class="tab-summary-overlay">
-      <div class="tab-summary-popup">
-        <form class="tab-close-form" method="get">
-          <button class="tab-close-btn" type="submit" name="dismiss_tab" value="{page_key}" title="Close summary">×</button>
-        </form>
-        <div class="tab-summary-title">{summary.get("title","")}</div>
-        <div class="tab-summary-sub">Quick summary — auto-closes in ~10 seconds.</div>
-        <ul>
-          {bullets_html}
-        </ul>
-        <div class="tab-summary-foot">Tip: if you want to see this again, hard refresh the page.</div>
-      </div>
-    </div>
-    ''', unsafe_allow_html=True)
-
 
 # ============= LOGOUT HELPER =============
 def do_logout():
@@ -6215,9 +5913,8 @@ render_right_side_ticker()
 # ============= AI CHATBOT (BOTTOM-RIGHT) =============
 render_ai_chatbot()
 
-# ============= WELCOME POPUP (START HERE ONLY, FIRST VISIT) =============
-if st.session_state.get('selected_page') == "🏠 Start Here":
-    show_welcome_popup()
+# ============= WELCOME POPUP FOR FIRST-TIME USERS =============
+show_welcome_popup()
 
 # ============= AUTH POPUPS =============
 if st.session_state.get('show_login_popup', False):
@@ -6284,22 +5981,6 @@ with st.sidebar:
     # Initialize selected page in session state if not exists
     if 'selected_page' not in st.session_state:
         st.session_state.selected_page = "🏠 Start Here"
-
-    # Keep URL in sync with the current page so auto-dismiss refreshes don't dump users back to Start Here.
-    # Deep-linking: if someone lands on ?page=<slug>, open that page.
-    _all_pages = [
-        "🏠 Start Here","📖 Basics","📚 Finance 101","🧠 Risk Quiz",
-        "📊 Company Analysis","📈 Financial Health","📰 Market Intelligence","📊 Market Overview","🔍 AI Stock Screener",
-        "📊 Pro Checklist","👑 Ultimate","💼 Paper Portfolio","👤 Naman's Portfolio","📜 Founder Track Record",
-        "👑 Become a VIP"
-    ]
-    _page_slug_to_label = { _page_slug(p): p for p in _all_pages }
-
-    _qp_page = st.query_params.get("page")
-    if isinstance(_qp_page, (list, tuple)):
-        _qp_page = _qp_page[0] if _qp_page else None
-    if _qp_page and _qp_page in _page_slug_to_label:
-        st.session_state.selected_page = _page_slug_to_label[_qp_page]
     
     # 1. START HERE GROUP
     with st.expander("### 1. 📖 Start Here", expanded=True):
@@ -6313,7 +5994,6 @@ with st.sidebar:
         for tool in start_here_tools:
             if st.button(tool, key=f"btn_{tool}", use_container_width=True):
                 st.session_state.selected_page = tool
-                st.query_params["page"] = _page_slug(tool)
                 st.rerun()
     
     # 2. THE ANALYSIS GROUP
@@ -6329,7 +6009,6 @@ with st.sidebar:
         for tool in analysis_tools:
             if st.button(tool, key=f"btn_{tool}", use_container_width=True):
                 st.session_state.selected_page = tool
-                st.query_params["page"] = _page_slug(tool)
                 st.rerun()
     
     # 3. THE ACTION GROUP
@@ -6345,21 +6024,10 @@ with st.sidebar:
         for tool in action_tools:
             if st.button(tool, key=f"btn_{tool}", use_container_width=True):
                 st.session_state.selected_page = tool
-                st.query_params["page"] = _page_slug(tool)
                 st.rerun()
     
     # Get the selected page from session state
     selected_page = st.session_state.selected_page
-    _curr_page_qp = st.query_params.get("page")
-    if isinstance(_curr_page_qp, (list, tuple)):
-        _curr_page_qp = _curr_page_qp[0] if _curr_page_qp else None
-    _desired_page_qp = _page_slug(selected_page)
-    if _curr_page_qp != _desired_page_qp:
-        st.query_params["page"] = _desired_page_qp
-
-    # Per-tab summary popup (dismiss with X or auto-closes)
-    show_tab_summary_popup(selected_page)
-
     
     st.markdown("---")
     
@@ -6452,6 +6120,267 @@ with st.sidebar:
             if st.button("🔐 Sign In", use_container_width=True, type="secondary", key="sidebar_login_btn"):
                 st.session_state.show_login_popup = True
                 st.rerun()
+
+
+# ================== TAB SUMMARY POPUPS (NON-REDIRECT, AUTO-HIDE) ==================
+# These popups:
+# - Never change the current page
+# - Can be dismissed via X
+# - Auto-hide after ~10 seconds (client-side JS; no rerun/redirect)
+import re as _tabpop_re
+
+def _tabpop_slugify_page(_p: str) -> str:
+    _p = _p or ""
+    _p = _tabpop_re.sub(r"\s+", "_", _p.strip())
+    _p = _tabpop_re.sub(r"[^a-zA-Z0-9_]", "", _p)
+    return _p[:60] if _p else "page"
+
+TAB_POPUP_COPY = {
+    "📖 Basics": {
+        "title": "Basics — build real investing confidence (fast)",
+        "bullets": [
+            "Bite-size lessons that explain the ‘why’ without the fluff.",
+            "Quick checks so you actually retain the concepts.",
+            "Built to keep momentum: simple, clear, and practical.",
+        ],
+    },
+    "📚 Finance 101": {
+        "title": "Finance 101 — level up the fundamentals",
+        "bullets": [
+            "Understand statements + cash flow without the textbook headache.",
+            "See the metrics that actually move stocks, explained simply.",
+            "Perfect warm-up before Pro/Ultimate workflows.",
+        ],
+    },
+    "🧠 Risk Quiz": {
+        "title": "Risk Quiz — personalize everything in minutes",
+        "bullets": [
+            "Get your risk style (Conservative → Aggressive) in ~60 seconds.",
+            "Use your result to guide what you research and how you size positions.",
+            "Less overwhelm, more clarity — instantly.",
+        ],
+    },
+    "📊 Company Analysis": {
+        "title": "Company Analysis — go from ‘ticker’ to conviction",
+        "bullets": [
+            "One clean view of fundamentals: growth, margins, valuation, durability.",
+            "Fast ‘what’s strong / what’s weak / what to watch’ structure.",
+            "Built to save you time: fewer tabs, more signal.",
+        ],
+    },
+    "📊 Market Overview": {
+        "title": "Market Overview — the big picture at a glance",
+        "bullets": [
+            "Scan what’s moving across the market without drowning in noise.",
+            "Spot rotation early so you know what to research next.",
+            "Best used as a quick daily 2–3 minute check-in.",
+        ],
+    },
+    "🔍 AI Stock Screener": {
+        "title": "AI Stock Screener — find ideas without scrolling forever",
+        "bullets": [
+            "Filter the universe down to a focused shortlist in seconds.",
+            "Start broad, then narrow — defaults always show results.",
+            "Click straight into deep dives when something looks interesting.",
+        ],
+    },
+    "📈 Financial Health": {
+        "title": "Financial Health — stress-test a company quickly",
+        "bullets": [
+            "Catch leverage/liquidity red flags early — before you fall in love with a chart.",
+            "Quick durability checks built for real-world decision-making.",
+            "Great for avoiding ‘looks good until it doesn’t’ names.",
+        ],
+    },
+    "📰 Market Intelligence": {
+        "title": "Market Intelligence — context that makes charts make sense",
+        "bullets": [
+            "High-signal market context so you’re not trading blind.",
+            "Connect headlines to ‘what it could mean’ without doomscrolling.",
+            "Use it to sanity-check narratives and avoid chasing noise.",
+        ],
+    },
+    "💼 Paper Portfolio": {
+        "title": "Paper Portfolio — practice like it’s real (without the risk)",
+        "bullets": [
+            "Build a portfolio with virtual cash and track performance over time.",
+            "See holdings, cost basis, P/L, and trade history — like a real broker view.",
+            "Best way to build discipline before using real money.",
+        ],
+    },
+    "👤 Naman's Portfolio": {
+        "title": "Naman’s Portfolio — founder picks in one view",
+        "bullets": [
+            "See the founder paper portfolio positioning and track it over time.",
+            "Use it for study + ideas (educational, not advice).",
+            "Compare against your own watchlist and learn faster.",
+        ],
+    },
+    "📜 Founder Track Record": {
+        "title": "Founder Track Record — full transparency, no cherry-picking",
+        "bullets": [
+            "Immutable trade ledger so the history stays honest.",
+            "Holdings snapshot + performance summary in one clean page.",
+            "Built to earn trust: every move stays visible.",
+        ],
+    },
+    "👑 Become a VIP": {
+        "title": "VIP — unlock speed + depth upgrades",
+        "bullets": [
+            "See what VIP adds: faster workflows, deeper tools, and premium utilities.",
+            "Core learning stays accessible — VIP is acceleration, not a paywall.",
+            "Upgrade when you want to move faster and go deeper.",
+        ],
+    },
+    "📊 Pro Checklist": {
+        "title": "PRO — your repeatable investing system (step-by-step)",
+        "bullets": [
+            "A structured checklist that turns research into a repeatable workflow.",
+            "Know exactly what to evaluate (and in what order) so you stop second-guessing.",
+            "Built for consistency: same process for every ticker, every time.",
+            "Ideal bridge from ‘learning’ to ‘execution’ — without chaos.",
+        ],
+    },
+    "👑 Ultimate": {
+        "title": "ULTIMATE — advanced AI-assisted research + edge tools",
+        "bullets": [
+            "Premium-grade workflows for faster, smarter decision-making (no fluff).",
+            "Deep analysis prompts + advanced checks that surface risks and catalysts.",
+            "Designed for power users: more signal, fewer rabbit holes.",
+            "If you want an ‘investor cockpit’, this is it.",
+        ],
+    },
+    "✅ Portfolio Risk Analyzer": {
+        "title": "Portfolio Risk Analyzer — portfolio-level clarity",
+        "bullets": [
+            "See concentration, exposure, and risk balance across holdings.",
+            "Catch ‘too much in one theme’ before the market teaches you the hard way.",
+            "Turn positions into a portfolio with intention.",
+        ],
+    },
+}
+
+def render_tab_summary_popup(current_page: str) -> None:
+    # Welcome popup is handled inside Start Here (and should never stack here).
+    if current_page == "🏠 Start Here":
+        return
+
+    copy = TAB_POPUP_COPY.get(current_page)
+    if not copy:
+        return
+
+    seen_key = f"_tab_popup_seen::{current_page}"
+    if st.session_state.get(seen_key, False):
+        return
+
+    # Mark seen immediately so it won't re-render on reruns.
+    st.session_state[seen_key] = True
+
+    popup_id = _tabpop_slugify_page(current_page)
+    title = copy["title"]
+    bullets = copy["bullets"]
+    bullets_html = "".join([f"<li>{b}</li>" for b in bullets])
+
+    st.markdown(f"""
+    <style>
+      .tabpop_overlay_{popup_id} {{
+        position: fixed;
+        top: 0; left: 0;
+        width: 100vw; height: 100vh;
+        background: rgba(0,0,0,0.65);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 99999;
+      }}
+      .tabpop_card_{popup_id} {{
+        width: min(780px, 92vw);
+        background: linear-gradient(180deg, rgba(14,19,36,0.98), rgba(9,12,24,0.98));
+        border: 2px solid rgba(0,217,255,0.65);
+        border-radius: 18px;
+        padding: 28px 26px 22px 26px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.55);
+        position: relative;
+      }}
+      .tabpop_title_{popup_id} {{
+        font-size: 34px;
+        font-weight: 800;
+        line-height: 1.15;
+        margin: 0 0 14px 0;
+        color: #FFFFFF;
+        text-align: center;
+      }}
+      .tabpop_sub_{popup_id} {{
+        color: rgba(255,255,255,0.85);
+        text-align: center;
+        margin-bottom: 14px;
+        font-size: 14px;
+      }}
+      .tabpop_ul_{popup_id} {{
+        margin: 0 auto;
+        padding-left: 18px;
+        max-width: 640px;
+        color: #FFFFFF;
+        line-height: 2.0;
+        font-size: 14px;
+      }}
+      .tabpop_close_{popup_id} {{
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        width: 36px;
+        height: 36px;
+        border-radius: 999px;
+        border: 2px solid rgba(255,75,75,0.8);
+        color: rgba(255,75,75,0.95);
+        background: transparent;
+        font-size: 22px;
+        font-weight: 800;
+        cursor: pointer;
+      }}
+      .tabpop_tip_{popup_id} {{
+        text-align: center;
+        margin-top: 14px;
+        color: rgba(255,255,255,0.55);
+        font-size: 12px;
+      }}
+    </style>
+
+    <div class="tabpop_overlay_{popup_id}" id="tabpop_overlay_{popup_id}">
+      <div class="tabpop_card_{popup_id}">
+        <button class="tabpop_close_{popup_id}" id="tabpop_close_{popup_id}" aria-label="Close">×</button>
+        <div class="tabpop_title_{popup_id}">{title}</div>
+        <div class="tabpop_sub_{popup_id}">Quick summary — auto-closes in ~10 seconds.</div>
+        <ul class="tabpop_ul_{popup_id}">
+          {bullets_html}
+        </ul>
+        <div class="tabpop_tip_{popup_id}">Tip: this never changes your page — it’s just a quick orientation.</div>
+      </div>
+    </div>
+
+    <script>
+      (function() {{
+        const overlay = document.getElementById("tabpop_overlay_{popup_id}");
+        const closeBtn = document.getElementById("tabpop_close_{popup_id}");
+        if (!overlay || !closeBtn) return;
+
+        function hide() {{
+          overlay.style.display = "none";
+        }}
+
+        closeBtn.addEventListener("click", function(e) {{
+          e.preventDefault();
+          e.stopPropagation();
+          hide();
+        }});
+
+        window.setTimeout(hide, 10000);
+      }})();
+    </script>
+    """, unsafe_allow_html=True)
+
+# ================== END TAB SUMMARY POPUPS ==================
+
 
 # ============= HELPER FUNCTIONS FOR PAGES =============
 
@@ -7693,6 +7622,9 @@ Be specific and technical. Use proper terminology."""
     
     return prompt
 
+
+# Show the per-tab summary popup (non-redirect, auto-hides)
+render_tab_summary_popup(selected_page)
 
 # ============= PAGE CONTENT =============
 
