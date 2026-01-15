@@ -16043,4 +16043,4 @@ elif selected_page == "📜 Founder Track Record":
 # ============= FOOTER =============
 st.divider()
 st.caption("💡 Investing Made Simple | FMP Premium | Real-time data")
-st.caption("⚠️ Educational purposes only. Not financial advice."
+st.caption("⚠️ Educational purposes only. Not financial advice.")
