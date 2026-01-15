@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import requests
+import re
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -4039,6 +4040,10 @@ def show_welcome_popup():
     # Initialize session state
     if 'welcome_seen' not in st.session_state:
         st.session_state.welcome_seen = False
+
+    # Only render the welcome popup on the Start Here page
+    if st.session_state.get('selected_page') != "🏠 Start Here":
+        return
     
     # Check if popup was dismissed via query param (auto-dismiss via meta refresh)
     # Note: st.query_params.get() may return a list in some Streamlit versions
@@ -4149,216 +4154,205 @@ def show_welcome_popup():
         </div>
         ''', unsafe_allow_html=True)
 
-# ============= LOGOUT HELPER =============
 
+# ============= TAB SUMMARY POPUPS =============
 def show_tab_summary_popup(selected_page: str):
-    """
-    Per-tab summary popup:
-      - X closes instantly
-      - auto-hides after ~10s
-      - NO reruns, NO query params, NO navigation changes
+    """Show a per-tab summary popup (X to close, auto-hides after ~10s).
+    Uses client-side JS to hide the overlay so it NEVER forces navigation or reruns.
     """
     if not selected_page or selected_page == "🏠 Start Here":
         return
 
-    # Show once per session per tab
-    if "tab_popups_seen" not in st.session_state:
-        st.session_state.tab_popups_seen = {}
-    if st.session_state.tab_popups_seen.get(selected_page, False):
+    # Slug for stable per-session flags
+    slug = re.sub(r"[^a-z0-9]+", "_", selected_page.lower()).strip("_")
+    seen_key = f"tab_summary_seen__{slug}"
+    if st.session_state.get(seen_key, False):
         return
-    st.session_state.tab_popups_seen[selected_page] = True
 
-    TAB_SUMMARIES = {
-        "📖 Basics": {
-            "title": "Basics — learn the game faster",
-            "bullets": [
-                "Understand the core terms and rules without boring textbooks.",
-                "Build real confidence so you stop guessing what you’re doing.",
-                "Fast checkpoints so you actually retain the fundamentals."
-            ]
-        },
-        "📚 Finance 101": {
-            "title": "Finance 101 — the fundamentals that make stocks click",
-            "bullets": [
-                "Learn how the statements connect (income, balance sheet, cash flow).",
-                "Master the ratios investors actually use (not random trivia).",
-                "Perfect warm‑up before Company Analysis + Pro tools."
-            ]
-        },
-        "🧠 Risk Quiz": {
-            "title": "Risk Quiz — personalize your entire experience",
-            "bullets": [
-                "Get your risk style in minutes (Conservative → Aggressive).",
-                "Use it to guide what you focus on and how you size positions.",
-                "Less overwhelm, more clarity — especially for newer investors."
-            ]
-        },
-        "📊 Company Analysis": {
-            "title": "Company Analysis — go from ticker to conviction",
-            "bullets": [
-                "Instant snapshot of valuation, growth, margins, and key signals.",
-                "Quickly spot strengths, weaknesses, and what to watch next.",
-                "Built to save you time: fewer tabs, more signal."
-            ]
-        },
-        "📊 Market Overview": {
-            "title": "Market Overview — the 2‑minute daily scan",
-            "bullets": [
-                "See what’s leading, lagging, and where money is rotating.",
-                "Use it to decide what deserves deeper research today.",
-                "Simple, fast, and built for daily habits."
-            ]
-        },
-        "🔍 AI Stock Screener": {
-            "title": "AI Stock Screener — find ideas without endless scrolling",
-            "bullets": [
-                "Filter the universe down to a clean, clickable shortlist.",
-                "Discover leaders by sector and market cap in seconds.",
-                "Designed to always show results (no empty-table rage)."
-            ]
-        },
-        "📈 Financial Health": {
-            "title": "Financial Health — catch red flags before you fall in love",
-            "bullets": [
-                "Stress‑test leverage, liquidity, and durability fast.",
-                "Spot weak balance sheets and cash flow problems early.",
-                "Risk-first clarity in one clean view."
-            ]
-        },
-        "📰 Market Intelligence": {
-            "title": "Market Intelligence — context that makes charts make sense",
-            "bullets": [
-                "High‑signal headlines + market context in one place.",
-                "Sanity‑check narratives so you don’t chase noise.",
-                "Connect “what happened” to “what it could mean.”"
-            ]
-        },
-        "💼 Paper Portfolio": {
-            "title": "Paper Portfolio — practice like it’s real (without the pain)",
-            "bullets": [
-                "Build positions with virtual cash and track performance.",
-                "See holdings, cost basis, and P/L like a real brokerage view.",
-                "The best way to build discipline before real money."
-            ]
-        },
-        "👤 Naman's Portfolio": {
-            "title": "Founder Portfolio — founder picks in one view",
-            "bullets": [
-                "See how the founder paper portfolio is positioned right now.",
-                "Use it for study and ideas (educational, not advice).",
-                "Compare trades and sizing against your own plan."
-            ]
-        },
-        "📜 Founder Track Record": {
-            "title": "Founder Track Record — full transparency, no cherry-picking",
-            "bullets": [
-                "Trade ledger + holdings snapshot in one clean page.",
-                "Built for trust: history stays visible.",
-                "Use it to learn process, not to copy blindly."
-            ]
-        },
-        "👑 Become a VIP": {
-            "title": "VIP — unlock speed + depth upgrades",
-            "bullets": [
-                "See what VIP adds: deeper tools and faster workflows.",
-                "Free stays useful — VIP is about acceleration, not paywalls.",
-                "Upgrade when you’re ready to go deeper."
-            ]
-        },
-        "📊 Pro Checklist": {
-            "title": "PRO — your repeatable investing system",
-            "bullets": [
-                "A step‑by‑step checklist so you stop second‑guessing.",
-                "Same process for every ticker — consistency creates results.",
-                "Built to turn “research” into a clean decision workflow."
-            ]
-        },
-        "👑 Ultimate": {
-            "title": "ULTIMATE — advanced AI‑assisted research cockpit",
-            "bullets": [
-                "Premium workflows to move faster and think clearer.",
-                "AI prompts that surface risks, catalysts, and key levels.",
-                "More signal, fewer rabbit holes — built for power users."
-            ]
-        },
-        "✅ Portfolio Risk Analyzer": {
-            "title": "Portfolio Risk Analyzer — portfolio-level clarity",
-            "bullets": [
-                "See concentration and exposure before the market teaches you.",
-                "Turn a pile of positions into a portfolio with intention.",
-                "Catch hidden risk fast."
-            ]
-        },
+    # Mark as seen for this session immediately (so it won't repeat on reruns)
+    st.session_state[seen_key] = True
+
+    summaries = {
+        "📖 Basics": ("Basics — build confidence fast", [
+            "Bite-size lessons that explain the *why* without the fluff.",
+            "Quick checks so you actually retain the concepts.",
+            "Built to keep momentum — less overwhelm, more progress."
+        ]),
+        "📚 Finance 101": ("Finance 101 — level up the fundamentals", [
+            "Core ideas that make stock research easier (statements, ratios, cash flow).",
+            "Real-company examples so it actually sticks.",
+            "Perfect warm-up before Company Analysis and Pro."
+        ]),
+        "🧠 Risk Quiz": ("Risk Quiz — personalize your investing plan", [
+            "Answer a few questions and get a clear risk style (Conservative → Aggressive).",
+            "Use it to guide what you focus on and how you size positions (paper or real).",
+            "Less guessing — more consistency."
+        ]),
+        "📊 Company Analysis": ("Company Analysis — go from ticker to conviction", [
+            "All the key fundamentals in one place: growth, margins, valuation, and quality.",
+            "Clean, decision-oriented layout — faster signal, fewer rabbit holes.",
+            "Built for daily use: research smarter in minutes."
+        ]),
+        "📊 Market Overview": ("Market Overview — the big picture in 2 minutes", [
+            "Scan sectors and leaders so you instantly know what’s moving.",
+            "Spot rotation early and decide what to research next.",
+            "Great daily check-in before you pick tickers."
+        ]),
+        "🔍 AI Stock Screener": ("AI Stock Screener — find ideas without endless scrolling", [
+            "Filter the universe into a shortlist that’s actually worth researching.",
+            "Click through to deep dives instantly — no dead ends.",
+            "Designed to keep results visible so it never feels empty."
+        ]),
+        "📈 Financial Health": ("Financial Health — stress-test a company fast", [
+            "Quick balance-sheet + cash-flow checks that catch red flags early.",
+            "See leverage, liquidity, and durability at a glance.",
+            "Perfect before you commit capital (even paper)."
+        ]),
+        "📰 Market Intelligence": ("Market Intelligence — context that makes moves make sense", [
+            "High-signal market context so you’re not reacting to noise.",
+            "Connect headlines to what matters: catalysts, risk, and sentiment.",
+            "Stay informed without doom-scrolling."
+        ]),
+        "💼 Paper Portfolio": ("Paper Portfolio — practice like it’s real", [
+            "Build positions with virtual cash and track performance over time.",
+            "Holdings, cost basis, P/L, and trade history — all in one place.",
+            "The fastest way to build skill without risking real money."
+        ]),
+        "👤 Naman's Portfolio": ("Founder Portfolio — study real positioning (paper)", [
+            "See how the founder portfolio is positioned right now (educational).",
+            "Track trades and performance with full transparency.",
+            "Great for learning process — not financial advice."
+        ]),
+        "📜 Founder Track Record": ("Founder Track Record — full transparency, no cherry-picking", [
+            "Immutable trade ledger so every move stays visible.",
+            "Holdings snapshot + performance summary in one clean view.",
+            "Built to earn trust: history stays public."
+        ]),
+        "👑 Become a VIP": ("VIP — unlock speed + depth upgrades", [
+            "See what VIP adds (where enabled): faster workflows, deeper data, exports.",
+            "Core learning stays accessible — VIP is about acceleration, not paywalls.",
+            "Upgrade when you’re ready to move faster."
+        ]),
+        "📊 Pro Checklist": ("PRO — a repeatable system (not vibes)", [
+            "A step-by-step checklist that turns research into a consistent process.",
+            "Know what to check and in what order — stop second-guessing.",
+            "Built to help you execute with confidence."
+        ]),
+        "👑 Ultimate": ("ULTIMATE — advanced AI-style workflows + edge tools", [
+            "Premium-grade research flow designed for speed and clarity.",
+            "Deeper checks for catalysts, risks, and what to watch next.",
+            "If you want an investor cockpit, this is it."
+        ]),
+        "✅ Portfolio Risk Analyzer": ("Portfolio Risk Analyzer — portfolio-level clarity", [
+            "See concentration and exposure so you’re not accidentally over-bet.",
+            "Catch risk imbalance before the market does it for you.",
+            "Turn a pile of positions into a portfolio with intention."
+        ]),
     }
 
-    info = TAB_SUMMARIES.get(selected_page)
-    if not info:
-        return
+    title, bullets = summaries.get(selected_page, (f"{selected_page} — quick summary", [
+        "Here’s what you can do on this page.",
+        "Use the tools, explore freely, and come back anytime.",
+        "This popup auto-hides in ~10 seconds."
+    ]))
 
-    popup_id = "tabSummaryPopup"
-    # Escape strings for embedding in HTML safely
-    title = str(info["title"]).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-    bullets = "".join([f"<li style='margin: 8px 0; line-height: 1.4;'>• {str(b).replace('&','&amp;').replace('<','&lt;').replace('>','&gt;')}</li>" for b in info["bullets"]])
+    overlay_id = f"tab_popup_{slug}"
 
-    html = f"""
-    <div id="{popup_id}" style="
-        position: fixed; inset: 0;
-        background: rgba(0,0,0,0.65);
-        display: flex; align-items: center; justify-content: center;
-        z-index: 999999;">
-      <div style="
-          width: min(720px, 92vw);
-          background: linear-gradient(135deg, #0b1220 0%, #101a33 100%);
-          border: 2px solid #ff3b3b;
-          border-radius: 18px;
-          padding: 28px 28px 22px 28px;
-          box-shadow: 0 20px 70px rgba(0,0,0,0.65);
-          position: relative;
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
-      ">
-        <button id="{popup_id}_close" aria-label="Close" style="
-            position: absolute; top: 16px; right: 16px;
-            width: 36px; height: 36px;
-            border-radius: 50%;
-            border: 2px solid #ff3b3b;
-            background: rgba(0,0,0,0.25);
-            color: #ff3b3b;
-            font-size: 20px;
-            cursor: pointer;
-            display:flex; align-items:center; justify-content:center;
-        ">×</button>
+    bullets_html = "".join([f"<li><strong>{b.split(':')[0]}:</strong>{(':'.join(b.split(':')[1:]) if ':' in b else ' ' + b)}</li>" if ':' in b else f"<li>{b}</li>" for b in bullets])
 
-        <div style="color:#fff; font-size: 30px; font-weight: 800; margin: 0 44px 10px 0;">
-          {title}
-        </div>
-        <div style="color:#cbd5e1; font-size: 14px; margin-bottom: 14px;">
-          Quick summary — auto-closes in ~10 seconds.
-        </div>
-        <ul style="list-style: none; padding-left: 0; margin: 0 0 6px 0; color: #e5e7eb; font-size: 15px;">
-          {bullets}
+    st.markdown(f'''
+    <style>
+      .tab-overlay {{
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0, 0, 0, 0.88);
+        z-index: 10001;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }}
+      .tab-popup {{
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        border: 2px solid #00D9FF;
+        border-radius: 20px;
+        padding: 38px;
+        max-width: 560px;
+        width: calc(100% - 48px);
+        text-align: left;
+        position: relative;
+      }}
+      .tab-close-btn {{
+        position: absolute;
+        top: 14px;
+        right: 14px;
+        background: transparent;
+        border: 2px solid #FF4444;
+        color: #FF4444;
+        font-size: 20px;
+        width: 35px;
+        height: 35px;
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+        line-height: 1;
+      }}
+      .tab-close-btn:hover {{
+        background: #FF4444;
+        color: #FFFFFF;
+      }}
+      .tab-title {{
+        color: #00D9FF;
+        margin: 0 0 10px 0;
+        font-size: 28px;
+        font-weight: 800;
+      }}
+      .tab-sub {{
+        color: #FFFFFF;
+        margin: 0 0 16px 0;
+        opacity: 0.92;
+        font-size: 14px;
+      }}
+      .tab-bullets {{
+        color: #FFFFFF;
+        font-size: 14px;
+        line-height: 2.0;
+        margin: 0;
+        padding-left: 18px;
+      }}
+      .tab-tip {{
+        color: rgba(255,255,255,0.75);
+        margin-top: 14px;
+        font-size: 12px;
+      }}
+    </style>
+
+    <div class="tab-overlay" id="{overlay_id}">
+      <div class="tab-popup">
+        <button class="tab-close-btn" onclick="document.getElementById('{overlay_id}').style.display='none';">×</button>
+        <div class="tab-title">{title}</div>
+        <div class="tab-sub">Quick summary — auto-closes in ~10 seconds.</div>
+        <ul class="tab-bullets">
+          {bullets_html}
         </ul>
+        <div class="tab-tip">Tip: If you want to see this again, hard refresh the page.</div>
       </div>
     </div>
 
     <script>
       (function() {{
-        var root = document.getElementById("{popup_id}");
-        if (!root) return;
-        var closeBtn = document.getElementById("{popup_id}_close");
-        var close = function() {{
-          try {{ root.style.display = "none"; }} catch(e) {{}}
-        }};
-        if (closeBtn) closeBtn.addEventListener("click", function(e) {{ e.preventDefault(); close(); }});
-        // Optional: click outside closes
-        root.addEventListener("click", function(e) {{
-          if (e.target === root) close();
-        }});
-        setTimeout(close, 10000);
+        const el = document.getElementById("{overlay_id}");
+        if (!el) return;
+        window.setTimeout(function() {{
+          if (el) el.style.display = "none";
+        }}, 10000);
       }})();
     </script>
-    """
-    st.components.v1.html(html, height=0)
+    ''', unsafe_allow_html=True)
 
+# ============= LOGOUT HELPER =============
 def do_logout():
     """Logout helper function to sign out and clear session state"""
     try:
@@ -4939,12 +4933,7 @@ def calculate_cash_from_db(user_id, portfolio_type='user'):
         return cash, None
         
     except Exception as e:
-        # If the Supabase 'trades' table doesn't exist yet (common on fresh setups),
-        # treat it as "no trades in DB" instead of hard-failing trading UX.
-        msg = str(e)
-        if ("PGRST205" in msg) or ("Could not find the table" in msg) or ("public.trades" in msg) or ("schema cache" in msg):
-            return STARTING_CASH, None
-        error_msg = f"DB error calculating cash: {msg}"
+        error_msg = f"DB error calculating cash: {str(e)}"
         return STARTING_CASH, error_msg
 
 
@@ -5100,11 +5089,7 @@ def load_trades_from_db(user_id, portfolio_type='user'):
         return trades
         
     except Exception as e:
-        msg = str(e)
-        if ("PGRST205" in msg) or ("Could not find the table" in msg) or ("public.trades" in msg) or ("schema cache" in msg):
-            # Table not created yet — treat as empty history
-            return []
-        st.error(f"Error loading trades: {msg}")
+        st.error(f"Error loading trades: {str(e)}")
         return []
 
 
@@ -6129,8 +6114,177 @@ render_live_ticker_bar()
 render_right_side_ticker()
 
 # ============= AI CHATBOT (BOTTOM-RIGHT) =============
-render_ai_chatbot()
+render_ai_c
+# ============= TAB SUMMARY POPUPS =============
+def show_tab_summary_popup(selected_page: str):
+    """
+    Show a one-time-per-session popup for each tab (except Start Here).
+    - X closes instantly
+    - Auto closes after ~10 seconds
+    - NO reruns, NO redirects, NO query params -> cannot kick user to Start Here
+    """
+    if not selected_page or selected_page.strip() == "🏠 Start Here":
+        return
 
+    if "tab_popup_dismissed" not in st.session_state:
+        st.session_state.tab_popup_dismissed = set()
+
+    # only show once per tab per session
+    if selected_page in st.session_state.tab_popup_dismissed:
+        return
+
+    # Salesy summaries (esp PRO + ULTIMATE)
+    summaries = {
+        "📖 Basics": ("📖 Basics — build real investing confidence (fast)",
+                     ["Bite-size lessons that explain the *why* without the fluff.",
+                      "Quick checks so you actually retain the concepts.",
+                      "Earn progress as you move — built to keep momentum."]),
+        "📚 Finance 101": ("📚 Finance 101 — the fundamentals that unlock everything",
+                          ["Understand statements, ratios, and cash flow with real examples.",
+                           "Learn the mental models that make stock research *easy*.",
+                           "Perfect prep before Pro / Ultimate tools."]),
+        "🧠 Risk Quiz": ("🧠 Risk Quiz — personalize the whole app in minutes",
+                        ["Get your risk style (Conservative → Aggressive).",
+                         "Use it to guide what to focus on and avoid bad fits.",
+                         "Turns the app into *your* investing system."]),
+        "📊 Market Overview": ("📊 Market Overview — see the market like a pro",
+                              ["Spot sector rotation and leaders instantly.",
+                               "Use it as a 2‑minute daily scan before deep research.",
+                               "Less noise, more signal."]),
+        "🔍 Sector Explorer": ("🔍 Sector Explorer — find ideas without endless scrolling",
+                               ["Filter to a shortlist by sector and market cap.",
+                                "Click into any company for deeper analysis.",
+                                "Designed to prevent empty pages — always shows results."]),
+        "📈 Company Analysis": ("📈 Company Analysis — go from ticker to conviction",
+                               ["Instant fundamentals in one view: growth, margins, valuation.",
+                                "Clear strengths/weaknesses and what to watch next.",
+                                "Built to save you hours of tab-hopping."]),
+        "📑 Paper Portfolio": ("📑 Paper Portfolio — practice like it’s real",
+                              ["Buy/sell with virtual cash and track P&L over time.",
+                               "See holdings, average cost, and performance.",
+                               "Best way to build discipline before real money."]),
+        "👤 Naman's Portfolio": ("👤 Naman’s Portfolio — founder picks (educational)",
+                                ["See how the founder paper portfolio is positioned.",
+                                 "Great for idea generation + learning from moves.",
+                                 "Transparent and tracked — no cherry-picking."]),
+        "📜 Founder Track Record": ("📜 Founder Track Record — full transparency",
+                                   ["Immutable ledger: every trade is visible.",
+                                    "Holdings + performance summary in one place.",
+                                    "Built for trust."]),
+        "👑 Become a VIP": ("👑 VIP — unlock speed + depth",
+                           ["VIP upgrades accelerate research (not paywalls).",
+                            "More tools, exports, and premium UX upgrades.",
+                            "Upgrade when you want to move faster."]),
+        "✅ Pro Checklist": ("✅ PRO — your investing playbook (step-by-step)",
+                            ["A repeatable checklist so you stop second‑guessing.",
+                             "Know exactly what to evaluate, in the right order.",
+                             "Turns research into a system."]),
+        "👑 Ultimate": ("👑 ULTIMATE — the investor cockpit",
+                      ["Advanced AI-assisted research workflows (high signal).",
+                       "Deeper checks to surface catalysts + hidden risks fast.",
+                       "If you want an edge and speed, this is it."]),
+    }
+
+    title, bullets = summaries.get(
+        selected_page,
+        ("✨ Quick Summary",
+         ["Here’s what you can do on this page.",
+          "Explore the tools and learn by doing.",
+          "Close this to start using the tab."])
+    )
+
+    bullets_html = "".join([f"<li style='margin: 10px 0; font-size: 16px; line-height: 1.6;'>{b}</li>" for b in bullets])
+
+    # IMPORTANT: unique ids per tab so close button targets the right popup
+    safe_id = re.sub(r"[^a-zA-Z0-9_]", "_", selected_page)
+    overlay_id = f"tab_overlay_{safe_id}"
+
+    st.markdown(f"""
+    <style>
+    #{overlay_id} {{
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0, 0, 0, 0.88);
+        z-index: 9999;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }}
+    #{overlay_id} .tab-popup {{
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        border: 2px solid #ff4444;
+        border-radius: 20px;
+        padding: 34px 38px;
+        width: min(720px, 92vw);
+        color: #fff;
+        position: relative;
+        box-shadow: 0 0 30px rgba(0,0,0,0.6);
+    }}
+    #{overlay_id} .tab-popup h2 {{
+        margin: 0 0 10px 0;
+        font-size: 34px;
+        font-weight: 800;
+        line-height: 1.1;
+        text-align: center;
+    }}
+    #{overlay_id} .tab-popup p {{
+        margin: 12px 0 8px 0;
+        font-size: 15px;
+        color: rgba(255,255,255,0.85);
+        text-align: center;
+    }}
+    #{overlay_id} .tab-x {{
+        position: absolute;
+        top: 14px;
+        right: 16px;
+        background: transparent;
+        border: 2px solid #ff4444;
+        color: #ff4444;
+        border-radius: 50%;
+        width: 38px;
+        height: 38px;
+        font-size: 20px;
+        font-weight: 800;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }}
+    #{overlay_id} .tab-x:hover {{
+        background: #ff4444;
+        color: #fff;
+    }}
+    </style>
+
+    <div id="{overlay_id}">
+      <div class="tab-popup">
+        <button class="tab-x" onclick="document.getElementById('{overlay_id}').style.display='none';">×</button>
+        <h2>{title}</h2>
+        <p>Quick summary — auto-closes in ~10 seconds.</p>
+        <ul style="text-align:left; max-width: 620px; margin: 16px auto 0 auto;">
+            {bullets_html}
+        </ul>
+      </div>
+    </div>
+
+    <script>
+      // auto-hide after ~10 seconds (NO rerun / NO navigation)
+      setTimeout(function() {{
+        var el = document.getElementById("{overlay_id}");
+        if (el) {{ el.style.display = "none"; }}
+      }}, 10000);
+    </script>
+    """, unsafe_allow_html=True)
+
+    # Mark dismissed so it won't show again this session
+    st.session_state.tab_popup_dismissed.add(selected_page)
+
+hatbot()
+
+
+# Ensure page state exists before welcome popup checks
+if 'selected_page' not in st.session_state:
+    st.session_state.selected_page = "🏠 Start Here"
 # ============= WELCOME POPUP FOR FIRST-TIME USERS =============
 show_welcome_popup()
 
@@ -6246,6 +6400,16 @@ with st.sidebar:
     
     # Get the selected page from session state
     selected_page = st.session_state.selected_page
+
+    # Show per-tab summary popup (non-Start-Here pages only)
+    show_tab_summary_popup(selected_page)
+    # ============= WELCOME / TAB POPUPS (NO OVERLAYS) =============
+    if selected_page == "🏠 Start Here":
+        show_welcome_popup()
+    else:
+        show_tab_summary_popup(selected_page)
+
+
     
     st.markdown("---")
     
@@ -7579,9 +7743,6 @@ Be specific and technical. Use proper terminology."""
     
     return prompt
 
-
-# Per-tab summaries (X or auto-dismiss; no reruns)
-show_tab_summary_popup(selected_page)
 
 # ============= PAGE CONTENT =============
 
@@ -14805,7 +14966,7 @@ elif selected_page == "💼 Paper Portfolio":
         return True, message
     
     # ============= ORDER CONFIRMATION MODAL =============
-    @st.dialog("🧾 About to Execute (Paper) Order", width="medium")
+    @st.dialog("Confirm Order", width="medium")
     def order_confirmation_modal():
         order = st.session_state.pending_order
         if not order:
@@ -14901,12 +15062,7 @@ elif selected_page == "💼 Paper Portfolio":
                         st.rerun()  # Force full page refresh
                     else:
                         # FIXED: Show actual error message
-                        st.markdown(f"""
-<div style='background:#7f1d1d; border:2px solid #ff3b3b; color:#ffffff; padding:14px 16px; border-radius:12px; font-weight:700;'>
-  ❌ Trade failed — not executed.<br/>
-  <span style='font-weight:500; opacity:0.95;'>{message}</span>
-</div>
-""", unsafe_allow_html=True)
+                        st.error(f"Trade failed: {message}")
                         
                 except Exception as e:
                     # FIXED: No more silent failures!
