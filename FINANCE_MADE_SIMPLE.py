@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import requests
-import re
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -4040,10 +4039,6 @@ def show_welcome_popup():
     # Initialize session state
     if 'welcome_seen' not in st.session_state:
         st.session_state.welcome_seen = False
-
-    # Only render the welcome popup on the Start Here page
-    if st.session_state.get('selected_page') != "🏠 Start Here":
-        return
     
     # Check if popup was dismissed via query param (auto-dismiss via meta refresh)
     # Note: st.query_params.get() may return a list in some Streamlit versions
@@ -4153,204 +4148,6 @@ def show_welcome_popup():
             </div>
         </div>
         ''', unsafe_allow_html=True)
-
-
-# ============= TAB SUMMARY POPUPS =============
-def show_tab_summary_popup(selected_page: str):
-    """Show a per-tab summary popup (X to close, auto-hides after ~10s).
-    Uses client-side JS to hide the overlay so it NEVER forces navigation or reruns.
-    """
-    if not selected_page or selected_page == "🏠 Start Here":
-        return
-
-    # Slug for stable per-session flags
-    slug = re.sub(r"[^a-z0-9]+", "_", selected_page.lower()).strip("_")
-    seen_key = f"tab_summary_seen__{slug}"
-    if st.session_state.get(seen_key, False):
-        return
-
-    # We'll mark as seen *after* rendering, so a mid-function exception doesn't permanently suppress the popup.
-
-    summaries = {
-        "📖 Basics": ("Basics — build confidence fast", [
-            "Bite-size lessons that explain the *why* without the fluff.",
-            "Quick checks so you actually retain the concepts.",
-            "Built to keep momentum — less overwhelm, more progress."
-        ]),
-        "📚 Finance 101": ("Finance 101 — level up the fundamentals", [
-            "Core ideas that make stock research easier (statements, ratios, cash flow).",
-            "Real-company examples so it actually sticks.",
-            "Perfect warm-up before Company Analysis and Pro."
-        ]),
-        "🧠 Risk Quiz": ("Risk Quiz — personalize your investing plan", [
-            "Answer a few questions and get a clear risk style (Conservative → Aggressive).",
-            "Use it to guide what you focus on and how you size positions (paper or real).",
-            "Less guessing — more consistency."
-        ]),
-        "📊 Company Analysis": ("Company Analysis — go from ticker to conviction", [
-            "All the key fundamentals in one place: growth, margins, valuation, and quality.",
-            "Clean, decision-oriented layout — faster signal, fewer rabbit holes.",
-            "Built for daily use: research smarter in minutes."
-        ]),
-        "📊 Market Overview": ("Market Overview — the big picture in 2 minutes", [
-            "Scan sectors and leaders so you instantly know what’s moving.",
-            "Spot rotation early and decide what to research next.",
-            "Great daily check-in before you pick tickers."
-        ]),
-        "🔍 AI Stock Screener": ("AI Stock Screener — find ideas without endless scrolling", [
-            "Filter the universe into a shortlist that’s actually worth researching.",
-            "Click through to deep dives instantly — no dead ends.",
-            "Designed to keep results visible so it never feels empty."
-        ]),
-        "📈 Financial Health": ("Financial Health — stress-test a company fast", [
-            "Quick balance-sheet + cash-flow checks that catch red flags early.",
-            "See leverage, liquidity, and durability at a glance.",
-            "Perfect before you commit capital (even paper)."
-        ]),
-        "📰 Market Intelligence": ("Market Intelligence — context that makes moves make sense", [
-            "High-signal market context so you’re not reacting to noise.",
-            "Connect headlines to what matters: catalysts, risk, and sentiment.",
-            "Stay informed without doom-scrolling."
-        ]),
-        "💼 Paper Portfolio": ("Paper Portfolio — practice like it’s real", [
-            "Build positions with virtual cash and track performance over time.",
-            "Holdings, cost basis, P/L, and trade history — all in one place.",
-            "The fastest way to build skill without risking real money."
-        ]),
-        "👤 Naman's Portfolio": ("Founder Portfolio — study real positioning (paper)", [
-            "See how the founder portfolio is positioned right now (educational).",
-            "Track trades and performance with full transparency.",
-            "Great for learning process — not financial advice."
-        ]),
-        "📜 Founder Track Record": ("Founder Track Record — full transparency, no cherry-picking", [
-            "Immutable trade ledger so every move stays visible.",
-            "Holdings snapshot + performance summary in one clean view.",
-            "Built to earn trust: history stays public."
-        ]),
-        "👑 Become a VIP": ("VIP — unlock speed + depth upgrades", [
-            "See what VIP adds (where enabled): faster workflows, deeper data, exports.",
-            "Core learning stays accessible — VIP is about acceleration, not paywalls.",
-            "Upgrade when you’re ready to move faster."
-        ]),
-        "📊 Pro Checklist": ("PRO — a repeatable system (not vibes)", [
-            "A step-by-step checklist that turns research into a consistent process.",
-            "Know what to check and in what order — stop second-guessing.",
-            "Built to help you execute with confidence."
-        ]),
-        "👑 Ultimate": ("ULTIMATE — advanced AI-style workflows + edge tools", [
-            "Premium-grade research flow designed for speed and clarity.",
-            "Deeper checks for catalysts, risks, and what to watch next.",
-            "If you want an investor cockpit, this is it."
-        ]),
-        "✅ Portfolio Risk Analyzer": ("Portfolio Risk Analyzer — portfolio-level clarity", [
-            "See concentration and exposure so you’re not accidentally over-bet.",
-            "Catch risk imbalance before the market does it for you.",
-            "Turn a pile of positions into a portfolio with intention."
-        ]),
-    }
-
-    title, bullets = summaries.get(selected_page, (f"{selected_page} — quick summary", [
-        "Here’s what you can do on this page.",
-        "Use the tools, explore freely, and come back anytime.",
-        "This popup auto-hides in ~10 seconds."
-    ]))
-
-    overlay_id = f"tab_popup_{slug}"
-
-    bullets_html = "".join([f"<li><strong>{b.split(':',1)[0]}:</strong> {b.split(':',1)[1].strip()}</li>" if ':' in b else f"<li>{b}</li>" for b in bullets])
-
-    st.markdown(f'''
-    <style>
-      .tab-overlay {{
-        position: fixed;
-        top: 0; left: 0; right: 0; bottom: 0;
-        background: rgba(0, 0, 0, 0.88);
-        z-index: 10001;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-      }}
-      .tab-popup {{
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-        border: 2px solid #00D9FF;
-        border-radius: 20px;
-        padding: 38px;
-        max-width: 560px;
-        width: calc(100% - 48px);
-        text-align: left;
-        position: relative;
-      }}
-      .tab-close-btn {{
-        position: absolute;
-        top: 14px;
-        right: 14px;
-        background: transparent;
-        border: 2px solid #FF4444;
-        color: #FF4444;
-        font-size: 20px;
-        width: 35px;
-        height: 35px;
-        border-radius: 50%;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.2s ease;
-        line-height: 1;
-      }}
-      .tab-close-btn:hover {{
-        background: #FF4444;
-        color: #FFFFFF;
-      }}
-      .tab-title {{
-        color: #00D9FF;
-        margin: 0 0 10px 0;
-        font-size: 28px;
-        font-weight: 800;
-      }}
-      .tab-sub {{
-        color: #FFFFFF;
-        margin: 0 0 16px 0;
-        opacity: 0.92;
-        font-size: 14px;
-      }}
-      .tab-bullets {{
-        color: #FFFFFF;
-        font-size: 14px;
-        line-height: 2.0;
-        margin: 0;
-        padding-left: 18px;
-      }}
-      .tab-tip {{
-        color: rgba(255,255,255,0.75);
-        margin-top: 14px;
-        font-size: 12px;
-      }}
-    </style>
-
-    <div class="tab-overlay" id="{overlay_id}">
-      <div class="tab-popup">
-        <button class="tab-close-btn" onclick="document.getElementById('{overlay_id}').style.display='none';">×</button>
-        <div class="tab-title">{title}</div>
-        <div class="tab-sub">Quick summary — auto-closes in ~10 seconds.</div>
-        <ul class="tab-bullets">
-          {bullets_html}
-        </ul>
-        <div class="tab-tip">Tip: If you want to see this again, hard refresh the page.</div>
-      </div>
-    </div>
-
-    <script>
-      (function() {{
-        const el = document.getElementById("{overlay_id}");
-        if (!el) return;
-        window.setTimeout(function() {{
-          if (el) el.style.display = "none";
-        }}, 10000);
-      }})();
-    </script>
-    ''', unsafe_allow_html=True)
-    st.session_state[seen_key] = True
 
 # ============= LOGOUT HELPER =============
 def do_logout():
@@ -4579,6 +4376,196 @@ def calculate_coffee_investment(ticker, weekly_amount, years=5):
         return total_invested, future_value
     except:
         return None, None
+
+def show_tab_summary_popup(selected_page: str):
+    """Show a per-tab popup (X to close OR auto-dismiss in ~10s) without reruns/redirects."""
+    if not selected_page or selected_page == "🏠 Start Here":
+        return
+
+    if "tab_popups_seen" not in st.session_state:
+        st.session_state.tab_popups_seen = {}
+
+    if st.session_state.tab_popups_seen.get(selected_page):
+        return
+
+    # Mark as seen immediately to prevent stacking on reruns
+    st.session_state.tab_popups_seen[selected_page] = True
+
+    summaries = {
+        "📖 Basics": {
+            "title": "Basics — build real investing confidence (fast)",
+            "bullets": [
+                "Bite-size lessons that explain the ‘why’ without the fluff.",
+                "Quick checks so you actually retain the concepts.",
+                "Designed to make the rest of the app feel obvious."
+            ],
+        },
+        "📚 Finance 101": {
+            "title": "Finance 101 — master the fundamentals that move stocks",
+            "bullets": [
+                "Understand ratios, statements, and cash flow like a pro.",
+                "Practical examples tied to real companies (not textbooks).",
+                "Perfect warm-up before Pro / Ultimate tools."
+            ],
+        },
+        "🧠 Risk Quiz": {
+            "title": "Risk Quiz — personalize the whole experience in minutes",
+            "bullets": [
+                "Get your risk style (Conservative → Aggressive) in ~60 seconds.",
+                "Use it to guide what to focus on and avoid overwhelm.",
+                "Cleaner decisions with less second-guessing."
+            ],
+        },
+        "📊 Company Analysis": {
+            "title": "Company Analysis — go from ticker to conviction",
+            "bullets": [
+                "Instant fundamentals in one place: growth, margins, valuation.",
+                "Clean layout: what’s strong, what’s weak, what to watch next.",
+                "Built to save you time: fewer tabs, more signal."
+            ],
+        },
+        "📈 Financial Health": {
+            "title": "Financial Health — sanity-check risk before you fall in love",
+            "bullets": [
+                "Fast balance sheet + cash-flow checks that catch red flags early.",
+                "Leverage, liquidity, durability — the stuff that matters in drawdowns.",
+                "Designed for ‘risk-first’ investors."
+            ],
+        },
+        "📰 Market Intelligence": {
+            "title": "Market Intelligence — context that makes moves make sense",
+            "bullets": [
+                "High-signal headlines and market context (less noise).",
+                "Connect ‘what happened’ → ‘why it matters’ faster.",
+                "Use this before you chase a chart."
+            ],
+        },
+        "📊 Market Overview": {
+            "title": "Market Overview — the big picture in two minutes",
+            "bullets": [
+                "See sector leadership and market tone at a glance.",
+                "Spot rotation so you know what to research next.",
+                "Great daily check-in before you go deeper."
+            ],
+        },
+        "🔍 AI Stock Screener": {
+            "title": "AI Stock Screener — find ideas without endless scrolling",
+            "bullets": [
+                "Filter the universe down to a shortlist in seconds.",
+                "Click straight into deep dives when something looks promising.",
+                "Built to avoid ‘empty table’ frustration — defaults show results."
+            ],
+        },
+        "💼 Paper Portfolio": {
+            "title": "Paper Portfolio — practice like it’s real (without the risk)",
+            "bullets": [
+                "Place paper trades and track equity, cost basis, and P/L over time.",
+                "Learn discipline before putting real money at stake.",
+                "Your fastest path to confidence is repetition + feedback."
+            ],
+        },
+        "👤 Naman's Portfolio": {
+            "title": "Founder Portfolio — transparent positions + performance",
+            "bullets": [
+                "See the founder paper portfolio in one clean view.",
+                "Use it for ideas and study — educational by design.",
+                "Full history lives in Founder Track Record."
+            ],
+        },
+        "📜 Founder Track Record": {
+            "title": "Founder Track Record — full transparency, no cherry-picking",
+            "bullets": [
+                "Immutable trade ledger: every move, wins and losses.",
+                "Holdings snapshot + performance summary in one place.",
+                "Built to earn trust with visible history."
+            ],
+        },
+        "📊 Pro Checklist": {
+            "title": "PRO — a repeatable system for smarter decisions",
+            "bullets": [
+                "A structured checklist that turns research into a workflow.",
+                "Know what to evaluate (and in what order) so you stop guessing.",
+                "Built for consistency: same process for every ticker."
+            ],
+        },
+        "👑 Ultimate": {
+            "title": "ULTIMATE — advanced AI-assisted research + edge tools",
+            "bullets": [
+                "Premium workflows for faster, smarter decision-making (no fluff).",
+                "Deep analysis prompts + advanced checks for risks & catalysts.",
+                "If you want an ‘investor cockpit’, this is it."
+            ],
+        },
+    }
+
+    meta = summaries.get(selected_page, {
+        "title": f"{selected_page} — quick tour",
+        "bullets": ["Quick summary of what you can do on this page."],
+    })
+
+    title = meta["title"]
+    bullets = meta["bullets"]
+
+    # Unique DOM ids to avoid collisions
+    safe_id = re.sub(r"[^a-zA-Z0-9_]", "_", selected_page)
+    wrap_id = f"tab_popup_{safe_id}"
+
+    bullets_html = "".join([f"<li style='margin:8px 0;'>{b}</li>" for b in bullets])
+
+    html = f"""
+    <div id="{wrap_id}" style="
+        position: fixed; inset: 0; z-index: 999999;
+        background: rgba(0,0,0,0.65);
+        display: flex; align-items: center; justify-content: center;
+    ">
+      <div style="
+          width: min(820px, calc(100vw - 48px));
+          background: linear-gradient(180deg, #0B1220 0%, #0A0F1A 100%);
+          border: 2px solid #FF5252;
+          border-radius: 18px;
+          padding: 22px 22px 18px 22px;
+          box-shadow: 0 20px 60px rgba(0,0,0,0.55);
+          color: #FFFFFF;
+          position: relative;
+      ">
+        <button aria-label="Close" onclick="document.getElementById('{wrap_id}').style.display='none';"
+          style="
+            position:absolute; top:14px; right:14px;
+            width:34px; height:34px; border-radius:999px;
+            border: 2px solid #FF5252;
+            background: transparent;
+            color:#FF5252;
+            font-weight:800;
+            cursor:pointer;
+          ">×</button>
+
+        <div style="font-size: 28px; font-weight: 800; margin: 6px 40px 10px 0;">
+          {title}
+        </div>
+        <div style="opacity: 0.88; margin-bottom: 10px;">
+          Quick summary — auto-closes in ~10 seconds.
+        </div>
+        <ul style="margin: 10px 0 0 18px; font-size: 15px; line-height: 1.45;">
+          {bullets_html}
+        </ul>
+      </div>
+    </div>
+
+    <script>
+      (function() {{
+        const el = document.getElementById("{wrap_id}");
+        if (!el) return;
+        setTimeout(() => {{
+          try {{ el.style.display = "none"; }} catch(e) {{}}
+        }}, 10000);
+      }})();
+    </script>
+    """
+
+    st.components.v1.html(html, height=0)
+
+
+
 
 def render_coffee_calculator(ticker, stock_name):
     """Render the coffee comparison calculator"""
@@ -4939,117 +4926,139 @@ def calculate_cash_from_db(user_id, portfolio_type='user'):
 
 def validate_and_insert_trade(user_id, portfolio_type, action, ticker, shares, price):
     """
-    HARD VALIDATION: Check cash from DB, then insert if valid.
+    Validate a paper trade, persist to Supabase if available, and ALWAYS update session-state
+    so the app remains usable even if DB is unavailable/misconfigured.
+
     Returns: (success: bool, message: str)
-    
-    CRITICAL: This function BLOCKS trades that would cause negative cash.
+
+    Rules:
+    - User portfolio: if logged out, allow paper trades but they will be local-only.
+    - Founder portfolio: allow only if st.session_state.is_founder is True.
+    - Cash validation: prefer DB cash if trades table is available; otherwise fall back to session-state cash.
     """
-    if not SUPABASE_ENABLED:
-        return False, "⚠️ Database not available. Trades cannot be persisted."
-    
-    # Require user_id for user trades
-    if portfolio_type == 'user' and not user_id:
-        return False, "⚠️ You must be logged in to trade."
-    
-    # Calculate estimated cost
-    estimated_cost = shares * price
-    
-    # For BUY trades: VALIDATE CASH FIRST
-    if action == "Buy":
-        cash_available, cash_error = calculate_cash_from_db(user_id, portfolio_type)
-        
-        if cash_error:
-            return False, f"❌ Error: {cash_error}"
-        
-        # HARD BLOCK if insufficient funds
-        if estimated_cost > cash_available:
-            shortfall = estimated_cost - cash_available
-            return False, (
-                f"❌ **Insufficient Funds**\n\n"
-                f"This trade requires **${estimated_cost:,.2f}**\n"
-                f"but you only have **${cash_available:,.2f}** available.\n\n"
-                f"You need **${shortfall:,.2f}** more.\n\n"
-                f"Please reduce quantity or wait for funds."
-            )
-    
-    # For SELL trades: Skip cash validation (always increases cash)
-    # But we should validate position exists (TODO: implement position check)
-    
-    # ============= INSERT INTO DATABASE (OPTIONAL) =============
-    db_saved = False
+    # Basic auth rules
+    if portfolio_type == "founder" and not st.session_state.get("is_founder", False):
+        return False, "⚠️ Only the founder can place trades in the Founder portfolio."
+
+    # Require inputs
     try:
-        if SUPABASE_ENABLED:
-            trade_data = {
-                "portfolio_type": portfolio_type,
-                "ticker": ticker.upper(),
-                "trade_type": action.upper(),
-                "quantity": float(shares),
-                "price": float(price),
-                "total": float(estimated_cost),
-                "timestamp": datetime.now().isoformat()
-            }
-            
-            # Add user_id only for user trades
-            if portfolio_type == 'user':
-                trade_data["user_id"] = user_id
-            else:
-                # Founder trades: Use current logged-in user (must be founder)
-                trade_data["user_id"] = user_id if user_id else None
-            
-            # Try to insert into DB
-            result = supabase.table("trades").insert(trade_data).execute()
-            
-            if result.data:
-                db_saved = True
-        
-    except Exception as e:
-        # Database failed, but continue with session state
-        print(f"[DEBUG] Database save failed (will use session state): {str(e)}")
-        db_saved = False
-    
-    # ============= UPDATE SESSION STATE (ALWAYS) =============
-    # Even if DB fails, we save to session state so trades work
+        shares = float(shares)
+        price = float(price)
+    except Exception:
+        return False, "⚠️ Invalid shares/price."
+
+    if shares <= 0 or price <= 0:
+        return False, "⚠️ Shares and price must be positive."
+
+    action = "Buy" if str(action).lower().startswith("b") else "Sell"
+    ticker = (ticker or "").strip().upper()
+    if not ticker:
+        return False, "⚠️ Please enter a ticker."
+
+    estimated_total = shares * price
+
+    # ---------- CASH VALIDATION ----------
+    def _cash_from_session():
+        if portfolio_type == "founder":
+            return float(st.session_state.get("founder_cash", STARTING_CASH))
+        return float(st.session_state.get("cash", STARTING_CASH))
+
+    cash_available = _cash_from_session()
+    cash_source = "local"
+
+    # Try DB cash (preferred), but NEVER block trading just because DB table is missing
+    if SUPABASE_ENABLED:
+        try:
+            db_cash, cash_error = calculate_cash_from_db(user_id, portfolio_type)
+            if not cash_error:
+                cash_available = float(db_cash)
+                cash_source = "db"
+        except Exception:
+            # fall back silently
+            pass
+
+    if action == "Buy" and estimated_total > cash_available + 1e-9:
+        return False, f"❌ Not enough cash. Available: ${cash_available:,.2f}"
+
+    # For sells, ensure position exists / enough shares based on session portfolio (source of truth for UI)
+    portfolio = st.session_state.founder_portfolio if portfolio_type == "founder" else st.session_state.portfolio
+    if action == "Sell":
+        pos = next((p for p in portfolio if p.get("ticker") == ticker), None)
+        if not pos:
+            return False, "❌ You don't own this position in this portfolio."
+        if shares > float(pos.get("shares", 0)) + 1e-9:
+            return False, f"❌ You only have {float(pos.get('shares', 0)):.4f} shares."
+
+    # ---------- OPTIONAL DB INSERT ----------
+    db_saved = False
+    db_error_hint = None
+
     transaction = {
-        'date': datetime.now().strftime('%Y-%m-%d %H:%M'),
-        'type': action.upper(),
-        'ticker': ticker.upper(),
-        'shares': shares,
-        'price': price,
-        'total': estimated_cost,
-        'gain_loss': 0
+        "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "trade_type": "BUY" if action == "Buy" else "SELL",
+        "ticker": ticker,
+        "shares": float(shares),
+        "price": float(price),
+        "total": float(estimated_total),
+        "gain_loss": 0,
+        "portfolio_type": portfolio_type,
     }
-    
-    # Add to appropriate portfolio
-    if portfolio_type == 'founder':
-        st.session_state.founder_transactions.insert(0, transaction)
-        
-        # Update founder cash
+
+    # Attach user_id only for user trades (founder trades are public by portfolio_type)
+    if portfolio_type == "user" and user_id:
+        transaction["user_id"] = user_id
+
+    if SUPABASE_ENABLED:
+        try:
+            # IMPORTANT: This table may not exist in some Supabase setups.
+            # If it fails, we still proceed with local-only trading.
+            result = supabase.table("trades").insert(transaction).execute()
+            if getattr(result, "data", None):
+                db_saved = True
+        except Exception as e:
+            msg = str(e)
+            # Common PostgREST missing-table code seen in your screenshot
+            if ("PGRST205" in msg) or ("Could not find the table" in msg) or ("schema cache" in msg):
+                db_error_hint = "Supabase table 'public.trades' is missing (or not exposed to PostgREST)."
+            else:
+                db_error_hint = f"Database save failed: {msg}"
+
+    # ---------- UPDATE SESSION STATE (always) ----------
+    ui_txn = {
+        "date": transaction["date"],
+        "type": transaction["trade_type"],
+        "ticker": ticker,
+        "shares": float(shares),
+        "price": float(price),
+        "total": float(estimated_total),
+        "gain_loss": 0,
+    }
+
+    if portfolio_type == "founder":
+        st.session_state.founder_transactions.insert(0, ui_txn)
         if action == "Buy":
-            st.session_state.founder_cash -= estimated_cost
+            st.session_state.founder_cash = _cash_from_session() - estimated_total
         else:
-            st.session_state.founder_cash += estimated_cost
-        
-        # Update founder portfolio
+            st.session_state.founder_cash = _cash_from_session() + estimated_total
         st.session_state.founder_portfolio = rebuild_portfolio_from_trades(st.session_state.founder_transactions)
     else:
-        st.session_state.transactions.insert(0, transaction)
-        
-        # Update user cash
+        st.session_state.transactions.insert(0, ui_txn)
         if action == "Buy":
-            st.session_state.cash -= estimated_cost
+            st.session_state.cash = _cash_from_session() - estimated_total
         else:
-            st.session_state.cash += estimated_cost
-        
-        # Update user portfolio
+            st.session_state.cash = _cash_from_session() + estimated_total
         st.session_state.portfolio = rebuild_portfolio_from_trades(st.session_state.transactions)
-    
-    # Success!
+
     action_word = "Bought" if action == "Buy" else "Sold"
-    db_status = " (saved to database)" if db_saved else " (saved locally)"
-    return True, f"✅ {action_word} {shares} shares of {ticker} at ${price:.2f}{db_status}"
+    status = " (saved to database)" if db_saved else " (saved locally)"
+    extra = ""
+    if (not db_saved) and db_error_hint:
+        extra = f"
 
+⚠️ {db_error_hint}"
 
-
+    # Note cash_source for debugging if needed (but keep user-facing message clean)
+    return True, f"✅ {action_word} {shares:.4f} shares of {ticker} at ${price:.2f}{status}.{extra}"
 def load_trades_from_db(user_id, portfolio_type='user'):
     """
     Load all trades from database for display.
@@ -6115,185 +6124,11 @@ render_right_side_ticker()
 
 # ============= AI CHATBOT (BOTTOM-RIGHT) =============
 render_ai_chatbot()
-# ============= TAB SUMMARY POPUPS =============
-def show_tab_summary_popup(selected_page: str):
-    """
-    Show a one-time-per-session popup for each tab (except Start Here).
-    - X closes instantly
-    - Auto closes after ~10 seconds
-    - NO reruns, NO redirects, NO query params -> cannot kick user to Start Here
-    """
-    if not selected_page or selected_page.strip() == "🏠 Start Here":
-        return
 
-    if "tab_popup_dismissed" not in st.session_state:
-        st.session_state.tab_popup_dismissed = set()
-
-    # only show once per tab per session
-    if selected_page in st.session_state.tab_popup_dismissed:
-        return
-
-    # Salesy summaries (esp PRO + ULTIMATE)
-    summaries = {
-        "📖 Basics": ("📖 Basics — build real investing confidence (fast)",
-                     ["Bite-size lessons that explain the *why* without the fluff.",
-                      "Quick checks so you actually retain the concepts.",
-                      "Earn progress as you move — built to keep momentum."]),
-        "📚 Finance 101": ("📚 Finance 101 — the fundamentals that unlock everything",
-                          ["Understand statements, ratios, and cash flow with real examples.",
-                           "Learn the mental models that make stock research *easy*.",
-                           "Perfect prep before Pro / Ultimate tools."]),
-        "🧠 Risk Quiz": ("🧠 Risk Quiz — personalize the whole app in minutes",
-                        ["Get your risk style (Conservative → Aggressive).",
-                         "Use it to guide what to focus on and avoid bad fits.",
-                         "Turns the app into *your* investing system."]),
-        "📊 Market Overview": ("📊 Market Overview — see the market like a pro",
-                              ["Spot sector rotation and leaders instantly.",
-                               "Use it as a 2‑minute daily scan before deep research.",
-                               "Less noise, more signal."]),
-        "🔍 Sector Explorer": ("🔍 Sector Explorer — find ideas without endless scrolling",
-                               ["Filter to a shortlist by sector and market cap.",
-                                "Click into any company for deeper analysis.",
-                                "Designed to prevent empty pages — always shows results."]),
-        "📈 Company Analysis": ("📈 Company Analysis — go from ticker to conviction",
-                               ["Instant fundamentals in one view: growth, margins, valuation.",
-                                "Clear strengths/weaknesses and what to watch next.",
-                                "Built to save you hours of tab-hopping."]),
-        "📑 Paper Portfolio": ("📑 Paper Portfolio — practice like it’s real",
-                              ["Buy/sell with virtual cash and track P&L over time.",
-                               "See holdings, average cost, and performance.",
-                               "Best way to build discipline before real money."]),
-        "👤 Naman's Portfolio": ("👤 Naman’s Portfolio — founder picks (educational)",
-                                ["See how the founder paper portfolio is positioned.",
-                                 "Great for idea generation + learning from moves.",
-                                 "Transparent and tracked — no cherry-picking."]),
-        "📜 Founder Track Record": ("📜 Founder Track Record — full transparency",
-                                   ["Immutable ledger: every trade is visible.",
-                                    "Holdings + performance summary in one place.",
-                                    "Built for trust."]),
-        "👑 Become a VIP": ("👑 VIP — unlock speed + depth",
-                           ["VIP upgrades accelerate research (not paywalls).",
-                            "More tools, exports, and premium UX upgrades.",
-                            "Upgrade when you want to move faster."]),
-        "✅ Pro Checklist": ("✅ PRO — your investing playbook (step-by-step)",
-                            ["A repeatable checklist so you stop second‑guessing.",
-                             "Know exactly what to evaluate, in the right order.",
-                             "Turns research into a system."]),
-        "👑 Ultimate": ("👑 ULTIMATE — the investor cockpit",
-                      ["Advanced AI-assisted research workflows (high signal).",
-                       "Deeper checks to surface catalysts + hidden risks fast.",
-                       "If you want an edge and speed, this is it."]),
-    }
-
-    title, bullets = summaries.get(
-        selected_page,
-        ("✨ Quick Summary",
-         ["Here’s what you can do on this page.",
-          "Explore the tools and learn by doing.",
-          "Close this to start using the tab."])
-    )
-
-    bullets_html = "".join([f"<li style='margin: 10px 0; font-size: 16px; line-height: 1.6;'>{b}</li>" for b in bullets])
-
-    # IMPORTANT: unique ids per tab so close button targets the right popup
-    safe_id = re.sub(r"[^a-zA-Z0-9_]", "_", selected_page)
-    overlay_id = f"tab_overlay_{safe_id}"
-
-    st.markdown(f"""
-    <style>
-    #{overlay_id} {{
-        position: fixed;
-        top: 0; left: 0; right: 0; bottom: 0;
-        background: rgba(0, 0, 0, 0.88);
-        z-index: 9999;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-    }}
-    #{overlay_id} .tab-popup {{
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-        border: 2px solid #ff4444;
-        border-radius: 20px;
-        padding: 34px 38px;
-        width: min(720px, 92vw);
-        color: #fff;
-        position: relative;
-        box-shadow: 0 0 30px rgba(0,0,0,0.6);
-    }}
-    #{overlay_id} .tab-popup h2 {{
-        margin: 0 0 10px 0;
-        font-size: 34px;
-        font-weight: 800;
-        line-height: 1.1;
-        text-align: center;
-    }}
-    #{overlay_id} .tab-popup p {{
-        margin: 12px 0 8px 0;
-        font-size: 15px;
-        color: rgba(255,255,255,0.85);
-        text-align: center;
-    }}
-    #{overlay_id} .tab-x {{
-        position: absolute;
-        top: 14px;
-        right: 16px;
-        background: transparent;
-        border: 2px solid #ff4444;
-        color: #ff4444;
-        border-radius: 50%;
-        width: 38px;
-        height: 38px;
-        font-size: 20px;
-        font-weight: 800;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }}
-    #{overlay_id} .tab-x:hover {{
-        background: #ff4444;
-        color: #fff;
-    }}
-    </style>
-
-    <div id="{overlay_id}">
-      <div class="tab-popup">
-        <button class="tab-x" onclick="document.getElementById('{overlay_id}').style.display='none';">×</button>
-        <h2>{title}</h2>
-        <p>Quick summary — auto-closes in ~10 seconds.</p>
-        <ul style="text-align:left; max-width: 620px; margin: 16px auto 0 auto;">
-            {bullets_html}
-        </ul>
-      </div>
-    </div>
-
-    <script>
-      // auto-hide after ~10 seconds (NO rerun / NO navigation)
-      setTimeout(function() {{
-        var el = document.getElementById("{overlay_id}");
-        if (el) {{ el.style.display = "none"; }}
-      }}, 10000);
-    </script>
-    """, unsafe_allow_html=True)
-
-    # Mark dismissed so it won't show again this session
-    st.session_state.tab_popup_dismissed.add(selected_page)
-
-hatbot()
-
-
-# Ensure page state exists before welcome popup checks
-# Sync selected page from URL if present (prevents any refresh from defaulting to Start Here)
-_qp_page = st.query_params.get('page') if hasattr(st, 'query_params') else None
-if isinstance(_qp_page, (list, tuple)):
-    _qp_page = _qp_page[0] if _qp_page else None
-if _qp_page:
-    st.session_state.selected_page = _qp_page
-
-if 'selected_page' not in st.session_state:
-    st.session_state.selected_page = "🏠 Start Here"
 # ============= WELCOME POPUP FOR FIRST-TIME USERS =============
-show_welcome_popup()
+_current_page = st.session_state.get('selected_page', '🏠 Start Here')
+if _current_page == '🏠 Start Here':
+    show_welcome_popup()
 
 # ============= AUTH POPUPS =============
 if st.session_state.get('show_login_popup', False):
@@ -6407,16 +6242,6 @@ with st.sidebar:
     
     # Get the selected page from session state
     selected_page = st.session_state.selected_page
-
-    # Show per-tab summary popup (non-Start-Here pages only)
-    show_tab_summary_popup(selected_page)
-    # ============= WELCOME / TAB POPUPS (NO OVERLAYS) =============
-    if selected_page == "🏠 Start Here":
-        show_welcome_popup()
-    else:
-        show_tab_summary_popup(selected_page)
-
-
     
     st.markdown("---")
     
@@ -7754,6 +7579,10 @@ Be specific and technical. Use proper terminology."""
 # ============= PAGE CONTENT =============
 
 # ============= HOMEPAGE: START HERE =============
+
+# Per-tab summaries (X or auto-dismiss; no reruns)
+show_tab_summary_popup(selected_page)
+
 if selected_page == "🏠 Start Here":
     # Debug status line (temporary)
     st.caption(f"🔍 Debug: onboarding_completed={st.session_state.get('onboarding_completed', False)} | setup_prompt_dismissed={st.session_state.get('setup_prompt_dismissed', False)} | logged_in={st.session_state.get('is_logged_in', False)}")
@@ -14978,6 +14807,10 @@ elif selected_page == "💼 Paper Portfolio":
         order = st.session_state.pending_order
         if not order:
             return
+
+        # Robinhood-style title
+        st.markdown(\"### 🧾 About to Execute (Paper) Order\")
+        st.caption(\"Review the details below. This will update your paper portfolio.\")
         
         # Simple header (matches screenshot)
         st.markdown(f"### {order['action']} {order['ticker']}")
@@ -15069,9 +14902,18 @@ elif selected_page == "💼 Paper Portfolio":
                         st.rerun()  # Force full page refresh
                     else:
                         # FIXED: Show actual error message
-                        st.error(f"Trade failed: {message}")
-                        
-                except Exception as e:
+
+st.markdown(f"""
+<div style="background:#B71C1C; border:2px solid #FF5252; padding:14px; border-radius:12px;">
+    <div style="color:#FFFFFF; font-weight:700; font-size:16px; margin-bottom:6px;">
+        ❌ Trade failed — not executed
+    </div>
+    <div style="color:#FFFFFF; font-size:14px; line-height:1.35;">
+        {message}
+    </div>
+</div>
+""", unsafe_allow_html=True)
+except Exception as e:
                     # FIXED: No more silent failures!
                     st.error(f"❌ Trade execution error: {str(e)}")
                     import traceback
