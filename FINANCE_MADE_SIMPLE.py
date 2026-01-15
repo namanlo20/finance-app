@@ -4169,8 +4169,7 @@ def show_tab_summary_popup(selected_page: str):
     if st.session_state.get(seen_key, False):
         return
 
-    # Mark as seen for this session immediately (so it won't repeat on reruns)
-    st.session_state[seen_key] = True
+    # We'll mark as seen *after* rendering, so a mid-function exception doesn't permanently suppress the popup.
 
     summaries = {
         "📖 Basics": ("Basics — build confidence fast", [
@@ -4258,7 +4257,7 @@ def show_tab_summary_popup(selected_page: str):
 
     overlay_id = f"tab_popup_{slug}"
 
-    bullets_html = "".join([f"<li><strong>{b.split(':')[0]}:</strong>{(':'.join(b.split(':')[1:]) if ':' in b else ' ' + b)}</li>" if ':' in b else f"<li>{b}</li>" for b in bullets])
+    bullets_html = "".join([f"<li><strong>{b.split(':',1)[0]}:</strong> {b.split(':',1)[1].strip()}</li>" if ':' in b else f"<li>{b}</li>" for b in bullets])
 
     st.markdown(f'''
     <style>
@@ -4351,6 +4350,7 @@ def show_tab_summary_popup(selected_page: str):
       }})();
     </script>
     ''', unsafe_allow_html=True)
+    st.session_state[seen_key] = True
 
 # ============= LOGOUT HELPER =============
 def do_logout():
@@ -6114,7 +6114,7 @@ render_live_ticker_bar()
 render_right_side_ticker()
 
 # ============= AI CHATBOT (BOTTOM-RIGHT) =============
-render_ai_c
+render_ai_chatbot()
 # ============= TAB SUMMARY POPUPS =============
 def show_tab_summary_popup(selected_page: str):
     """
@@ -6283,6 +6283,13 @@ hatbot()
 
 
 # Ensure page state exists before welcome popup checks
+# Sync selected page from URL if present (prevents any refresh from defaulting to Start Here)
+_qp_page = st.query_params.get('page') if hasattr(st, 'query_params') else None
+if isinstance(_qp_page, (list, tuple)):
+    _qp_page = _qp_page[0] if _qp_page else None
+if _qp_page:
+    st.session_state.selected_page = _qp_page
+
 if 'selected_page' not in st.session_state:
     st.session_state.selected_page = "🏠 Start Here"
 # ============= WELCOME POPUP FOR FIRST-TIME USERS =============
@@ -16036,4 +16043,4 @@ elif selected_page == "📜 Founder Track Record":
 # ============= FOOTER =============
 st.divider()
 st.caption("💡 Investing Made Simple | FMP Premium | Real-time data")
-st.caption("⚠️ Educational purposes only. Not financial advice.")
+st.caption("⚠️ Educational purposes only. Not financial advice."
