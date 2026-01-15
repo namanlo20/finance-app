@@ -5053,10 +5053,7 @@ def validate_and_insert_trade(user_id, portfolio_type, action, ticker, shares, p
     status = " (saved to database)" if db_saved else " (saved locally)"
     extra = ""
     if (not db_saved) and db_error_hint:
-        extra = f"
-
-⚠️ {db_error_hint}"
-
+        extra = f"\n\n⚠️ {db_error_hint}"
     # Note cash_source for debugging if needed (but keep user-facing message clean)
     return True, f"✅ {action_word} {shares:.4f} shares of {ticker} at ${price:.2f}{status}.{extra}"
 def load_trades_from_db(user_id, portfolio_type='user'):
@@ -14809,8 +14806,8 @@ elif selected_page == "💼 Paper Portfolio":
             return
 
         # Robinhood-style title
-        st.markdown(\"### 🧾 About to Execute (Paper) Order\")
-        st.caption(\"Review the details below. This will update your paper portfolio.\")
+        st.markdown("### 🧾 About to Execute (Paper) Order")
+        st.caption("Review the details below. This will update your paper portfolio.")
         
         # Simple header (matches screenshot)
         st.markdown(f"### {order['action']} {order['ticker']}")
@@ -14903,7 +14900,7 @@ elif selected_page == "💼 Paper Portfolio":
                     else:
                         # FIXED: Show actual error message
 
-st.markdown(f"""
+                        st.markdown(f"""
 <div style="background:#B71C1C; border:2px solid #FF5252; padding:14px; border-radius:12px;">
     <div style="color:#FFFFFF; font-weight:700; font-size:16px; margin-bottom:6px;">
         ❌ Trade failed — not executed
@@ -14912,8 +14909,8 @@ st.markdown(f"""
         {message}
     </div>
 </div>
-""", unsafe_allow_html=True)
-except Exception as e:
+                        """, unsafe_allow_html=True)
+                except Exception as e:
                     # FIXED: No more silent failures!
                     st.error(f"❌ Trade execution error: {str(e)}")
                     import traceback
