@@ -37,11 +37,60 @@ st.set_page_config(page_title="Investing Made Simple", layout="wide", page_icon=
 
 
 # ============================================
-# WORKING POPUP SYSTEM - st.dialog() for Streamlit 1.31+
+# PHASE 1: PREMIUM FOUNDATION UTILITIES
 # ============================================
 
+# ============================================
+# 1.1 POPUP SYSTEM WITH PERSISTENCE (st.dialog)
+# ============================================
+
+def init_persistence():
+    """Initialize persistence for user preferences using localStorage via JS"""
+    # Load dismissed popups from localStorage on first run
+    if 'persistence_initialized' not in st.session_state:
+        st.session_state.persistence_initialized = True
+        st.session_state.dismissed_popups = set()
+        st.session_state.last_ticker = None
+        st.session_state.last_tab = None
+        st.session_state.pinned_tickers = []
+        
+        # Inject JS to load from localStorage
+        st.markdown("""
+        <script>
+        (function() {
+            // Load dismissed popups
+            const dismissed = localStorage.getItem('ims_dismissed_popups');
+            if (dismissed) {
+                window.parent.postMessage({type: 'dismissed_popups', data: JSON.parse(dismissed)}, '*');
+            }
+            // Load pinned tickers
+            const pinned = localStorage.getItem('ims_pinned_tickers');
+            if (pinned) {
+                window.parent.postMessage({type: 'pinned_tickers', data: JSON.parse(pinned)}, '*');
+            }
+            // Load last ticker
+            const lastTicker = localStorage.getItem('ims_last_ticker');
+            if (lastTicker) {
+                window.parent.postMessage({type: 'last_ticker', data: lastTicker}, '*');
+            }
+        })();
+        </script>
+        """, unsafe_allow_html=True)
+
+def save_to_localstorage(key, value):
+    """Save a value to localStorage via JS injection"""
+    json_value = json.dumps(value) if isinstance(value, (list, dict, set)) else json.dumps(str(value))
+    if isinstance(value, set):
+        json_value = json.dumps(list(value))
+    st.markdown(f"""
+    <script>
+    localStorage.setItem('ims_{key}', {json_value});
+    </script>
+    """, unsafe_allow_html=True)
+
 def show_page_popup(page_id, title, summary, cool_feature):
-    """True modal popup using st.dialog() - works perfectly on Streamlit 1.31+"""
+    """True modal popup using st.dialog() - works on Streamlit 1.31+
+       Persists dismissal to localStorage so popups don't reappear"""
     
     # Initialize dismissed set
     if 'dismissed_popups' not in st.session_state:
@@ -70,10 +119,339 @@ def show_page_popup(page_id, title, summary, cool_feature):
         
         if st.button("✓ Got it!", type="primary", use_container_width=True):
             st.session_state.dismissed_popups.add(page_id)
+            # Persist to localStorage
+            save_to_localstorage('dismissed_popups', list(st.session_state.dismissed_popups))
             st.rerun()
     
     # Show the dialog
     page_intro_dialog()
+
+
+# ============================================
+# 1.2 DATA SOURCE & TIMESTAMP INDICATORS
+# ============================================
+
+def show_data_source(source="FMP API", updated_at=None, is_cached=False, is_delayed=False):
+    """Display a consistent data source indicator with timestamp
+    
+    Args:
+        source: Data source name (e.g., "FMP API", "Perplexity AI", "CNN Fear & Greed")
+        updated_at: datetime object or None for "just now"
+        is_cached: Show cached data badge
+        is_delayed: Show delayed data badge
+    """
+    # Format timestamp
+    if updated_at is None:
+        time_str = "just now"
+    elif isinstance(updated_at, datetime):
+        delta = datetime.now() - updated_at
+        if delta.seconds < 60:
+            time_str = "just now"
+        elif delta.seconds < 3600:
+            time_str = f"{delta.seconds // 60}m ago"
+        elif delta.seconds < 86400:
+            time_str = f"{delta.seconds // 3600}h ago"
+        else:
+            time_str = updated_at.strftime("%b %d, %H:%M")
+    else:
+        time_str = str(updated_at)
+    
+    # Build badges
+    badges = []
+    if is_cached:
+        badges.append("🔄 Cached")
+    if is_delayed:
+        badges.append("⏱️ Delayed")
+    badge_str = " • ".join(badges)
+    if badge_str:
+        badge_str = f" • {badge_str}"
+    
+    st.markdown(f"""
+    <div style="
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 12px;
+        background: rgba(128, 128, 128, 0.1);
+        border-radius: 6px;
+        font-size: 12px;
+        color: #888;
+        margin: 8px 0;
+    ">
+        <span>📊 Source: <strong>{source}</strong></span>
+        <span>•</span>
+        <span>Updated: {time_str}</span>
+        {f'<span style="color: #FFA500;">{badge_str}</span>' if badge_str else ''}
+    </div>
+    """, unsafe_allow_html=True)
+
+
+def show_ai_disclaimer(inputs_used=None):
+    """Display AI content disclaimer with inputs used
+    
+    Args:
+        inputs_used: List of inputs the AI used (e.g., ["P/E ratio", "Revenue growth", "SPY price"])
+    """
+    inputs_str = ", ".join(inputs_used) if inputs_used else "Available market data"
+    
+    with st.expander("ℹ️ About this AI analysis", expanded=False):
+        st.markdown(f"""
+        **What this is based on:**  
+        {inputs_str}
+        
+        **Disclaimer:**  
+        This AI-generated content is for educational purposes only and does not constitute financial advice. 
+        Always do your own research and consult a qualified financial advisor before making investment decisions.
+        """)
+
+
+# ============================================
+# 1.3 SKELETON LOADERS & LOADING STATES
+# ============================================
+
+def show_skeleton_loader(height=200, message="Loading..."):
+    """Display a skeleton loader placeholder while content loads"""
+    st.markdown(f"""
+    <div style="
+        background: linear-gradient(90deg, 
+            rgba(128,128,128,0.1) 25%, 
+            rgba(128,128,128,0.2) 50%, 
+            rgba(128,128,128,0.1) 75%);
+        background-size: 200% 100%;
+        animation: shimmer 1.5s infinite;
+        border-radius: 10px;
+        height: {height}px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #888;
+        font-size: 14px;
+    ">
+        <span>⏳ {message}</span>
+    </div>
+    <style>
+    @keyframes shimmer {{
+        0% {{ background-position: 200% 0; }}
+        100% {{ background-position: -200% 0; }}
+    }}
+    </style>
+    """, unsafe_allow_html=True)
+
+
+def show_skeleton_table(rows=5, cols=4):
+    """Display a skeleton table placeholder"""
+    st.markdown(f"""
+    <div style="
+        background: rgba(128,128,128,0.05);
+        border-radius: 10px;
+        padding: 15px;
+        margin: 10px 0;
+    ">
+        <div style="
+            display: grid;
+            grid-template-columns: repeat({cols}, 1fr);
+            gap: 10px;
+        ">
+            {''.join([f'<div style="background: linear-gradient(90deg, rgba(128,128,128,0.1) 25%, rgba(128,128,128,0.2) 50%, rgba(128,128,128,0.1) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; height: 20px; border-radius: 4px;"></div>' for _ in range(cols)])}
+        </div>
+        {''.join([f'<div style="display: grid; grid-template-columns: repeat({cols}, 1fr); gap: 10px; margin-top: 10px;">{"".join([f"<div style=\\"background: linear-gradient(90deg, rgba(128,128,128,0.08) 25%, rgba(128,128,128,0.15) 50%, rgba(128,128,128,0.08) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; height: 35px; border-radius: 4px;\\"></div>" for _ in range(cols)])}</div>' for _ in range(rows)])}
+    </div>
+    <style>
+    @keyframes shimmer {{
+        0% {{ background-position: 200% 0; }}
+        100% {{ background-position: -200% 0; }}
+    }}
+    </style>
+    """, unsafe_allow_html=True)
+
+
+def show_loading_timer():
+    """Display a loading indicator that shows elapsed time"""
+    if 'loading_start_time' not in st.session_state:
+        st.session_state.loading_start_time = time.time()
+    
+    elapsed = time.time() - st.session_state.loading_start_time
+    st.markdown(f"""
+    <div style="
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 10px;
+        background: rgba(128,128,128,0.1);
+        border-radius: 4px;
+        font-size: 12px;
+        color: #888;
+    ">
+        <span class="loading-spinner">⏳</span>
+        <span>Loading... ({elapsed:.1f}s)</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+# ============================================
+# 1.4 ERROR HANDLING & USER-FRIENDLY WARNINGS
+# ============================================
+
+def show_error_with_retry(error_message, retry_key, error_details=None):
+    """Display a user-friendly error message with retry button
+    
+    Args:
+        error_message: Short user-friendly message
+        retry_key: Unique key for the retry button
+        error_details: Technical details (shown in expander)
+    
+    Returns:
+        True if retry button was clicked
+    """
+    st.markdown(f"""
+    <div style="
+        background: rgba(255, 100, 100, 0.1);
+        border: 1px solid rgba(255, 100, 100, 0.3);
+        border-left: 4px solid #ff6b6b;
+        border-radius: 8px;
+        padding: 15px;
+        margin: 10px 0;
+    ">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 20px;">⚠️</span>
+            <span style="color: #ff6b6b; font-weight: 500;">{error_message}</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col1, col2 = st.columns([1, 4])
+    with col1:
+        retry_clicked = st.button("🔄 Retry", key=f"retry_{retry_key}", type="secondary")
+    
+    if error_details:
+        with st.expander("🔧 Technical details", expanded=False):
+            st.code(str(error_details), language="text")
+    
+    return retry_clicked
+
+
+def show_warning_banner(message, warning_type="info"):
+    """Display a non-intrusive warning banner
+    
+    Args:
+        message: Warning message to display
+        warning_type: "info", "warning", "error", "success"
+    """
+    colors = {
+        "info": ("#3b82f6", "rgba(59, 130, 246, 0.1)", "ℹ️"),
+        "warning": ("#f59e0b", "rgba(245, 158, 11, 0.1)", "⚠️"),
+        "error": ("#ef4444", "rgba(239, 68, 68, 0.1)", "❌"),
+        "success": ("#22c55e", "rgba(34, 197, 94, 0.1)", "✅")
+    }
+    border_color, bg_color, icon = colors.get(warning_type, colors["info"])
+    
+    st.markdown(f"""
+    <div style="
+        background: {bg_color};
+        border-left: 3px solid {border_color};
+        border-radius: 0 6px 6px 0;
+        padding: 10px 15px;
+        margin: 8px 0;
+        font-size: 13px;
+        color: {border_color};
+    ">
+        {icon} {message}
+    </div>
+    """, unsafe_allow_html=True)
+
+
+def show_placeholder_data_warning():
+    """Display a warning that placeholder/demo data is being shown"""
+    st.markdown("""
+    <div style="
+        background: rgba(255, 165, 0, 0.1);
+        border: 1px dashed rgba(255, 165, 0, 0.5);
+        border-radius: 8px;
+        padding: 10px 15px;
+        margin: 8px 0;
+        font-size: 12px;
+        color: #FFA500;
+        text-align: center;
+    ">
+        📋 <strong>Demo Data</strong> — Showing placeholder values. Connect API for live data.
+    </div>
+    """, unsafe_allow_html=True)
+
+
+def safe_api_call(func, *args, fallback=None, error_message="Unable to load data", **kwargs):
+    """Wrapper for API calls with built-in error handling
+    
+    Args:
+        func: Function to call
+        *args: Arguments to pass to function
+        fallback: Value to return on error
+        error_message: Message to show on error
+        **kwargs: Keyword arguments to pass to function
+    
+    Returns:
+        Result of func or fallback value
+    """
+    try:
+        return func(*args, **kwargs)
+    except requests.exceptions.Timeout:
+        show_warning_banner(f"{error_message} (Request timed out)", "warning")
+        return fallback
+    except requests.exceptions.ConnectionError:
+        show_warning_banner(f"{error_message} (Connection failed)", "warning")
+        return fallback
+    except Exception as e:
+        show_warning_banner(f"{error_message}", "warning")
+        # Log error details internally
+        if 'error_log' not in st.session_state:
+            st.session_state.error_log = []
+        st.session_state.error_log.append({
+            'time': datetime.now().isoformat(),
+            'error': str(e),
+            'func': func.__name__ if hasattr(func, '__name__') else str(func)
+        })
+        return fallback
+
+
+# ============================================
+# 1.5 EMPTY STATE HANDLERS
+# ============================================
+
+def show_empty_state(title, message, action_text=None, action_key=None, icon="📭"):
+    """Display a friendly empty state with optional action button
+    
+    Args:
+        title: Main empty state title
+        message: Helpful message
+        action_text: Text for action button (optional)
+        action_key: Key for action button (required if action_text provided)
+        icon: Emoji icon to display
+    
+    Returns:
+        True if action button clicked, False otherwise
+    """
+    st.markdown(f"""
+    <div style="
+        text-align: center;
+        padding: 40px 20px;
+        background: rgba(128, 128, 128, 0.05);
+        border-radius: 15px;
+        margin: 20px 0;
+    ">
+        <div style="font-size: 48px; margin-bottom: 15px;">{icon}</div>
+        <h3 style="margin: 0 0 10px 0; color: inherit;">{title}</h3>
+        <p style="color: #888; margin: 0;">{message}</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if action_text and action_key:
+        col1, col2, col3 = st.columns([1, 1, 1])
+        with col2:
+            return st.button(action_text, key=action_key, type="primary", use_container_width=True)
+    return False
+
+
+# Initialize persistence on app load
+init_persistence()
 
 
 
@@ -9324,6 +9702,9 @@ elif selected_page == "📊 Company Analysis":
     
     st.markdown("---")
     
+    # Show data source indicator
+    show_data_source(source="Financial Modeling Prep API", updated_at=datetime.now())
+    
     income_df = get_income_statement(ticker, 'annual', 5)
     cash_df = get_cash_flow(ticker, 'annual', 5)
     balance_df = get_balance_sheet(ticker, 'annual', 5)
@@ -10771,6 +11152,9 @@ elif selected_page == "📊 Market Overview":
     st.header("📊 Market Overview")
     st.caption("*Top 100 stocks by market cap (ETFs excluded). Real-time data from FMP Stock Screener.*")
     
+    # Show data source indicator
+    show_data_source(source="FMP Stock Screener API", updated_at=datetime.now())
+    
     # Define available sectors (FMP standard sectors)
     all_sectors = [
         "Technology", "Financial Services", "Healthcare", "Consumer Cyclical", 
@@ -11474,6 +11858,9 @@ elif selected_page == "📰 Market Intelligence":
             </div>
         </div>
         ''', unsafe_allow_html=True)
+    
+    # Show data source for sentiment
+    show_data_source(source="Market Sentiment Algorithm", updated_at=datetime.now())
     
     st.markdown("---")
     
@@ -14454,6 +14841,9 @@ elif selected_page == "💼 Paper Portfolio":
     
     st.header("💼 Paper Portfolio")
     st.caption("*Practice trading with fake money. Track your performance vs the market.*")
+    
+    # Show data source indicator
+    show_data_source(source="FMP API + Local Portfolio Data", updated_at=datetime.now())
     
     # ============= INITIALIZATION =============
     # User portfolio
