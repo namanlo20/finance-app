@@ -35,7 +35,108 @@ STARTING_CASH = float(os.environ.get("STARTING_CASH", "100000"))
 
 st.set_page_config(page_title="Investing Made Simple", layout="wide", page_icon="💰")
 
-# POPUP SYSTEM REMOVED - was causing navigation bugs
+
+# ============================================
+# WORKING POPUP SYSTEM (NO INFINITE RERUNS)
+# ============================================
+
+def show_page_popup(page_id, title, description):
+    """Show popup that auto-dismisses without breaking navigation"""
+    
+    # Check if already dismissed
+    if 'dismissed_popups' not in st.session_state:
+        st.session_state.dismissed_popups = set()
+    
+    if page_id in st.session_state.dismissed_popups:
+        return  # Already dismissed
+    
+    # Show popup with JavaScript auto-dismiss
+    popup_html = f"""
+    <div id="page-popup-{page_id}" style="
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 10000;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        border: 2px solid #ff3333;
+        border-radius: 20px;
+        padding: 30px;
+        max-width: 500px;
+        width: 90%;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    ">
+        <button onclick="dismissPopup_{page_id}()" style="
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: #ff3333;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            font-size: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            line-height: 1;
+        ">×</button>
+        
+        <h2 style="color: #FFFFFF; margin-bottom: 20px; font-size: 22px;">{title}</h2>
+        <p style="color: #E0E0E0; font-size: 15px; line-height: 1.8;">
+            {description}
+        </p>
+        
+        <div id="timer-{page_id}" style="
+            color: #999;
+            text-align: center;
+            margin-top: 20px;
+            font-size: 13px;
+        ">Auto-closes in <span id="countdown-{page_id}">10</span> seconds...</div>
+    </div>
+    
+    <div id="popup-overlay-{page_id}" style="
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 9999;
+    "></div>
+    
+    <script>
+    let timeLeft_{page_id} = 10;
+    
+    function dismissPopup_{page_id}() {{
+        document.getElementById('page-popup-{page_id}').style.display = 'none';
+        document.getElementById('popup-overlay-{page_id}').style.display = 'none';
+        document.getElementById('dismiss-btn-{page_id}').click();
+    }}
+    
+    // Countdown timer
+    const timer_{page_id} = setInterval(function() {{
+        timeLeft_{page_id}--;
+        const countdownEl = document.getElementById('countdown-{page_id}');
+        if (countdownEl) {{
+            countdownEl.textContent = timeLeft_{page_id};
+        }}
+        
+        if (timeLeft_{page_id} <= 0) {{
+            clearInterval(timer_{page_id});
+            dismissPopup_{page_id}();
+        }}
+    }}, 1000);
+    </script>
+    """
+    
+    st.markdown(popup_html, unsafe_allow_html=True)
+    
+    # Hidden button that JavaScript triggers
+    if st.button("", key=f"dismiss-btn-{page_id}", type="primary"):
+        st.session_state.dismissed_popups.add(page_id)
+        # Don't rerun immediately - just mark as dismissed
+        # Next page load won't show it
 
 
 
@@ -4149,108 +4250,6 @@ def show_welcome_popup():
         </div>
         ''', unsafe_allow_html=True)
 
-
-# ============= TAB POPUPS (INLINE, NON-OVERLAY) =============
-def show_tab_popup(tab_key: str, title: str, bullets=None, footer=None):
-    """Inline per-tab popup (no overlay). Dismisses on X or after 10 seconds.
-
-    Guardrails:
-    - Never shows if the welcome popup is still active
-    - Never shows while auth dialogs are being prompted
-    """
-
-    # Session state storage
-    if "tab_popup_seen" not in st.session_state or not isinstance(st.session_state.tab_popup_seen, dict):
-        st.session_state.tab_popup_seen = {}
-
-    # Do not stack with the welcome popup
-    if st.session_state.get("welcome_seen") is False:
-        return
-
-    # Do not stack with auth popups
-    if st.session_state.get("show_login_popup") or st.session_state.get("show_signup_popup"):
-        return
-
-    # Only show if not seen for this tab
-    if st.session_state.tab_popup_seen.get(tab_key):
-        return
-
-
-    # Close button (Streamlit widget) — avoids full page reload, so it won't kick you back to Home
-    if st.button('×', key=f'tabpopup_close__{tab_key}', help='Close this tips box'):
-        st.session_state.tab_popup_seen[tab_key] = True
-        st.session_state.pop(f'tabpopup_shown_at__{tab_key}', None)
-        st.rerun()
-
-    # Auto-dismiss after ~10 seconds WITHOUT full-page reload (prevents navigation reset).
-    # We use Streamlit's autorefresh if available; otherwise it will simply stay until next rerun or user closes.
-    shown_at_key = f"tabpopup_shown_at__{tab_key}"
-    if shown_at_key not in st.session_state:
-        st.session_state[shown_at_key] = time.time()
-
-    elapsed = time.time() - float(st.session_state.get(shown_at_key, time.time()))
-    if elapsed >= 10:
-        st.session_state.tab_popup_seen[tab_key] = True
-        st.session_state.pop(shown_at_key, None)
-        return
-
-    # Trigger lightweight reruns so the timer can expire while the user stays on the same tab.
-    try:
-        if hasattr(st, 'autorefresh'):
-            st.autorefresh(interval=1000, limit=12, key=f"tabpopup_autorefresh__{tab_key}")
-        else:
-            try:
-                from streamlit_autorefresh import st_autorefresh
-                st_autorefresh(interval=1000, limit=12, key=f"tabpopup_autorefresh__{tab_key}")
-            except Exception:
-                pass
-    except Exception:
-        pass
-
-    bullets = bullets or []
-    bullets_html = "".join([f"<li><strong>{b.split(':', 1)[0]}:</strong>{b.split(':', 1)[1] if ':' in b else ''}</li>" for b in bullets])
-    footer_html = f"<p style='color:#FFFFFF; font-size:12px; margin-top:14px; opacity:0.85;'>{footer}</p>" if footer else ""
-
-    # Inline (non-overlay) styling derived from welcome popup
-    st.markdown(f"""
-    <style>
-      .tabpopup-wrap {{
-        margin: 10px 0 18px 0;
-      }}
-      .tabpopup-popup {{
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-        border: 2px solid #00D9FF;
-        border-radius: 20px;
-        padding: 26px 28px;
-        max-width: 900px;
-        position: relative;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.35);
-      }}
-      .tabpopup-title {{
-        color: #00D9FF;
-        margin: 0 0 10px 0;
-        font-size: 22px;
-        font-weight: 800;
-      }}
-      .tabpopup-list {{
-        color: #FFFFFF;
-        font-size: 14px;
-        line-height: 2.0;
-        text-align: left;
-        padding-left: 20px;
-        margin: 8px 0 0 0;
-      }}
-    </style>
-
-    <div class="tabpopup-wrap">
-      <div class="tabpopup-popup">
-        <div class="tabpopup-title">{title}</div>
-        {'<ul class="tabpopup-list">' + bullets_html + '</ul>' if bullets_html else ''}
-        {footer_html}
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
-
 # ============= LOGOUT HELPER =============
 def do_logout():
     """Logout helper function to sign out and clear session state"""
@@ -7470,17 +7469,6 @@ Be specific and technical. Use proper terminology."""
 if selected_page == "🏠 Start Here":
     # Debug status line (temporary)
     st.caption(f"🔍 Debug: onboarding_completed={st.session_state.get('onboarding_completed', False)} | setup_prompt_dismissed={st.session_state.get('setup_prompt_dismissed', False)} | logged_in={st.session_state.get('is_logged_in', False)}")
-
-    # Inline, non-overlay popup for this tab (dismisses in 10s or via X)
-    show_tab_popup(
-        selected_page,
-        "🏠 Start Here — quick tour",
-        bullets=[
-            "Goal: Learn the basics before picking stocks.",
-            "Next step: Use the sidebar to open Basics, Finance 101, then Risk Quiz.",
-        ],
-        footer="Dismisses automatically in 10 seconds (or press ×)."
-    )
     
     # Non-blocking setup nudge card
     render_setup_nudge()
@@ -7785,15 +7773,6 @@ if selected_page == "🏠 Start Here":
 # This replaces lines 7343-8025 in the main file
 
 elif selected_page == "📖 Basics":
-    show_tab_popup(
-        selected_page,
-        "📖 Basics — what you’ll learn here",
-        bullets=[
-            "Focus: Core concepts (risk, return, diversification).",
-            "Tip: Read the definitions, then test yourself with the Risk Quiz.",
-        ],
-        footer="Dismisses automatically in 10 seconds (or press ×)."
-    )
     """
     📖 LEARN HUB - Complete Learning System
     - 55 total lessons (15 original + 40 new)
@@ -7803,7 +7782,12 @@ elif selected_page == "📖 Basics":
     - Personalized recommendations
     """
     
-    # POPUP REMOVED - was causing bugs
+    # Show page popup
+    show_page_popup(
+        'learn_hub',
+        '📚 Learn Hub',
+        'Master investing with 55 interactive lessons. Earn XP and badges as you progress through beginner to advanced topics. Take quizzes to test your knowledge!'
+    )
     
     # ============= SESSION STATE INITIALIZATION =============
     # Initialize all Learn Hub state variables
@@ -8853,20 +8837,16 @@ elif selected_page == "📖 Basics":
     render_ai_coach("Learn Hub", ticker=None, facts=None)
 
 elif selected_page == "📚 Finance 101":
-    show_tab_popup(
-        selected_page,
-        "📚 Finance 101 — quick guide",
-        bullets=[
-            "Use this: Build a foundation (stocks, bonds, valuation basics).",
-            "Best practice: Skim headings first, then dive into what you don’t know.",
-        ],
-        footer="Dismisses automatically in 10 seconds (or press ×)."
-    )
     
     st.header("📚 Finance 101")
     st.caption("*Learn the language of investing through visual cards and interactive examples.*")
     
-    # POPUP REMOVED - was causing bugs
+    # Show page popup
+    show_page_popup(
+        'finance_101',
+        '🎓 Finance 101',
+        'Quick crash course on investing basics. Learn key terms, understand stocks vs bonds, and master the 5 metrics that actually matter. Visual cards make it easy!'
+    )
     
     # ============= TOP 5 METRICS SECTION (C - moved from Company Analysis) =============
     st.markdown("---")
@@ -9084,15 +9064,6 @@ elif selected_page == "📚 Finance 101":
 
 
 elif selected_page == "🧠 Risk Quiz":
-    show_tab_popup(
-        selected_page,
-        "🧠 Risk Quiz — why it matters",
-        bullets=[
-            "Purpose: Match your investing style to your risk tolerance.",
-            "Result: Helps tailor suggestions across the app.",
-        ],
-        footer="Dismisses automatically in 10 seconds (or press ×)."
-    )
     
     st.header("🎯 Investment Risk Analysis Quiz")
     st.markdown("### Understand your risk tolerance")
@@ -9304,17 +9275,13 @@ elif selected_page == "🧠 Risk Quiz":
 
 
 elif selected_page == "📊 Company Analysis":
-    show_tab_popup(
-        selected_page,
-        "📊 Company Analysis — how to use this tab",
-        bullets=[
-            "Start: Enter a ticker and review the key metrics.",
-            "Trust: Hover tooltips explain numbers in plain English.",
-        ],
-        footer="Dismisses automatically in 10 seconds (or press ×)."
-    )
     
-    # POPUP REMOVED - was causing bugs
+    # Show page popup
+    show_page_popup(
+        'company_analysis',
+        '🔍 Company Analysis',
+        'Deep dive into any stock. View financial metrics, charts with indicators, and compare companies side-by-side. AI explains complex metrics in simple terms!'
+    )
     
     # Robinhood-style guidance
     st.caption("*This page explains how this company makes money and where the risks are.*")
@@ -10859,15 +10826,6 @@ elif selected_page == "📊 Company Analysis":
 
 
 elif selected_page == "📊 Market Overview":
-    show_tab_popup(
-        selected_page,
-        "📊 Market Overview — quick tour",
-        bullets=[
-            "View: Big-picture market snapshot and trends.",
-            "Tip: Use this before stock-picking (context matters).",
-        ],
-        footer="Dismisses automatically in 10 seconds (or press ×)."
-    )
     
     st.header("📊 Market Overview")
     st.caption("*Top 100 stocks by market cap (ETFs excluded). Real-time data from FMP Stock Screener.*")
@@ -11158,15 +11116,6 @@ elif selected_page == "📊 Market Overview":
 
 # ============= AI STOCK SCREENER PAGE =============
 elif selected_page == "🔍 AI Stock Screener":
-    show_tab_popup(
-        selected_page,
-        "🔍 AI Stock Screener — how to get value",
-        bullets=[
-            "Goal: Narrow down ideas using filters and signals.",
-            "Reminder: Screening finds candidates — it’s not a buy/sell decision.",
-        ],
-        footer="Dismisses automatically in 10 seconds (or press ×)."
-    )
     # Red pill header matching the app theme
     st.markdown("""
     <div style="background: linear-gradient(135deg, #FF4B4B 0%, #CC0000 100%); 
@@ -11232,15 +11181,6 @@ elif selected_page == "🔍 AI Stock Screener":
 
 
 elif selected_page == "📈 Financial Health":
-    show_tab_popup(
-        selected_page,
-        "📈 Financial Health — what this tab checks",
-        bullets=[
-            "Focus: Balance sheet strength, profitability, cash flow.",
-            "Use: Spot red flags before investing.",
-        ],
-        footer="Dismisses automatically in 10 seconds (or press ×)."
-    )
     
     st.header("📈 Financial Health - Historical Trends")
     st.markdown("**Compare company ratios to S&P 500 averages and historical benchmarks**")
@@ -11549,17 +11489,13 @@ elif selected_page == "📈 Financial Health":
 
 # ============= MARKET INTELLIGENCE TAB =============
 elif selected_page == "📰 Market Intelligence":
-    show_tab_popup(
-        selected_page,
-        "📰 Market Intelligence — what to look for",
-        bullets=[
-            "Use: Macro context and sentiment signals.",
-            "Tip: Don’t overreact to headlines — watch trends and levels.",
-        ],
-        footer="Dismisses automatically in 10 seconds (or press ×)."
-    )
     
-    # POPUP REMOVED - was causing bugs
+    # Show page popup
+    show_page_popup(
+        'market_intelligence',
+        '📰 Market Intelligence',
+        'Stay informed with AI-powered news, earnings calendar, and market sentiment. Search any stock for latest news and analysis. Updated daily!'
+    )
     
     st.header("📰 Market Intelligence & News")
     st.markdown("**Stay informed with AI-powered market insights, news, and earnings**")
@@ -12027,15 +11963,6 @@ If a day has no major earnings, say "No major earnings."
 
 
 elif selected_page == "👤 Naman's Portfolio":
-    show_tab_popup(
-        selected_page,
-        "👤 Naman’s Portfolio — what this is",
-        bullets=[
-            "View-only: Track the founder’s paper portfolio holdings.",
-            "Purpose: Education and transparency — not recommendations.",
-        ],
-        footer="Dismisses automatically in 10 seconds (or press ×)."
-    )
     st.header("Naman's Portfolio")
     st.markdown("**My High-Conviction Investment Strategy**")
     
@@ -12209,15 +12136,6 @@ elif selected_page == "👤 Naman's Portfolio":
 
 
 elif selected_page == "👑 Become a VIP":
-    show_tab_popup(
-        selected_page,
-        "👑 VIP — what you get",
-        bullets=[
-            "Upgrade: Extra tools and convenience features.",
-            "Free users: Still get full access to core learning + tables.",
-        ],
-        footer="Dismisses automatically in 10 seconds (or press ×)."
-    )
     st.header("👑 Become a VIP")
     st.markdown("**Unlock Premium Features & Exclusive Insights**")
 
@@ -12430,17 +12348,13 @@ elif selected_page == "👑 Become a VIP":
 
 
 elif selected_page == "📊 Pro Checklist":
-    show_tab_popup(
-        selected_page,
-        "📊 Pro Checklist — how to use it",
-        bullets=[
-            "Goal: A repeatable process before making decisions.",
-            "Tip: Treat this like a pre-flight checklist.",
-        ],
-        footer="Dismisses automatically in 10 seconds (or press ×)."
-    )
     
-    # POPUP REMOVED - was causing bugs
+    # Show page popup
+    show_page_popup(
+        'pro_checklist',
+        '📊 Pro Checklist',
+        'Upload stock charts for AI-powered technical pattern detection. Get plain-English explanations of what patterns mean. Complete pre-investment checklist!'
+    )
     
     # ============= YELLOW PILL HEADER =============
     st.markdown("""
@@ -13213,17 +13127,13 @@ elif selected_page == "📊 Pro Checklist":
 # ============================================================================
 
 elif selected_page == "👑 Ultimate":
-    show_tab_popup(
-        selected_page,
-        "👑 Ultimate — advanced tools",
-        bullets=[
-            "Use: Deeper analytics and AI-assisted insights.",
-            "Reminder: Educational only — not financial advice.",
-        ],
-        footer="Dismisses automatically in 10 seconds (or press ×)."
-    )
     
-    # POPUP REMOVED - was causing bugs
+    # Show page popup
+    show_page_popup(
+        'ultimate',
+        '👑 Ultimate',
+        'Upload portfolio screenshots for AI analysis. Get personalized feedback on your holdings and discover improvement opportunities in seconds!'
+    )
     
     # ============= PURPLE PILL HEADER =============
     st.markdown("""
@@ -14589,17 +14499,13 @@ Return JSON with grade, summary, top_risks (MAX 5), improvement_playbook (MAX 5)
 # This will replace lines 8367-8765 in the main file
 
 elif selected_page == "💼 Paper Portfolio":
-    show_tab_popup(
-        selected_page,
-        "💼 Paper Portfolio — practice mode",
-        bullets=[
-            "Use: Simulate trades and learn without risking real money.",
-            "Tip: Focus on process and journaling, not short-term results.",
-        ],
-        footer="Dismisses automatically in 10 seconds (or press ×)."
-    )
     
-    # POPUP REMOVED - was causing bugs
+    # Show page popup
+    show_page_popup(
+        'paper_portfolio',
+        '💼 Paper Portfolio',
+        'Practice trading with $100,000 fake money. Track your performance vs the market. Learn without risk before using real capital!'
+    )
     
     st.header("💼 Paper Portfolio")
     st.caption("*Practice trading with fake money. Track your performance vs the market.*")
@@ -15311,15 +15217,6 @@ elif selected_page == "💼 Paper Portfolio":
     render_ai_coach("Paper Portfolio", ticker=None, facts=None)
 
 elif selected_page == "✅ Portfolio Risk Analyzer":
-    show_tab_popup(
-        selected_page,
-        "✅ Portfolio Risk Analyzer — what it does",
-        bullets=[
-            "Checks: Concentration, volatility proxies, and key risk flags.",
-            "Use: Identify where your portfolio might be fragile.",
-        ],
-        footer="Dismisses automatically in 10 seconds (or press ×)."
-    )
     st.header("📈 Portfolio Risk Analyzer")
     st.write("Deep risk analysis with AI-powered roasts 😈")
     
@@ -15594,15 +15491,6 @@ elif selected_page == "✅ Portfolio Risk Analyzer":
 
 # ============= FOUNDER TRACK RECORD (PUBLIC READ-ONLY) =============
 elif selected_page == "📜 Founder Track Record":
-    show_tab_popup(
-        selected_page,
-        "📜 Founder Track Record — transparency",
-        bullets=[
-            "View: Public, read-only track record for the founder paper portfolio.",
-            "Includes: Holdings snapshot and immutable trade ledger.",
-        ],
-        footer="Dismisses automatically in 10 seconds (or press ×)."
-    )
     st.header("📜 Founder Track Record")
     st.caption("*Public, read-only view of the founder's paper trading performance.*")
     
