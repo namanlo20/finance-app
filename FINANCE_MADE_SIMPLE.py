@@ -40,19 +40,29 @@ st.set_page_config(page_title="Investing Made Simple", layout="wide", page_icon=
 # WORKING POPUP SYSTEM (NO INFINITE RERUNS)
 # ============================================
 
-def show_page_popup(page_id, title, description):
-    """Show popup that auto-dismisses without breaking navigation"""
+def show_page_popup(page_id, title, summary, cool_feature):
+    """Show popup with JS countdown - NO server-side reruns"""
     
-    # Check if already dismissed
+    # Check if dismissed
     if 'dismissed_popups' not in st.session_state:
         st.session_state.dismissed_popups = set()
     
     if page_id in st.session_state.dismissed_popups:
-        return  # Already dismissed
+        return
     
-    # Show popup with JavaScript auto-dismiss
-    popup_html = f"""
-    <div id="page-popup-{page_id}" style="
+    # Render popup with JavaScript countdown
+    st.markdown(f"""
+    <style>
+    .popup-overlay-{page_id} {{
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 9999;
+    }}
+    .popup-box-{page_id} {{
         position: fixed;
         top: 50%;
         left: 50%;
@@ -65,8 +75,12 @@ def show_page_popup(page_id, title, description):
         max-width: 500px;
         width: 90%;
         box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-    ">
-        <button onclick="dismissPopup_{page_id}()" style="
+    }}
+    </style>
+    
+    <div class="popup-overlay-{page_id}" id="overlay-{page_id}"></div>
+    <div class="popup-box-{page_id}" id="popup-{page_id}">
+        <button onclick="document.getElementById('dismiss-{page_id}').click()" style="
             position: absolute;
             top: 15px;
             right: 15px;
@@ -81,62 +95,53 @@ def show_page_popup(page_id, title, description):
             font-weight: bold;
             line-height: 1;
         ">×</button>
-        
         <h2 style="color: #FFFFFF; margin-bottom: 20px; font-size: 22px;">{title}</h2>
-        <p style="color: #E0E0E0; font-size: 15px; line-height: 1.8;">
-            {description}
+        <p style="color: #E0E0E0; font-size: 15px; line-height: 1.8; margin-bottom: 15px;">
+            {summary}
         </p>
-        
-        <div id="timer-{page_id}" style="
-            color: #999;
-            text-align: center;
-            margin-top: 20px;
-            font-size: 13px;
-        ">Auto-closes in <span id="countdown-{page_id}">10</span> seconds...</div>
+        <div style="background: rgba(255, 165, 0, 0.15); padding: 15px; border-radius: 10px; border-left: 3px solid #FFA500; margin-bottom: 15px;">
+            <p style="margin: 0; color: #FFA500; font-size: 14px;">
+                🌟 <strong>Cool Feature:</strong> {cool_feature}
+            </p>
+        </div>
+        <p style="color: #999; text-align: center; font-size: 13px;">
+            Auto-closes in <span id="countdown-{page_id}">10</span> seconds...
+        </p>
     </div>
     
-    <div id="popup-overlay-{page_id}" style="
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.7);
-        z-index: 9999;
-    "></div>
-    
     <script>
-    let timeLeft_{page_id} = 10;
-    
-    function dismissPopup_{page_id}() {{
-        document.getElementById('page-popup-{page_id}').style.display = 'none';
-        document.getElementById('popup-overlay-{page_id}').style.display = 'none';
-        document.getElementById('dismiss-btn-{page_id}').click();
-    }}
-    
-    // Countdown timer
-    const timer_{page_id} = setInterval(function() {{
-        timeLeft_{page_id}--;
-        const countdownEl = document.getElementById('countdown-{page_id}');
-        if (countdownEl) {{
-            countdownEl.textContent = timeLeft_{page_id};
+    (function() {{
+        let remaining = 10;
+        const countdown = document.getElementById('countdown-{page_id}');
+        const overlay = document.getElementById('overlay-{page_id}');
+        const popup = document.getElementById('popup-{page_id}');
+        
+        function dismiss() {{
+            if (overlay) overlay.style.display = 'none';
+            if (popup) popup.style.display = 'none';
+            const btn = document.getElementById('dismiss-{page_id}');
+            if (btn) btn.click();
         }}
         
-        if (timeLeft_{page_id} <= 0) {{
-            clearInterval(timer_{page_id});
-            dismissPopup_{page_id}();
-        }}
-    }}, 1000);
+        const timer = setInterval(function() {{
+            remaining--;
+            if (countdown) countdown.textContent = remaining;
+            if (remaining <= 0) {{
+                clearInterval(timer);
+                dismiss();
+            }}
+        }}, 1000);
+        
+        if (overlay) overlay.onclick = dismiss;
+    }})();
     </script>
-    """
+    """, unsafe_allow_html=True)
     
-    st.markdown(popup_html, unsafe_allow_html=True)
-    
-    # Hidden button that JavaScript triggers
-    if st.button("", key=f"dismiss-btn-{page_id}", type="primary"):
+    # Hidden dismiss button
+    if st.button("Dismiss", key=f"dismiss-{page_id}", type="primary"):
         st.session_state.dismissed_popups.add(page_id)
-        # Don't rerun immediately - just mark as dismissed
-        # Next page load won't show it
+        st.rerun()
+
 
 
 
@@ -7786,7 +7791,8 @@ elif selected_page == "📖 Basics":
     show_page_popup(
         'learn_hub',
         '📚 Learn Hub',
-        'Master investing with 55 interactive lessons. Earn XP and badges as you progress through beginner to advanced topics. Take quizzes to test your knowledge!'
+        'Master investing with 55 interactive lessons. Earn XP and badges as you progress through beginner to advanced topics.',
+        'Take quizzes after each lesson to test your knowledge and unlock achievements!'
     )
     
     # ============= SESSION STATE INITIALIZATION =============
@@ -8845,7 +8851,8 @@ elif selected_page == "📚 Finance 101":
     show_page_popup(
         'finance_101',
         '🎓 Finance 101',
-        'Quick crash course on investing basics. Learn key terms, understand stocks vs bonds, and master the 5 metrics that actually matter. Visual cards make it easy!'
+        'Quick crash course on investing basics. Learn key terms, understand stocks vs bonds, and master the 5 metrics that actually matter.',
+        'Visual card system makes complex topics super easy to understand!'
     )
     
     # ============= TOP 5 METRICS SECTION (C - moved from Company Analysis) =============
@@ -9280,7 +9287,8 @@ elif selected_page == "📊 Company Analysis":
     show_page_popup(
         'company_analysis',
         '🔍 Company Analysis',
-        'Deep dive into any stock. View financial metrics, charts with indicators, and compare companies side-by-side. AI explains complex metrics in simple terms!'
+        'Deep dive into any stock. View financial metrics, charts, and compare companies side-by-side.',
+        'AI explains complex metrics in simple terms - no jargon!'
     )
     
     # Robinhood-style guidance
@@ -11494,7 +11502,8 @@ elif selected_page == "📰 Market Intelligence":
     show_page_popup(
         'market_intelligence',
         '📰 Market Intelligence',
-        'Stay informed with AI-powered news, earnings calendar, and market sentiment. Search any stock for latest news and analysis. Updated daily!'
+        'Stay informed with AI-powered news, earnings calendar, and market sentiment. Search any stock for latest news.',
+        'Real-time market sentiment gauge shows fear vs greed levels!'
     )
     
     st.header("📰 Market Intelligence & News")
@@ -12353,7 +12362,8 @@ elif selected_page == "📊 Pro Checklist":
     show_page_popup(
         'pro_checklist',
         '📊 Pro Checklist',
-        'Upload stock charts for AI-powered technical pattern detection. Get plain-English explanations of what patterns mean. Complete pre-investment checklist!'
+        'Upload stock charts for AI-powered technical pattern detection. Complete a pre-investment checklist.',
+        'AI explains chart patterns in plain English - no jargon!'
     )
     
     # ============= YELLOW PILL HEADER =============
@@ -13132,7 +13142,8 @@ elif selected_page == "👑 Ultimate":
     show_page_popup(
         'ultimate',
         '👑 Ultimate',
-        'Upload portfolio screenshots for AI analysis. Get personalized feedback on your holdings and discover improvement opportunities in seconds!'
+        'Upload portfolio screenshots for AI analysis. Get personalized feedback on your holdings.',
+        'AI analyzes diversification, risk, and allocation in seconds!'
     )
     
     # ============= PURPLE PILL HEADER =============
@@ -14504,7 +14515,8 @@ elif selected_page == "💼 Paper Portfolio":
     show_page_popup(
         'paper_portfolio',
         '💼 Paper Portfolio',
-        'Practice trading with $100,000 fake money. Track your performance vs the market. Learn without risk before using real capital!'
+        'Practice trading with $100,000 fake money. Track your performance vs the market.',
+        'Compare your returns against SPY benchmark to see how you stack up!'
     )
     
     st.header("💼 Paper Portfolio")
