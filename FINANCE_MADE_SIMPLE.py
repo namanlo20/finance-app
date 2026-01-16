@@ -7771,12 +7771,13 @@ elif selected_page == "📖 Basics":
     """
     
     # Show page popup
-    show_page_popup(
-        'learn_hub',
-        '📚 Learn Hub',
-        'Master investing with 55 interactive lessons. Earn XP and badges as you progress through beginner to advanced topics.',
-        'Take quizzes after each lesson to test your knowledge and unlock achievements!'
-    )
+    # POPUP DISABLED - was not displaying properly
+    # show_page_popup(
+    #     'learn_hub',
+    #     '📚 Learn Hub',
+    #     'Master investing with 55 interactive lessons. Earn XP and badges as you progress through beginner to advanced topics.',
+    #     'Take quizzes after each lesson to test your knowledge and unlock achievements!'
+    # )
     
     # ============= SESSION STATE INITIALIZATION =============
     # Initialize all Learn Hub state variables
@@ -8830,13 +8831,13 @@ elif selected_page == "📚 Finance 101":
     st.header("📚 Finance 101")
     st.caption("*Learn the language of investing through visual cards and interactive examples.*")
     
-    # Show page popup
-    show_page_popup(
-        'finance_101',
-        '🎓 Finance 101',
-        'Quick crash course on investing basics. Learn key terms, understand stocks vs bonds, and master the 5 metrics that actually matter.',
-        'Visual card system makes complex topics super easy to understand!'
-    )
+    # POPUP DISABLED - was not displaying properly
+    # show_page_popup(
+    #     'finance_101',
+    #     '🎓 Finance 101',
+    #     'Quick crash course on investing basics. Learn key terms, understand stocks vs bonds, and master the 5 metrics that actually matter.',
+    #     'Visual card system makes complex topics super easy to understand!'
+    # )
     
     # ============= TOP 5 METRICS SECTION (C - moved from Company Analysis) =============
     st.markdown("---")
@@ -9266,13 +9267,13 @@ elif selected_page == "🧠 Risk Quiz":
 
 elif selected_page == "📊 Company Analysis":
     
-    # Show page popup
-    show_page_popup(
-        'company_analysis',
-        '🔍 Company Analysis',
-        'Deep dive into any stock. View financial metrics, charts, and compare companies side-by-side.',
-        'AI explains complex metrics in simple terms - no jargon!'
-    )
+    # POPUP DISABLED - was not displaying properly
+    # show_page_popup(
+    #     'company_analysis',
+    #     '🔍 Company Analysis',
+    #     'Deep dive into any stock. View financial metrics, charts, and compare companies side-by-side.',
+    #     'AI explains complex metrics in simple terms - no jargon!'
+    # )
     
     # Robinhood-style guidance
     st.caption("*This page explains how this company makes money and where the risks are.*")
@@ -11481,13 +11482,13 @@ elif selected_page == "📈 Financial Health":
 # ============= MARKET INTELLIGENCE TAB =============
 elif selected_page == "📰 Market Intelligence":
     
-    # Show page popup
-    show_page_popup(
-        'market_intelligence',
-        '📰 Market Intelligence',
-        'Stay informed with AI-powered news, earnings calendar, and market sentiment. Search any stock for latest news.',
-        'Real-time market sentiment gauge shows fear vs greed levels!'
-    )
+    # POPUP DISABLED - was not displaying properly
+    # show_page_popup(
+    #     'market_intelligence',
+    #     '📰 Market Intelligence',
+    #     'Stay informed with AI-powered news, earnings calendar, and market sentiment. Search any stock for latest news.',
+    #     'Real-time market sentiment gauge shows fear vs greed levels!'
+    # )
     
     st.header("📰 Market Intelligence & News")
     st.markdown("**Stay informed with AI-powered market insights, news, and earnings**")
@@ -12341,13 +12342,13 @@ elif selected_page == "👑 Become a VIP":
 
 elif selected_page == "📊 Pro Checklist":
     
-    # Show page popup
-    show_page_popup(
-        'pro_checklist',
-        '📊 Pro Checklist',
-        'Upload stock charts for AI-powered technical pattern detection. Complete a pre-investment checklist.',
-        'AI explains chart patterns in plain English - no jargon!'
-    )
+    # POPUP DISABLED - was not displaying properly
+    # show_page_popup(
+    #     'pro_checklist',
+    #     '📊 Pro Checklist',
+    #     'Upload stock charts for AI-powered technical pattern detection. Complete a pre-investment checklist.',
+    #     'AI explains chart patterns in plain English - no jargon!'
+    # )
     
     # ============= YELLOW PILL HEADER =============
     st.markdown("""
@@ -13121,13 +13122,13 @@ elif selected_page == "📊 Pro Checklist":
 
 elif selected_page == "👑 Ultimate":
     
-    # Show page popup
-    show_page_popup(
-        'ultimate',
-        '👑 Ultimate',
-        'Upload portfolio screenshots for AI analysis. Get personalized feedback on your holdings.',
-        'AI analyzes diversification, risk, and allocation in seconds!'
-    )
+    # POPUP DISABLED - was not displaying properly
+    # show_page_popup(
+    #     'ultimate',
+    #     '👑 Ultimate',
+    #     'Upload portfolio screenshots for AI analysis. Get personalized feedback on your holdings.',
+    #     'AI analyzes diversification, risk, and allocation in seconds!'
+    # )
     
     # ============= PURPLE PILL HEADER =============
     st.markdown("""
@@ -14494,13 +14495,13 @@ Return JSON with grade, summary, top_risks (MAX 5), improvement_playbook (MAX 5)
 
 elif selected_page == "💼 Paper Portfolio":
     
-    # Show page popup
-    show_page_popup(
-        'paper_portfolio',
-        '💼 Paper Portfolio',
-        'Practice trading with $100,000 fake money. Track your performance vs the market.',
-        'Compare your returns against SPY benchmark to see how you stack up!'
-    )
+    # POPUP DISABLED - was not displaying properly
+    # show_page_popup(
+    #     'paper_portfolio',
+    #     '💼 Paper Portfolio',
+    #     'Practice trading with $100,000 fake money. Track your performance vs the market.',
+    #     'Compare your returns against SPY benchmark to see how you stack up!'
+    # )
     
     st.header("💼 Paper Portfolio")
     st.caption("*Practice trading with fake money. Track your performance vs the market.*")
