@@ -41,7 +41,7 @@ st.set_page_config(page_title="Investing Made Simple", layout="wide", page_icon=
 # ============================================
 
 def show_page_popup(page_id, title, summary, cool_feature):
-    """Show popup with JS countdown - NO server-side reruns"""
+    """SIMPLE popup that actually works - no JavaScript nonsense"""
     
     # Check if dismissed
     if 'dismissed_popups' not in st.session_state:
@@ -50,97 +50,80 @@ def show_page_popup(page_id, title, summary, cool_feature):
     if page_id in st.session_state.dismissed_popups:
         return
     
-    # Render popup with JavaScript countdown
-    st.markdown(f"""
+    # Check auto-dismiss timer
+    timer_key = f'popup_timer_{page_id}'
+    if timer_key not in st.session_state:
+        st.session_state[timer_key] = time.time()
+    
+    elapsed = time.time() - st.session_state[timer_key]
+    
+    # Auto-dismiss after 10 seconds
+    if elapsed >= 10:
+        st.session_state.dismissed_popups.add(page_id)
+        if timer_key in st.session_state:
+            del st.session_state[timer_key]
+        st.rerun()
+        return
+    
+    remaining = int(10 - elapsed)
+    
+    # Create popup overlay
+    st.markdown("""
     <style>
-    .popup-overlay-{page_id} {{
+    .modal-overlay {
         position: fixed;
         top: 0;
         left: 0;
         width: 100%;
         height: 100%;
         background: rgba(0, 0, 0, 0.7);
-        z-index: 9999;
-    }}
-    .popup-box-{page_id} {{
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        z-index: 10000;
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-        border: 2px solid #ff3333;
-        border-radius: 20px;
-        padding: 30px;
-        max-width: 500px;
-        width: 90%;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-    }}
+        z-index: 999999;
+    }
     </style>
-    
-    <div class="popup-overlay-{page_id}" id="overlay-{page_id}"></div>
-    <div class="popup-box-{page_id}" id="popup-{page_id}">
-        <button onclick="document.getElementById('dismiss-{page_id}').click()" style="
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            background: #ff3333;
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 32px;
-            height: 32px;
-            font-size: 20px;
-            cursor: pointer;
-            font-weight: bold;
-            line-height: 1;
-        ">×</button>
-        <h2 style="color: #FFFFFF; margin-bottom: 20px; font-size: 22px;">{title}</h2>
-        <p style="color: #E0E0E0; font-size: 15px; line-height: 1.8; margin-bottom: 15px;">
-            {summary}
-        </p>
-        <div style="background: rgba(255, 165, 0, 0.15); padding: 15px; border-radius: 10px; border-left: 3px solid #FFA500; margin-bottom: 15px;">
-            <p style="margin: 0; color: #FFA500; font-size: 14px;">
-                🌟 <strong>Cool Feature:</strong> {cool_feature}
-            </p>
-        </div>
-        <p style="color: #999; text-align: center; font-size: 13px;">
-            Auto-closes in <span id="countdown-{page_id}">10</span> seconds...
-        </p>
-    </div>
-    
-    <script>
-    (function() {{
-        let remaining = 10;
-        const countdown = document.getElementById('countdown-{page_id}');
-        const overlay = document.getElementById('overlay-{page_id}');
-        const popup = document.getElementById('popup-{page_id}');
-        
-        function dismiss() {{
-            if (overlay) overlay.style.display = 'none';
-            if (popup) popup.style.display = 'none';
-            const btn = document.getElementById('dismiss-{page_id}');
-            if (btn) btn.click();
-        }}
-        
-        const timer = setInterval(function() {{
-            remaining--;
-            if (countdown) countdown.textContent = remaining;
-            if (remaining <= 0) {{
-                clearInterval(timer);
-                dismiss();
-            }}
-        }}, 1000);
-        
-        if (overlay) overlay.onclick = dismiss;
-    }})();
-    </script>
+    <div class="modal-overlay"></div>
     """, unsafe_allow_html=True)
     
-    # Hidden dismiss button
-    if st.button("Dismiss", key=f"dismiss-{page_id}", type="primary"):
-        st.session_state.dismissed_popups.add(page_id)
-        st.rerun()
+    # Create centered popup using columns
+    col1, col2, col3 = st.columns([1, 2, 1])
+    
+    with col2:
+        # Popup content
+        st.markdown(f"""
+        <div style="
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border: 2px solid #ff3333;
+            border-radius: 20px;
+            padding: 30px;
+            margin-top: 100px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            position: relative;
+            z-index: 1000000;
+        ">
+            <h2 style="color: #FFFFFF; margin-bottom: 20px; font-size: 22px;">{title}</h2>
+            <p style="color: #E0E0E0; font-size: 15px; line-height: 1.8; margin-bottom: 15px;">
+                {summary}
+            </p>
+            <div style="background: rgba(255, 165, 0, 0.15); padding: 15px; border-radius: 10px; border-left: 3px solid #FFA500;">
+                <p style="margin: 0; color: #FFA500; font-size: 14px;">
+                    🌟 <strong>Cool Feature:</strong> {cool_feature}
+                </p>
+            </div>
+            <p style="color: #999; text-align: center; margin-top: 15px; font-size: 13px;">
+                Auto-closes in {remaining} seconds...
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Close button
+        if st.button("✕ Close", key=f"close_popup_{page_id}", type="primary", use_container_width=True):
+            st.session_state.dismissed_popups.add(page_id)
+            if timer_key in st.session_state:
+                del st.session_state[timer_key]
+            st.rerun()
+    
+    # Refresh every second for countdown
+    time.sleep(1)
+    st.rerun()
 
 
 
