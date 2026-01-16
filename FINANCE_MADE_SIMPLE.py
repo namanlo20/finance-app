@@ -37,93 +37,43 @@ st.set_page_config(page_title="Investing Made Simple", layout="wide", page_icon=
 
 
 # ============================================
-# WORKING POPUP SYSTEM (NO INFINITE RERUNS)
+# WORKING POPUP SYSTEM - st.dialog() for Streamlit 1.31+
 # ============================================
 
 def show_page_popup(page_id, title, summary, cool_feature):
-    """SIMPLE popup that actually works - no JavaScript nonsense"""
+    """True modal popup using st.dialog() - works perfectly on Streamlit 1.31+"""
     
-    # Check if dismissed
+    # Initialize dismissed set
     if 'dismissed_popups' not in st.session_state:
         st.session_state.dismissed_popups = set()
     
+    # Already dismissed this session? Skip.
     if page_id in st.session_state.dismissed_popups:
         return
     
-    # Check auto-dismiss timer
-    timer_key = f'popup_timer_{page_id}'
-    if timer_key not in st.session_state:
-        st.session_state[timer_key] = time.time()
-    
-    elapsed = time.time() - st.session_state[timer_key]
-    
-    # Auto-dismiss after 10 seconds
-    if elapsed >= 10:
-        st.session_state.dismissed_popups.add(page_id)
-        if timer_key in st.session_state:
-            del st.session_state[timer_key]
-        st.rerun()
-        return
-    
-    remaining = int(10 - elapsed)
-    
-    # Create popup overlay
-    st.markdown("""
-    <style>
-    .modal-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.7);
-        z-index: 999999;
-    }
-    </style>
-    <div class="modal-overlay"></div>
-    """, unsafe_allow_html=True)
-    
-    # Create centered popup using columns
-    col1, col2, col3 = st.columns([1, 2, 1])
-    
-    with col2:
-        # Popup content
+    # Define the dialog
+    @st.dialog(title)
+    def page_intro_dialog():
         st.markdown(f"""
-        <div style="
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            border: 2px solid #ff3333;
-            border-radius: 20px;
-            padding: 30px;
-            margin-top: 100px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-            position: relative;
-            z-index: 1000000;
-        ">
-            <h2 style="color: #FFFFFF; margin-bottom: 20px; font-size: 22px;">{title}</h2>
-            <p style="color: #E0E0E0; font-size: 15px; line-height: 1.8; margin-bottom: 15px;">
-                {summary}
-            </p>
-            <div style="background: rgba(255, 165, 0, 0.15); padding: 15px; border-radius: 10px; border-left: 3px solid #FFA500;">
-                <p style="margin: 0; color: #FFA500; font-size: 14px;">
+        <div style="padding: 10px 0;">
+            <p style="font-size: 16px; line-height: 1.7; margin-bottom: 20px;">{summary}</p>
+            <div style="background: linear-gradient(135deg, rgba(255, 165, 0, 0.15), rgba(255, 100, 0, 0.1)); 
+                        padding: 15px; border-radius: 10px; border-left: 4px solid #FFA500;">
+                <p style="margin: 0; font-size: 15px;">
                     🌟 <strong>Cool Feature:</strong> {cool_feature}
                 </p>
             </div>
-            <p style="color: #999; text-align: center; margin-top: 15px; font-size: 13px;">
-                Auto-closes in {remaining} seconds...
-            </p>
         </div>
         """, unsafe_allow_html=True)
         
-        # Close button
-        if st.button("✕ Close", key=f"close_popup_{page_id}", type="primary", use_container_width=True):
+        st.write("")  # Spacer
+        
+        if st.button("✓ Got it!", type="primary", use_container_width=True):
             st.session_state.dismissed_popups.add(page_id)
-            if timer_key in st.session_state:
-                del st.session_state[timer_key]
             st.rerun()
     
-    # Refresh every second for countdown
-    time.sleep(1)
-    st.rerun()
+    # Show the dialog
+    page_intro_dialog()
 
 
 
@@ -7771,13 +7721,12 @@ elif selected_page == "📖 Basics":
     """
     
     # Show page popup
-    # POPUP DISABLED - was not displaying properly
-    # show_page_popup(
-    #     'learn_hub',
-    #     '📚 Learn Hub',
-    #     'Master investing with 55 interactive lessons. Earn XP and badges as you progress through beginner to advanced topics.',
-    #     'Take quizzes after each lesson to test your knowledge and unlock achievements!'
-    # )
+    show_page_popup(
+        'learn_hub',
+        '📚 Learn Hub',
+        'Master investing with 55 interactive lessons. Earn XP and badges as you progress through beginner to advanced topics.',
+        'Take quizzes after each lesson to test your knowledge and unlock achievements!'
+    )
     
     # ============= SESSION STATE INITIALIZATION =============
     # Initialize all Learn Hub state variables
@@ -8831,13 +8780,13 @@ elif selected_page == "📚 Finance 101":
     st.header("📚 Finance 101")
     st.caption("*Learn the language of investing through visual cards and interactive examples.*")
     
-    # POPUP DISABLED - was not displaying properly
-    # show_page_popup(
-    #     'finance_101',
-    #     '🎓 Finance 101',
-    #     'Quick crash course on investing basics. Learn key terms, understand stocks vs bonds, and master the 5 metrics that actually matter.',
-    #     'Visual card system makes complex topics super easy to understand!'
-    # )
+    # Show page popup
+    show_page_popup(
+        'finance_101',
+        '🎓 Finance 101',
+        'Quick crash course on investing basics. Learn key terms, understand stocks vs bonds, and master the 5 metrics that actually matter.',
+        'Visual card system makes complex topics super easy to understand!'
+    )
     
     # ============= TOP 5 METRICS SECTION (C - moved from Company Analysis) =============
     st.markdown("---")
@@ -9267,13 +9216,13 @@ elif selected_page == "🧠 Risk Quiz":
 
 elif selected_page == "📊 Company Analysis":
     
-    # POPUP DISABLED - was not displaying properly
-    # show_page_popup(
-    #     'company_analysis',
-    #     '🔍 Company Analysis',
-    #     'Deep dive into any stock. View financial metrics, charts, and compare companies side-by-side.',
-    #     'AI explains complex metrics in simple terms - no jargon!'
-    # )
+    # Show page popup
+    show_page_popup(
+        'company_analysis',
+        '🔍 Company Analysis',
+        'Deep dive into any stock. View financial metrics, charts, and compare companies side-by-side.',
+        'AI explains complex metrics in simple terms - no jargon!'
+    )
     
     # Robinhood-style guidance
     st.caption("*This page explains how this company makes money and where the risks are.*")
@@ -11482,13 +11431,13 @@ elif selected_page == "📈 Financial Health":
 # ============= MARKET INTELLIGENCE TAB =============
 elif selected_page == "📰 Market Intelligence":
     
-    # POPUP DISABLED - was not displaying properly
-    # show_page_popup(
-    #     'market_intelligence',
-    #     '📰 Market Intelligence',
-    #     'Stay informed with AI-powered news, earnings calendar, and market sentiment. Search any stock for latest news.',
-    #     'Real-time market sentiment gauge shows fear vs greed levels!'
-    # )
+    # Show page popup
+    show_page_popup(
+        'market_intelligence',
+        '📰 Market Intelligence',
+        'Stay informed with AI-powered news, earnings calendar, and market sentiment. Search any stock for latest news.',
+        'Real-time market sentiment gauge shows fear vs greed levels!'
+    )
     
     st.header("📰 Market Intelligence & News")
     st.markdown("**Stay informed with AI-powered market insights, news, and earnings**")
@@ -12342,13 +12291,13 @@ elif selected_page == "👑 Become a VIP":
 
 elif selected_page == "📊 Pro Checklist":
     
-    # POPUP DISABLED - was not displaying properly
-    # show_page_popup(
-    #     'pro_checklist',
-    #     '📊 Pro Checklist',
-    #     'Upload stock charts for AI-powered technical pattern detection. Complete a pre-investment checklist.',
-    #     'AI explains chart patterns in plain English - no jargon!'
-    # )
+    # Show page popup
+    show_page_popup(
+        'pro_checklist',
+        '📊 Pro Checklist',
+        'Upload stock charts for AI-powered technical pattern detection. Complete a pre-investment checklist.',
+        'AI explains chart patterns in plain English - no jargon!'
+    )
     
     # ============= YELLOW PILL HEADER =============
     st.markdown("""
@@ -13122,13 +13071,13 @@ elif selected_page == "📊 Pro Checklist":
 
 elif selected_page == "👑 Ultimate":
     
-    # POPUP DISABLED - was not displaying properly
-    # show_page_popup(
-    #     'ultimate',
-    #     '👑 Ultimate',
-    #     'Upload portfolio screenshots for AI analysis. Get personalized feedback on your holdings.',
-    #     'AI analyzes diversification, risk, and allocation in seconds!'
-    # )
+    # Show page popup
+    show_page_popup(
+        'ultimate',
+        '👑 Ultimate',
+        'Upload portfolio screenshots for AI analysis. Get personalized feedback on your holdings.',
+        'AI analyzes diversification, risk, and allocation in seconds!'
+    )
     
     # ============= PURPLE PILL HEADER =============
     st.markdown("""
@@ -14495,13 +14444,13 @@ Return JSON with grade, summary, top_risks (MAX 5), improvement_playbook (MAX 5)
 
 elif selected_page == "💼 Paper Portfolio":
     
-    # POPUP DISABLED - was not displaying properly
-    # show_page_popup(
-    #     'paper_portfolio',
-    #     '💼 Paper Portfolio',
-    #     'Practice trading with $100,000 fake money. Track your performance vs the market.',
-    #     'Compare your returns against SPY benchmark to see how you stack up!'
-    # )
+    # Show page popup
+    show_page_popup(
+        'paper_portfolio',
+        '💼 Paper Portfolio',
+        'Practice trading with $100,000 fake money. Track your performance vs the market.',
+        'Compare your returns against SPY benchmark to see how you stack up!'
+    )
     
     st.header("💼 Paper Portfolio")
     st.caption("*Practice trading with fake money. Track your performance vs the market.*")
