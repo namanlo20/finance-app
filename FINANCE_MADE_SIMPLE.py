@@ -240,21 +240,21 @@ def show_skeleton_loader(height=200, message="Loading..."):
 
 def show_skeleton_table(rows=5, cols=4):
     """Display a skeleton table placeholder"""
+    # Build header row
+    header_cells = ''.join(['<div style="background: linear-gradient(90deg, rgba(128,128,128,0.1) 25%, rgba(128,128,128,0.2) 50%, rgba(128,128,128,0.1) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; height: 20px; border-radius: 4px;"></div>' for _ in range(cols)])
+    
+    # Build data rows
+    data_rows = ''
+    for _ in range(rows):
+        row_cells = ''.join(['<div style="background: linear-gradient(90deg, rgba(128,128,128,0.08) 25%, rgba(128,128,128,0.15) 50%, rgba(128,128,128,0.08) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; height: 35px; border-radius: 4px;"></div>' for _ in range(cols)])
+        data_rows += f'<div style="display: grid; grid-template-columns: repeat({cols}, 1fr); gap: 10px; margin-top: 10px;">{row_cells}</div>'
+    
     st.markdown(f"""
-    <div style="
-        background: rgba(128,128,128,0.05);
-        border-radius: 10px;
-        padding: 15px;
-        margin: 10px 0;
-    ">
-        <div style="
-            display: grid;
-            grid-template-columns: repeat({cols}, 1fr);
-            gap: 10px;
-        ">
-            {''.join([f'<div style="background: linear-gradient(90deg, rgba(128,128,128,0.1) 25%, rgba(128,128,128,0.2) 50%, rgba(128,128,128,0.1) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; height: 20px; border-radius: 4px;"></div>' for _ in range(cols)])}
+    <div style="background: rgba(128,128,128,0.05); border-radius: 10px; padding: 15px; margin: 10px 0;">
+        <div style="display: grid; grid-template-columns: repeat({cols}, 1fr); gap: 10px;">
+            {header_cells}
         </div>
-        {''.join([f'<div style="display: grid; grid-template-columns: repeat({cols}, 1fr); gap: 10px; margin-top: 10px;">{"".join([f"<div style=\\"background: linear-gradient(90deg, rgba(128,128,128,0.08) 25%, rgba(128,128,128,0.15) 50%, rgba(128,128,128,0.08) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; height: 35px; border-radius: 4px;\\"></div>" for _ in range(cols)])}</div>' for _ in range(rows)])}
+        {data_rows}
     </div>
     <style>
     @keyframes shimmer {{
