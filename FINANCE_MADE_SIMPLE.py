@@ -7947,7 +7947,7 @@ if selected_page == "🏠 Dashboard":
             col1, col2, col3, col4, col5, col6 = st.columns([1.5, 1.2, 1.2, 1.2, 1, 0.5])
             
             with col1:
-                if st.button(f"**{row['Ticker']}**", key=f"pin_analyze_{row['Ticker']}", use_container_width=True):
+                if st.button(f"🔍 {row['Ticker']}", key=f"pin_analyze_{row['Ticker']}_{i}", use_container_width=True):
                     st.session_state.selected_ticker = row['Ticker']
                     st.session_state.last_ticker = row['Ticker']
                     st.session_state.selected_page = "📊 Company Analysis"
@@ -7960,9 +7960,9 @@ if selected_page == "🏠 Dashboard":
             with col4:
                 st.markdown(f"<p style='text-align: center; padding-top: 8px;'>{row['Mkt Cap']}</p>", unsafe_allow_html=True)
             with col5:
-                st.caption(f"<p style='text-align: center; padding-top: 10px; color: #888;'>just now</p>", unsafe_allow_html=True)
+                st.markdown(f"<p style='text-align: center; padding-top: 10px; color: #888; font-size: 12px;'>just now</p>", unsafe_allow_html=True)
             with col6:
-                if st.button("✕", key=f"remove_pin_{row['Ticker']}", help=f"Remove {row['Ticker']}"):
+                if st.button("✕", key=f"remove_pin_{row['Ticker']}_{i}", help=f"Remove {row['Ticker']}"):
                     st.session_state.pinned_tickers.remove(row['Ticker'])
                     save_to_localstorage('pinned_tickers', st.session_state.pinned_tickers)
                     # Save to DB if logged in
@@ -8127,12 +8127,14 @@ if selected_page == "🏠 Dashboard":
     st.caption("Deep-dive analysis modes for serious investors")
     
     # Ticker selector for workflows
-    workflow_ticker = st.text_input(
+    default_ticker = st.session_state.get('last_ticker') or 'AAPL'
+    workflow_ticker_raw = st.text_input(
         "Enter ticker for analysis:",
-        value=st.session_state.get('last_ticker', 'AAPL'),
+        value=default_ticker,
         key="workflow_ticker_input",
         placeholder="e.g., AAPL, NVDA, MSFT"
-    ).upper().strip()
+    )
+    workflow_ticker = workflow_ticker_raw.upper().strip() if workflow_ticker_raw else ""
     
     workflow_tabs = st.tabs(["📅 Earnings Prep", "💰 Valuation", "⚠️ Risk Analysis", "🏥 Portfolio Health"])
     
