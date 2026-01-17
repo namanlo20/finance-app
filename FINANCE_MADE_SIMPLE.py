@@ -6397,7 +6397,25 @@ with st.sidebar:
     
     # Initialize selected page in session state if not exists
     if 'selected_page' not in st.session_state:
-        st.session_state.selected_page = "🏠 Start Here"
+        st.session_state.selected_page = "🏠 Dashboard"
+    
+    # Initialize pinned tickers
+    if 'pinned_tickers' not in st.session_state:
+        st.session_state.pinned_tickers = []
+    
+    # Initialize last visited tracking
+    if 'last_ticker' not in st.session_state:
+        st.session_state.last_ticker = None
+    if 'last_tab' not in st.session_state:
+        st.session_state.last_tab = None
+    
+    # 🏠 DASHBOARD - Premium Home Base (Always visible at top)
+    st.markdown("### 🏠 Dashboard")
+    if st.button("🏠 Dashboard", key="btn_dashboard", use_container_width=True, type="primary"):
+        st.session_state.selected_page = "🏠 Dashboard"
+        st.rerun()
+    
+    st.markdown("---")
     
     # 1. START HERE GROUP
     with st.expander("### 1. 📖 Start Here", expanded=True):
@@ -6411,6 +6429,7 @@ with st.sidebar:
         for tool in start_here_tools:
             if st.button(tool, key=f"btn_{tool}", use_container_width=True):
                 st.session_state.selected_page = tool
+                st.session_state.last_tab = tool  # Track last visited
                 st.rerun()
     
     # 2. THE ANALYSIS GROUP
@@ -6426,6 +6445,7 @@ with st.sidebar:
         for tool in analysis_tools:
             if st.button(tool, key=f"btn_{tool}", use_container_width=True):
                 st.session_state.selected_page = tool
+                st.session_state.last_tab = tool  # Track last visited
                 st.rerun()
     
     # 3. THE ACTION GROUP
@@ -6441,6 +6461,7 @@ with st.sidebar:
         for tool in action_tools:
             if st.button(tool, key=f"btn_{tool}", use_container_width=True):
                 st.session_state.selected_page = tool
+                st.session_state.last_tab = tool  # Track last visited
                 st.rerun()
     
     # Get the selected page from session state
@@ -7781,8 +7802,329 @@ Be specific and technical. Use proper terminology."""
 
 # ============= PAGE CONTENT =============
 
+# ============= DASHBOARD: PREMIUM HOME BASE =============
+if selected_page == "🏠 Dashboard":
+    
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
+                padding: 25px; border-radius: 15px; margin-bottom: 25px;">
+        <h1 style="color: #FFFFFF; margin: 0; font-size: 28px;">🏠 Dashboard</h1>
+        <p style="color: #B0B0B0; margin: 5px 0 0 0;">Your personalized investing command center</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # ============= BLOCK A: PINNED WATCHLIST =============
+    st.markdown("### 📌 Pinned Watchlist")
+    
+    # Add ticker input
+    col_add1, col_add2 = st.columns([3, 1])
+    with col_add1:
+        new_pin_ticker = st.text_input("Add a ticker to watch:", placeholder="e.g., AAPL, NVDA, MSFT", key="new_pin_input", label_visibility="collapsed")
+    with col_add2:
+        add_pin_clicked = st.button("➕ Pin", key="add_pin_btn", use_container_width=True)
+    
+    # Handle adding new pin
+    if add_pin_clicked and new_pin_ticker:
+        ticker_upper = new_pin_ticker.upper().strip()
+        if ticker_upper and ticker_upper not in st.session_state.pinned_tickers:
+            if len(st.session_state.pinned_tickers) < 10:  # Limit to 10 for free users
+                st.session_state.pinned_tickers.append(ticker_upper)
+                save_to_localstorage('pinned_tickers', st.session_state.pinned_tickers)
+                st.success(f"📌 Added {ticker_upper} to your watchlist!")
+                st.rerun()
+            else:
+                st.warning("📌 You've reached the limit of 10 pinned tickers. Remove one to add more.")
+        elif ticker_upper in st.session_state.pinned_tickers:
+            st.info(f"{ticker_upper} is already in your watchlist.")
+    
+    # Display pinned tickers
+    if st.session_state.pinned_tickers:
+        pinned_data = []
+        
+        for ticker in st.session_state.pinned_tickers:
+            quote = get_quote(ticker)
+            if quote:
+                price = quote.get('price', 0)
+                change_pct = quote.get('changesPercentage', 0)
+                market_cap = quote.get('marketCap', 0)
+                
+                # Format market cap
+                if market_cap >= 1e12:
+                    mc_str = f"${market_cap/1e12:.2f}T"
+                elif market_cap >= 1e9:
+                    mc_str = f"${market_cap/1e9:.1f}B"
+                elif market_cap >= 1e6:
+                    mc_str = f"${market_cap/1e6:.0f}M"
+                else:
+                    mc_str = "N/A"
+                
+                pinned_data.append({
+                    "Ticker": ticker,
+                    "Price": f"${price:.2f}" if price else "N/A",
+                    "Change": f"{change_pct:+.2f}%" if change_pct else "0.00%",
+                    "Mkt Cap": mc_str,
+                    "_change_val": change_pct  # Hidden column for sorting
+                })
+            else:
+                pinned_data.append({
+                    "Ticker": ticker,
+                    "Price": "N/A",
+                    "Change": "N/A",
+                    "Mkt Cap": "N/A",
+                    "_change_val": 0
+                })
+        
+        # Create DataFrame and display
+        pinned_df = pd.DataFrame(pinned_data)
+        
+        # Style the change column
+        def style_change(val):
+            if '+' in str(val):
+                return 'color: #22c55e'
+            elif '-' in str(val):
+                return 'color: #ef4444'
+            return ''
+        
+        # Display as table with clickable actions
+        for i, row in enumerate(pinned_data):
+            col1, col2, col3, col4, col5, col6 = st.columns([1.5, 1.2, 1.2, 1.2, 1, 0.5])
+            
+            with col1:
+                if st.button(f"**{row['Ticker']}**", key=f"pin_analyze_{row['Ticker']}", use_container_width=True):
+                    st.session_state.selected_ticker = row['Ticker']
+                    st.session_state.last_ticker = row['Ticker']
+                    st.session_state.selected_page = "📊 Company Analysis"
+                    st.rerun()
+            with col2:
+                st.markdown(f"<p style='text-align: center; padding-top: 8px;'>{row['Price']}</p>", unsafe_allow_html=True)
+            with col3:
+                change_color = "#22c55e" if row['_change_val'] > 0 else "#ef4444" if row['_change_val'] < 0 else "#888"
+                st.markdown(f"<p style='text-align: center; padding-top: 8px; color: {change_color};'>{row['Change']}</p>", unsafe_allow_html=True)
+            with col4:
+                st.markdown(f"<p style='text-align: center; padding-top: 8px;'>{row['Mkt Cap']}</p>", unsafe_allow_html=True)
+            with col5:
+                st.caption(f"<p style='text-align: center; padding-top: 10px; color: #888;'>just now</p>", unsafe_allow_html=True)
+            with col6:
+                if st.button("✕", key=f"remove_pin_{row['Ticker']}", help=f"Remove {row['Ticker']}"):
+                    st.session_state.pinned_tickers.remove(row['Ticker'])
+                    save_to_localstorage('pinned_tickers', st.session_state.pinned_tickers)
+                    st.rerun()
+        
+        # Show data source
+        show_data_source(source="FMP API", updated_at=datetime.now())
+        
+        # Show biggest movers summary
+        if pinned_data:
+            sorted_by_change = sorted(pinned_data, key=lambda x: x['_change_val'], reverse=True)
+            best = sorted_by_change[0]
+            worst = sorted_by_change[-1]
+            
+            if best['_change_val'] != 0 or worst['_change_val'] != 0:
+                st.markdown(f"""
+                <div style="background: rgba(128,128,128,0.1); padding: 10px 15px; border-radius: 8px; margin-top: 10px;">
+                    <span style="color: #888;">📊 Today's Movers:</span>
+                    <span style="color: #22c55e; margin-left: 10px;">🟢 {best['Ticker']} {best['Change']}</span>
+                    <span style="color: #ef4444; margin-left: 15px;">🔴 {worst['Ticker']} {worst['Change']}</span>
+                </div>
+                """, unsafe_allow_html=True)
+    else:
+        # Empty state
+        show_empty_state(
+            title="No Pinned Tickers Yet",
+            message="Add stocks to your watchlist to track them here",
+            action_text="🔍 Go to Company Analysis",
+            action_key="goto_analysis_from_empty",
+            icon="📌"
+        )
+        if st.session_state.get('goto_analysis_from_empty'):
+            st.session_state.selected_page = "📊 Company Analysis"
+            st.rerun()
+        
+        # Show starter suggestions
+        st.markdown("**💡 Popular tickers to get started:**")
+        starter_cols = st.columns(5)
+        starters = ["AAPL", "NVDA", "MSFT", "GOOGL", "AMZN"]
+        for i, ticker in enumerate(starters):
+            with starter_cols[i]:
+                if st.button(f"+ {ticker}", key=f"starter_{ticker}"):
+                    st.session_state.pinned_tickers.append(ticker)
+                    save_to_localstorage('pinned_tickers', st.session_state.pinned_tickers)
+                    st.rerun()
+    
+    st.markdown("---")
+    
+    # ============= BLOCK B: QUICK ACTIONS =============
+    st.markdown("### ⚡ Quick Actions")
+    
+    qa_col1, qa_col2, qa_col3, qa_col4 = st.columns(4)
+    
+    with qa_col1:
+        if st.button("🔍 Analyze a Ticker", key="qa_analyze", use_container_width=True):
+            st.session_state.selected_page = "📊 Company Analysis"
+            st.rerun()
+        if st.button("📊 Market Overview", key="qa_market", use_container_width=True):
+            st.session_state.selected_page = "📊 Market Overview"
+            st.rerun()
+    
+    with qa_col2:
+        if st.button("⚖️ Compare Tickers", key="qa_compare", use_container_width=True):
+            st.session_state.selected_page = "📊 Company Analysis"
+            st.rerun()
+        if st.button("🏭 Sector Explorer", key="qa_sectors", use_container_width=True):
+            st.session_state.selected_page = "📊 Market Overview"
+            st.rerun()
+    
+    with qa_col3:
+        if st.button("📅 Earnings Prep", key="qa_earnings", use_container_width=True):
+            st.session_state.selected_page = "📰 Market Intelligence"
+            st.rerun()
+        if st.button("📈 Financial Health", key="qa_health", use_container_width=True):
+            st.session_state.selected_page = "📈 Financial Health"
+            st.rerun()
+    
+    with qa_col4:
+        if st.button("⚠️ Risk Check", key="qa_risk", use_container_width=True):
+            st.session_state.selected_page = "🧠 Risk Quiz"
+            st.rerun()
+        if st.button("💼 Paper Portfolio", key="qa_portfolio", use_container_width=True):
+            st.session_state.selected_page = "💼 Paper Portfolio"
+            st.rerun()
+    
+    st.markdown("---")
+    
+    # ============= BLOCK C: TODAY'S BRIEF =============
+    st.markdown("### 📰 Today's Brief")
+    
+    brief_col1, brief_col2 = st.columns([2, 1])
+    
+    with brief_col1:
+        st.markdown("#### 📊 Market Snapshot")
+        
+        # Get SPY, QQQ, VIX quotes
+        market_tickers = ["SPY", "QQQ", "DIA"]
+        market_cols = st.columns(3)
+        
+        for i, mticker in enumerate(market_tickers):
+            with market_cols[i]:
+                mquote = get_quote(mticker)
+                if mquote:
+                    mprice = mquote.get('price', 0)
+                    mchange = mquote.get('changesPercentage', 0)
+                    mcolor = "#22c55e" if mchange > 0 else "#ef4444" if mchange < 0 else "#888"
+                    
+                    st.markdown(f"""
+                    <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
+                        <div style="font-size: 14px; color: #888;">{mticker}</div>
+                        <div style="font-size: 20px; font-weight: bold;">${mprice:.2f}</div>
+                        <div style="color: {mcolor}; font-size: 14px;">{mchange:+.2f}%</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.markdown(f"""
+                    <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
+                        <div style="font-size: 14px; color: #888;">{mticker}</div>
+                        <div style="font-size: 16px; color: #888;">Loading...</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+        
+        # VIX (Fear Index)
+        st.markdown("")
+        vix_quote = get_quote("^VIX")
+        if vix_quote:
+            vix_val = vix_quote.get('price', 0)
+            vix_status = "Low Fear" if vix_val < 15 else "Moderate" if vix_val < 25 else "High Fear" if vix_val < 35 else "Extreme Fear"
+            vix_color = "#22c55e" if vix_val < 15 else "#f59e0b" if vix_val < 25 else "#ef4444"
+            st.markdown(f"**VIX (Fear Index):** <span style='color: {vix_color};'>{vix_val:.1f}</span> — {vix_status}", unsafe_allow_html=True)
+        
+        show_data_source(source="FMP API", updated_at=datetime.now())
+    
+    with brief_col2:
+        st.markdown("#### 🎯 Market Mood")
+        
+        # Get market sentiment
+        sentiment_data = get_global_market_sentiment()
+        sentiment_score = sentiment_data["score"]
+        sentiment_label = sentiment_data["label"]
+        sentiment_color = sentiment_data["color"]
+        
+        st.markdown(f"""
+        <div style="background: rgba(128,128,128,0.1); padding: 20px; border-radius: 10px; text-align: center;">
+            <div style="font-size: 36px; font-weight: bold; color: {sentiment_color};">{sentiment_score}</div>
+            <div style="color: {sentiment_color}; font-size: 16px; font-weight: 500;">{sentiment_label}</div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Legend
+        st.caption("0-25: Extreme Fear | 75-100: Extreme Greed")
+    
+    st.markdown("---")
+    
+    # ============= BLOCK D: CONTINUE WHERE YOU LEFT OFF =============
+    st.markdown("### 🔄 Continue Where You Left Off")
+    
+    last_ticker = st.session_state.get('last_ticker')
+    last_tab = st.session_state.get('last_tab')
+    
+    if last_ticker or last_tab:
+        resume_col1, resume_col2, resume_col3 = st.columns([2, 2, 1])
+        
+        with resume_col1:
+            if last_ticker:
+                st.markdown(f"""
+                <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px;">
+                    <div style="color: #888; font-size: 12px;">Last Ticker</div>
+                    <div style="font-size: 18px; font-weight: bold;">{last_ticker}</div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px;">
+                    <div style="color: #888; font-size: 12px;">Last Ticker</div>
+                    <div style="color: #888;">None yet</div>
+                </div>
+                """, unsafe_allow_html=True)
+        
+        with resume_col2:
+            if last_tab:
+                st.markdown(f"""
+                <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px;">
+                    <div style="color: #888; font-size: 12px;">Last Visited</div>
+                    <div style="font-size: 16px; font-weight: bold;">{last_tab}</div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px;">
+                    <div style="color: #888; font-size: 12px;">Last Visited</div>
+                    <div style="color: #888;">None yet</div>
+                </div>
+                """, unsafe_allow_html=True)
+        
+        with resume_col3:
+            if last_ticker and last_tab:
+                if st.button("▶️ Resume", key="resume_btn", type="primary", use_container_width=True):
+                    st.session_state.selected_ticker = last_ticker
+                    st.session_state.selected_page = last_tab
+                    st.rerun()
+            elif last_tab:
+                if st.button("▶️ Resume", key="resume_btn", type="primary", use_container_width=True):
+                    st.session_state.selected_page = last_tab
+                    st.rerun()
+    else:
+        st.markdown("""
+        <div style="background: rgba(128,128,128,0.05); padding: 20px; border-radius: 10px; text-align: center; color: #888;">
+            <p>Start exploring to build your history!</p>
+            <p style="font-size: 13px;">Your last visited page and ticker will appear here.</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Footer
+    st.markdown("---")
+    st.caption("💡 **Tip:** Pin your favorite tickers to track them easily. Use Quick Actions to jump to any tool.")
+
+
 # ============= HOMEPAGE: START HERE =============
-if selected_page == "🏠 Start Here":
+elif selected_page == "🏠 Start Here":
     # Debug status line (temporary)
     st.caption(f"🔍 Debug: onboarding_completed={st.session_state.get('onboarding_completed', False)} | setup_prompt_dismissed={st.session_state.get('setup_prompt_dismissed', False)} | logged_in={st.session_state.get('is_logged_in', False)}")
     
@@ -9614,6 +9956,7 @@ elif selected_page == "📊 Company Analysis":
     if search:
         ticker, company_name = smart_search_ticker(search)
         st.session_state.selected_ticker = ticker
+        st.session_state.last_ticker = ticker  # Track last ticker for Dashboard
         if ticker != search.upper():
             st.success(f"Found: {company_name} ({ticker})")
     else:
