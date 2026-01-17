@@ -7935,6 +7935,8 @@ if selected_page == "🏠 Dashboard":
         
         for ticker in st.session_state.pinned_tickers:
             quote = get_quote(ticker)
+            logo_url = get_company_logo(ticker)  # Get logo for each ticker
+            
             if quote:
                 price = quote.get('price', 0)
                 change_pct = quote.get('changesPercentage', 0)
@@ -7955,7 +7957,8 @@ if selected_page == "🏠 Dashboard":
                     "Price": f"${price:.2f}" if price else "N/A",
                     "Change": f"{change_pct:+.2f}%" if change_pct else "0.00%",
                     "Mkt Cap": mc_str,
-                    "_change_val": change_pct  # Hidden column for sorting
+                    "_change_val": change_pct,  # Hidden column for sorting
+                    "_logo_url": logo_url  # Logo URL
                 })
             else:
                 pinned_data.append({
@@ -7963,7 +7966,8 @@ if selected_page == "🏠 Dashboard":
                     "Price": "N/A",
                     "Change": "N/A",
                     "Mkt Cap": "N/A",
-                    "_change_val": 0
+                    "_change_val": 0,
+                    "_logo_url": logo_url
                 })
         
         # Create DataFrame and display
@@ -7978,7 +7982,7 @@ if selected_page == "🏠 Dashboard":
             return ''
         
         # Display header row
-        header_col1, header_col2, header_col3, header_col4, header_col5, header_col6, header_col7 = st.columns([1, 1.2, 1, 1, 1, 0.8, 0.5])
+        header_col1, header_col2, header_col3, header_col4, header_col5, header_col6, header_col7 = st.columns([1.3, 1.2, 1, 1, 0.8, 0.8, 0.5])
         with header_col1:
             st.markdown("<p style='color: #888; font-size: 12px; font-weight: bold;'>TICKER</p>", unsafe_allow_html=True)
         with header_col2:
@@ -7996,17 +8000,27 @@ if selected_page == "🏠 Dashboard":
         
         st.markdown("<hr style='margin: 5px 0; border-color: rgba(128,128,128,0.3);'>", unsafe_allow_html=True)
         
-        # Display each ticker row
+        # Display each ticker row with LOGO
         for i, row in enumerate(pinned_data):
-            col1, col2, col3, col4, col5, col6, col7 = st.columns([1, 1.2, 1, 1, 1, 0.8, 0.5])
+            col1, col2, col3, col4, col5, col6, col7 = st.columns([1.3, 1.2, 1, 1, 0.8, 0.8, 0.5])
             
             with col1:
-                # Display ticker prominently
-                st.markdown(f"""
-                <div style="padding: 8px 0;">
-                    <span style="font-weight: bold; font-size: 16px;">{row['Ticker']}</span>
-                </div>
-                """, unsafe_allow_html=True)
+                # Display ticker with LOGO
+                logo_url = row.get('_logo_url')
+                if logo_url:
+                    st.markdown(f"""
+                    <div style="display: flex; align-items: center; padding: 5px 0;">
+                        <img src="{logo_url}" width="32" height="32" style="border-radius: 6px; margin-right: 10px;">
+                        <span style="font-weight: bold; font-size: 16px;">{row['Ticker']}</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.markdown(f"""
+                    <div style="display: flex; align-items: center; padding: 5px 0;">
+                        <div style="width: 32px; height: 32px; background: rgba(128,128,128,0.2); border-radius: 6px; margin-right: 10px; display: flex; align-items: center; justify-content: center; font-size: 14px;">📈</div>
+                        <span style="font-weight: bold; font-size: 16px;">{row['Ticker']}</span>
+                    </div>
+                    """, unsafe_allow_html=True)
             
             with col2:
                 st.markdown(f"<p style='text-align: center; padding-top: 10px; font-size: 15px;'>{row['Price']}</p>", unsafe_allow_html=True)
@@ -8205,6 +8219,33 @@ if selected_page == "🏠 Dashboard":
         placeholder="e.g., AAPL, NVDA, MSFT"
     )
     workflow_ticker = workflow_ticker_raw.upper().strip() if workflow_ticker_raw else ""
+    
+    # Show ticker with logo header if valid ticker entered
+    if workflow_ticker:
+        workflow_logo = get_company_logo(workflow_ticker)
+        workflow_profile = get_profile(workflow_ticker)
+        company_name = workflow_profile.get('companyName', workflow_ticker) if workflow_profile else workflow_ticker
+        
+        if workflow_logo:
+            st.markdown(f"""
+            <div style="display: flex; align-items: center; background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; margin: 10px 0;">
+                <img src="{workflow_logo}" width="48" height="48" style="border-radius: 8px; margin-right: 15px;">
+                <div>
+                    <div style="font-size: 20px; font-weight: bold;">{workflow_ticker}</div>
+                    <div style="color: #888; font-size: 14px;">{company_name}</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown(f"""
+            <div style="display: flex; align-items: center; background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; margin: 10px 0;">
+                <div style="width: 48px; height: 48px; background: rgba(255,75,75,0.2); border-radius: 8px; margin-right: 15px; display: flex; align-items: center; justify-content: center; font-size: 24px;">📈</div>
+                <div>
+                    <div style="font-size: 20px; font-weight: bold;">{workflow_ticker}</div>
+                    <div style="color: #888; font-size: 14px;">{company_name}</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
     
     workflow_tabs = st.tabs(["📅 Earnings Prep", "💰 Valuation", "⚠️ Risk Analysis", "🏥 Portfolio Health"])
     
@@ -10848,8 +10889,23 @@ elif selected_page == "📊 Company Analysis":
         for i, (stock_ticker, stock_name, stock_desc) in enumerate(starter_stocks):
             with col1 if i % 2 == 0 else col2:
                 with st.container():
-                    st.markdown(f"### {stock_ticker}")
-                    st.markdown(f"**{stock_name}**")
+                    # Get logo for starter stock
+                    starter_logo = get_company_logo(stock_ticker)
+                    
+                    if starter_logo:
+                        st.markdown(f"""
+                        <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                            <img src="{starter_logo}" width="40" height="40" style="border-radius: 6px; margin-right: 12px;">
+                            <div>
+                                <div style="font-size: 20px; font-weight: bold;">{stock_ticker}</div>
+                                <div style="color: #888; font-size: 14px;">{stock_name}</div>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"### {stock_ticker}")
+                        st.markdown(f"**{stock_name}**")
+                    
                     st.caption(stock_desc)
                     
                     # Get quick price info
@@ -10878,11 +10934,24 @@ elif selected_page == "📊 Company Analysis":
         company_name = profile.get('companyName', ticker)
         sector = profile.get('sector', 'N/A')
         industry = profile.get('industry', 'N/A')
+        logo_url = profile.get('image', '')
         
+        # Company header with LOGO
         col1, col2 = st.columns([3, 1])
         with col1:
-            st.subheader(f"📈 {company_name} ({ticker})")
-            st.caption(f"**Sector:** {sector} | **Industry:** {industry}")
+            if logo_url:
+                st.markdown(f"""
+                <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                    <img src="{logo_url}" width="50" height="50" style="border-radius: 8px; margin-right: 15px;">
+                    <div>
+                        <div style="font-size: 24px; font-weight: bold;">📈 {company_name} ({ticker})</div>
+                        <div style="color: #888; font-size: 14px;"><strong>Sector:</strong> {sector} | <strong>Industry:</strong> {industry}</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.subheader(f"📈 {company_name} ({ticker})")
+                st.caption(f"**Sector:** {sector} | **Industry:** {industry}")
         
         with col2:
             earnings = get_earnings_calendar(ticker)
@@ -11735,9 +11804,29 @@ elif selected_page == "📊 Company Analysis":
         
         with col1:
             stock1 = st.text_input("Stock 1:", value=ticker, key="compare_stock1")
+            # Show logo for stock1
+            if stock1:
+                logo1 = get_company_logo(stock1)
+                if logo1:
+                    st.markdown(f"""
+                    <div style="display: flex; align-items: center; margin-top: 5px;">
+                        <img src="{logo1}" width="28" height="28" style="border-radius: 4px; margin-right: 8px;">
+                        <span style="font-weight: 500;">{stock1.upper()}</span>
+                    </div>
+                    """, unsafe_allow_html=True)
         
         with col2:
             stock2 = st.text_input("Stock 2:", placeholder="e.g., MSFT", key="compare_stock2")
+            # Show logo for stock2
+            if stock2:
+                logo2 = get_company_logo(stock2)
+                if logo2:
+                    st.markdown(f"""
+                    <div style="display: flex; align-items: center; margin-top: 5px;">
+                        <img src="{logo2}" width="28" height="28" style="border-radius: 4px; margin-right: 8px;">
+                        <span style="font-weight: 500;">{stock2.upper()}</span>
+                    </div>
+                    """, unsafe_allow_html=True)
         
         if stock1 and stock2:
             quote1 = get_quote(stock1)
@@ -13416,9 +13505,24 @@ If a day has no major earnings, say "No major earnings."
     # Resolve company name to ticker
     intel_ticker = resolve_company_to_ticker(intel_input) if intel_input.strip() else None
     
-    # Show resolved ticker if different from input
-    if intel_input.strip() and intel_ticker and intel_ticker.upper() != intel_input.strip().upper():
-        st.caption(f"Searching for: **{intel_ticker}**")
+    # Show resolved ticker with LOGO if different from input
+    if intel_input.strip() and intel_ticker:
+        intel_logo = get_company_logo(intel_ticker)
+        intel_profile = get_profile(intel_ticker)
+        intel_company_name = intel_profile.get('companyName', intel_ticker) if intel_profile else intel_ticker
+        
+        if intel_logo:
+            st.markdown(f"""
+            <div style="display: flex; align-items: center; background: rgba(128,128,128,0.1); padding: 12px; border-radius: 10px; margin: 10px 0;">
+                <img src="{intel_logo}" width="40" height="40" style="border-radius: 6px; margin-right: 12px;">
+                <div>
+                    <div style="font-size: 18px; font-weight: bold;">{intel_ticker}</div>
+                    <div style="color: #888; font-size: 13px;">{intel_company_name}</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        elif intel_ticker.upper() != intel_input.strip().upper():
+            st.caption(f"Searching for: **{intel_ticker}**")
     
     # Fit Check Panel (only if ticker selected) - REMOVED - causes issues
     if intel_ticker:
