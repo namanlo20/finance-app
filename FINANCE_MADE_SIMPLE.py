@@ -7942,30 +7942,65 @@ if selected_page == "🏠 Dashboard":
                 return 'color: #ef4444'
             return ''
         
-        # Display as table with clickable actions
+        # Display header row
+        header_col1, header_col2, header_col3, header_col4, header_col5, header_col6, header_col7 = st.columns([1, 1.2, 1, 1, 1, 0.8, 0.5])
+        with header_col1:
+            st.markdown("<p style='color: #888; font-size: 12px; font-weight: bold;'>TICKER</p>", unsafe_allow_html=True)
+        with header_col2:
+            st.markdown("<p style='color: #888; font-size: 12px; font-weight: bold; text-align: center;'>PRICE</p>", unsafe_allow_html=True)
+        with header_col3:
+            st.markdown("<p style='color: #888; font-size: 12px; font-weight: bold; text-align: center;'>CHANGE</p>", unsafe_allow_html=True)
+        with header_col4:
+            st.markdown("<p style='color: #888; font-size: 12px; font-weight: bold; text-align: center;'>MKT CAP</p>", unsafe_allow_html=True)
+        with header_col5:
+            st.markdown("<p style='color: #888; font-size: 12px; font-weight: bold; text-align: center;'>UPDATED</p>", unsafe_allow_html=True)
+        with header_col6:
+            st.markdown("<p style='color: #888; font-size: 12px; font-weight: bold; text-align: center;'>ACTION</p>", unsafe_allow_html=True)
+        with header_col7:
+            st.markdown("<p style='color: #888; font-size: 12px;'></p>", unsafe_allow_html=True)
+        
+        st.markdown("<hr style='margin: 5px 0; border-color: rgba(128,128,128,0.3);'>", unsafe_allow_html=True)
+        
+        # Display each ticker row
         for i, row in enumerate(pinned_data):
-            col1, col2, col3, col4, col5, col6 = st.columns([1.5, 1.2, 1.2, 1.2, 1, 0.5])
+            col1, col2, col3, col4, col5, col6, col7 = st.columns([1, 1.2, 1, 1, 1, 0.8, 0.5])
             
             with col1:
-                if st.button(f"🔍 {row['Ticker']}", key=f"pin_analyze_{row['Ticker']}_{i}", use_container_width=True):
+                # Display ticker prominently
+                st.markdown(f"""
+                <div style="padding: 8px 0;">
+                    <span style="font-weight: bold; font-size: 16px;">{row['Ticker']}</span>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            with col2:
+                st.markdown(f"<p style='text-align: center; padding-top: 10px; font-size: 15px;'>{row['Price']}</p>", unsafe_allow_html=True)
+            
+            with col3:
+                change_color = "#22c55e" if row['_change_val'] > 0 else "#ef4444" if row['_change_val'] < 0 else "#888"
+                st.markdown(f"<p style='text-align: center; padding-top: 10px; color: {change_color}; font-weight: 500;'>{row['Change']}</p>", unsafe_allow_html=True)
+            
+            with col4:
+                st.markdown(f"<p style='text-align: center; padding-top: 10px;'>{row['Mkt Cap']}</p>", unsafe_allow_html=True)
+            
+            with col5:
+                st.markdown(f"<p style='text-align: center; padding-top: 10px; color: #888; font-size: 12px;'>just now</p>", unsafe_allow_html=True)
+            
+            with col6:
+                # Analyze button
+                analyze_clicked = st.button("📊 Analyze", key=f"analyze_btn_{i}", use_container_width=True)
+                if analyze_clicked:
                     st.session_state.selected_ticker = row['Ticker']
                     st.session_state.last_ticker = row['Ticker']
                     st.session_state.selected_page = "📊 Company Analysis"
                     st.rerun()
-            with col2:
-                st.markdown(f"<p style='text-align: center; padding-top: 8px;'>{row['Price']}</p>", unsafe_allow_html=True)
-            with col3:
-                change_color = "#22c55e" if row['_change_val'] > 0 else "#ef4444" if row['_change_val'] < 0 else "#888"
-                st.markdown(f"<p style='text-align: center; padding-top: 8px; color: {change_color};'>{row['Change']}</p>", unsafe_allow_html=True)
-            with col4:
-                st.markdown(f"<p style='text-align: center; padding-top: 8px;'>{row['Mkt Cap']}</p>", unsafe_allow_html=True)
-            with col5:
-                st.markdown(f"<p style='text-align: center; padding-top: 10px; color: #888; font-size: 12px;'>just now</p>", unsafe_allow_html=True)
-            with col6:
-                if st.button("✕", key=f"remove_pin_{row['Ticker']}_{i}", help=f"Remove {row['Ticker']}"):
+            
+            with col7:
+                # Remove button
+                remove_clicked = st.button("✕", key=f"remove_btn_{i}", help=f"Remove {row['Ticker']}")
+                if remove_clicked:
                     st.session_state.pinned_tickers.remove(row['Ticker'])
                     save_to_localstorage('pinned_tickers', st.session_state.pinned_tickers)
-                    # Save to DB if logged in
                     if st.session_state.get('is_logged_in'):
                         save_user_progress()
                     st.rerun()
