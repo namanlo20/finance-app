@@ -8122,7 +8122,513 @@ if selected_page == "🏠 Dashboard":
     
     st.markdown("---")
     
-    # ============= BLOCK D: CONTINUE WHERE YOU LEFT OFF =============
+    # ============= BLOCK D: PREMIUM WORKFLOWS =============
+    st.markdown("### 🚀 Premium Workflows")
+    st.caption("Deep-dive analysis modes for serious investors")
+    
+    # Ticker selector for workflows
+    workflow_ticker = st.text_input(
+        "Enter ticker for analysis:",
+        value=st.session_state.get('last_ticker', 'AAPL'),
+        key="workflow_ticker_input",
+        placeholder="e.g., AAPL, NVDA, MSFT"
+    ).upper().strip()
+    
+    workflow_tabs = st.tabs(["📅 Earnings Prep", "💰 Valuation", "⚠️ Risk Analysis", "🏥 Portfolio Health"])
+    
+    # ============= WORKFLOW 1: EARNINGS PREP MODE =============
+    with workflow_tabs[0]:
+        st.markdown("#### 📅 Earnings Prep Mode")
+        st.caption("Get ready for earnings season with key metrics and expectations")
+        
+        if workflow_ticker:
+            with st.spinner(f"Loading earnings data for {workflow_ticker}..."):
+                # Get earnings data
+                earnings_data = get_earnings_calendar(workflow_ticker)
+                quote = get_quote(workflow_ticker)
+                income_df = get_income_statement(workflow_ticker, 'annual', 4)
+                
+                # Display deterministic data first
+                st.markdown("##### 📊 Key Facts (Deterministic)")
+                
+                earn_col1, earn_col2, earn_col3 = st.columns(3)
+                
+                with earn_col1:
+                    if earnings_data:
+                        earnings_date = earnings_data.get('date', 'N/A')
+                        st.metric("Next Earnings Date", earnings_date)
+                    else:
+                        st.metric("Next Earnings Date", "Not scheduled")
+                
+                with earn_col2:
+                    if earnings_data:
+                        eps_est = earnings_data.get('epsEstimated', 'N/A')
+                        if eps_est and eps_est != 'N/A':
+                            st.metric("EPS Estimate", f"${eps_est:.2f}")
+                        else:
+                            st.metric("EPS Estimate", "N/A")
+                    else:
+                        st.metric("EPS Estimate", "N/A")
+                
+                with earn_col3:
+                    if earnings_data:
+                        rev_est = earnings_data.get('revenueEstimated', 0)
+                        if rev_est and rev_est > 0:
+                            if rev_est >= 1e9:
+                                st.metric("Revenue Estimate", f"${rev_est/1e9:.1f}B")
+                            else:
+                                st.metric("Revenue Estimate", f"${rev_est/1e6:.0f}M")
+                        else:
+                            st.metric("Revenue Estimate", "N/A")
+                    else:
+                        st.metric("Revenue Estimate", "N/A")
+                
+                # Historical earnings performance
+                if income_df is not None and not income_df.empty:
+                    st.markdown("##### 📈 Historical Performance")
+                    
+                    hist_col1, hist_col2 = st.columns(2)
+                    
+                    with hist_col1:
+                        if 'revenue' in income_df.columns:
+                            revenues = income_df['revenue'].dropna().tolist()[:4]
+                            if len(revenues) >= 2:
+                                rev_growth = ((revenues[0] - revenues[1]) / revenues[1]) * 100 if revenues[1] != 0 else 0
+                                st.metric("Revenue Growth (YoY)", f"{rev_growth:+.1f}%")
+                    
+                    with hist_col2:
+                        if 'netIncome' in income_df.columns:
+                            net_incomes = income_df['netIncome'].dropna().tolist()[:4]
+                            if len(net_incomes) >= 2:
+                                ni_growth = ((net_incomes[0] - net_incomes[1]) / abs(net_incomes[1])) * 100 if net_incomes[1] != 0 else 0
+                                st.metric("Net Income Growth (YoY)", f"{ni_growth:+.1f}%")
+                    
+                    # Margins
+                    if 'grossProfitRatio' in income_df.columns and 'netIncomeRatio' in income_df.columns:
+                        margin_col1, margin_col2 = st.columns(2)
+                        with margin_col1:
+                            gross_margin = income_df['grossProfitRatio'].iloc[0] * 100 if income_df['grossProfitRatio'].iloc[0] else 0
+                            st.metric("Gross Margin", f"{gross_margin:.1f}%")
+                        with margin_col2:
+                            net_margin = income_df['netIncomeRatio'].iloc[0] * 100 if income_df['netIncomeRatio'].iloc[0] else 0
+                            st.metric("Net Margin", f"{net_margin:.1f}%")
+                
+                # Show data source
+                show_data_source(source="FMP API", updated_at=datetime.now())
+                
+                # AI Analysis (if available)
+                st.markdown("##### 🤖 AI Insights")
+                with st.expander("Key Questions for This Quarter", expanded=False):
+                    st.markdown(f"""
+                    **Questions to consider before {workflow_ticker}'s earnings:**
+                    
+                    1. **Revenue Growth:** Is the company maintaining its growth trajectory?
+                    2. **Margin Trends:** Are margins expanding or contracting?
+                    3. **Guidance:** What forward guidance might management provide?
+                    4. **Macro Factors:** How might economic conditions affect results?
+                    5. **Competition:** Any competitive threats impacting the business?
+                    """)
+                    show_ai_disclaimer(inputs_used=[f"{workflow_ticker} historical financials", "Revenue trends", "Margin data"])
+        else:
+            st.info("Enter a ticker above to see earnings prep data.")
+    
+    # ============= WORKFLOW 2: VALUATION MODE =============
+    with workflow_tabs[1]:
+        st.markdown("#### 💰 Valuation Mode")
+        st.caption("Understand if a stock is cheap or expensive relative to history")
+        
+        if workflow_ticker:
+            with st.spinner(f"Loading valuation data for {workflow_ticker}..."):
+                quote = get_quote(workflow_ticker)
+                ratios_ttm = get_ratios_ttm(workflow_ticker)
+                profile = get_profile(workflow_ticker)
+                
+                st.markdown("##### 📊 Current Valuation Metrics")
+                
+                val_col1, val_col2, val_col3, val_col4 = st.columns(4)
+                
+                # P/E Ratio
+                pe_ratio = None
+                if ratios_ttm and 'peRatioTTM' in ratios_ttm:
+                    pe_ratio = ratios_ttm.get('peRatioTTM')
+                elif quote:
+                    pe_ratio = quote.get('pe')
+                
+                with val_col1:
+                    if pe_ratio and pe_ratio > 0:
+                        pe_color = "#22c55e" if pe_ratio < 20 else "#f59e0b" if pe_ratio < 35 else "#ef4444"
+                        st.markdown(f"""
+                        <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
+                            <div style="color: #888; font-size: 12px;">P/E Ratio</div>
+                            <div style="font-size: 24px; font-weight: bold; color: {pe_color};">{pe_ratio:.1f}x</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        st.metric("P/E Ratio", "N/A")
+                
+                # P/S Ratio
+                ps_ratio = None
+                if ratios_ttm and 'priceToSalesRatioTTM' in ratios_ttm:
+                    ps_ratio = ratios_ttm.get('priceToSalesRatioTTM')
+                
+                with val_col2:
+                    if ps_ratio and ps_ratio > 0:
+                        ps_color = "#22c55e" if ps_ratio < 5 else "#f59e0b" if ps_ratio < 10 else "#ef4444"
+                        st.markdown(f"""
+                        <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
+                            <div style="color: #888; font-size: 12px;">P/S Ratio</div>
+                            <div style="font-size: 24px; font-weight: bold; color: {ps_color};">{ps_ratio:.1f}x</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        st.metric("P/S Ratio", "N/A")
+                
+                # EV/EBITDA
+                ev_ebitda = None
+                if ratios_ttm and 'enterpriseValueOverEBITDATTM' in ratios_ttm:
+                    ev_ebitda = ratios_ttm.get('enterpriseValueOverEBITDATTM')
+                
+                with val_col3:
+                    if ev_ebitda and ev_ebitda > 0:
+                        ev_color = "#22c55e" if ev_ebitda < 12 else "#f59e0b" if ev_ebitda < 20 else "#ef4444"
+                        st.markdown(f"""
+                        <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
+                            <div style="color: #888; font-size: 12px;">EV/EBITDA</div>
+                            <div style="font-size: 24px; font-weight: bold; color: {ev_color};">{ev_ebitda:.1f}x</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        st.metric("EV/EBITDA", "N/A")
+                
+                # PEG Ratio
+                peg_ratio = None
+                if ratios_ttm and 'pegRatioTTM' in ratios_ttm:
+                    peg_ratio = ratios_ttm.get('pegRatioTTM')
+                
+                with val_col4:
+                    if peg_ratio and peg_ratio > 0:
+                        peg_color = "#22c55e" if peg_ratio < 1 else "#f59e0b" if peg_ratio < 2 else "#ef4444"
+                        st.markdown(f"""
+                        <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
+                            <div style="color: #888; font-size: 12px;">PEG Ratio</div>
+                            <div style="font-size: 24px; font-weight: bold; color: {peg_color};">{peg_ratio:.2f}</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        st.metric("PEG Ratio", "N/A")
+                
+                # Valuation interpretation
+                st.markdown("##### 📏 Valuation Guide")
+                st.markdown("""
+                | Metric | Cheap | Fair | Expensive |
+                |--------|-------|------|-----------|
+                | P/E Ratio | < 15x | 15-25x | > 25x |
+                | P/S Ratio | < 3x | 3-8x | > 8x |
+                | EV/EBITDA | < 10x | 10-15x | > 15x |
+                | PEG Ratio | < 1.0 | 1.0-2.0 | > 2.0 |
+                """)
+                
+                show_data_source(source="FMP API", updated_at=datetime.now())
+                
+                # AI Scenario
+                st.markdown("##### 🤖 AI Valuation Scenario")
+                with st.expander("What Would Justify Current Valuation?", expanded=False):
+                    if pe_ratio and pe_ratio > 25:
+                        st.markdown(f"""
+                        **{workflow_ticker} trades at {pe_ratio:.1f}x earnings - here's what would need to be true:**
+                        
+                        1. **High Growth:** Company needs to grow earnings 20%+ annually
+                        2. **Market Leadership:** Must maintain or expand competitive moat
+                        3. **Margin Expansion:** Operating margins should improve over time
+                        4. **Execution:** Management must deliver on promised initiatives
+                        
+                        ⚠️ **Risk:** If growth slows, multiple compression could cause significant downside.
+                        """)
+                    elif pe_ratio and pe_ratio < 15:
+                        st.markdown(f"""
+                        **{workflow_ticker} trades at {pe_ratio:.1f}x earnings - here's what the market might be worried about:**
+                        
+                        1. **Growth Concerns:** Market may expect slowing growth
+                        2. **Cyclical Risk:** Business may be sensitive to economic cycles
+                        3. **Competition:** Increased competitive pressure
+                        4. **Disruption:** Potential technology or market disruption
+                        
+                        ✅ **Opportunity:** If concerns are overblown, stock could re-rate higher.
+                        """)
+                    else:
+                        st.markdown(f"""
+                        **{workflow_ticker} appears fairly valued based on current metrics.**
+                        
+                        Look for catalysts that could shift the valuation:
+                        - Earnings beats/misses
+                        - New product announcements
+                        - Market share gains/losses
+                        - Macroeconomic shifts
+                        """)
+                    show_ai_disclaimer(inputs_used=[f"{workflow_ticker} valuation ratios", "P/E", "P/S", "PEG"])
+        else:
+            st.info("Enter a ticker above to see valuation analysis.")
+    
+    # ============= WORKFLOW 3: RISK ANALYSIS MODE =============
+    with workflow_tabs[2]:
+        st.markdown("#### ⚠️ Risk Analysis Mode")
+        st.caption("Identify potential risks before you invest")
+        
+        if workflow_ticker:
+            with st.spinner(f"Analyzing risks for {workflow_ticker}..."):
+                quote = get_quote(workflow_ticker)
+                profile = get_profile(workflow_ticker)
+                ratios_ttm = get_ratios_ttm(workflow_ticker)
+                
+                st.markdown("##### 🚩 Risk Flags (Deterministic)")
+                
+                risk_flags = []
+                
+                # Volatility check
+                if quote:
+                    change_pct = abs(quote.get('changesPercentage', 0))
+                    if change_pct > 5:
+                        risk_flags.append(("🔴", "High Volatility", f"Stock moved {change_pct:.1f}% today"))
+                    
+                    # Market cap tier
+                    market_cap = quote.get('marketCap', 0)
+                    if market_cap < 2e9:
+                        risk_flags.append(("🟡", "Small Cap Risk", f"Market cap ${market_cap/1e9:.1f}B - higher volatility expected"))
+                    elif market_cap < 10e9:
+                        risk_flags.append(("🟢", "Mid Cap", f"Market cap ${market_cap/1e9:.1f}B"))
+                    else:
+                        risk_flags.append(("🟢", "Large Cap", f"Market cap ${market_cap/1e9:.0f}B - generally more stable"))
+                
+                # Valuation risk
+                if ratios_ttm:
+                    pe = ratios_ttm.get('peRatioTTM', 0)
+                    if pe and pe > 50:
+                        risk_flags.append(("🔴", "High Valuation Risk", f"P/E of {pe:.0f}x is very expensive"))
+                    elif pe and pe > 30:
+                        risk_flags.append(("🟡", "Elevated Valuation", f"P/E of {pe:.0f}x above market average"))
+                    
+                    # Debt check
+                    debt_equity = ratios_ttm.get('debtEquityRatioTTM', 0)
+                    if debt_equity and debt_equity > 2:
+                        risk_flags.append(("🔴", "High Leverage", f"Debt/Equity of {debt_equity:.1f}x is elevated"))
+                    elif debt_equity and debt_equity > 1:
+                        risk_flags.append(("🟡", "Moderate Debt", f"Debt/Equity of {debt_equity:.1f}x"))
+                
+                # Sector risk
+                if profile:
+                    sector = profile.get('sector', '')
+                    volatile_sectors = ['Technology', 'Consumer Cyclical', 'Energy']
+                    if sector in volatile_sectors:
+                        risk_flags.append(("🟡", "Cyclical Sector", f"{sector} can be volatile during economic shifts"))
+                
+                # Display flags
+                if risk_flags:
+                    for flag_color, flag_title, flag_desc in risk_flags:
+                        st.markdown(f"""
+                        <div style="background: rgba(128,128,128,0.1); padding: 12px 15px; border-radius: 8px; margin-bottom: 8px; display: flex; align-items: center;">
+                            <span style="font-size: 20px; margin-right: 10px;">{flag_color}</span>
+                            <div>
+                                <strong>{flag_title}</strong>
+                                <div style="color: #888; font-size: 13px;">{flag_desc}</div>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                else:
+                    st.success("✅ No major risk flags detected")
+                
+                # Risk score summary
+                red_flags = len([f for f in risk_flags if f[0] == "🔴"])
+                yellow_flags = len([f for f in risk_flags if f[0] == "🟡"])
+                
+                st.markdown("##### 📊 Risk Summary")
+                risk_col1, risk_col2, risk_col3 = st.columns(3)
+                with risk_col1:
+                    st.metric("🔴 High Risk Flags", red_flags)
+                with risk_col2:
+                    st.metric("🟡 Caution Flags", yellow_flags)
+                with risk_col3:
+                    overall_risk = "High" if red_flags >= 2 else "Moderate" if red_flags >= 1 or yellow_flags >= 2 else "Low"
+                    risk_color = "#ef4444" if overall_risk == "High" else "#f59e0b" if overall_risk == "Moderate" else "#22c55e"
+                    st.markdown(f"""
+                    <div style="background: rgba(128,128,128,0.1); padding: 10px; border-radius: 8px; text-align: center;">
+                        <div style="color: #888; font-size: 12px;">Overall Risk</div>
+                        <div style="font-size: 18px; font-weight: bold; color: {risk_color};">{overall_risk}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                show_data_source(source="FMP API", updated_at=datetime.now())
+                
+                # AI Risk Narrative
+                st.markdown("##### 🤖 AI Risk Narrative")
+                with st.expander("Detailed Risk Assessment", expanded=False):
+                    st.markdown(f"""
+                    **Risk Assessment for {workflow_ticker}:**
+                    
+                    Based on the deterministic flags above, here's what to consider:
+                    
+                    {"⚠️ **High Volatility Alert:** This stock shows significant price swings. Only invest what you can afford to lose." if any('Volatility' in f[1] for f in risk_flags) else ""}
+                    
+                    {"💰 **Valuation Concern:** The stock is trading at a premium. Strong execution is needed to justify the price." if any('Valuation' in f[1] for f in risk_flags) else ""}
+                    
+                    {"🏦 **Leverage Risk:** High debt levels mean the company is more sensitive to interest rate changes and economic downturns." if any('Leverage' in f[1] for f in risk_flags) else ""}
+                    
+                    **Position Sizing Suggestion:**
+                    - {"Conservative: 1-2% of portfolio" if red_flags >= 2 else "Moderate: 3-5% of portfolio" if red_flags >= 1 else "Standard: 5-10% of portfolio"}
+                    
+                    *This is educational content, not investment advice.*
+                    """)
+                    show_ai_disclaimer(inputs_used=[f"{workflow_ticker} volatility", "Valuation metrics", "Debt levels", "Market cap"])
+        else:
+            st.info("Enter a ticker above to see risk analysis.")
+    
+    # ============= WORKFLOW 4: PORTFOLIO HEALTH MODE =============
+    with workflow_tabs[3]:
+        st.markdown("#### 🏥 Portfolio Health Check")
+        st.caption("Analyze your pinned watchlist for diversification and risk")
+        
+        pinned = st.session_state.get('pinned_tickers', [])
+        
+        if pinned and len(pinned) >= 2:
+            st.markdown("##### 📊 Portfolio Composition")
+            
+            # Gather data for all pinned tickers
+            portfolio_data = []
+            sector_allocation = {}
+            total_value = 0
+            
+            for ticker in pinned:
+                profile = get_profile(ticker)
+                quote = get_quote(ticker)
+                
+                if profile and quote:
+                    sector = profile.get('sector', 'Other')
+                    market_cap = quote.get('marketCap', 0)
+                    price = quote.get('price', 0)
+                    change = quote.get('changesPercentage', 0)
+                    
+                    portfolio_data.append({
+                        'ticker': ticker,
+                        'sector': sector,
+                        'market_cap': market_cap,
+                        'price': price,
+                        'change': change
+                    })
+                    
+                    # Equal weight assumption for sector allocation
+                    if sector in sector_allocation:
+                        sector_allocation[sector] += 1
+                    else:
+                        sector_allocation[sector] = 1
+            
+            # Display sector allocation
+            if sector_allocation:
+                st.markdown("##### 🏭 Sector Allocation")
+                
+                total_positions = len(pinned)
+                for sector, count in sorted(sector_allocation.items(), key=lambda x: x[1], reverse=True):
+                    pct = (count / total_positions) * 100
+                    bar_color = "#ef4444" if pct > 40 else "#f59e0b" if pct > 25 else "#22c55e"
+                    st.markdown(f"""
+                    <div style="margin-bottom: 8px;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                            <span>{sector}</span>
+                            <span>{pct:.0f}% ({count} stocks)</span>
+                        </div>
+                        <div style="background: rgba(128,128,128,0.2); border-radius: 4px; height: 8px;">
+                            <div style="background: {bar_color}; width: {pct}%; height: 100%; border-radius: 4px;"></div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+            
+            # Risk flags
+            st.markdown("##### 🚩 Diversification Flags")
+            
+            div_flags = []
+            
+            # Concentration check
+            if len(sector_allocation) == 1:
+                div_flags.append(("🔴", "Single Sector", "All positions in one sector - very high concentration risk"))
+            elif len(sector_allocation) <= 2:
+                div_flags.append(("🟡", "Low Diversification", "Only 2 sectors represented"))
+            else:
+                div_flags.append(("🟢", "Good Sector Spread", f"{len(sector_allocation)} sectors represented"))
+            
+            # Over-concentration in single sector
+            for sector, count in sector_allocation.items():
+                pct = (count / total_positions) * 100
+                if pct > 50:
+                    div_flags.append(("🔴", f"Heavy {sector}", f"{pct:.0f}% in {sector} - consider diversifying"))
+                elif pct > 40:
+                    div_flags.append(("🟡", f"High {sector} Weight", f"{pct:.0f}% in {sector}"))
+            
+            # Position count
+            if len(pinned) < 5:
+                div_flags.append(("🟡", "Few Positions", f"Only {len(pinned)} stocks - consider adding more for diversification"))
+            elif len(pinned) >= 10:
+                div_flags.append(("🟢", "Good Position Count", f"{len(pinned)} stocks in watchlist"))
+            
+            for flag_color, flag_title, flag_desc in div_flags:
+                st.markdown(f"""
+                <div style="background: rgba(128,128,128,0.1); padding: 10px 15px; border-radius: 8px; margin-bottom: 8px;">
+                    <span style="font-size: 18px; margin-right: 8px;">{flag_color}</span>
+                    <strong>{flag_title}:</strong> <span style="color: #888;">{flag_desc}</span>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            # Today's performance
+            st.markdown("##### 📈 Today's Performance")
+            
+            gainers = [p for p in portfolio_data if p['change'] > 0]
+            losers = [p for p in portfolio_data if p['change'] < 0]
+            
+            perf_col1, perf_col2 = st.columns(2)
+            with perf_col1:
+                st.metric("🟢 Gainers", len(gainers))
+            with perf_col2:
+                st.metric("🔴 Losers", len(losers))
+            
+            show_data_source(source="FMP API", updated_at=datetime.now())
+            
+            # AI Suggestions
+            st.markdown("##### 🤖 AI Suggestions")
+            with st.expander("Diversification Recommendations", expanded=False):
+                missing_sectors = set(['Technology', 'Healthcare', 'Financial Services', 'Consumer Defensive', 'Industrials']) - set(sector_allocation.keys())
+                
+                st.markdown(f"""
+                **Portfolio Health Summary:**
+                
+                - **Positions:** {len(pinned)} stocks
+                - **Sectors:** {len(sector_allocation)} represented
+                - **Diversification Score:** {"⚠️ Needs Work" if len(sector_allocation) <= 2 else "✅ Good" if len(sector_allocation) >= 4 else "🟡 Moderate"}
+                
+                {"**Consider adding exposure to:** " + ", ".join(list(missing_sectors)[:3]) if missing_sectors else "**Good sector coverage!**"}
+                
+                **General Guidelines:**
+                - Aim for 5-10 positions minimum
+                - No single sector > 30% of portfolio
+                - Include defensive sectors for stability
+                
+                *This is educational content, not investment advice.*
+                """)
+                show_ai_disclaimer(inputs_used=["Your pinned tickers", "Sector allocation", "Position count"])
+        
+        elif pinned and len(pinned) == 1:
+            st.warning("📌 Pin at least 2 tickers to analyze portfolio health.")
+            if st.button("➕ Add More Tickers", key="add_more_health"):
+                st.session_state.selected_page = "📊 Company Analysis"
+                st.rerun()
+        else:
+            show_empty_state(
+                title="No Tickers Pinned",
+                message="Pin some stocks to your watchlist to analyze portfolio health",
+                action_text="📌 Go to Dashboard",
+                action_key="goto_dashboard_health",
+                icon="🏥"
+            )
+    
+    st.markdown("---")
+    
+    # ============= BLOCK E: CONTINUE WHERE YOU LEFT OFF =============
     st.markdown("### 🔄 Continue Where You Left Off")
     
     last_ticker = st.session_state.get('last_ticker')
