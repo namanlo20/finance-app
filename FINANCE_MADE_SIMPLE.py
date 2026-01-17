@@ -100,16 +100,48 @@ def show_page_popup(page_id, title, summary, cool_feature):
     if page_id in st.session_state.dismissed_popups:
         return
     
+    # Inject CSS to style the dialog with dark red background
+    st.markdown("""
+    <style>
+    /* Style the dialog container */
+    div[data-testid="stDialog"] > div {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%) !important;
+        border: 2px solid #ff4b4b !important;
+        border-radius: 15px !important;
+    }
+    
+    /* Style dialog header */
+    div[data-testid="stDialog"] header {
+        background: transparent !important;
+    }
+    
+    /* Style all text inside dialog */
+    div[data-testid="stDialog"] p,
+    div[data-testid="stDialog"] span,
+    div[data-testid="stDialog"] div,
+    div[data-testid="stDialog"] h1,
+    div[data-testid="stDialog"] h2,
+    div[data-testid="stDialog"] h3 {
+        color: #FFFFFF !important;
+    }
+    
+    /* Style the close button */
+    div[data-testid="stDialog"] button[kind="header"] {
+        color: #FFFFFF !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
     # Define the dialog
     @st.dialog(title)
     def page_intro_dialog():
         st.markdown(f"""
         <div style="padding: 10px 0;">
-            <p style="font-size: 16px; line-height: 1.7; margin-bottom: 20px;">{summary}</p>
-            <div style="background: linear-gradient(135deg, rgba(255, 165, 0, 0.15), rgba(255, 100, 0, 0.1)); 
-                        padding: 15px; border-radius: 10px; border-left: 4px solid #FFA500;">
-                <p style="margin: 0; font-size: 15px;">
-                    🌟 <strong>Cool Feature:</strong> {cool_feature}
+            <p style="font-size: 16px; line-height: 1.7; margin-bottom: 20px; color: #E0E0E0 !important;">{summary}</p>
+            <div style="background: linear-gradient(135deg, rgba(255, 75, 75, 0.2), rgba(255, 100, 100, 0.15)); 
+                        padding: 15px; border-radius: 10px; border-left: 4px solid #ff4b4b;">
+                <p style="margin: 0; font-size: 15px; color: #FFFFFF !important;">
+                    🌟 <strong style="color: #ff4b4b;">Cool Feature:</strong> {cool_feature}
                 </p>
             </div>
         </div>
@@ -5406,6 +5438,13 @@ def save_user_progress():
             # Save onboarding state
             "setup_prompt_dismissed": st.session_state.get("setup_prompt_dismissed", False),
             "onboarding_completed": st.session_state.get("onboarding_completed", False),
+            # ============= PHASE 3: PREMIUM PERSISTENCE =============
+            "pinned_tickers": st.session_state.get("pinned_tickers", []),
+            "last_ticker": st.session_state.get("last_ticker"),
+            "last_tab": st.session_state.get("last_tab"),
+            "dismissed_popups": list(st.session_state.get("dismissed_popups", set())),
+            "saved_views": st.session_state.get("saved_views", []),
+            "theme": st.session_state.get("theme", "dark"),
         }
         
         # Upsert to user_state table
@@ -5468,6 +5507,21 @@ def load_user_progress():
                 st.session_state.setup_prompt_dismissed = state_data["setup_prompt_dismissed"]
             if "onboarding_completed" in state_data:
                 st.session_state.onboarding_completed = state_data["onboarding_completed"]
+            
+            # ============= PHASE 3: RESTORE PREMIUM PERSISTENCE =============
+            if "pinned_tickers" in state_data:
+                st.session_state.pinned_tickers = state_data["pinned_tickers"]
+            if "last_ticker" in state_data:
+                st.session_state.last_ticker = state_data["last_ticker"]
+            if "last_tab" in state_data:
+                st.session_state.last_tab = state_data["last_tab"]
+            if "dismissed_popups" in state_data:
+                st.session_state.dismissed_popups = set(state_data["dismissed_popups"])
+            if "saved_views" in state_data:
+                st.session_state.saved_views = state_data["saved_views"]
+            if "theme" in state_data:
+                st.session_state.theme = state_data["theme"]
+            
             return True
     except Exception as e:
         # Silently fail - don't break the app if loading fails
@@ -7830,6 +7884,9 @@ if selected_page == "🏠 Dashboard":
             if len(st.session_state.pinned_tickers) < 10:  # Limit to 10 for free users
                 st.session_state.pinned_tickers.append(ticker_upper)
                 save_to_localstorage('pinned_tickers', st.session_state.pinned_tickers)
+                # Save to DB if logged in
+                if st.session_state.get('is_logged_in'):
+                    save_user_progress()
                 st.success(f"📌 Added {ticker_upper} to your watchlist!")
                 st.rerun()
             else:
@@ -7908,6 +7965,9 @@ if selected_page == "🏠 Dashboard":
                 if st.button("✕", key=f"remove_pin_{row['Ticker']}", help=f"Remove {row['Ticker']}"):
                     st.session_state.pinned_tickers.remove(row['Ticker'])
                     save_to_localstorage('pinned_tickers', st.session_state.pinned_tickers)
+                    # Save to DB if logged in
+                    if st.session_state.get('is_logged_in'):
+                        save_user_progress()
                     st.rerun()
         
         # Show data source
@@ -7949,6 +8009,9 @@ if selected_page == "🏠 Dashboard":
                 if st.button(f"+ {ticker}", key=f"starter_{ticker}"):
                     st.session_state.pinned_tickers.append(ticker)
                     save_to_localstorage('pinned_tickers', st.session_state.pinned_tickers)
+                    # Save to DB if logged in
+                    if st.session_state.get('is_logged_in'):
+                        save_user_progress()
                     st.rerun()
     
     st.markdown("---")
@@ -8117,6 +8180,108 @@ if selected_page == "🏠 Dashboard":
             <p style="font-size: 13px;">Your last visited page and ticker will appear here.</p>
         </div>
         """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # ============= BLOCK E: SAVED VIEWS =============
+    st.markdown("### 📁 Saved Views")
+    
+    # Initialize saved views
+    if 'saved_views' not in st.session_state:
+        st.session_state.saved_views = []
+    
+    # Save current view button
+    with st.expander("💾 Save Current View", expanded=False):
+        view_name = st.text_input("View name:", placeholder="e.g., My Tech Watchlist", key="new_view_name")
+        
+        if st.button("💾 Save View", key="save_view_btn"):
+            if view_name:
+                # Check limit (free = 2, could be increased for premium)
+                max_views = 5  # Free tier limit
+                if len(st.session_state.saved_views) >= max_views:
+                    st.warning(f"📁 You've reached the limit of {max_views} saved views. Delete one to save more.")
+                else:
+                    # Capture current state
+                    new_view = {
+                        "name": view_name,
+                        "created_at": datetime.now().isoformat(),
+                        "page": st.session_state.get("selected_page", "🏠 Dashboard"),
+                        "ticker": st.session_state.get("selected_ticker", ""),
+                        "pinned_tickers": st.session_state.get("pinned_tickers", []).copy(),
+                    }
+                    st.session_state.saved_views.append(new_view)
+                    save_to_localstorage('saved_views', st.session_state.saved_views)
+                    
+                    # Save to DB if logged in
+                    if st.session_state.get('is_logged_in'):
+                        save_user_progress()
+                    
+                    st.success(f"✅ Saved view: {view_name}")
+                    st.rerun()
+            else:
+                st.warning("Please enter a name for your view.")
+    
+    # Display saved views
+    if st.session_state.saved_views:
+        for i, view in enumerate(st.session_state.saved_views):
+            view_col1, view_col2, view_col3 = st.columns([3, 1, 1])
+            
+            with view_col1:
+                st.markdown(f"""
+                <div style="background: rgba(128,128,128,0.1); padding: 12px 15px; border-radius: 8px; margin-bottom: 5px;">
+                    <strong>{view['name']}</strong>
+                    <span style="color: #888; font-size: 12px; margin-left: 10px;">{view.get('page', 'Dashboard')}</span>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            with view_col2:
+                if st.button("📂 Load", key=f"load_view_{i}", use_container_width=True):
+                    # Restore view state
+                    if view.get('page'):
+                        st.session_state.selected_page = view['page']
+                    if view.get('ticker'):
+                        st.session_state.selected_ticker = view['ticker']
+                    if view.get('pinned_tickers'):
+                        st.session_state.pinned_tickers = view['pinned_tickers'].copy()
+                        save_to_localstorage('pinned_tickers', st.session_state.pinned_tickers)
+                    st.success(f"✅ Loaded: {view['name']}")
+                    st.rerun()
+            
+            with view_col3:
+                if st.button("🗑️", key=f"delete_view_{i}", use_container_width=True, help="Delete this view"):
+                    st.session_state.saved_views.pop(i)
+                    save_to_localstorage('saved_views', st.session_state.saved_views)
+                    if st.session_state.get('is_logged_in'):
+                        save_user_progress()
+                    st.rerun()
+        
+        # Show usage
+        st.caption(f"📁 {len(st.session_state.saved_views)}/5 views saved")
+    else:
+        # Empty state with starter templates
+        st.markdown("""
+        <div style="background: rgba(128,128,128,0.05); padding: 15px; border-radius: 10px; text-align: center; color: #888; margin-bottom: 10px;">
+            <p style="margin: 0;">No saved views yet. Save your current setup to quickly restore it later!</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Starter template suggestions
+        st.markdown("**💡 Quick Start Templates:**")
+        template_cols = st.columns(3)
+        
+        templates = [
+            {"name": "Tech Giants", "tickers": ["AAPL", "MSFT", "GOOGL", "NVDA", "META"]},
+            {"name": "Dividend Kings", "tickers": ["JNJ", "KO", "PG", "MMM", "PEP"]},
+            {"name": "Growth Stocks", "tickers": ["TSLA", "AMZN", "NFLX", "CRM", "SHOP"]},
+        ]
+        
+        for i, template in enumerate(templates):
+            with template_cols[i]:
+                if st.button(f"📋 {template['name']}", key=f"template_{i}", use_container_width=True):
+                    st.session_state.pinned_tickers = template['tickers'].copy()
+                    save_to_localstorage('pinned_tickers', st.session_state.pinned_tickers)
+                    st.success(f"✅ Loaded {template['name']} watchlist!")
+                    st.rerun()
     
     # Footer
     st.markdown("---")
