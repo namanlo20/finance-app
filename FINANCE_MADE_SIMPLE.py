@@ -100,50 +100,53 @@ def show_page_popup(page_id, title, summary, cool_feature):
     if page_id in st.session_state.dismissed_popups:
         return
     
-    # Inject CSS to style the dialog with dark red background
+    # Inject global CSS to style ALL dialogs with dark background
     st.markdown("""
     <style>
-    /* Style the dialog container */
-    div[data-testid="stDialog"] > div {
+    /* Force dark background on dialog */
+    [data-testid="stDialog"] [data-testid="stVerticalBlock"] {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%) !important;
+    }
+    [data-testid="stDialog"] > div > div {
         background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%) !important;
         border: 2px solid #ff4b4b !important;
         border-radius: 15px !important;
     }
-    
-    /* Style dialog header */
-    div[data-testid="stDialog"] header {
-        background: transparent !important;
-    }
-    
-    /* Style all text inside dialog */
-    div[data-testid="stDialog"] p,
-    div[data-testid="stDialog"] span,
-    div[data-testid="stDialog"] div,
-    div[data-testid="stDialog"] h1,
-    div[data-testid="stDialog"] h2,
-    div[data-testid="stDialog"] h3 {
+    /* Make all text white */
+    [data-testid="stDialog"] p, 
+    [data-testid="stDialog"] span,
+    [data-testid="stDialog"] h1, 
+    [data-testid="stDialog"] h2,
+    [data-testid="stDialog"] h3,
+    [data-testid="stDialog"] label {
         color: #FFFFFF !important;
     }
-    
-    /* Style the close button */
-    div[data-testid="stDialog"] button[kind="header"] {
+    /* Style the close X button */
+    [data-testid="stDialog"] button[kind="header"] {
         color: #FFFFFF !important;
+    }
+    [data-testid="stDialog"] svg {
+        fill: #FFFFFF !important;
+        stroke: #FFFFFF !important;
     }
     </style>
     """, unsafe_allow_html=True)
     
-    # Define the dialog
+    # Define the dialog with the PAGE TITLE as dialog title
     @st.dialog(title)
     def page_intro_dialog():
+        # Content with description and cool feature
         st.markdown(f"""
-        <div style="padding: 10px 0;">
-            <p style="font-size: 16px; line-height: 1.7; margin-bottom: 20px; color: #E0E0E0 !important;">{summary}</p>
-            <div style="background: linear-gradient(135deg, rgba(255, 75, 75, 0.2), rgba(255, 100, 100, 0.15)); 
-                        padding: 15px; border-radius: 10px; border-left: 4px solid #ff4b4b;">
-                <p style="margin: 0; font-size: 15px; color: #FFFFFF !important;">
-                    🌟 <strong style="color: #ff4b4b;">Cool Feature:</strong> {cool_feature}
-                </p>
-            </div>
+        <p style="font-size: 16px; line-height: 1.7; margin-bottom: 20px; color: #E0E0E0;">{summary}</p>
+        <div style="
+            background: linear-gradient(135deg, rgba(255, 75, 75, 0.3), rgba(255, 100, 100, 0.2)); 
+            padding: 15px; 
+            border-radius: 10px; 
+            border-left: 4px solid #ff4b4b;
+        ">
+            <p style="margin: 0; font-size: 15px; color: #FFFFFF;">
+                🌟 <strong style="color: #ff4b4b;">Cool Feature:</strong> {cool_feature}
+            </p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -3110,7 +3113,7 @@ Rules:
 
 @st.cache_data(ttl=3600)
 def get_earnings_calendar(ticker):
-    """Get next earnings date"""
+    """Get next earnings date and estimates"""
     url = f"{BASE_URL}/earnings-calendar?symbol={ticker}&apikey={FMP_API_KEY}"
     try:
         response = requests.get(url, timeout=10)
@@ -3119,9 +3122,41 @@ def get_earnings_calendar(ticker):
             if data and len(data) > 0:
                 today = datetime.now()
                 for earning in data:
-                    earning_date = datetime.strptime(earning.get('date', ''), '%Y-%m-%d')
-                    if earning_date >= today:
-                        return earning
+                    try:
+                        earning_date = datetime.strptime(earning.get('date', ''), '%Y-%m-%d')
+                        if earning_date >= today:
+                            return earning
+                    except:
+                        continue
+    except:
+        pass
+    return None
+
+@st.cache_data(ttl=3600)
+def get_analyst_estimates(ticker):
+    """Get analyst estimates for EPS and Revenue - more reliable than earnings calendar"""
+    url = f"{BASE_URL}/analyst-estimates/{ticker}?apikey={FMP_API_KEY}"
+    try:
+        response = requests.get(url, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            if data and len(data) > 0:
+                # Return the most recent estimate (usually next quarter)
+                return data[0]
+    except:
+        pass
+    return None
+
+@st.cache_data(ttl=3600)
+def get_earnings_surprises(ticker, limit=4):
+    """Get historical earnings surprises to show beat/miss track record"""
+    url = f"{BASE_URL}/earnings-surprises/{ticker}?apikey={FMP_API_KEY}"
+    try:
+        response = requests.get(url, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            if data and len(data) > 0:
+                return data[:limit]
     except:
         pass
     return None
@@ -8180,75 +8215,201 @@ if selected_page == "🏠 Dashboard":
         
         if workflow_ticker:
             with st.spinner(f"Loading earnings data for {workflow_ticker}..."):
-                # Get earnings data
+                # Get earnings data from multiple sources
                 earnings_data = get_earnings_calendar(workflow_ticker)
+                analyst_estimates = get_analyst_estimates(workflow_ticker)
+                earnings_surprises = get_earnings_surprises(workflow_ticker, 4)
                 quote = get_quote(workflow_ticker)
                 income_df = get_income_statement(workflow_ticker, 'annual', 4)
                 
-                # Display deterministic data first
-                st.markdown("##### 📊 Key Facts (Deterministic)")
+                # Extract earnings date from calendar
+                earnings_date = None
+                if earnings_data:
+                    earnings_date = earnings_data.get('date')
                 
-                earn_col1, earn_col2, earn_col3 = st.columns(3)
+                # Get EPS estimate - try earnings calendar first, then analyst estimates
+                eps_estimate = None
+                if earnings_data and earnings_data.get('epsEstimated'):
+                    eps_estimate = earnings_data.get('epsEstimated')
+                elif analyst_estimates and analyst_estimates.get('estimatedEpsAvg'):
+                    eps_estimate = analyst_estimates.get('estimatedEpsAvg')
+                
+                # Get Revenue estimate - try earnings calendar first, then analyst estimates
+                rev_estimate = None
+                if earnings_data and earnings_data.get('revenueEstimated'):
+                    rev_estimate = earnings_data.get('revenueEstimated')
+                elif analyst_estimates and analyst_estimates.get('estimatedRevenueAvg'):
+                    rev_estimate = analyst_estimates.get('estimatedRevenueAvg')
+                
+                # Display deterministic data first
+                st.markdown("##### 📊 Upcoming Earnings")
+                
+                earn_col1, earn_col2, earn_col3, earn_col4 = st.columns(4)
                 
                 with earn_col1:
-                    if earnings_data:
-                        earnings_date = earnings_data.get('date', 'N/A')
-                        st.metric("Next Earnings Date", earnings_date)
+                    if earnings_date:
+                        st.markdown(f"""
+                        <div style="background: rgba(255,75,75,0.15); padding: 15px; border-radius: 10px; text-align: center; border: 1px solid #ff4b4b;">
+                            <div style="color: #888; font-size: 12px;">📅 Next Earnings</div>
+                            <div style="font-size: 18px; font-weight: bold; color: #ff4b4b;">{earnings_date}</div>
+                        </div>
+                        """, unsafe_allow_html=True)
                     else:
-                        st.metric("Next Earnings Date", "Not scheduled")
+                        st.markdown(f"""
+                        <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
+                            <div style="color: #888; font-size: 12px;">📅 Next Earnings</div>
+                            <div style="font-size: 16px; color: #888;">Not scheduled</div>
+                        </div>
+                        """, unsafe_allow_html=True)
                 
                 with earn_col2:
-                    if earnings_data:
-                        eps_est = earnings_data.get('epsEstimated', 'N/A')
-                        if eps_est and eps_est != 'N/A':
-                            st.metric("EPS Estimate", f"${eps_est:.2f}")
-                        else:
-                            st.metric("EPS Estimate", "N/A")
+                    if eps_estimate and eps_estimate != 0:
+                        st.markdown(f"""
+                        <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
+                            <div style="color: #888; font-size: 12px;">💵 EPS Estimate</div>
+                            <div style="font-size: 18px; font-weight: bold;">${eps_estimate:.2f}</div>
+                        </div>
+                        """, unsafe_allow_html=True)
                     else:
-                        st.metric("EPS Estimate", "N/A")
+                        st.markdown(f"""
+                        <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
+                            <div style="color: #888; font-size: 12px;">💵 EPS Estimate</div>
+                            <div style="font-size: 16px; color: #888;">N/A</div>
+                        </div>
+                        """, unsafe_allow_html=True)
                 
                 with earn_col3:
-                    if earnings_data:
-                        rev_est = earnings_data.get('revenueEstimated', 0)
-                        if rev_est and rev_est > 0:
-                            if rev_est >= 1e9:
-                                st.metric("Revenue Estimate", f"${rev_est/1e9:.1f}B")
-                            else:
-                                st.metric("Revenue Estimate", f"${rev_est/1e6:.0f}M")
+                    if rev_estimate and rev_estimate > 0:
+                        if rev_estimate >= 1e9:
+                            rev_str = f"${rev_estimate/1e9:.1f}B"
+                        elif rev_estimate >= 1e6:
+                            rev_str = f"${rev_estimate/1e6:.0f}M"
                         else:
-                            st.metric("Revenue Estimate", "N/A")
+                            rev_str = f"${rev_estimate:,.0f}"
+                        st.markdown(f"""
+                        <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
+                            <div style="color: #888; font-size: 12px;">📊 Revenue Est.</div>
+                            <div style="font-size: 18px; font-weight: bold;">{rev_str}</div>
+                        </div>
+                        """, unsafe_allow_html=True)
                     else:
-                        st.metric("Revenue Estimate", "N/A")
+                        st.markdown(f"""
+                        <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
+                            <div style="color: #888; font-size: 12px;">📊 Revenue Est.</div>
+                            <div style="font-size: 16px; color: #888;">N/A</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                
+                with earn_col4:
+                    # Show current P/E for context
+                    pe_ratio = None
+                    if quote:
+                        pe_ratio = quote.get('pe')
+                    if pe_ratio and pe_ratio > 0:
+                        st.markdown(f"""
+                        <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
+                            <div style="color: #888; font-size: 12px;">📈 Current P/E</div>
+                            <div style="font-size: 18px; font-weight: bold;">{pe_ratio:.1f}x</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"""
+                        <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
+                            <div style="color: #888; font-size: 12px;">📈 Current P/E</div>
+                            <div style="font-size: 16px; color: #888;">N/A</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                
+                # Show data sources
+                data_sources = []
+                if earnings_data:
+                    data_sources.append("Earnings Calendar")
+                if analyst_estimates:
+                    data_sources.append("Analyst Estimates")
+                if data_sources:
+                    st.caption(f"📡 Data from: {', '.join(data_sources)}")
+                else:
+                    st.caption(f"⚠️ Limited data available for {workflow_ticker}")
+                
+                # Earnings History / Track Record
+                if earnings_surprises:
+                    st.markdown("##### 📜 Recent Earnings Track Record")
+                    
+                    beats = 0
+                    misses = 0
+                    for surprise in earnings_surprises:
+                        actual = surprise.get('actualEarningResult', 0)
+                        estimated = surprise.get('estimatedEarning', 0)
+                        if actual and estimated:
+                            if actual > estimated:
+                                beats += 1
+                            else:
+                                misses += 1
+                    
+                    track_col1, track_col2, track_col3 = st.columns(3)
+                    with track_col1:
+                        st.metric("🟢 Beats", f"{beats}/4")
+                    with track_col2:
+                        st.metric("🔴 Misses", f"{misses}/4")
+                    with track_col3:
+                        beat_rate = (beats / 4) * 100 if beats + misses > 0 else 0
+                        st.metric("📊 Beat Rate", f"{beat_rate:.0f}%")
                 
                 # Historical earnings performance
                 if income_df is not None and not income_df.empty:
                     st.markdown("##### 📈 Historical Performance")
                     
-                    hist_col1, hist_col2 = st.columns(2)
+                    hist_col1, hist_col2, hist_col3, hist_col4 = st.columns(4)
                     
                     with hist_col1:
                         if 'revenue' in income_df.columns:
                             revenues = income_df['revenue'].dropna().tolist()[:4]
-                            if len(revenues) >= 2:
-                                rev_growth = ((revenues[0] - revenues[1]) / revenues[1]) * 100 if revenues[1] != 0 else 0
-                                st.metric("Revenue Growth (YoY)", f"{rev_growth:+.1f}%")
+                            if len(revenues) >= 2 and revenues[1] != 0:
+                                rev_growth = ((revenues[0] - revenues[1]) / abs(revenues[1])) * 100
+                                color = "#22c55e" if rev_growth > 0 else "#ef4444"
+                                st.markdown(f"""
+                                <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
+                                    <div style="color: #888; font-size: 12px;">Revenue Growth (YoY)</div>
+                                    <div style="font-size: 18px; font-weight: bold; color: {color};">{rev_growth:+.1f}%</div>
+                                </div>
+                                """, unsafe_allow_html=True)
                     
                     with hist_col2:
                         if 'netIncome' in income_df.columns:
                             net_incomes = income_df['netIncome'].dropna().tolist()[:4]
-                            if len(net_incomes) >= 2:
-                                ni_growth = ((net_incomes[0] - net_incomes[1]) / abs(net_incomes[1])) * 100 if net_incomes[1] != 0 else 0
-                                st.metric("Net Income Growth (YoY)", f"{ni_growth:+.1f}%")
+                            if len(net_incomes) >= 2 and net_incomes[1] != 0:
+                                ni_growth = ((net_incomes[0] - net_incomes[1]) / abs(net_incomes[1])) * 100
+                                color = "#22c55e" if ni_growth > 0 else "#ef4444"
+                                st.markdown(f"""
+                                <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
+                                    <div style="color: #888; font-size: 12px;">Net Income Growth (YoY)</div>
+                                    <div style="font-size: 18px; font-weight: bold; color: {color};">{ni_growth:+.1f}%</div>
+                                </div>
+                                """, unsafe_allow_html=True)
                     
-                    # Margins
-                    if 'grossProfitRatio' in income_df.columns and 'netIncomeRatio' in income_df.columns:
-                        margin_col1, margin_col2 = st.columns(2)
-                        with margin_col1:
-                            gross_margin = income_df['grossProfitRatio'].iloc[0] * 100 if income_df['grossProfitRatio'].iloc[0] else 0
-                            st.metric("Gross Margin", f"{gross_margin:.1f}%")
-                        with margin_col2:
-                            net_margin = income_df['netIncomeRatio'].iloc[0] * 100 if income_df['netIncomeRatio'].iloc[0] else 0
-                            st.metric("Net Margin", f"{net_margin:.1f}%")
+                    with hist_col3:
+                        if 'grossProfitRatio' in income_df.columns:
+                            gross_margin = income_df['grossProfitRatio'].iloc[0]
+                            if gross_margin:
+                                gross_margin_pct = gross_margin * 100
+                                st.markdown(f"""
+                                <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
+                                    <div style="color: #888; font-size: 12px;">Gross Margin</div>
+                                    <div style="font-size: 18px; font-weight: bold;">{gross_margin_pct:.1f}%</div>
+                                </div>
+                                """, unsafe_allow_html=True)
+                    
+                    with hist_col4:
+                        if 'netIncomeRatio' in income_df.columns:
+                            net_margin = income_df['netIncomeRatio'].iloc[0]
+                            if net_margin:
+                                net_margin_pct = net_margin * 100
+                                st.markdown(f"""
+                                <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
+                                    <div style="color: #888; font-size: 12px;">Net Margin</div>
+                                    <div style="font-size: 18px; font-weight: bold;">{net_margin_pct:.1f}%</div>
+                                </div>
+                                """, unsafe_allow_html=True)
                 
                 # Show data source
                 show_data_source(source="FMP API", updated_at=datetime.now())
