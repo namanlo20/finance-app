@@ -3785,6 +3785,20 @@ def get_key_metrics_ttm(ticker):
     return {}
 
 @st.cache_data(ttl=3600)
+def get_enterprise_values(ticker):
+    """Get enterprise value data"""
+    url = f"{BASE_URL}/enterprise-values/{ticker}?limit=1&apikey={FMP_API_KEY}"
+    try:
+        response = requests.get(url, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            if data and len(data) > 0:
+                return data[0]
+    except:
+        pass
+    return {}
+
+@st.cache_data(ttl=3600)
 def get_financial_growth(ticker):
     """Get financial growth metrics for PEG calculation"""
     url = f"{BASE_URL}/financial-growth/{ticker}?limit=1&apikey={FMP_API_KEY}"
@@ -3799,11 +3813,10 @@ def get_financial_growth(ticker):
     return {}
 
 def calculate_valuation_metrics(ticker):
-    """Calculate all valuation metrics with fallbacks"""
+    """Calculate all valuation metrics using existing helper functions"""
+    # Get data from multiple sources
     quote = get_quote(ticker)
     ratios_ttm = get_ratios_ttm(ticker)
-    key_metrics = get_key_metrics_ttm(ticker)
-    growth = get_financial_growth(ticker)
     income_df = get_income_statement(ticker, 'annual', 2)
     
     metrics = {
@@ -3811,64 +3824,95 @@ def calculate_valuation_metrics(ticker):
         'ps_ratio': None,
         'ev_ebitda': None,
         'peg_ratio': None,
-        'is_profitable': True
+        'is_profitable': True,
+        'eps_growth': None
     }
     
-    # P/E Ratio - multiple sources
-    # Try ratios TTM first
-    if ratios_ttm and ratios_ttm.get('peRatioTTM') and ratios_ttm.get('peRatioTTM') > 0:
-        metrics['pe_ratio'] = ratios_ttm.get('peRatioTTM')
-    # Try key metrics
-    elif key_metrics and key_metrics.get('peRatioTTM') and key_metrics.get('peRatioTTM') > 0:
-        metrics['pe_ratio'] = key_metrics.get('peRatioTTM')
-    # Try quote
-    elif quote and quote.get('pe') and quote.get('pe') > 0:
-        metrics['pe_ratio'] = quote.get('pe')
-    # Calculate from price and EPS
-    elif quote and quote.get('price') and quote.get('eps') and quote.get('eps') > 0:
-        metrics['pe_ratio'] = quote.get('price') / quote.get('eps')
+    # ====== P/E RATIO ======
+    # Use existing get_pe_ratio function
+    pe = get_pe_ratio(ticker, quote, ratios_ttm, income_df)
+    if pe and pe > 0:
+        metrics['pe_ratio'] = pe
     else:
-        # Company might not be profitable
-        if quote and quote.get('eps') and quote.get('eps') <= 0:
+        # Check if company is unprofitable
+        eps_ttm = get_eps_ttm(ticker, income_df)
+        if eps_ttm <= 0:
             metrics['is_profitable'] = False
     
-    # P/S Ratio
-    if ratios_ttm and ratios_ttm.get('priceToSalesRatioTTM') and ratios_ttm.get('priceToSalesRatioTTM') > 0:
-        metrics['ps_ratio'] = ratios_ttm.get('priceToSalesRatioTTM')
-    elif key_metrics and key_metrics.get('priceToSalesRatioTTM') and key_metrics.get('priceToSalesRatioTTM') > 0:
-        metrics['ps_ratio'] = key_metrics.get('priceToSalesRatioTTM')
+    # ====== P/S RATIO ======
+    # Use existing get_ps_ratio function
+    ps = get_ps_ratio(ticker, ratios_ttm)
+    if ps and ps > 0:
+        metrics['ps_ratio'] = ps
+    else:
+        # Calculate manually from market cap / revenue
+        if quote and income_df is not None and not income_df.empty:
+            market_cap = quote.get('marketCap')
+            if 'revenue' in income_df.columns and market_cap:
+                revenues = income_df['revenue'].dropna().tolist()
+                if revenues:
+                    latest_revenue = revenues[-1]
+                    if latest_revenue and latest_revenue > 0:
+                        metrics['ps_ratio'] = market_cap / latest_revenue
     
-    # EV/EBITDA - multiple approaches
-    # Try ratios TTM
-    if ratios_ttm and ratios_ttm.get('enterpriseValueOverEBITDATTM') and ratios_ttm.get('enterpriseValueOverEBITDATTM') > 0:
-        metrics['ev_ebitda'] = ratios_ttm.get('enterpriseValueOverEBITDATTM')
-    # Try key metrics
-    elif key_metrics and key_metrics.get('enterpriseValueOverEBITDATTM') and key_metrics.get('enterpriseValueOverEBITDATTM') > 0:
-        metrics['ev_ebitda'] = key_metrics.get('enterpriseValueOverEBITDATTM')
-    # Calculate manually: EV / EBITDA
-    elif key_metrics and key_metrics.get('enterpriseValueTTM') and income_df is not None and not income_df.empty:
-        ev = key_metrics.get('enterpriseValueTTM')
-        # Get EBITDA from income statement
-        if 'ebitda' in income_df.columns:
-            latest_ebitda = income_df['ebitda'].iloc[-1] if len(income_df) > 0 else None
-            if latest_ebitda and latest_ebitda > 0 and ev:
-                metrics['ev_ebitda'] = ev / latest_ebitda
+    # ====== EV/EBITDA ======
+    # Try ratios_ttm first
+    if ratios_ttm and ratios_ttm.get('enterpriseValueOverEBITDATTM'):
+        ev_ebitda = ratios_ttm.get('enterpriseValueOverEBITDATTM')
+        if ev_ebitda and ev_ebitda > 0:
+            metrics['ev_ebitda'] = ev_ebitda
+    else:
+        # Calculate manually
+        if quote and income_df is not None and not income_df.empty:
+            market_cap = quote.get('marketCap')
+            if market_cap and 'ebitda' in income_df.columns:
+                ebitda_values = income_df['ebitda'].dropna().tolist()
+                if ebitda_values:
+                    latest_ebitda = ebitda_values[-1]
+                    if latest_ebitda and latest_ebitda > 0:
+                        # Get balance sheet for EV
+                        balance_df = get_balance_sheet(ticker, 'annual', 1)
+                        ev = market_cap
+                        
+                        if balance_df is not None and not balance_df.empty:
+                            try:
+                                total_debt = 0
+                                cash = 0
+                                if 'totalDebt' in balance_df.columns:
+                                    debt_val = balance_df['totalDebt'].iloc[-1]
+                                    total_debt = debt_val if pd.notna(debt_val) else 0
+                                if 'cashAndCashEquivalents' in balance_df.columns:
+                                    cash_val = balance_df['cashAndCashEquivalents'].iloc[-1]
+                                    cash = cash_val if pd.notna(cash_val) else 0
+                                ev = market_cap + total_debt - cash
+                            except:
+                                pass
+                        
+                        if ev > 0:
+                            metrics['ev_ebitda'] = ev / latest_ebitda
     
-    # PEG Ratio - P/E divided by EPS growth rate
-    # Try ratios TTM
-    if ratios_ttm and ratios_ttm.get('pegRatioTTM') and ratios_ttm.get('pegRatioTTM') > 0:
-        metrics['peg_ratio'] = ratios_ttm.get('pegRatioTTM')
-    # Try key metrics
-    elif key_metrics and key_metrics.get('pegRatioTTM') and key_metrics.get('pegRatioTTM') > 0:
-        metrics['peg_ratio'] = key_metrics.get('pegRatioTTM')
-    # Calculate manually: P/E / EPS Growth Rate
-    elif metrics['pe_ratio'] and growth and growth.get('epsgrowth'):
-        eps_growth = growth.get('epsgrowth')
-        # EPS growth is a decimal (0.15 = 15%), convert to percentage for PEG
-        if eps_growth and eps_growth > 0:
-            eps_growth_pct = eps_growth * 100  # Convert to percentage
-            if eps_growth_pct > 0:
-                metrics['peg_ratio'] = metrics['pe_ratio'] / eps_growth_pct
+    # ====== PEG RATIO ======
+    # Try ratios_ttm first
+    if ratios_ttm and ratios_ttm.get('pegRatioTTM'):
+        peg = ratios_ttm.get('pegRatioTTM')
+        if peg and 0 < peg < 10:
+            metrics['peg_ratio'] = peg
+    elif metrics['pe_ratio']:
+        # Calculate from EPS growth
+        if income_df is not None and not income_df.empty:
+            eps_col = 'epsdiluted' if 'epsdiluted' in income_df.columns else 'eps' if 'eps' in income_df.columns else None
+            if eps_col:
+                eps_values = income_df[eps_col].dropna().tolist()
+                if len(eps_values) >= 2:
+                    current_eps = eps_values[-1]
+                    prior_eps = eps_values[-2]
+                    if prior_eps and abs(prior_eps) > 0 and current_eps:
+                        eps_growth_pct = ((current_eps - prior_eps) / abs(prior_eps)) * 100
+                        metrics['eps_growth'] = eps_growth_pct
+                        if eps_growth_pct > 0:
+                            peg = metrics['pe_ratio'] / eps_growth_pct
+                            if 0 < peg < 10:
+                                metrics['peg_ratio'] = peg
     
     return metrics
 
@@ -8949,6 +8993,17 @@ if selected_page == "🏠 Dashboard":
                 """)
                 
                 show_data_source(source="FMP API", updated_at=datetime.now())
+                
+                # Debug info (collapsible)
+                with st.expander("🔧 Debug: Raw Data", expanded=False):
+                    st.json({
+                        "pe_ratio": pe_ratio,
+                        "ps_ratio": ps_ratio,
+                        "ev_ebitda": ev_ebitda,
+                        "peg_ratio": peg_ratio,
+                        "is_profitable": is_profitable,
+                        "eps_growth": val_metrics.get('eps_growth')
+                    })
                 
                 # AI Scenario
                 st.markdown("##### 🤖 AI Valuation Scenario")
