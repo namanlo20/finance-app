@@ -35,6 +35,270 @@ STARTING_CASH = float(os.environ.get("STARTING_CASH", "100000"))
 
 st.set_page_config(page_title="Investing Made Simple", layout="wide", page_icon="💰")
 
+# ============= TOP NAVIGATION BAR (FIRST THING ON PAGE) =============
+# Initialize selected page FIRST
+if 'selected_page' not in st.session_state:
+    st.session_state.selected_page = "🏠 Dashboard"
+
+# Navigation CSS - Clean top bar style like California Portrait
+st.markdown("""
+<style>
+/* Hide default Streamlit header padding */
+.block-container {
+    padding-top: 1rem !important;
+}
+
+/* Top nav bar - fixed at top */
+.top-nav {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 5px;
+    padding: 8px 20px;
+    background: #0a0a0a;
+    border-bottom: 1px solid #222;
+    margin: -1rem -1rem 1rem -1rem;
+    flex-wrap: wrap;
+}
+
+/* Nav links */
+.nav-link {
+    color: #fff;
+    text-decoration: none;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 400;
+    transition: color 0.2s;
+    cursor: pointer;
+}
+
+.nav-link:hover {
+    color: #FF4B4B;
+}
+
+/* Dropdown container */
+.nav-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.nav-dropdown-btn {
+    color: #fff;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 400;
+    cursor: pointer;
+    background: none;
+    border: none;
+}
+
+.nav-dropdown-btn:hover {
+    color: #FF4B4B;
+}
+
+/* Dropdown content */
+.nav-dropdown-content {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 100%;
+    background: #1a1a1a;
+    min-width: 180px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+    border: 1px solid #333;
+    z-index: 9999;
+}
+
+.nav-dropdown:hover .nav-dropdown-content {
+    display: block;
+}
+
+.nav-dropdown-content a {
+    color: #ddd;
+    padding: 12px 16px;
+    display: block;
+    text-decoration: none;
+    font-size: 13px;
+}
+
+.nav-dropdown-content a:hover {
+    background: rgba(255, 75, 75, 0.15);
+    color: #FF4B4B;
+}
+
+/* Auth buttons */
+.nav-auth {
+    margin-left: 15px;
+    display: flex;
+    gap: 8px;
+}
+
+.btn-signin {
+    color: #fff;
+    background: transparent;
+    border: 1px solid #444;
+    padding: 6px 14px;
+    border-radius: 4px;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.btn-signin:hover {
+    border-color: #888;
+}
+
+.btn-signup {
+    color: #fff;
+    background: #FF4B4B;
+    border: none;
+    padding: 6px 14px;
+    border-radius: 4px;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.btn-signup:hover {
+    background: #ff3333;
+}
+
+.btn-vip {
+    color: #000;
+    background: linear-gradient(135deg, #FFD700, #FFA500);
+    border: none;
+    padding: 6px 14px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+/* Style Streamlit selectboxes to look like nav dropdowns */
+div[data-testid="stSelectbox"] {
+    min-width: 120px;
+}
+
+div[data-testid="stSelectbox"] > div > div {
+    background: rgba(255, 75, 75, 0.15) !important;
+    border: 1px solid #444 !important;
+    border-radius: 6px !important;
+    color: #fff !important;
+    font-weight: 500 !important;
+    padding: 6px 10px !important;
+}
+
+div[data-testid="stSelectbox"] > div > div:hover {
+    border-color: #FF4B4B !important;
+    background: rgba(255, 75, 75, 0.25) !important;
+}
+
+/* Style the dropdown menu itself */
+div[data-testid="stSelectbox"] ul {
+    background: #1a1a1a !important;
+    border: 1px solid #333 !important;
+}
+
+div[data-testid="stSelectbox"] li:hover {
+    background: rgba(255, 75, 75, 0.2) !important;
+}
+
+/* Nav button styling */
+.stButton > button {
+    background: rgba(255, 75, 75, 0.15) !important;
+    border: 1px solid #444 !important;
+    border-radius: 6px !important;
+    color: #fff !important;
+    font-weight: 500 !important;
+}
+
+.stButton > button:hover {
+    background: rgba(255, 75, 75, 0.3) !important;
+    border-color: #FF4B4B !important;
+}
+
+/* VIP button special styling */
+button[kind="primary"] {
+    background: linear-gradient(135deg, #FF4B4B, #cc0000) !important;
+    border: none !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# Callback functions for navigation
+def nav_learn_changed():
+    val = st.session_state.topnav_learn
+    if val != "📚 Learn":
+        st.session_state.selected_page = val
+        st.session_state.topnav_learn = "📚 Learn"
+
+def nav_analyze_changed():
+    val = st.session_state.topnav_analyze
+    if val != "📊 Analyze":
+        st.session_state.selected_page = val
+        st.session_state.topnav_analyze = "📊 Analyze"
+
+def nav_action_changed():
+    val = st.session_state.topnav_action
+    if val != "🎯 Action":
+        st.session_state.selected_page = val
+        st.session_state.topnav_action = "🎯 Action"
+
+# Create nav using Streamlit columns
+nav_cols = st.columns([1, 1, 1, 1, 2, 0.8, 0.8, 0.8])
+
+with nav_cols[0]:
+    if st.button("🏠 Dashboard", key="topnav_dashboard", use_container_width=True):
+        st.session_state.selected_page = "🏠 Dashboard"
+        st.rerun()
+
+with nav_cols[1]:
+    st.selectbox(
+        "Learn",
+        ["📚 Learn", "🏠 Start Here", "📖 Basics", "📚 Finance 101", "🧠 Risk Quiz"],
+        key="topnav_learn",
+        label_visibility="collapsed",
+        on_change=nav_learn_changed
+    )
+
+with nav_cols[2]:
+    st.selectbox(
+        "Analyze", 
+        ["📊 Analyze", "📊 Company Analysis", "📈 Financial Health", "📰 Market Intelligence", "📊 Market Overview", "🔍 AI Stock Screener"],
+        key="topnav_analyze",
+        label_visibility="collapsed",
+        on_change=nav_analyze_changed
+    )
+
+with nav_cols[3]:
+    st.selectbox(
+        "Action",
+        ["🎯 Action", "📊 Pro Checklist", "💼 Paper Portfolio", "👤 Naman's Portfolio"],
+        key="topnav_action", 
+        label_visibility="collapsed",
+        on_change=nav_action_changed
+    )
+
+with nav_cols[5]:
+    if st.button("👑 VIP", key="topnav_vip", use_container_width=True):
+        st.session_state.selected_page = "👑 Become a VIP"
+        st.rerun()
+
+with nav_cols[6]:
+    if st.session_state.get('is_logged_in'):
+        user_name = st.session_state.get('first_name', 'User')
+        st.markdown(f"<p style='text-align:center; padding-top:8px;'>👤 {user_name}</p>", unsafe_allow_html=True)
+    else:
+        if st.button("Sign In", key="topnav_signin", use_container_width=True):
+            st.session_state.show_login_popup = True
+            st.rerun()
+
+with nav_cols[7]:
+    if not st.session_state.get('is_logged_in'):
+        if st.button("Sign Up", key="topnav_signup", use_container_width=True, type="primary"):
+            st.session_state.show_signup_popup = True
+            st.rerun()
+
+st.markdown("---")
+
 
 # ============================================
 # PHASE 1: PREMIUM FOUNDATION UTILITIES
@@ -7036,24 +7300,15 @@ if st.session_state.get('show_onboarding_quiz', False):
     onboarding_quiz_dialog()
 
 # ============= LOGO =============
-# Logo positioned above "Investing Made Simple" title, below top icons
+# Logo
 try:
     col1, col2, col3 = st.columns([1, 1, 1])
     with col2:
-        st.image("logo.png", width=600)  # Logo width
+        st.image("logo.png", width=600)
 except:
-    # Fallback text logo
-    st.markdown("""
-    <div style="text-align: center; padding: 10px 0; margin-bottom: 15px;">
-        <h3 style="color: #FF4444; margin: 0; font-size: 1.5em;">STOCKINVESTING.AI</h3>
-        <p style="color: #888; margin: 5px 0; font-size: 0.85em;">
-            <span style="color: #00D9FF;">LEARN</span> • 
-            <span style="color: #FFD700;">INVEST</span>
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
+    pass  # Logo handled by deployment
 
-# ============= HEADER =============
+# Header
 col1, col2 = st.columns([3, 1])
 with col1:
     st.title("💰 Investing Made Simple")
@@ -7061,115 +7316,6 @@ with col1:
 with col2:
     st.markdown("### 🤖 AI-Ready")
     st.caption("FMP Premium")
-
-# ============= TOP NAVIGATION BAR =============
-# CSS for the navigation bar
-st.markdown("""
-<style>
-/* Style selectboxes to look like nav dropdowns */
-div[data-testid="stSelectbox"] {
-    background: transparent;
-}
-
-div[data-testid="stSelectbox"] > div > div {
-    background: rgba(255, 75, 75, 0.1) !important;
-    border: 1px solid #444 !important;
-    border-radius: 8px !important;
-    color: white !important;
-    font-weight: 600 !important;
-}
-
-div[data-testid="stSelectbox"] > div > div:hover {
-    border-color: #FF4B4B !important;
-    background: rgba(255, 75, 75, 0.2) !important;
-}
-
-/* Nav buttons styling */
-.stButton > button {
-    border-radius: 8px !important;
-}
-
-/* Top nav area background */
-.top-nav-bg {
-    background: linear-gradient(180deg, #1a1a1a 0%, #111 100%);
-    border-radius: 12px;
-    padding: 10px;
-    margin-bottom: 20px;
-    border: 1px solid #333;
-}
-
-/* Sign in/up buttons */
-div[data-testid="column"]:last-child .stButton > button {
-    font-size: 13px !important;
-    padding: 8px 12px !important;
-}
-
-/* Mobile responsive nav */
-@media (max-width: 768px) {
-    div[data-testid="stSelectbox"] > div > div {
-        font-size: 12px !important;
-        padding: 8px !important;
-    }
-}
-</style>
-""", unsafe_allow_html=True)
-
-# Wrap nav in styled container
-st.markdown('<div class="top-nav-bg">', unsafe_allow_html=True)
-
-# Create navigation bar using columns
-nav_col1, nav_col2, nav_col3, nav_col4, nav_col5, nav_col6 = st.columns([1.2, 1.2, 1.2, 1.2, 0.8, 1.2])
-
-with nav_col1:
-    if st.button("🏠 Dashboard", key="nav_dashboard", use_container_width=True):
-        st.session_state.selected_page = "🏠 Dashboard"
-        st.rerun()
-
-with nav_col2:
-    learn_options = ["📚 Learn ▼", "🏠 Start Here", "📖 Basics", "📚 Finance 101", "🧠 Risk Quiz"]
-    learn_choice = st.selectbox("Learn", learn_options, key="nav_learn", label_visibility="collapsed")
-    if learn_choice != "📚 Learn ▼":
-        st.session_state.selected_page = learn_choice
-        st.rerun()
-
-with nav_col3:
-    analyze_options = ["📊 Analyze ▼", "📊 Company Analysis", "📈 Financial Health", "📰 Market Intelligence", "📊 Market Overview", "🔍 AI Stock Screener"]
-    analyze_choice = st.selectbox("Analyze", analyze_options, key="nav_analyze", label_visibility="collapsed")
-    if analyze_choice != "📊 Analyze ▼":
-        st.session_state.selected_page = analyze_choice
-        st.rerun()
-
-with nav_col4:
-    action_options = ["🎯 Action ▼", "📊 Pro Checklist", "💼 Paper Portfolio", "📈 Compare Stocks", "👑 Become a VIP"]
-    action_choice = st.selectbox("Action", action_options, key="nav_action", label_visibility="collapsed")
-    if action_choice == "📈 Compare Stocks":
-        st.session_state.selected_page = "📈 Financial Health"  # Compare is a tab within Financial Health
-        st.rerun()
-    elif action_choice != "🎯 Action ▼":
-        st.session_state.selected_page = action_choice
-        st.rerun()
-
-with nav_col5:
-    st.write("")  # Spacer
-
-with nav_col6:
-    # Sign in / Sign up or User info
-    if st.session_state.get('is_logged_in'):
-        user_name = st.session_state.get('first_name', 'User')
-        if st.button(f"👤 {user_name}", key="nav_user", use_container_width=True):
-            st.session_state.show_user_menu = not st.session_state.get('show_user_menu', False)
-    else:
-        auth_col1, auth_col2 = st.columns(2)
-        with auth_col1:
-            if st.button("Sign In", key="nav_signin", use_container_width=True):
-                st.session_state.show_login_popup = True
-                st.rerun()
-        with auth_col2:
-            if st.button("Sign Up", key="nav_signup", use_container_width=True, type="primary"):
-                st.session_state.show_signup_popup = True
-                st.rerun()
-
-st.markdown('</div>', unsafe_allow_html=True)  # Close top-nav-bg
 
 
 # ============= VERTICAL SIDEBAR (Simplified) =============
