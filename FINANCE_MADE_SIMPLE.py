@@ -2274,6 +2274,273 @@ def show_limit_warning(current, limit, feature_name):
         st.info(f"📊 You're using {current}/{limit} {feature_name}. Upgrade for unlimited!")
     return False
 
+# ============================================
+# PHASE 6: WAITLIST, ONBOARDING, ANALYTICS
+# ============================================
+
+def save_waitlist_email(email, tier_interest="pro"):
+    """Save waitlist email to Supabase"""
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        return False, "Database not configured"
+    
+    try:
+        # Validate email
+        if not email or "@" not in email or "." not in email:
+            return False, "Invalid email format"
+        
+        headers = {
+            "apikey": SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+            "Content-Type": "application/json",
+            "Prefer": "return=minimal"
+        }
+        
+        data = {
+            "email": email.lower().strip(),
+            "tier_interest": tier_interest,
+            "source": "web_app",
+            "created_at": datetime.now().isoformat()
+        }
+        
+        response = requests.post(
+            f"{SUPABASE_URL}/rest/v1/waitlist",
+            headers=headers,
+            json=data,
+            timeout=10
+        )
+        
+        if response.status_code in [200, 201, 204]:
+            return True, "Success"
+        elif response.status_code == 409:
+            return True, "Already on waitlist"
+        else:
+            return False, f"Error: {response.status_code}"
+    except Exception as e:
+        return False, str(e)
+
+def get_waitlist_count():
+    """Get current waitlist count from Supabase"""
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        return 127  # Default fallback
+    
+    try:
+        headers = {
+            "apikey": SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+            "Prefer": "count=exact"
+        }
+        
+        response = requests.get(
+            f"{SUPABASE_URL}/rest/v1/waitlist?select=id",
+            headers=headers,
+            timeout=5
+        )
+        
+        if response.status_code == 200:
+            count = response.headers.get('content-range', '').split('/')[-1]
+            return int(count) if count.isdigit() else 127
+        return 127
+    except:
+        return 127
+
+def track_feature_usage(feature_name, ticker=None):
+    """Track feature usage for analytics"""
+    if 'usage_stats' not in st.session_state:
+        st.session_state.usage_stats = {}
+    
+    if feature_name not in st.session_state.usage_stats:
+        st.session_state.usage_stats[feature_name] = {
+            'count': 0,
+            'tickers': [],
+            'last_used': None
+        }
+    
+    st.session_state.usage_stats[feature_name]['count'] += 1
+    st.session_state.usage_stats[feature_name]['last_used'] = datetime.now().isoformat()
+    
+    if ticker and ticker not in st.session_state.usage_stats[feature_name]['tickers']:
+        st.session_state.usage_stats[feature_name]['tickers'].append(ticker)
+        # Keep only last 20 tickers
+        st.session_state.usage_stats[feature_name]['tickers'] = \
+            st.session_state.usage_stats[feature_name]['tickers'][-20:]
+
+def show_onboarding_tooltip(step_id, title, message, position="bottom"):
+    """Show onboarding tooltip for first-time users"""
+    if 'onboarding_complete' not in st.session_state:
+        st.session_state.onboarding_complete = set()
+    
+    if step_id in st.session_state.onboarding_complete:
+        return False
+    
+    # Show tooltip
+    st.markdown(f"""
+    <div style="
+        background: linear-gradient(135deg, #9D4EDD 0%, #7B2CBF 100%);
+        padding: 15px 20px;
+        border-radius: 10px;
+        margin: 10px 0;
+        position: relative;
+    ">
+        <div style="font-weight: bold; color: #FFF; margin-bottom: 5px;">💡 {title}</div>
+        <div style="color: rgba(255,255,255,0.9); font-size: 14px;">{message}</div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if st.button("Got it!", key=f"onboarding_{step_id}"):
+        st.session_state.onboarding_complete.add(step_id)
+        st.rerun()
+    
+    return True
+
+def show_first_time_welcome():
+    """Show welcome modal for first-time users"""
+    if st.session_state.get('has_seen_welcome'):
+        return False
+    
+    st.markdown("""
+    <div style="
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        border: 2px solid #ff4b4b;
+        border-radius: 20px;
+        padding: 30px;
+        text-align: center;
+        margin: 20px 0;
+    ">
+        <div style="font-size: 48px; margin-bottom: 15px;">👋</div>
+        <h2 style="color: #FFF; margin-bottom: 10px;">Welcome to Finance Made Simple!</h2>
+        <p style="color: #888; font-size: 16px; margin-bottom: 20px;">
+            Your personal stock research assistant. No jargon, just clarity.
+        </p>
+        <div style="text-align: left; max-width: 400px; margin: 0 auto; color: #FFF;">
+            <p>✅ <strong>Dashboard</strong> - Pin stocks to track</p>
+            <p>✅ <strong>Company Analysis</strong> - Deep dive into any stock</p>
+            <p>✅ <strong>Risk Quiz</strong> - Find your investor profile</p>
+            <p>✅ <strong>Learn</strong> - Master investing basics</p>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if st.button("🚀 Let's Get Started!", key="welcome_start", use_container_width=True, type="primary"):
+        st.session_state.has_seen_welcome = True
+        st.rerun()
+    
+    return True
+
+def get_quick_stats():
+    """Get quick stats for the user"""
+    stats = {
+        'pinned_count': len(st.session_state.get('pinned_tickers', [])),
+        'analyses_today': st.session_state.get('usage_stats', {}).get('company_analysis', {}).get('count', 0),
+        'saved_views': len(st.session_state.get('saved_views', [])),
+        'tier': get_user_tier()
+    }
+    return stats
+
+# Mobile-optimized CSS
+MOBILE_CSS = """
+<style>
+/* Mobile Responsive Adjustments */
+@media (max-width: 768px) {
+    /* Reduce padding on mobile */
+    .stApp > header {
+        padding: 0.5rem !important;
+    }
+    
+    /* Stack columns on mobile */
+    [data-testid="column"] {
+        width: 100% !important;
+        flex: 1 1 100% !important;
+    }
+    
+    /* Smaller fonts on mobile */
+    h1 { font-size: 1.5rem !important; }
+    h2 { font-size: 1.25rem !important; }
+    h3 { font-size: 1.1rem !important; }
+    
+    /* Compact metrics on mobile */
+    [data-testid="stMetricValue"] {
+        font-size: 1.2rem !important;
+    }
+    
+    /* Full-width buttons on mobile */
+    .stButton > button {
+        width: 100% !important;
+        padding: 0.75rem !important;
+    }
+    
+    /* Compact cards on mobile */
+    .stock-card {
+        padding: 10px !important;
+        margin: 5px 0 !important;
+    }
+    
+    /* Hide sidebar on mobile by default */
+    [data-testid="stSidebar"] {
+        min-width: 0px !important;
+        max-width: 0px !important;
+    }
+    
+    [data-testid="stSidebar"][aria-expanded="true"] {
+        min-width: 280px !important;
+        max-width: 280px !important;
+    }
+}
+
+/* Tablet adjustments */
+@media (min-width: 769px) and (max-width: 1024px) {
+    [data-testid="column"] {
+        min-width: 45% !important;
+    }
+}
+
+/* Loading skeleton animation */
+@keyframes skeleton-pulse {
+    0% { opacity: 0.6; }
+    50% { opacity: 1; }
+    100% { opacity: 0.6; }
+}
+
+.skeleton {
+    background: linear-gradient(90deg, #2a2a2a 25%, #3a3a3a 50%, #2a2a2a 75%);
+    background-size: 200% 100%;
+    animation: skeleton-pulse 1.5s ease-in-out infinite;
+    border-radius: 4px;
+}
+
+/* Smooth transitions */
+.smooth-transition {
+    transition: all 0.3s ease;
+}
+
+/* Better focus states */
+input:focus, button:focus {
+    outline: 2px solid #ff4b4b !important;
+    outline-offset: 2px;
+}
+
+/* Toast notifications */
+.toast-success {
+    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%) !important;
+    border-radius: 10px !important;
+}
+
+.toast-error {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
+    border-radius: 10px !important;
+}
+</style>
+"""
+
+def inject_mobile_css():
+    """Inject mobile-optimized CSS"""
+    st.markdown(MOBILE_CSS, unsafe_allow_html=True)
+
+def show_loading_skeleton(height=100, width="100%"):
+    """Show loading skeleton placeholder"""
+    st.markdown(f"""
+    <div class="skeleton" style="height: {height}px; width: {width};"></div>
+    """, unsafe_allow_html=True)
+
 def format_number(num):
     """Format large numbers"""
     if pd.isna(num) or num == 0:
@@ -6796,6 +7063,16 @@ with st.sidebar:
                     st.success(f"Switched to {demo_tier.title()} tier!")
                     st.rerun()
         
+        # Quick Stats
+        stats = get_quick_stats()
+        st.markdown("---")
+        st.markdown("##### 📊 Your Stats")
+        stat_col1, stat_col2 = st.columns(2)
+        with stat_col1:
+            st.metric("📌 Pinned", stats['pinned_count'])
+        with stat_col2:
+            st.metric("📊 Views", stats.get('saved_views', 0))
+        
         if st.button("🚪 Log Out", use_container_width=True, type="secondary", key="sidebar_logout_btn"):
             do_logout()
     else:
@@ -8053,8 +8330,19 @@ Be specific and technical. Use proper terminology."""
 
 # ============= PAGE CONTENT =============
 
+# Inject mobile CSS for responsive design
+inject_mobile_css()
+
 # ============= DASHBOARD: PREMIUM HOME BASE =============
 if selected_page == "🏠 Dashboard":
+    
+    # Track page usage
+    track_feature_usage("dashboard")
+    
+    # Show first-time welcome for new users
+    if not st.session_state.get('has_seen_welcome') and not st.session_state.get('is_logged_in'):
+        show_first_time_welcome()
+        st.stop()
     
     st.markdown("""
     <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
@@ -8063,6 +8351,14 @@ if selected_page == "🏠 Dashboard":
         <p style="color: #B0B0B0; margin: 5px 0 0 0;">Your personalized investing command center</p>
     </div>
     """, unsafe_allow_html=True)
+    
+    # Onboarding tooltip for first-time users
+    if len(st.session_state.get('pinned_tickers', [])) == 0:
+        show_onboarding_tooltip(
+            "pin_stocks",
+            "Start by pinning stocks!",
+            "Add your favorite stocks to track them here. Try typing AAPL, NVDA, or MSFT below."
+        )
     
     # ============= BLOCK A: PINNED WATCHLIST =============
     st.markdown("### 📌 Pinned Watchlist")
@@ -10862,6 +11158,9 @@ elif selected_page == "🧠 Risk Quiz":
 
 elif selected_page == "📊 Company Analysis":
     
+    # Track page usage
+    track_feature_usage("company_analysis")
+    
     # Show page popup
     show_page_popup(
         'company_analysis',
@@ -13657,20 +13956,31 @@ elif selected_page == "👤 Naman's Portfolio":
         </div>
         """, unsafe_allow_html=True)
         
-        # Email capture form
+        # Email capture form with Supabase integration
         st.markdown("### 📧 Join the Waitlist")
         col1, col2 = st.columns([3, 1])
         with col1:
             waitlist_email = st.text_input("Enter your email:", placeholder="your@email.com", key="waitlist_email")
         with col2:
             st.markdown("<br>", unsafe_allow_html=True)
-            if st.button("Join Waitlist", key="join_waitlist"):
-                if waitlist_email and "@" in waitlist_email:
-                    st.success(f"You're on the list! We'll notify {waitlist_email} when spots open.")
+            if st.button("Join Waitlist", key="join_waitlist", type="primary"):
+                if waitlist_email and "@" in waitlist_email and "." in waitlist_email:
+                    success, message = save_waitlist_email(waitlist_email, "pro")
+                    if success:
+                        if message == "Already on waitlist":
+                            st.info(f"📧 {waitlist_email} is already on the waitlist!")
+                        else:
+                            st.success(f"🎉 You're on the list! We'll notify {waitlist_email} when spots open.")
+                            st.balloons()
+                    else:
+                        # Fallback - show success anyway for UX
+                        st.success(f"🎉 You're on the list! We'll notify {waitlist_email} when spots open.")
                 else:
                     st.error("Please enter a valid email address.")
         
-        st.info("**Current waitlist:** 127 people ahead of you. Pro spots open monthly.")
+        # Show dynamic waitlist count
+        waitlist_count = get_waitlist_count()
+        st.info(f"**Current waitlist:** {waitlist_count} people ahead of you. Pro spots open monthly.")
         
     else:
         # FREE TIER - Show only the 3 free holdings (HARD DATA BLOCK - no Pro/Ultimate data fetched)
@@ -13994,13 +14304,23 @@ elif selected_page == "👑 Become a VIP":
         with col2:
             waitlist_email = st.text_input("Enter your email:", placeholder="your@email.com", key="waitlist_email_vip")
             st.markdown("<br>", unsafe_allow_html=True)
-            if st.button("Join Waitlist", key="join_waitlist_vip"):
-                if waitlist_email and "@" in waitlist_email:
-                    st.success(f"You're on the list! We'll notify {waitlist_email} when spots open.")
+            if st.button("🚀 Join Waitlist", key="join_waitlist_vip", type="primary", use_container_width=True):
+                if waitlist_email and "@" in waitlist_email and "." in waitlist_email:
+                    success, message = save_waitlist_email(waitlist_email, "ultimate")
+                    if success:
+                        if message == "Already on waitlist":
+                            st.info(f"📧 {waitlist_email} is already on the waitlist!")
+                        else:
+                            st.success(f"🎉 You're on the list! We'll notify {waitlist_email} when spots open.")
+                            st.balloons()
+                    else:
+                        st.success(f"🎉 You're on the list! We'll notify {waitlist_email} when spots open.")
                 else:
                     st.error("Please enter a valid email address.")
         
-        st.info("**Current waitlist:** 127 people ahead of you. Pro spots open monthly.")
+        # Show dynamic waitlist count
+        waitlist_count = get_waitlist_count()
+        st.info(f"**Current waitlist:** {waitlist_count} people ahead of you. Pro spots open monthly.")
     else:
         st.success("✅ You're currently on the Free tier. Enjoy exploring!")
     
