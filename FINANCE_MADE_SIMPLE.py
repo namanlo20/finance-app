@@ -13229,6 +13229,9 @@ elif selected_page == "📊 Market Overview":
 
 # ============= AI STOCK SCREENER PAGE =============
 elif selected_page == "🔍 AI Stock Screener":
+    # Check tier - Ultimate only
+    user_tier = get_user_tier()
+    
     # Red pill header matching the app theme
     st.markdown("""
     <div style="background: linear-gradient(135deg, #FF4B4B 0%, #CC0000 100%); 
@@ -13246,48 +13249,359 @@ elif selected_page == "🔍 AI Stock Screener":
     </div>
     """, unsafe_allow_html=True)
     
-    st.markdown("### 🚀 Coming Soon!")
-    st.info("""
-    **Natural Language Stock Screening:**
-    
-    Just type what you want in plain English:
-    - "Find stocks growing revenue 10%+, with strong FCF margins, but trading at lower multiples"
-    - "Show me undervalued tech companies under $10B"
-    - "Give me dividend growers with low debt"
-    
-    AI will parse your query, search the database, and show you matching stocks with justifications!
-    
-    **This feature is being integrated now. Check back soon!**
-    """)
-    
-    st.markdown("---")
-    st.markdown("### 💡 Example Queries")
-    
-    col1, col2 = st.columns(2)
-    with col1:
+    # Gate for non-Ultimate users
+    if user_tier != "ultimate":
         st.markdown("""
-        **Growth + Value:**
-        - Find tech stocks growing 15%+ with high FCF
-        - Show me small caps with explosive growth but cheap
+        <div style="background: rgba(255, 215, 0, 0.1); border: 2px dashed #FFD700; border-radius: 15px; padding: 30px; text-align: center; margin: 20px 0;">
+            <div style="font-size: 48px; margin-bottom: 15px;">🔒</div>
+            <h3 style="color: #FFD700; margin-bottom: 10px;">Ultimate Tier Feature</h3>
+            <p style="color: #888; margin-bottom: 20px;">AI-powered stock screening is exclusive to Ultimate members</p>
+            <p style="color: #FFF;">Ask questions like:</p>
+            <p style="color: #888; font-style: italic;">"Find undervalued tech stocks with strong cash flow"</p>
+        </div>
+        """, unsafe_allow_html=True)
         
-        **Quality + Income:**
-        - Give me dividend aristocrats with low debt
-        - Find stocks with ROE over 30% and low leverage
-        """)
-    
-    with col2:
-        st.markdown("""
-        **Value Plays:**
-        - Show me undervalued stocks with P/E under 12
-        - Find companies trading below book value
+        if st.button("🚀 Upgrade to Ultimate", key="upgrade_screener", use_container_width=True, type="primary"):
+            st.session_state.selected_page = "👑 Become a VIP"
+            st.rerun()
         
-        **Custom Criteria:**
-        - Stocks improving margins with growing revenue
-        - Companies with high FCF yield but low P/S
-        """)
-    
-    st.markdown("---")
-    st.caption("*This screener module is available separately. Contact for integration.*")
+        # Show example of what they'd get
+        st.markdown("---")
+        st.markdown("### 💡 What You Could Search")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("""
+            **Growth + Value:**
+            - Find tech stocks growing 15%+ with high FCF
+            - Show me small caps with explosive growth but cheap
+            
+            **Quality + Income:**
+            - Give me dividend aristocrats with low debt
+            - Find stocks with ROE over 30% and low leverage
+            """)
+        with col2:
+            st.markdown("""
+            **Value Plays:**
+            - Show me undervalued stocks with P/E under 12
+            - Find companies trading below book value
+            
+            **Custom Criteria:**
+            - Stocks improving margins with growing revenue
+            - Companies with high FCF yield but low P/S
+            """)
+    else:
+        # ============= ULTIMATE USERS: FULL AI SCREENER =============
+        
+        # Search input
+        st.markdown("### 🎯 What are you looking for?")
+        
+        # Query input
+        user_query = st.text_area(
+            "Describe what you want in plain English:",
+            placeholder="e.g., Find undervalued tech stocks with P/E under 20 and revenue growing at least 10%",
+            height=80,
+            key="screener_query"
+        )
+        
+        # Quick suggestion buttons
+        st.markdown("**💡 Try these:**")
+        quick_col1, quick_col2, quick_col3 = st.columns(3)
+        with quick_col1:
+            if st.button("Value stocks P/E < 15", key="quick_value"):
+                user_query = "Find value stocks with P/E under 15 and positive earnings"
+                st.session_state.screener_query = user_query
+        with quick_col2:
+            if st.button("Dividend growers", key="quick_div"):
+                user_query = "Show me dividend paying stocks with low debt and growing dividends"
+                st.session_state.screener_query = user_query
+        with quick_col3:
+            if st.button("Growth + quality", key="quick_growth"):
+                user_query = "Find tech stocks growing revenue 15%+ with strong margins"
+                st.session_state.screener_query = user_query
+        
+        # Search button
+        search_clicked = st.button("🔍 Search Stocks", key="run_screener", type="primary", use_container_width=True)
+        
+        if search_clicked and user_query:
+            with st.spinner("🤖 AI is analyzing your request..."):
+                # Step 1: Parse query with OpenAI
+                parse_prompt = f"""Parse this stock screening request into JSON criteria.
+
+User query: "{user_query}"
+
+Return ONLY valid JSON with these optional fields:
+{{
+    "sector": "Technology" | "Healthcare" | "Financial Services" | "Consumer Cyclical" | "Communication Services" | "Industrials" | "Consumer Defensive" | "Energy" | "Utilities" | "Real Estate" | "Basic Materials" | null,
+    "market_cap_min": number or null (in dollars, e.g., 1000000000 for $1B),
+    "market_cap_max": number or null,
+    "pe_min": number or null,
+    "pe_max": number or null,
+    "dividend_min": number or null (as percentage, e.g., 2 for 2%),
+    "price_min": number or null,
+    "price_max": number or null,
+    "beta_min": number or null,
+    "beta_max": number or null,
+    "volume_min": number or null,
+    "limit": number (default 20, max 50),
+    "sort_by": "marketCap" | "pe" | "dividend" | "volume" | "price",
+    "sort_order": "asc" | "desc",
+    "user_intent": "brief description of what user wants"
+}}
+
+Be generous in interpretation. If user says "cheap" use pe_max: 15. If "large cap" use market_cap_min: 10000000000.
+If user says "undervalued" use pe_max: 20. If "growth" focus on tech/healthcare sectors.
+If user says "dividend" set dividend_min: 1.
+
+Return ONLY the JSON, no explanation."""
+
+                try:
+                    parse_resp = requests.post(
+                        "https://api.openai.com/v1/chat/completions",
+                        headers={"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"},
+                        json={
+                            "model": "gpt-4o-mini",
+                            "messages": [{"role": "user", "content": parse_prompt}],
+                            "temperature": 0.3,
+                            "max_tokens": 500
+                        },
+                        timeout=20
+                    )
+                    
+                    if parse_resp.status_code == 200:
+                        content = parse_resp.json()["choices"][0]["message"]["content"].strip()
+                        content = content.replace("```json", "").replace("```", "").strip()
+                        criteria = json.loads(content)
+                    else:
+                        st.error("AI parsing failed. Please try again.")
+                        criteria = None
+                except Exception as e:
+                    st.error(f"AI error: {str(e)}")
+                    criteria = None
+                
+                if criteria:
+                    # Show parsed criteria
+                    with st.expander("🔧 Parsed Criteria", expanded=False):
+                        st.json(criteria)
+                    
+                    # Step 2: Build FMP API call
+                    screener_url = f"{BASE_URL}/stock-screener?"
+                    params = {"apikey": FMP_API_KEY, "isEtf": "false", "isActivelyTrading": "true"}
+                    
+                    if criteria.get("sector"):
+                        params["sector"] = criteria["sector"]
+                    if criteria.get("market_cap_min"):
+                        params["marketCapMoreThan"] = int(criteria["market_cap_min"])
+                    if criteria.get("market_cap_max"):
+                        params["marketCapLowerThan"] = int(criteria["market_cap_max"])
+                    if criteria.get("pe_min"):
+                        params["priceMoreThan"] = 0  # Ensure positive price
+                    if criteria.get("pe_max"):
+                        # FMP doesn't have direct PE filter, we'll filter client-side
+                        pass
+                    if criteria.get("dividend_min"):
+                        params["dividendMoreThan"] = criteria["dividend_min"]
+                    if criteria.get("price_min"):
+                        params["priceMoreThan"] = criteria["price_min"]
+                    if criteria.get("price_max"):
+                        params["priceLowerThan"] = criteria["price_max"]
+                    if criteria.get("beta_min"):
+                        params["betaMoreThan"] = criteria["beta_min"]
+                    if criteria.get("beta_max"):
+                        params["betaLowerThan"] = criteria["beta_max"]
+                    if criteria.get("volume_min"):
+                        params["volumeMoreThan"] = int(criteria["volume_min"])
+                    
+                    params["limit"] = min(criteria.get("limit", 20), 50)
+                    
+                    # Fetch from FMP
+                    try:
+                        screener_resp = requests.get(screener_url, params=params, timeout=15)
+                        
+                        if screener_resp.status_code == 200:
+                            stocks = screener_resp.json()
+                            
+                            # Client-side P/E filtering if needed
+                            pe_max = criteria.get("pe_max")
+                            pe_min = criteria.get("pe_min")
+                            
+                            if pe_max or pe_min:
+                                filtered_stocks = []
+                                for stock in stocks:
+                                    pe = stock.get("pe")
+                                    if pe and pe > 0:
+                                        if pe_max and pe > pe_max:
+                                            continue
+                                        if pe_min and pe < pe_min:
+                                            continue
+                                        filtered_stocks.append(stock)
+                                stocks = filtered_stocks[:params["limit"]]
+                            
+                            if stocks:
+                                st.success(f"✅ Found {len(stocks)} stocks matching your criteria!")
+                                
+                                # Display results
+                                st.markdown("### 📊 Results")
+                                
+                                # Build results table
+                                results_data = []
+                                for stock in stocks[:20]:  # Limit display to 20
+                                    ticker = stock.get("symbol", "")
+                                    logo_url = get_company_logo(ticker)
+                                    
+                                    results_data.append({
+                                        "logo": logo_url,
+                                        "ticker": ticker,
+                                        "name": stock.get("companyName", "")[:30],
+                                        "sector": stock.get("sector", "N/A"),
+                                        "price": stock.get("price", 0),
+                                        "change": stock.get("changesPercentage", 0),
+                                        "pe": stock.get("pe", 0),
+                                        "market_cap": stock.get("marketCap", 0),
+                                        "dividend": stock.get("lastAnnualDividend", 0),
+                                        "volume": stock.get("volume", 0)
+                                    })
+                                
+                                # Display as cards
+                                for i, row in enumerate(results_data):
+                                    col1, col2, col3, col4, col5, col6 = st.columns([0.8, 2, 1.5, 1, 1, 0.8])
+                                    
+                                    with col1:
+                                        if row["logo"]:
+                                            st.markdown(f'<img src="{row["logo"]}" width="40" height="40" style="border-radius: 8px;">', unsafe_allow_html=True)
+                                        else:
+                                            st.markdown("📈")
+                                    
+                                    with col2:
+                                        st.markdown(f"**{row['ticker']}**")
+                                        st.caption(row['name'])
+                                    
+                                    with col3:
+                                        change_color = "#22c55e" if row['change'] >= 0 else "#ef4444"
+                                        st.markdown(f"${row['price']:.2f}")
+                                        st.markdown(f"<span style='color:{change_color}'>{row['change']:+.2f}%</span>", unsafe_allow_html=True)
+                                    
+                                    with col4:
+                                        if row['pe'] and row['pe'] > 0:
+                                            pe_color = "#22c55e" if row['pe'] < 20 else "#f59e0b" if row['pe'] < 35 else "#ef4444"
+                                            st.markdown(f"<span style='color:{pe_color}'>{row['pe']:.1f}x</span>", unsafe_allow_html=True)
+                                        else:
+                                            st.markdown("N/A")
+                                        st.caption("P/E")
+                                    
+                                    with col5:
+                                        if row['market_cap'] >= 1e12:
+                                            cap_str = f"${row['market_cap']/1e12:.1f}T"
+                                        elif row['market_cap'] >= 1e9:
+                                            cap_str = f"${row['market_cap']/1e9:.1f}B"
+                                        else:
+                                            cap_str = f"${row['market_cap']/1e6:.0f}M"
+                                        st.markdown(cap_str)
+                                        st.caption("Mkt Cap")
+                                    
+                                    with col6:
+                                        if st.button("📌", key=f"pin_screener_{row['ticker']}_{i}"):
+                                            if row['ticker'] not in st.session_state.pinned_tickers:
+                                                pin_limit = get_tier_limit("pinned_tickers")
+                                                if len(st.session_state.pinned_tickers) < pin_limit:
+                                                    st.session_state.pinned_tickers.append(row['ticker'])
+                                                    st.success(f"Added {row['ticker']}!")
+                                                    st.rerun()
+                                    
+                                    st.markdown("---")
+                                
+                                # Step 3: AI Analysis of results
+                                st.markdown("### 🤖 AI Analysis")
+                                
+                                with st.spinner("Generating insights..."):
+                                    # Get top 5 for analysis
+                                    top_stocks = results_data[:5]
+                                    stocks_summary = "\n".join([
+                                        f"- {s['ticker']}: ${s['price']:.2f}, P/E {s['pe']:.1f}x, {s['sector']}"
+                                        for s in top_stocks if s['pe'] and s['pe'] > 0
+                                    ])
+                                    
+                                    analysis_prompt = f"""The user searched for: "{user_query}"
+
+Here are the top matching stocks:
+{stocks_summary}
+
+Write a brief, helpful analysis (3-4 sentences) explaining:
+1. Why these stocks match the criteria
+2. One thing to watch out for
+3. A suggestion for further research
+
+Be educational, not advisory. Don't recommend buying."""
+
+                                    try:
+                                        analysis_resp = requests.post(
+                                            "https://api.openai.com/v1/chat/completions",
+                                            headers={"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"},
+                                            json={
+                                                "model": "gpt-4o-mini",
+                                                "messages": [{"role": "user", "content": analysis_prompt}],
+                                                "temperature": 0.7,
+                                                "max_tokens": 300
+                                            },
+                                            timeout=20
+                                        )
+                                        
+                                        if analysis_resp.status_code == 200:
+                                            analysis = analysis_resp.json()["choices"][0]["message"]["content"].strip()
+                                            st.info(analysis)
+                                        else:
+                                            st.info("Analysis unavailable.")
+                                    except:
+                                        st.info("Analysis unavailable.")
+                                
+                                # Export option
+                                st.markdown("### 📥 Export")
+                                if st.button("📄 Export to CSV", key="export_screener"):
+                                    import io
+                                    df_export = pd.DataFrame(results_data)
+                                    csv_buffer = io.StringIO()
+                                    df_export.to_csv(csv_buffer, index=False)
+                                    st.download_button(
+                                        label="Download CSV",
+                                        data=csv_buffer.getvalue(),
+                                        file_name=f"stock_screener_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                                        mime="text/csv"
+                                    )
+                                
+                                show_data_source(source="FMP Stock Screener API + OpenAI", updated_at=datetime.now())
+                            else:
+                                st.warning("No stocks found matching your criteria. Try broadening your search.")
+                        else:
+                            st.error(f"API error: {screener_resp.status_code}")
+                    except Exception as e:
+                        st.error(f"Search error: {str(e)}")
+        
+        elif search_clicked and not user_query:
+            st.warning("Please enter what you're looking for!")
+        
+        # Show examples at bottom
+        st.markdown("---")
+        st.markdown("### 💡 Example Queries")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("""
+            **Growth + Value:**
+            - Find tech stocks growing 15%+ with high FCF
+            - Show me small caps with explosive growth but cheap
+            
+            **Quality + Income:**
+            - Give me dividend aristocrats with low debt
+            - Find stocks with ROE over 30% and low leverage
+            """)
+        with col2:
+            st.markdown("""
+            **Value Plays:**
+            - Show me undervalued stocks with P/E under 12
+            - Find companies trading below book value
+            
+            **Custom Criteria:**
+            - Stocks improving margins with growing revenue
+            - Companies with high FCF yield but low P/S
+            """)
     
     # AI Coach integration
     render_ai_coach("AI Stock Screener", ticker=None, facts=None)
@@ -14298,6 +14612,7 @@ elif selected_page == "👑 Become a VIP":
             "- “What traders generally do next” educational checklist\n"
             "\n"
             "**Ultimate adds:**\n"
+            "- **🔍 AI Stock Screener** - Ask in plain English, get matching stocks!\n"
             "- **Historical Similar Setups** (find past periods that looked like today)\n"
             "- Outcome stats (next 5D/20D returns, drawdowns, hit rate)\n"
             "- Alerts / watchlists + exportable reports (coming next)"
@@ -14430,6 +14745,7 @@ elif selected_page == "👑 Become a VIP":
               <div style="color:#BBBBBB;font-size:14px;margin-bottom:10px;">For “show me the receipts” users</div>
               <ul style="color:#FFFFFF;line-height:1.6;">
                 <li>Everything in <b>Pro</b></li>
+                <li><b>🔍 AI Stock Screener</b>: Ask in plain English, get matching stocks!</li>
                 <li><b>Historical Similar Setups</b>: find past charts that looked like today</li>
                 <li><b>Outcome stats</b>: typical next 5D/20D returns + drawdowns (educational)</li>
                 <li><b>Backtest-style insights</b> (coming next)</li>
