@@ -3113,23 +3113,25 @@ Rules:
 
 @st.cache_data(ttl=3600)
 def get_earnings_calendar(ticker):
-    """Get next earnings date and estimates"""
-    url = f"{BASE_URL}/earnings-calendar?symbol={ticker}&apikey={FMP_API_KEY}"
+    """Get next earnings date and estimates using FMP earnings-calendar with date range"""
+    # FMP earnings-calendar requires from/to dates, not symbol
+    # We search 90 days ahead and filter by symbol
+    from_date = datetime.now().strftime('%Y-%m-%d')
+    to_date = (datetime.now() + timedelta(days=90)).strftime('%Y-%m-%d')
+    
+    url = f"{BASE_URL}/earnings-calendar?from={from_date}&to={to_date}&apikey={FMP_API_KEY}"
     try:
-        response = requests.get(url, timeout=10)
+        response = requests.get(url, timeout=15)
         if response.status_code == 200:
             data = response.json()
             if data and len(data) > 0:
-                today = datetime.now()
+                # Filter for the specific ticker
+                ticker_upper = ticker.upper()
                 for earning in data:
-                    try:
-                        earning_date = datetime.strptime(earning.get('date', ''), '%Y-%m-%d')
-                        if earning_date >= today:
-                            return earning
-                    except:
-                        continue
-    except:
-        pass
+                    if earning.get('symbol', '').upper() == ticker_upper:
+                        return earning
+    except Exception as e:
+        print(f"Earnings calendar error: {e}")
     return None
 
 @st.cache_data(ttl=3600)
@@ -8084,13 +8086,28 @@ if selected_page == "🏠 Dashboard":
             st.session_state.selected_page = "📊 Company Analysis"
             st.rerun()
         
-        # Show starter suggestions
+        # Show starter suggestions with LOGOS
         st.markdown("**💡 Popular tickers to get started:**")
-        starter_cols = st.columns(5)
         starters = ["AAPL", "NVDA", "MSFT", "GOOGL", "AMZN"]
+        
+        # Create columns for each starter
+        starter_cols = st.columns(5)
+        
         for i, ticker in enumerate(starters):
             with starter_cols[i]:
-                if st.button(f"+ {ticker}", key=f"starter_{ticker}"):
+                # Get logo for starter ticker
+                starter_logo = get_company_logo(ticker)
+                
+                # Display logo + ticker as clickable card
+                if starter_logo:
+                    st.markdown(f"""
+                    <div style="text-align: center; padding: 10px; background: rgba(255,75,75,0.15); border-radius: 10px; border: 1px solid #ff4b4b;">
+                        <img src="{starter_logo}" width="40" height="40" style="border-radius: 8px; margin-bottom: 8px;">
+                        <div style="font-weight: bold; font-size: 14px;">{ticker}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                if st.button(f"+ Add", key=f"starter_{ticker}", use_container_width=True):
                     st.session_state.pinned_tickers.append(ticker)
                     save_to_localstorage('pinned_tickers', st.session_state.pinned_tickers)
                     # Save to DB if logged in
@@ -8122,7 +8139,7 @@ if selected_page == "🏠 Dashboard":
             st.rerun()
     
     with qa_col3:
-        if st.button("📅 Earnings Prep", key="qa_earnings", use_container_width=True):
+        if st.button("📰 Market News", key="qa_news", use_container_width=True):
             st.session_state.selected_page = "📰 Market Intelligence"
             st.rerun()
         if st.button("📈 Financial Health", key="qa_health", use_container_width=True):
