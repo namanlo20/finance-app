@@ -1700,104 +1700,149 @@ Rules:
     return {"answer": ["I had trouble with that. Try rephrasing?"], "lessons": [], "receipts": []}
 
 def render_ai_coach(tab, ticker=None, facts=None):
-    """Render floating AI Coach button + panel"""
+    """Render AI Coach as a slide-out panel on the right side"""
     initialize_ai_coach_state()
     st.session_state.ai_coach_context = build_ai_context(tab, ticker, facts)
     
-    # Inject CSS for floating button
+    # Get user's first name for personalized greeting
+    first_name = st.session_state.get('first_name', 'there')
+    
+    # Inject CSS for the floating button and panel
     st.markdown("""
     <style>
+    /* Hide the streamlit toggle button - we use the floating button instead */
+    button[kind="secondary"]:has(p:contains("🤖")) {
+        display: none !important;
+    }
+    
+    /* Fallback: hide any button with AI text at bottom */
+    .stButton button[kind="secondary"] {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+    }
+    
+    /* Floating AI button - single instance */
     .ai-float-btn {
         position: fixed;
-        bottom: 20px;
-        right: 20px;
-        width: 60px;
-        height: 60px;
+        bottom: 25px;
+        right: 25px;
+        width: 56px;
+        height: 56px;
         border-radius: 50%;
         background: linear-gradient(135deg, #ff3333 0%, #cc0000 100%);
-        box-shadow: 0 4px 12px rgba(255,51,51,0.4);
-        z-index: 9999;
+        box-shadow: 0 4px 15px rgba(255,51,51,0.4);
+        z-index: 9998;
         cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 28px;
-        border: none;
+        font-size: 24px;
+        border: 2px solid rgba(255,255,255,0.2);
         color: white;
+        transition: all 0.3s ease;
     }
     .ai-float-btn:hover {
-        transform: scale(1.1);
-        box-shadow: 0 6px 16px rgba(255,51,51,0.6);
+        transform: scale(1.08);
+        box-shadow: 0 6px 20px rgba(255,51,51,0.6);
+    }
+    
+    /* Mobile responsive */
+    @media (max-width: 768px) {
+        .ai-float-btn {
+            width: 50px;
+            height: 50px;
+            font-size: 20px;
+            bottom: 15px;
+            right: 15px;
+        }
     }
     </style>
-    <div class="ai-float-btn" onclick="document.querySelector('[data-testid=\\'ai_toggle\\']').click()">🤖</div>
     """, unsafe_allow_html=True)
     
-    # Toggle button (hidden, triggered by CSS)
-    if st.button("", key="ai_toggle", help="AI Coach"):
-        st.session_state.ai_coach_open = not st.session_state.ai_coach_open
-        st.rerun()
+    # Show floating button only when panel is closed
+    if not st.session_state.ai_coach_open:
+        # Single floating button
+        st.markdown("""
+        <div class="ai-float-btn" id="ai-btn" onclick="
+            var btns = document.querySelectorAll('button[kind=\\'secondary\\']');
+            for(var i=0; i<btns.length; i++) {
+                if(btns[i].innerText.includes('🤖')) btns[i].click();
+            }
+        ">😊</div>
+        """, unsafe_allow_html=True)
     
-    # Panel (sidebar-style when open)
+    # Toggle button - we'll hide it with CSS
+    col_hidden, _ = st.columns([0.001, 0.999])
+    with col_hidden:
+        if st.button("🤖", key=f"ai_toggle_{tab}"):
+            st.session_state.ai_coach_open = not st.session_state.ai_coach_open
+            st.rerun()
+    
+    # Slide-out panel when open
     if st.session_state.ai_coach_open:
-        with st.sidebar:
-            st.markdown("---")
-            st.markdown("### 🤖 AI Coach")
-            st.caption("*Educational only. Not financial advice.*")
-            
-            # Mode selector
-            modes = {"explain": "📊 Explain", "learn": "📚 Learn", "portfolio": "💼 Portfolio", "earnings": "📈 Earnings"}
-            mode = st.radio("Mode:", list(modes.keys()), format_func=lambda x: modes[x], horizontal=True, key="ai_mode")
-            st.session_state.ai_coach_mode = mode
-            
-            # Clear button
-            if st.button("Clear Chat", use_container_width=True):
-                st.session_state.ai_coach_history = []
+        st.markdown("---")
+        
+        # Panel header
+        head_col1, head_col2 = st.columns([4, 1])
+        with head_col1:
+            st.markdown(f"""
+            <div style="background: linear-gradient(135deg, #ff3333 0%, #cc0000 100%); padding: 15px 20px; border-radius: 10px; margin-bottom: 15px;">
+                <h3 style="color: white; margin: 0; font-size: 18px;">🤖 AI Assistant</h3>
+                <p style="color: rgba(255,255,255,0.8); margin: 5px 0 0 0; font-size: 12px;">Powered by AI • Educational only</p>
+            </div>
+            """, unsafe_allow_html=True)
+        with head_col2:
+            if st.button("✕ Close", key=f"close_ai_{tab}"):
+                st.session_state.ai_coach_open = False
                 st.rerun()
-            
-            st.markdown("---")
-            
-            # Chat history
-            for msg in st.session_state.ai_coach_history:
+        
+        # Greeting
+        st.markdown(f"**Hi, {first_name.title()}!** Ask me about stocks, investing, or this page.")
+        
+        # Mode selector
+        modes = {"explain": "📊 Explain", "learn": "📚 Learn", "portfolio": "💼 Portfolio"}
+        mode = st.radio("Mode:", list(modes.keys()), format_func=lambda x: modes[x], horizontal=True, key=f"ai_mode_{tab}", label_visibility="collapsed")
+        st.session_state.ai_coach_mode = mode
+        
+        # Chat history (last 6 messages)
+        if st.session_state.ai_coach_history:
+            for i, msg in enumerate(st.session_state.ai_coach_history[-6:]):
                 if msg["role"] == "user":
                     st.markdown(f"**You:** {msg['content']}")
                 else:
-                    st.markdown("**AI Coach:**")
+                    st.markdown("**AI:**")
                     for bullet in msg.get("answer", []):
                         st.markdown(f"• {bullet}")
                     
                     # Lesson links
                     for lesson in msg.get("lessons", []):
-                        if st.button(f"→ {lesson['label']}", key=f"l_{lesson['id']}_{len(st.session_state.ai_coach_history)}"):
+                        if st.button(f"📖 {lesson['label']}", key=f"lesson_{tab}_{lesson['id']}_{i}"):
                             st.session_state.learn_selected_lesson_id = lesson['id']
-                            st.session_state.page_selection = "📖 Basics"
+                            st.session_state.selected_page = "📖 Basics"
                             st.rerun()
-                    
-                    # Receipts
-                    if st.session_state.ai_coach_show_receipts and msg.get("receipts"):
-                        with st.expander("📋 Facts"):
-                            for r in msg["receipts"]:
-                                st.caption(f"✓ {r}")
-                st.markdown("")
-            
-            # Input
-            user_input = st.text_input("Ask:", placeholder="e.g., What's RSI?", key="ai_input")
-            
-            col1, col2 = st.columns([3, 1])
-            with col1:
-                send = st.button("Send", type="primary", use_container_width=True)
-            with col2:
-                st.checkbox("📋", value=st.session_state.ai_coach_show_receipts, key="receipts", 
-                           on_change=lambda: setattr(st.session_state, 'ai_coach_show_receipts', st.session_state.receipts))
-            
-            if send and user_input:
-                st.session_state.ai_coach_history.append({"role": "user", "content": user_input})
-                
-                with st.spinner("🤔"):
-                    response = call_ai(user_input, st.session_state.ai_coach_mode, st.session_state.ai_coach_context)
-                
-                st.session_state.ai_coach_history.append({"role": "assistant", **response})
+        
+        st.markdown("---")
+        
+        # Input area
+        user_input = st.text_input("Ask me anything:", placeholder="e.g., What does P/E ratio mean?", key=f"ai_input_{tab}")
+        
+        btn_col1, btn_col2 = st.columns([4, 1])
+        with btn_col1:
+            send = st.button("Send", type="primary", use_container_width=True, key=f"ai_send_{tab}")
+        with btn_col2:
+            if st.button("🗑️", key=f"ai_clear_{tab}", help="Clear chat"):
+                st.session_state.ai_coach_history = []
                 st.rerun()
+        
+        if send and user_input:
+            st.session_state.ai_coach_history.append({"role": "user", "content": user_input})
+            
+            with st.spinner("Thinking..."):
+                response = call_ai(user_input, st.session_state.ai_coach_mode, st.session_state.ai_coach_context)
+            
+            st.session_state.ai_coach_history.append({"role": "assistant", **response})
+            st.rerun()
 
 # ============= GAMIFICATION HELPERS (Robinhood-style) =============
 def _ensure_basics_gamification_state():
@@ -7017,11 +7062,119 @@ with col2:
     st.markdown("### 🤖 AI-Ready")
     st.caption("FMP Premium")
 
+# ============= TOP NAVIGATION BAR =============
+# CSS for the navigation bar
+st.markdown("""
+<style>
+/* Style selectboxes to look like nav dropdowns */
+div[data-testid="stSelectbox"] {
+    background: transparent;
+}
+
+div[data-testid="stSelectbox"] > div > div {
+    background: rgba(255, 75, 75, 0.1) !important;
+    border: 1px solid #444 !important;
+    border-radius: 8px !important;
+    color: white !important;
+    font-weight: 600 !important;
+}
+
+div[data-testid="stSelectbox"] > div > div:hover {
+    border-color: #FF4B4B !important;
+    background: rgba(255, 75, 75, 0.2) !important;
+}
+
+/* Nav buttons styling */
+.stButton > button {
+    border-radius: 8px !important;
+}
+
+/* Top nav area background */
+.top-nav-bg {
+    background: linear-gradient(180deg, #1a1a1a 0%, #111 100%);
+    border-radius: 12px;
+    padding: 10px;
+    margin-bottom: 20px;
+    border: 1px solid #333;
+}
+
+/* Sign in/up buttons */
+div[data-testid="column"]:last-child .stButton > button {
+    font-size: 13px !important;
+    padding: 8px 12px !important;
+}
+
+/* Mobile responsive nav */
+@media (max-width: 768px) {
+    div[data-testid="stSelectbox"] > div > div {
+        font-size: 12px !important;
+        padding: 8px !important;
+    }
+}
+</style>
+""", unsafe_allow_html=True)
+
+# Wrap nav in styled container
+st.markdown('<div class="top-nav-bg">', unsafe_allow_html=True)
+
+# Create navigation bar using columns
+nav_col1, nav_col2, nav_col3, nav_col4, nav_col5, nav_col6 = st.columns([1.2, 1.2, 1.2, 1.2, 0.8, 1.2])
+
+with nav_col1:
+    if st.button("🏠 Dashboard", key="nav_dashboard", use_container_width=True):
+        st.session_state.selected_page = "🏠 Dashboard"
+        st.rerun()
+
+with nav_col2:
+    learn_options = ["📚 Learn ▼", "🏠 Start Here", "📖 Basics", "📚 Finance 101", "🧠 Risk Quiz"]
+    learn_choice = st.selectbox("Learn", learn_options, key="nav_learn", label_visibility="collapsed")
+    if learn_choice != "📚 Learn ▼":
+        st.session_state.selected_page = learn_choice
+        st.rerun()
+
+with nav_col3:
+    analyze_options = ["📊 Analyze ▼", "📊 Company Analysis", "📈 Financial Health", "📰 Market Intelligence", "📊 Market Overview", "🔍 AI Stock Screener"]
+    analyze_choice = st.selectbox("Analyze", analyze_options, key="nav_analyze", label_visibility="collapsed")
+    if analyze_choice != "📊 Analyze ▼":
+        st.session_state.selected_page = analyze_choice
+        st.rerun()
+
+with nav_col4:
+    action_options = ["🎯 Action ▼", "📊 Pro Checklist", "💼 Paper Portfolio", "📈 Compare Stocks", "👑 Become a VIP"]
+    action_choice = st.selectbox("Action", action_options, key="nav_action", label_visibility="collapsed")
+    if action_choice == "📈 Compare Stocks":
+        st.session_state.selected_page = "📈 Financial Health"  # Compare is a tab within Financial Health
+        st.rerun()
+    elif action_choice != "🎯 Action ▼":
+        st.session_state.selected_page = action_choice
+        st.rerun()
+
+with nav_col5:
+    st.write("")  # Spacer
+
+with nav_col6:
+    # Sign in / Sign up or User info
+    if st.session_state.get('is_logged_in'):
+        user_name = st.session_state.get('first_name', 'User')
+        if st.button(f"👤 {user_name}", key="nav_user", use_container_width=True):
+            st.session_state.show_user_menu = not st.session_state.get('show_user_menu', False)
+    else:
+        auth_col1, auth_col2 = st.columns(2)
+        with auth_col1:
+            if st.button("Sign In", key="nav_signin", use_container_width=True):
+                st.session_state.show_login_popup = True
+                st.rerun()
+        with auth_col2:
+            if st.button("Sign Up", key="nav_signup", use_container_width=True, type="primary"):
+                st.session_state.show_signup_popup = True
+                st.rerun()
+
+st.markdown('</div>', unsafe_allow_html=True)  # Close top-nav-bg
 
 
-# ============= VERTICAL SIDEBAR NAVIGATION =============
+# ============= VERTICAL SIDEBAR (Simplified) =============
 with st.sidebar:
-    st.markdown("## 📚 Navigation")
+    st.markdown("## ⚙️ Settings")
     
     # Global Timeline Picker
     st.markdown("### ⏱️ Timeline")
@@ -7052,60 +7205,23 @@ with st.sidebar:
     if 'last_tab' not in st.session_state:
         st.session_state.last_tab = None
     
-    # 🏠 DASHBOARD - Premium Home Base (Always visible at top)
-    st.markdown("### 🏠 Dashboard")
-    if st.button("🏠 Dashboard", key="btn_dashboard", use_container_width=True, type="primary"):
-        st.session_state.selected_page = "🏠 Dashboard"
-        st.rerun()
-    
-    st.markdown("---")
-    
-    # 1. START HERE GROUP
-    with st.expander("### 1. 📖 Start Here", expanded=True):
-        st.caption("Learn the basics")
-        start_here_tools = [
-            "🏠 Start Here",
-            "📖 Basics",
-            "📚 Finance 101",
-            "🧠 Risk Quiz"
-        ]
-        for tool in start_here_tools:
-            if st.button(tool, key=f"btn_{tool}", use_container_width=True):
-                st.session_state.selected_page = tool
-                st.session_state.last_tab = tool  # Track last visited
-                st.rerun()
-    
-    # 2. THE ANALYSIS GROUP
-    with st.expander("### 2. 📊 The Analysis Group", expanded=False):
-        st.caption("The meat of the site")
-        analysis_tools = [
-            "📊 Company Analysis",
-            "📈 Financial Health",
-            "📰 Market Intelligence",
-            "📊 Market Overview",
-            "🔍 AI Stock Screener"
-        ]
-        for tool in analysis_tools:
-            if st.button(tool, key=f"btn_{tool}", use_container_width=True):
-                st.session_state.selected_page = tool
-                st.session_state.last_tab = tool  # Track last visited
-                st.rerun()
-    
-    # 3. THE ACTION GROUP
-    with st.expander("### 3. 🎯 The Action Group", expanded=False):
-        st.caption("Track your progress")
-        action_tools = [
-            "📊 Pro Checklist",
-            "👑 Ultimate",
-            "💼 Paper Portfolio",
-            "👤 Naman's Portfolio",
-            "📜 Founder Track Record"
-        ]
-        for tool in action_tools:
-            if st.button(tool, key=f"btn_{tool}", use_container_width=True):
-                st.session_state.selected_page = tool
-                st.session_state.last_tab = tool  # Track last visited
-                st.rerun()
+    # Quick Navigation (compact version)
+    st.markdown("### 🚀 Quick Nav")
+    nav_col1, nav_col2 = st.columns(2)
+    with nav_col1:
+        if st.button("🏠", key="qn_dash", help="Dashboard"):
+            st.session_state.selected_page = "🏠 Dashboard"
+            st.rerun()
+        if st.button("📊", key="qn_analysis", help="Company Analysis"):
+            st.session_state.selected_page = "📊 Company Analysis"
+            st.rerun()
+    with nav_col2:
+        if st.button("💼", key="qn_portfolio", help="Paper Portfolio"):
+            st.session_state.selected_page = "💼 Paper Portfolio"
+            st.rerun()
+        if st.button("🔍", key="qn_screener", help="AI Screener"):
+            st.session_state.selected_page = "🔍 AI Stock Screener"
+            st.rerun()
     
     # Get the selected page from session state
     selected_page = st.session_state.selected_page
