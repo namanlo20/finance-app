@@ -2179,6 +2179,10 @@ TIER_LIMITS = {
 
 def get_user_tier():
     """Get the current user's subscription tier"""
+    # Founders automatically get Ultimate access
+    if st.session_state.get('is_founder'):
+        return "ultimate"
+    
     # Check session state for tier
     if st.session_state.get('user_tier'):
         return st.session_state.user_tier
@@ -7194,6 +7198,14 @@ with st.sidebar:
             <span style="color: {tier_colors.get(current_tier, '#FFF')}; font-weight: bold;">{tier_labels.get(current_tier, 'Free')}</span>
         </div>
         """, unsafe_allow_html=True)
+        
+        # Founder badge
+        if st.session_state.get('is_founder'):
+            st.markdown("""
+            <div style="background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); padding: 8px 12px; border-radius: 8px; text-align: center; margin-bottom: 10px;">
+                <span style="color: #000; font-weight: bold;">👑 FOUNDER</span>
+            </div>
+            """, unsafe_allow_html=True)
         
         # Demo tier selector (for testing)
         with st.expander("🧪 Demo: Switch Tier"):
