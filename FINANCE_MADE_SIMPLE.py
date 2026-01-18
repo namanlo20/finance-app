@@ -3771,6 +3771,108 @@ def get_ratios_ttm(ticker):
     return {}
 
 @st.cache_data(ttl=3600)
+def get_key_metrics_ttm(ticker):
+    """Get TTM key metrics including enterprise value"""
+    url = f"{BASE_URL}/key-metrics-ttm/{ticker}?apikey={FMP_API_KEY}"
+    try:
+        response = requests.get(url, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            if data and len(data) > 0:
+                return data[0]
+    except:
+        pass
+    return {}
+
+@st.cache_data(ttl=3600)
+def get_financial_growth(ticker):
+    """Get financial growth metrics for PEG calculation"""
+    url = f"{BASE_URL}/financial-growth/{ticker}?limit=1&apikey={FMP_API_KEY}"
+    try:
+        response = requests.get(url, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            if data and len(data) > 0:
+                return data[0]
+    except:
+        pass
+    return {}
+
+def calculate_valuation_metrics(ticker):
+    """Calculate all valuation metrics with fallbacks"""
+    quote = get_quote(ticker)
+    ratios_ttm = get_ratios_ttm(ticker)
+    key_metrics = get_key_metrics_ttm(ticker)
+    growth = get_financial_growth(ticker)
+    income_df = get_income_statement(ticker, 'annual', 2)
+    
+    metrics = {
+        'pe_ratio': None,
+        'ps_ratio': None,
+        'ev_ebitda': None,
+        'peg_ratio': None,
+        'is_profitable': True
+    }
+    
+    # P/E Ratio - multiple sources
+    # Try ratios TTM first
+    if ratios_ttm and ratios_ttm.get('peRatioTTM') and ratios_ttm.get('peRatioTTM') > 0:
+        metrics['pe_ratio'] = ratios_ttm.get('peRatioTTM')
+    # Try key metrics
+    elif key_metrics and key_metrics.get('peRatioTTM') and key_metrics.get('peRatioTTM') > 0:
+        metrics['pe_ratio'] = key_metrics.get('peRatioTTM')
+    # Try quote
+    elif quote and quote.get('pe') and quote.get('pe') > 0:
+        metrics['pe_ratio'] = quote.get('pe')
+    # Calculate from price and EPS
+    elif quote and quote.get('price') and quote.get('eps') and quote.get('eps') > 0:
+        metrics['pe_ratio'] = quote.get('price') / quote.get('eps')
+    else:
+        # Company might not be profitable
+        if quote and quote.get('eps') and quote.get('eps') <= 0:
+            metrics['is_profitable'] = False
+    
+    # P/S Ratio
+    if ratios_ttm and ratios_ttm.get('priceToSalesRatioTTM') and ratios_ttm.get('priceToSalesRatioTTM') > 0:
+        metrics['ps_ratio'] = ratios_ttm.get('priceToSalesRatioTTM')
+    elif key_metrics and key_metrics.get('priceToSalesRatioTTM') and key_metrics.get('priceToSalesRatioTTM') > 0:
+        metrics['ps_ratio'] = key_metrics.get('priceToSalesRatioTTM')
+    
+    # EV/EBITDA - multiple approaches
+    # Try ratios TTM
+    if ratios_ttm and ratios_ttm.get('enterpriseValueOverEBITDATTM') and ratios_ttm.get('enterpriseValueOverEBITDATTM') > 0:
+        metrics['ev_ebitda'] = ratios_ttm.get('enterpriseValueOverEBITDATTM')
+    # Try key metrics
+    elif key_metrics and key_metrics.get('enterpriseValueOverEBITDATTM') and key_metrics.get('enterpriseValueOverEBITDATTM') > 0:
+        metrics['ev_ebitda'] = key_metrics.get('enterpriseValueOverEBITDATTM')
+    # Calculate manually: EV / EBITDA
+    elif key_metrics and key_metrics.get('enterpriseValueTTM') and income_df is not None and not income_df.empty:
+        ev = key_metrics.get('enterpriseValueTTM')
+        # Get EBITDA from income statement
+        if 'ebitda' in income_df.columns:
+            latest_ebitda = income_df['ebitda'].iloc[-1] if len(income_df) > 0 else None
+            if latest_ebitda and latest_ebitda > 0 and ev:
+                metrics['ev_ebitda'] = ev / latest_ebitda
+    
+    # PEG Ratio - P/E divided by EPS growth rate
+    # Try ratios TTM
+    if ratios_ttm and ratios_ttm.get('pegRatioTTM') and ratios_ttm.get('pegRatioTTM') > 0:
+        metrics['peg_ratio'] = ratios_ttm.get('pegRatioTTM')
+    # Try key metrics
+    elif key_metrics and key_metrics.get('pegRatioTTM') and key_metrics.get('pegRatioTTM') > 0:
+        metrics['peg_ratio'] = key_metrics.get('pegRatioTTM')
+    # Calculate manually: P/E / EPS Growth Rate
+    elif metrics['pe_ratio'] and growth and growth.get('epsgrowth'):
+        eps_growth = growth.get('epsgrowth')
+        # EPS growth is a decimal (0.15 = 15%), convert to percentage for PEG
+        if eps_growth and eps_growth > 0:
+            eps_growth_pct = eps_growth * 100  # Convert to percentage
+            if eps_growth_pct > 0:
+                metrics['peg_ratio'] = metrics['pe_ratio'] / eps_growth_pct
+    
+    return metrics
+
+@st.cache_data(ttl=3600)
 def get_income_statement(ticker, period='annual', limit=5):
     """Get income statement"""
     url = f"{BASE_URL}/income-statement?symbol={ticker}&period={period}&limit={limit}&apikey={FMP_API_KEY}"
@@ -8742,21 +8844,21 @@ if selected_page == "🏠 Dashboard":
         
         if workflow_ticker:
             with st.spinner(f"Loading valuation data for {workflow_ticker}..."):
-                quote = get_quote(workflow_ticker)
-                ratios_ttm = get_ratios_ttm(workflow_ticker)
+                # Use comprehensive valuation calculation
+                val_metrics = calculate_valuation_metrics(workflow_ticker)
                 profile = get_profile(workflow_ticker)
+                
+                pe_ratio = val_metrics.get('pe_ratio')
+                ps_ratio = val_metrics.get('ps_ratio')
+                ev_ebitda = val_metrics.get('ev_ebitda')
+                peg_ratio = val_metrics.get('peg_ratio')
+                is_profitable = val_metrics.get('is_profitable', True)
                 
                 st.markdown("##### 📊 Current Valuation Metrics")
                 
                 val_col1, val_col2, val_col3, val_col4 = st.columns(4)
                 
                 # P/E Ratio
-                pe_ratio = None
-                if ratios_ttm and 'peRatioTTM' in ratios_ttm:
-                    pe_ratio = ratios_ttm.get('peRatioTTM')
-                elif quote:
-                    pe_ratio = quote.get('pe')
-                
                 with val_col1:
                     if pe_ratio and pe_ratio > 0:
                         pe_color = "#22c55e" if pe_ratio < 20 else "#f59e0b" if pe_ratio < 35 else "#ef4444"
@@ -8766,14 +8868,22 @@ if selected_page == "🏠 Dashboard":
                             <div style="font-size: 24px; font-weight: bold; color: {pe_color};">{pe_ratio:.1f}x</div>
                         </div>
                         """, unsafe_allow_html=True)
+                    elif not is_profitable:
+                        st.markdown(f"""
+                        <div style="background: rgba(239, 68, 68, 0.1); padding: 15px; border-radius: 10px; text-align: center; border: 1px solid #ef4444;">
+                            <div style="color: #888; font-size: 12px;">P/E Ratio</div>
+                            <div style="font-size: 18px; font-weight: bold; color: #ef4444;">Not Profitable</div>
+                        </div>
+                        """, unsafe_allow_html=True)
                     else:
-                        st.metric("P/E Ratio", "N/A")
+                        st.markdown(f"""
+                        <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
+                            <div style="color: #888; font-size: 12px;">P/E Ratio</div>
+                            <div style="font-size: 24px; font-weight: bold; color: #888;">N/A</div>
+                        </div>
+                        """, unsafe_allow_html=True)
                 
                 # P/S Ratio
-                ps_ratio = None
-                if ratios_ttm and 'priceToSalesRatioTTM' in ratios_ttm:
-                    ps_ratio = ratios_ttm.get('priceToSalesRatioTTM')
-                
                 with val_col2:
                     if ps_ratio and ps_ratio > 0:
                         ps_color = "#22c55e" if ps_ratio < 5 else "#f59e0b" if ps_ratio < 10 else "#ef4444"
@@ -8784,13 +8894,14 @@ if selected_page == "🏠 Dashboard":
                         </div>
                         """, unsafe_allow_html=True)
                     else:
-                        st.metric("P/S Ratio", "N/A")
+                        st.markdown(f"""
+                        <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
+                            <div style="color: #888; font-size: 12px;">P/S Ratio</div>
+                            <div style="font-size: 24px; font-weight: bold; color: #888;">N/A</div>
+                        </div>
+                        """, unsafe_allow_html=True)
                 
                 # EV/EBITDA
-                ev_ebitda = None
-                if ratios_ttm and 'enterpriseValueOverEBITDATTM' in ratios_ttm:
-                    ev_ebitda = ratios_ttm.get('enterpriseValueOverEBITDATTM')
-                
                 with val_col3:
                     if ev_ebitda and ev_ebitda > 0:
                         ev_color = "#22c55e" if ev_ebitda < 12 else "#f59e0b" if ev_ebitda < 20 else "#ef4444"
@@ -8801,15 +8912,16 @@ if selected_page == "🏠 Dashboard":
                         </div>
                         """, unsafe_allow_html=True)
                     else:
-                        st.metric("EV/EBITDA", "N/A")
+                        st.markdown(f"""
+                        <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
+                            <div style="color: #888; font-size: 12px;">EV/EBITDA</div>
+                            <div style="font-size: 24px; font-weight: bold; color: #888;">N/A</div>
+                        </div>
+                        """, unsafe_allow_html=True)
                 
                 # PEG Ratio
-                peg_ratio = None
-                if ratios_ttm and 'pegRatioTTM' in ratios_ttm:
-                    peg_ratio = ratios_ttm.get('pegRatioTTM')
-                
                 with val_col4:
-                    if peg_ratio and peg_ratio > 0:
+                    if peg_ratio and peg_ratio > 0 and peg_ratio < 10:  # Sanity check
                         peg_color = "#22c55e" if peg_ratio < 1 else "#f59e0b" if peg_ratio < 2 else "#ef4444"
                         st.markdown(f"""
                         <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
@@ -8818,7 +8930,12 @@ if selected_page == "🏠 Dashboard":
                         </div>
                         """, unsafe_allow_html=True)
                     else:
-                        st.metric("PEG Ratio", "N/A")
+                        st.markdown(f"""
+                        <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
+                            <div style="color: #888; font-size: 12px;">PEG Ratio</div>
+                            <div style="font-size: 24px; font-weight: bold; color: #888;">N/A</div>
+                        </div>
+                        """, unsafe_allow_html=True)
                 
                 # Valuation interpretation
                 st.markdown("##### 📏 Valuation Guide")
