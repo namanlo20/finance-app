@@ -6666,7 +6666,7 @@ def render_fit_check_panel(ticker=None):
     # Display technical details (small text)
     st.caption(f"Risk tier: **{risk_tier}** | Volatility: **{vol_tier}** (method: {vol_method})")
 
-    """Render the site logo at top of page - centered, smaller size"""
+    # Render the site logo at top of page - centered, smaller size
     import base64
     
     # For deployment: User should add logo.png to their repo root
@@ -7117,7 +7117,7 @@ with header_cols[2]:
 with header_cols[3]:
     st.selectbox(
         "Action",
-        ["🎯 Action", "📊 Pro Checklist", "💼 Paper Portfolio", "👤 Naman's Portfolio"],
+        ["🎯 Action", "📊 Pro Checklist", "👑 Ultimate", "💼 Paper Portfolio", "👤 Naman's Portfolio"],
         key="nav_action_select", 
         label_visibility="collapsed",
         on_change=nav_action_changed
@@ -7165,6 +7165,18 @@ render_live_ticker_bar()
 render_right_side_ticker()
 
 # ============= AI CHATBOT (BOTTOM-RIGHT) =============
+# Check if chatbot should open via query param
+open_chat_param = st.query_params.get("open_chat")
+if isinstance(open_chat_param, (list, tuple)):
+    open_chat_param = open_chat_param[0] if open_chat_param else None
+
+if open_chat_param == "1":
+    st.session_state.chatbot_open = True
+    # Remove the query param
+    if "open_chat" in st.query_params:
+        del st.query_params["open_chat"]
+    st.rerun()
+
 render_ai_chatbot()
 
 # ============= WELCOME POPUP FOR FIRST-TIME USERS =============
@@ -11700,7 +11712,8 @@ elif selected_page == "📊 Company Analysis":
         st.header("⚙️ Settings")
         period_type = st.radio("Time Period:", ["Annual", "Quarterly"])
         period = 'annual' if period_type == "Annual" else 'quarter'
-        years = st.slider("Years of History:", 1, 30, 5)
+        # Use the global years_of_history from main sidebar (synced)
+        years = st.session_state.get('years_of_history', 5)
         
         st.markdown("---")
         
@@ -15169,7 +15182,7 @@ elif selected_page == "📊 Pro Checklist":
     with col4:
         # ELI5 toggle
         simple_mode = st.toggle("Explain like I'm 5", value=False, key="eli5_toggle")
-        analyze_button = st.button("Analyze", key="checklist_analyze", use_container_width=True)
+        analyze_button = st.button("Analyze", key="checklist_analyze", use_container_width=True, type="primary")
     
     # Store simple_mode in session state for use across features
     st.session_state.simple_mode = simple_mode
