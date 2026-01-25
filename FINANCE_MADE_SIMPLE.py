@@ -9918,7 +9918,7 @@ elif selected_page == "📖 Basics":
             if lesson["id"] not in recommended_ids:
                 _render_lesson_card(lesson)
     
-    # ============= LESSON VIEWER =============
+    # ============= INTERACTIVE LESSON VIEWER (PHASE 2) =============
     if st.session_state.learn_selected_lesson_id:
         selected_lesson_id = st.session_state.learn_selected_lesson_id
         
@@ -9935,114 +9935,247 @@ elif selected_page == "📖 Basics":
             
             st.markdown("---")
             
-            # Why it matters
-            st.markdown("### 💡 Why It Matters")
-            st.info(lesson['why_it_matters'])
+            # INTERACTIVE LESSON STRUCTURE
+            # Three tabs: Learn → Practice → Quiz
+            lesson_tabs = st.tabs(["📖 Learn", "🎯 Practice", "📝 Quiz"])
             
-            # Summary
-            st.markdown("### 📋 Summary")
-            for point in lesson['summary']:
-                st.markdown(f"• {point}")
-            
-            # Key ideas
-            with st.expander("🔑 Key Ideas", expanded=True):
-                for idea in lesson['key_ideas']:
-                    st.markdown(f"• {idea}")
-            
-            # Common mistakes
-            with st.expander("⚠️ Common Mistakes"):
-                for mistake in lesson['common_mistakes']:
-                    st.markdown(f"• {mistake}")
-            
-            # Checklist
-            with st.expander("✅ Checklist"):
-                for item in lesson['checklist']:
-                    st.checkbox(item, key=f"check_{selected_lesson_id}_{lesson['checklist'].index(item)}")
-            
-            st.markdown("---")
-            
-            # QUIZ ENGINE
-            st.markdown("### 📝 Quiz (3 Questions)")
-            
-            quiz = lesson['quiz']
-            current_q = st.session_state.quiz_current_question
-            
-            if st.session_state.quiz_score is None:
-                # Show question
-                if current_q < len(quiz):
-                    question_data = quiz[current_q]
-                    st.markdown(f"**Question {current_q + 1}/{len(quiz)}:**")
-                    st.markdown(f"*{question_data['question']}*")
-                    
-                    # Answer options
-                    answer = st.radio(
-                        "Select your answer:",
-                        question_data['options'],
-                        key=f"quiz_answer_{selected_lesson_id}_{current_q}"
-                    )
-                    
-                    if st.button("Check Answer", type="primary"):
-                        selected_index = question_data['options'].index(answer)
-                        is_correct = selected_index == question_data['correct']
-                        st.session_state.quiz_answers.append(is_correct)
-                        
-                        if is_correct:
-                            st.success("✅ Correct!")
-                        else:
-                            st.error(f"❌ Incorrect. {question_data['explanation']}")
-                        
-                        # Move to next question or finish
-                        if current_q < len(quiz) - 1:
-                            st.session_state.quiz_current_question += 1
-                            st.rerun()
-                        else:
-                            # Calculate score
-                            score = sum(st.session_state.quiz_answers)
-                            st.session_state.quiz_score = score
-                            
-                            # Award XP if passed and new best
-                            if score >= 2:
-                                old_best = st.session_state.learn_best_scores.get(selected_lesson_id, 0)
-                                if score > old_best or selected_lesson_id not in st.session_state.learn_completed_lessons:
-                                    st.session_state.learn_completed_lessons.add(selected_lesson_id)
-                                    st.session_state.learn_best_scores[selected_lesson_id] = score
-                                    st.session_state.learn_xp_total += lesson['xp']
-                                    
-                                    # Award badge
-                                    new_badge = award_badges()
-                                    
-                                    # Save to DB
-                                    save_learn_progress_to_db(selected_lesson_id, score)
-                            
-                            st.rerun()
-            
-            else:
-                # Show results
-                score = st.session_state.quiz_score
-                st.markdown(f"### Your Score: {score}/3")
+            # TAB 1: LEARN (Visual + Concise)
+            with lesson_tabs[0]:
+                st.markdown("### 💡 Why This Matters")
+                st.info(lesson['why_it_matters'])
                 
-                if score == 3:
-                    st.success("🎉 Perfect score!")
-                elif score >= 2:
-                    st.success(f"✅ Passed! (+{lesson['xp']} XP)")
+                # Visual explainer (specific to each lesson)
+                if selected_lesson_id == "B1":  # Market Mechanics
+                    st.markdown("### 📊 How Markets Work (Visual)")
+                    
+                    # Simple visual diagram
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.markdown("""
+                        <div style="background: linear-gradient(135deg, #9D4EDD 0%, #7B2CBF 100%); 
+                                    padding: 20px; border-radius: 10px; text-align: center; min-height: 150px;">
+                            <div style="font-size: 40px; margin-bottom: 10px;">👥</div>
+                            <div style="font-weight: bold; font-size: 18px; margin-bottom: 8px;">Buyers</div>
+                            <div style="font-size: 14px; opacity: 0.9;">Want to own shares</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    with col2:
+                        st.markdown("""
+                        <div style="background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%); 
+                                    padding: 20px; border-radius: 10px; text-align: center; min-height: 150px;">
+                            <div style="font-size: 40px; margin-bottom: 10px;">⚖️</div>
+                            <div style="font-weight: bold; font-size: 18px; margin-bottom: 8px;">Market</div>
+                            <div style="font-size: 14px; opacity: 0.9;">Matches buyers & sellers</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    with col3:
+                        st.markdown("""
+                        <div style="background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); 
+                                    padding: 20px; border-radius: 10px; text-align: center; min-height: 150px;">
+                            <div style="font-size: 40px; margin-bottom: 10px;">💰</div>
+                            <div style="font-weight: bold; font-size: 18px; margin-bottom: 8px;">Sellers</div>
+                            <div style="font-size: 14px; opacity: 0.9;">Want to sell shares</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    
+                    st.markdown("---")
+                    
+                    # Key concepts (concise)
+                    st.markdown("### 🔑 Key Concepts")
+                    concept_col1, concept_col2 = st.columns(2)
+                    
+                    with concept_col1:
+                        st.markdown("**📈 What is a Stock?**")
+                        st.write("A stock represents partial ownership in a company. Buy 1 share of Apple = You own a tiny piece of Apple.")
+                        
+                        st.markdown("**💵 What is Market Cap?**")
+                        st.write("Market Cap = Stock Price × Total Shares")
+                        st.write("Shows the total value of the company.")
+                    
+                    with concept_col2:
+                        st.markdown("**📊 Why Do Prices Move?**")
+                        st.write("Prices change based on expectations about the future, not just current profits.")
+                        
+                        st.markdown("**🎢 What is Volatility?**")
+                        st.write("How much the price swings up and down. More uncertainty = more volatility.")
+                
                 else:
-                    st.warning("Try again to pass (need 2/3)")
+                    # Default fallback for other lessons (will customize each)
+                    st.markdown("### 📋 Key Points")
+                    for point in lesson['summary']:
+                        st.markdown(f"• {point}")
+                    
+                    with st.expander("🔑 Key Ideas", expanded=False):
+                        for idea in lesson['key_ideas']:
+                            st.markdown(f"• {idea}")
                 
-                col1, col2 = st.columns(2)
-                with col1:
-                    if st.button("Retake Quiz"):
-                        st.session_state.quiz_current_question = 0
-                        st.session_state.quiz_answers = []
-                        st.session_state.quiz_score = None
-                        st.rerun()
+                # Common Mistakes (always show)
+                with st.expander("⚠️ Common Mistakes to Avoid"):
+                    for mistake in lesson['common_mistakes']:
+                        st.markdown(f"• {mistake}")
+            
+            # TAB 2: PRACTICE (Hands-on exercises)
+            with lesson_tabs[1]:
+                st.markdown("### 🎯 Practice Exercise")
+                st.caption("Learn by doing! Try this with real stocks")
                 
-                with col2:
-                    if st.button("← Back to Lessons"):
-                        st.session_state.learn_selected_lesson_id = None
-                        st.session_state.quiz_current_question = 0
-                        st.session_state.quiz_answers = []
-                        st.session_state.quiz_score = None
-                        st.rerun()
+                if selected_lesson_id == "B1":  # Market Mechanics
+                    st.markdown("#### 📊 Exercise: Calculate Market Cap")
+                    st.write("Market Cap = Stock Price × Shares Outstanding")
+                    st.write("Let's calculate it for a real company!")
+                    
+                    practice_ticker = st.text_input("Enter a stock ticker:", value="AAPL", key="practice_ticker").upper()
+                    
+                    if st.button("Calculate Market Cap", key="practice_calc"):
+                        with st.spinner("Fetching data..."):
+                            try:
+                                profile_url = f"{BASE_URL}/v3/profile/{practice_ticker}?apikey={FMP_API_KEY}"
+                                profile_data = requests.get(profile_url).json()
+                                
+                                if profile_data and len(profile_data) > 0:
+                                    company = profile_data[0]
+                                    market_cap = company.get('mktCap', 0)
+                                    price = company.get('price', 0)
+                                    name = company.get('companyName', practice_ticker)
+                                    
+                                    st.success(f"✅ {name}")
+                                    
+                                    cap_billions = market_cap / 1_000_000_000
+                                    
+                                    metric_col1, metric_col2 = st.columns(2)
+                                    with metric_col1:
+                                        st.metric("Stock Price", f"${price:.2f}")
+                                    with metric_col2:
+                                        st.metric("Market Cap", f"${cap_billions:.1f}B")
+                                    
+                                    # Classify size
+                                    if cap_billions < 2:
+                                        st.info("📊 **Small-Cap Company** - Higher risk, higher potential")
+                                    elif cap_billions < 10:
+                                        st.info("📊 **Mid-Cap Company** - Balanced growth potential")
+                                    elif cap_billions < 200:
+                                        st.success("📊 **Large-Cap Company** - Established, lower risk")
+                                    else:
+                                        st.success("📊 **Mega-Cap Company** - Massive, very stable (like AAPL, MSFT)")
+                                    
+                                    # Award practice XP
+                                    st.balloons()
+                                    st.success("🎉 +10 XP for completing practice!")
+                                    
+                                else:
+                                    st.error("Stock not found. Try AAPL, TSLA, or NVDA")
+                            except Exception as e:
+                                st.error(f"Error: {str(e)}")
+                    
+                    st.markdown("---")
+                    st.markdown("**💡 Try different companies:**")
+                    st.write("• AAPL (Mega-cap)")
+                    st.write("• TSLA (Large-cap)")
+                    st.write("• Small companies in your area")
+                
+                else:
+                    # Default practice for other lessons
+                    st.info("Practice exercise coming soon for this lesson!")
+                    st.write("For now, complete the quiz to earn XP.")
+            
+            # TAB 3: QUIZ (Enhanced with visuals)
+            with lesson_tabs[2]:
+                st.markdown("### 📝 Test Your Knowledge")
+                st.caption("Answer 2/3 correctly to pass and earn XP!")
+                
+                quiz = lesson['quiz']
+                current_q = st.session_state.quiz_current_question
+                
+                if st.session_state.quiz_score is None:
+                    # Show question
+                    if current_q < len(quiz):
+                        question_data = quiz[current_q]
+                        
+                        # Progress bar
+                        progress = (current_q + 1) / len(quiz)
+                        st.progress(progress)
+                        st.caption(f"Question {current_q + 1} of {len(quiz)}")
+                        
+                        st.markdown(f"#### {question_data['question']}")
+                        
+                        # Answer options (enhanced with emojis)
+                        answer = st.radio(
+                            "Select your answer:",
+                            question_data['options'],
+                            key=f"quiz_answer_{selected_lesson_id}_{current_q}"
+                        )
+                        
+                        if st.button("✅ Check Answer", type="primary", use_container_width=True):
+                            selected_index = question_data['options'].index(answer)
+                            is_correct = selected_index == question_data['correct']
+                            st.session_state.quiz_answers.append(is_correct)
+                            
+                            if is_correct:
+                                st.success("✅ Correct! Great job!")
+                                st.balloons()
+                            else:
+                                st.error(f"❌ Not quite. {question_data['explanation']}")
+                            
+                            # Move to next question or finish
+                            if current_q < len(quiz) - 1:
+                                st.session_state.quiz_current_question += 1
+                                time.sleep(1)  # Brief pause to see feedback
+                                st.rerun()
+                            else:
+                                # Calculate score
+                                score = sum(st.session_state.quiz_answers)
+                                st.session_state.quiz_score = score
+                                
+                                # Award XP if passed
+                                if score >= 2:
+                                    old_best = st.session_state.learn_best_scores.get(selected_lesson_id, 0)
+                                    if score > old_best or selected_lesson_id not in st.session_state.learn_completed_lessons:
+                                        st.session_state.learn_completed_lessons.add(selected_lesson_id)
+                                        st.session_state.learn_best_scores[selected_lesson_id] = score
+                                        st.session_state.learn_xp_total += lesson['xp']
+                                        
+                                        # Award badge
+                                        new_badge = award_badges()
+                                        
+                                        # Save to DB
+                                        save_learn_progress_to_db(selected_lesson_id, score)
+                                
+                                st.rerun()
+                
+                else:
+                    # Show results (enhanced)
+                    score = st.session_state.quiz_score
+                    
+                    if score == 3:
+                        st.balloons()
+                        st.success("### 🎉 Perfect Score!")
+                        st.markdown(f"**3/3 correct** | **+{lesson['xp']} XP earned!**")
+                    elif score >= 2:
+                        st.success("### ✅ Passed!")
+                        st.markdown(f"**{score}/3 correct** | **+{lesson['xp']} XP earned!**")
+                    else:
+                        st.warning("### 📚 Keep Learning!")
+                        st.markdown(f"**{score}/3 correct** | Need 2/3 to pass")
+                    
+                    st.markdown("---")
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.button("🔄 Retake Quiz", use_container_width=True):
+                            st.session_state.quiz_current_question = 0
+                            st.session_state.quiz_answers = []
+                            st.session_state.quiz_score = None
+                            st.rerun()
+                    
+                    with col2:
+                        if st.button("← Back to Lessons", use_container_width=True):
+                            st.session_state.learn_selected_lesson_id = None
+                            st.session_state.quiz_current_question = 0
+                            st.session_state.quiz_answers = []
+                            st.session_state.quiz_score = None
+                            st.rerun()
     
     # AI Coach integration
     render_ai_coach("Learn Hub", ticker=None, facts=None)
