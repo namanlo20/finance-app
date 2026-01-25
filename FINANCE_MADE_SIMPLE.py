@@ -973,8 +973,107 @@ else:
     .stCaption, [data-testid="stCaption"] {
         color: #6B7280 !important;
     }
+    
+    /* Theme-Aware Boxes - Light Mode */
+    .theme-box-dark {
+        background: #FFFFFF !important;
+        border: 1px solid #E5E7EB !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+    }
+    .theme-box-dark, .theme-box-dark * {
+        color: #111827 !important;
+    }
+    
+    .theme-box-gradient {
+        background: linear-gradient(135deg, #F3F4F6 0%, #E5E7EB 100%) !important;
+        border: 1px solid #D1D5DB !important;
+    }
+    .theme-box-gradient, .theme-box-gradient * {
+        color: #111827 !important;
+    }
+    
+    /* Onboarding/Tooltip boxes */
+    .tooltip-box-light {
+        background: #EFF6FF !important;
+        border: 2px solid #BFDBFE !important;
+    }
+    .tooltip-box-light, .tooltip-box-light * {
+        color: #1E40AF !important;
+    }
+    
+    /* Empty state boxes */
+    .empty-state-light {
+        background: #F9FAFB !important;
+        border: 2px dashed #D1D5DB !important;
+    }
+    .empty-state-light, .empty-state-light * {
+        color: #6B7280 !important;
+    }
     </style>
     """, unsafe_allow_html=True)
+
+# ============= JAVASCRIPT: AUTO-FIX DARK BOXES IN LIGHT MODE =============
+if st.session_state.theme == 'light':
+    st.markdown("""
+    <script>
+    // Auto-fix all dark boxes for light mode
+    function fixDarkBoxes() {
+        // Find all elements with dark gradient backgrounds
+        const darkGradients = [
+            'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
+            'linear-gradient(135deg, #0A0A1E 0%, #121826 100%)',
+            'linear-gradient(180deg, #0a0a0a 0%, #1a1a2e 50%, #0a0a0a 100%)',
+            'rgba(0, 0, 0, 0.85)',
+            'rgba(0, 0, 0, 0.9)',
+            '#1a1a2e',
+            '#16213e',
+            '#0a0a0a'
+        ];
+        
+        // Get all divs
+        const allDivs = document.querySelectorAll('div');
+        
+        allDivs.forEach(div => {
+            const bgStyle = window.getComputedStyle(div).background;
+            const bgColor = window.getComputedStyle(div).backgroundColor;
+            
+            // Check if has dark background
+            let isDark = false;
+            darkGradients.forEach(darkBg => {
+                if (bgStyle.includes(darkBg) || bgColor === darkBg) {
+                    isDark = true;
+                }
+            });
+            
+            if (isDark) {
+                // Convert to light mode
+                div.style.background = '#FFFFFF';
+                div.style.border = '1px solid #E5E7EB';
+                div.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+                
+                // Fix all text colors inside
+                div.querySelectorAll('*').forEach(child => {
+                    if (child.style.color === 'rgb(255, 255, 255)' || child.style.color === '#FFFFFF' || child.style.color === '#E0E0E0') {
+                        child.style.color = '#111827';
+                    }
+                });
+            }
+        });
+    }
+    
+    // Run on load
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', fixDarkBoxes);
+    } else {
+        fixDarkBoxes();
+    }
+    
+    // Also run after a short delay to catch dynamically loaded content
+    setTimeout(fixDarkBoxes, 500);
+    setTimeout(fixDarkBoxes, 1000);
+    </script>
+    """, unsafe_allow_html=True)
+
 # ============= COMPREHENSIVE METRIC EXPLANATIONS =============
 FINANCIAL_METRICS_EXPLAINED = {
     # Income Statement Metrics
@@ -6678,36 +6777,8 @@ with st.sidebar:
     if 'last_tab' not in st.session_state:
         st.session_state.last_tab = None
     
-    # Quick Navigation (compact version)
-    st.markdown("### 🚀 Quick Nav")
-    nav_col1, nav_col2 = st.columns(2)
-    with nav_col1:
-        if st.button("🏠", key="qn_dash", help="Dashboard"):
-            st.session_state.selected_page = "🏠 Dashboard"
-            st.rerun()
-        if st.button("📊", key="qn_analysis", help="Company Analysis"):
-            st.session_state.selected_page = "📊 Company Analysis"
-            st.rerun()
-    with nav_col2:
-        if st.button("💼", key="qn_portfolio", help="Paper Portfolio"):
-            st.session_state.selected_page = "💼 Paper Portfolio"
-            st.rerun()
-        if st.button("🔍", key="qn_screener", help="AI Screener"):
-            st.session_state.selected_page = "🔍 AI Stock Screener"
-            st.rerun()
-    
-    # Get the selected page from session state
-    selected_page = st.session_state.selected_page
-    
+    # Unhinged Mode Toggle (moved here, right after Light Mode)
     st.markdown("---")
-    
-    if 'analysis_view' not in st.session_state:
-        st.session_state.analysis_view = "🌟 The Big Picture"
-    
-    
-    # ============= UNHINGED MODE TOGGLE =============
-    st.markdown("---")
-    st.markdown("### 🔥 Settings")
     
     # Initialize unhinged_mode if not exists
     if 'unhinged_mode' not in st.session_state:
@@ -6716,7 +6787,7 @@ with st.sidebar:
     # Check age restriction for unhinged mode
     user_age = st.session_state.get("user_age", 25)
     if user_age < 18:
-        st.caption("*Unhinged Mode requires age 18+*")
+        st.caption("*🔥 Unhinged Mode requires age 18+*")
         st.session_state.unhinged_mode = False
     else:
         unhinged_enabled = st.toggle(
@@ -6731,79 +6802,15 @@ with st.sidebar:
             save_user_progress()
             st.rerun()
     
-    # ============= AUTHENTICATION =============
-    st.markdown("---")
-    st.markdown("### 🔐 Account")
+    # Get the selected page from session state
+    selected_page = st.session_state.selected_page
     
-    # Check if logged in
-    if st.session_state.get("is_logged_in", False):
-        # Show user info and logout
-        first_name = st.session_state.get("first_name", "User")
-        user_email = st.session_state.get("user_email", "")
-        
-        st.success(f"👤 {first_name}")
-        st.caption(f"{user_email}")
-        
-        # Show founder badge if applicable
-        if st.session_state.get("is_founder", False):
-            st.info("👑 Founder Access")
-        
-        # Show current tier
-        current_tier = get_user_tier()
-        tier_colors = {"free": "#00C853", "pro": "#9D4EDD", "ultimate": "#FFD700"}
-        tier_labels = {"free": "Free", "pro": "Pro", "ultimate": "Ultimate"}
-        st.markdown(f"""
-        <div style="background: rgba(157, 78, 221, 0.1); padding: 8px 12px; border-radius: 8px; border-left: 3px solid {tier_colors.get(current_tier, '#888')}; margin: 10px 0;">
-            <span style="color: #888; font-size: 12px;">Current Tier</span><br>
-            <span style="color: {tier_colors.get(current_tier, '#FFF')}; font-weight: bold;">{tier_labels.get(current_tier, 'Free')}</span>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Founder badge
-        if st.session_state.get('is_founder'):
-            st.markdown("""
-            <div style="background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); padding: 8px 12px; border-radius: 8px; text-align: center; margin-bottom: 10px;">
-                <span style="color: #000; font-weight: bold;">👑 FOUNDER</span>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        # Demo tier selector (for testing)
-        with st.expander("🧪 Demo: Switch Tier"):
-            demo_tier = st.selectbox(
-                "Select tier:",
-                options=["free", "pro", "ultimate"],
-                index=["free", "pro", "ultimate"].index(current_tier),
-                key="demo_tier_selector"
-            )
-            if demo_tier != current_tier:
-                if st.button("Apply Tier", key="apply_demo_tier"):
-                    set_user_tier(demo_tier)
-                    st.success(f"Switched to {demo_tier.title()} tier!")
-                    st.rerun()
-        
-        # Quick Stats
-        stats = get_quick_stats()
-        st.markdown("---")
-        st.markdown("##### 📊 Your Stats")
-        stat_col1, stat_col2 = st.columns(2)
-        with stat_col1:
-            st.metric("📌 Pinned", stats['pinned_count'])
-        with stat_col2:
-            st.metric("📊 Views", stats.get('saved_views', 0))
-        
-        if st.button("🚪 Log Out", use_container_width=True, type="secondary", key="sidebar_logout_btn"):
-            do_logout()
-    else:
-        # Show sign in / sign up buttons
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("📝 Sign Up", use_container_width=True, type="primary", key="sidebar_signup_btn"):
-                st.session_state.show_signup_popup = True
-                st.rerun()
-        with col2:
-            if st.button("🔐 Sign In", use_container_width=True, type="secondary", key="sidebar_login_btn"):
-                st.session_state.show_login_popup = True
-                st.rerun()
+    st.markdown("---")
+    
+    if 'analysis_view' not in st.session_state:
+        st.session_state.analysis_view = "🌟 The Big Picture"
+    
+    
 
 # ============= HELPER FUNCTIONS FOR PAGES =============
 
@@ -8126,55 +8133,111 @@ if selected_page == "🏠 Dashboard":
             "Add your favorite stocks to track them here. Try typing AAPL, NVDA, or MSFT below."
         )
     
-    # ============= DASHBOARD TOUR =============
-    st.markdown("### 🎯 Dashboard Quick Tour")
+    # Interactive Page Guide
+    st.markdown("### 🗺️ Site Navigation Guide")
+    st.caption("Click any page to learn what it does and jump directly to it")
     
-    tour_col1, tour_col2, tour_col3 = st.columns(3)
+    # Create page guide button
+    if st.button("📖 Show Full Site Tour", use_container_width=True, type="primary", key="show_site_tour"):
+        st.session_state.show_site_tour = True
+        st.rerun()
     
-    with tour_col1:
-        st.markdown("""
-        <div style="background: linear-gradient(135deg, #9D4EDD 0%, #7B2CBF 100%); 
-                    padding: 15px; 
-                    border-radius: 10px; 
-                    text-align: center;
-                    min-height: 140px;">
-            <div style="font-size: 32px; margin-bottom: 8px;">📌</div>
-            <div style="font-weight: bold; margin-bottom: 5px;">Pinned Watchlist</div>
-            <div style="font-size: 13px; color: rgba(255,255,255,0.9);">
-                Track your favorite stocks in one place. See live prices, changes, and market caps.
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with tour_col2:
-        st.markdown("""
-        <div style="background: linear-gradient(135deg, #00D9FF 0%, #0099CC 100%); 
-                    padding: 15px; 
-                    border-radius: 10px; 
-                    text-align: center;
-                    min-height: 140px;">
-            <div style="font-size: 32px; margin-bottom: 8px;">⚡</div>
-            <div style="font-weight: bold; margin-bottom: 5px;">Quick Actions</div>
-            <div style="font-size: 13px; color: rgba(255,255,255,0.9);">
-                Jump directly to any tool. Analyze stocks, check markets, or manage your portfolio.
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with tour_col3:
-        st.markdown("""
-        <div style="background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%); 
-                    padding: 15px; 
-                    border-radius: 10px; 
-                    text-align: center;
-                    min-height: 140px;">
-            <div style="font-size: 32px; margin-bottom: 8px;">📰</div>
-            <div style="font-weight: bold; margin-bottom: 5px;">Market Brief</div>
-            <div style="font-size: 13px; color: rgba(255,255,255,0.9);">
-                Stay updated with market snapshot, VIX fear index, and overall market sentiment.
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+    # Show tour dialog if requested
+    if st.session_state.get('show_site_tour', False):
+        @st.dialog("🗺️ Complete Site Guide", width="large")
+        def show_tour_dialog():
+            st.markdown("### Every Page Explained")
+            st.caption("Click any page name to jump there directly")
+            
+            # Define all pages with descriptions
+            pages = [
+                {
+                    "name": "🏠 Dashboard",
+                    "desc": "Your command center. Pin stocks to track, see market snapshot, and access quick actions.",
+                    "icon": "📌"
+                },
+                {
+                    "name": "📊 Company Analysis",
+                    "desc": "Deep dive into any stock. See financials, charts, AI analysis, and valuation metrics.",
+                    "icon": "📈"
+                },
+                {
+                    "name": "📊 Market Overview",
+                    "desc": "Browse sectors, discover high-growth stocks, and find investment opportunities.",
+                    "icon": "🌍"
+                },
+                {
+                    "name": "📰 Market Intelligence",
+                    "desc": "Latest news, market sentiment, fear & greed index, and trending stocks.",
+                    "icon": "📰"
+                },
+                {
+                    "name": "📈 Financial Health",
+                    "desc": "Analyze company fundamentals: revenue, profit margins, debt levels, and growth trends.",
+                    "icon": "💊"
+                },
+                {
+                    "name": "🔍 AI Stock Screener",
+                    "desc": "Ask Claude to find stocks matching your criteria using natural language.",
+                    "icon": "🤖"
+                },
+                {
+                    "name": "📊 Pro Checklist",
+                    "desc": "Comprehensive investment checklist. Evaluate any stock across 20+ key factors.",
+                    "icon": "✅"
+                },
+                {
+                    "name": "💼 Paper Portfolio",
+                    "desc": "Practice trading with virtual money. Track performance and test strategies.",
+                    "icon": "💰"
+                },
+                {
+                    "name": "🧠 Risk Quiz",
+                    "desc": "Discover your investor profile. Get personalized risk tolerance assessment.",
+                    "icon": "🎯"
+                },
+                {
+                    "name": "📚 Learn Hub",
+                    "desc": "Interactive lessons on investing basics. Earn XP and badges as you learn.",
+                    "icon": "🎓"
+                },
+                {
+                    "name": "👑 Ultimate",
+                    "desc": "Advanced AI features: custom analyses, sector deep dives, and expert insights.",
+                    "icon": "⚡"
+                },
+            ]
+            
+            # Display pages in a grid
+            for i in range(0, len(pages), 2):
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    page = pages[i]
+                    st.markdown(f"#### {page['icon']} {page['name']}")
+                    st.caption(page['desc'])
+                    if st.button(f"Go to {page['name']}", key=f"tour_goto_{i}", use_container_width=True):
+                        st.session_state.selected_page = page['name']
+                        st.session_state.show_site_tour = False
+                        st.rerun()
+                    st.markdown("---")
+                
+                if i + 1 < len(pages):
+                    with col2:
+                        page = pages[i+1]
+                        st.markdown(f"#### {page['icon']} {page['name']}")
+                        st.caption(page['desc'])
+                        if st.button(f"Go to {page['name']}", key=f"tour_goto_{i+1}", use_container_width=True):
+                            st.session_state.selected_page = page['name']
+                            st.session_state.show_site_tour = False
+                            st.rerun()
+                        st.markdown("---")
+            
+            if st.button("✕ Close Guide", use_container_width=True):
+                st.session_state.show_site_tour = False
+                st.rerun()
+        
+        show_tour_dialog()
     
     st.markdown("---")
     
