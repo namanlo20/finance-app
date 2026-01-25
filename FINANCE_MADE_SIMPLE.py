@@ -6761,25 +6761,7 @@ with st.sidebar:
         st.session_state.theme = 'dark'
         st.rerun()
     
-    st.markdown("---")
-    
-    # Initialize selected page in session state if not exists
-    if 'selected_page' not in st.session_state:
-        st.session_state.selected_page = "🏠 Dashboard"
-    
-    # Initialize pinned tickers
-    if 'pinned_tickers' not in st.session_state:
-        st.session_state.pinned_tickers = []
-    
-    # Initialize last visited tracking
-    if 'last_ticker' not in st.session_state:
-        st.session_state.last_ticker = None
-    if 'last_tab' not in st.session_state:
-        st.session_state.last_tab = None
-    
-    # Unhinged Mode Toggle (moved here, right after Light Mode)
-    st.markdown("---")
-    
+    # Unhinged Mode Toggle (right below Light Mode, no divider)
     # Initialize unhinged_mode if not exists
     if 'unhinged_mode' not in st.session_state:
         st.session_state.unhinged_mode = False
@@ -6801,6 +6783,22 @@ with st.sidebar:
             # Save progress when toggle changes
             save_user_progress()
             st.rerun()
+    
+    st.markdown("---")
+    
+    # Initialize selected page in session state if not exists
+    if 'selected_page' not in st.session_state:
+        st.session_state.selected_page = "🏠 Dashboard"
+    
+    # Initialize pinned tickers
+    if 'pinned_tickers' not in st.session_state:
+        st.session_state.pinned_tickers = []
+    
+    # Initialize last visited tracking
+    if 'last_ticker' not in st.session_state:
+        st.session_state.last_ticker = None
+    if 'last_tab' not in st.session_state:
+        st.session_state.last_tab = None
     
     # Get the selected page from session state
     selected_page = st.session_state.selected_page
@@ -8138,7 +8136,7 @@ if selected_page == "🏠 Dashboard":
     st.caption("Click any page to learn what it does and jump directly to it")
     
     # Create page guide button
-    if st.button("📖 Show Full Site Tour", use_container_width=True, type="primary", key="show_site_tour"):
+    if st.button("📖 Show Full Site Tour", use_container_width=True, type="primary", key="tour_button_trigger"):
         st.session_state.show_site_tour = True
         st.rerun()
     
