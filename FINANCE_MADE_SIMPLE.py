@@ -9794,529 +9794,65 @@ elif selected_page == "📖 Basics":
     
     st.markdown("---")
     
-    # ============= INTERACTIVE TOOLS SECTION =============
-    st.markdown("### 🧮 Interactive Learning Tools")
-    st.caption("Learn by doing! Try these calculators with real stock data")
+    # ===== INTERACTIVE CALCULATOR (SIMPLE TEST) =====
+    st.markdown("### 🧮 P/E Ratio Calculator")
+    st.caption("Learn by doing! Calculate P/E ratio for any stock")
     
-    # Tool selector
-    tool_tabs = st.tabs([
-        "💰 P/E Calculator", 
-        "📈 Growth Visualizer", 
-        "🏢 Market Cap", 
-        "💵 Dividend Yield",
-        "⭐ Quick Score"
-    ])
+    calc_col1, calc_col2 = st.columns([1, 1])
     
-    # TOOL 1: P/E Ratio Calculator
-    with tool_tabs[0]:
-        st.markdown("#### 💰 P/E Ratio Calculator")
-        st.caption("Calculate Price-to-Earnings ratio and see if a stock is expensive or cheap")
+    with calc_col1:
+        pe_ticker = st.text_input("Enter stock ticker:", value="AAPL", key="pe_calc_ticker").upper()
         
-        pe_col1, pe_col2 = st.columns([1, 1])
-        
-        with pe_col1:
-            pe_ticker = st.text_input("Enter stock ticker:", value="AAPL", key="pe_ticker").upper()
-            
-            if pe_ticker and st.button("Calculate P/E", key="calc_pe"):
-                with st.spinner("Fetching data..."):
-                    try:
-                        # Get current price
-                        price_url = f"{BASE_URL}/v3/quote/{pe_ticker}?apikey={FMP_API_KEY}"
-                        price_data = requests.get(price_url).json()
-                        
-                        if price_data and len(price_data) > 0:
-                            price = price_data[0].get('price', 0)
-                            eps = price_data[0].get('eps', 0)
-                            pe_ratio = price_data[0].get('pe', 0)
-                            
-                            if pe_ratio and pe_ratio > 0:
-                                st.success(f"✅ Found {pe_ticker}!")
-                                
-                                # Display results
-                                metric_col1, metric_col2, metric_col3 = st.columns(3)
-                                with metric_col1:
-                                    st.metric("Stock Price", f"${price:.2f}")
-                                with metric_col2:
-                                    st.metric("EPS (Earnings)", f"${eps:.2f}")
-                                with metric_col3:
-                                    st.metric("P/E Ratio", f"{pe_ratio:.1f}x")
-                                
-                                # Visual gauge
-                                st.markdown("**What does this mean?**")
-                                if pe_ratio < 15:
-                                    gauge_color = "#22C55E"  # Green
-                                    label = "Cheap / Value Stock"
-                                    explanation = "P/E under 15 typically indicates a value stock. The market isn't pricing in much growth."
-                                elif pe_ratio < 25:
-                                    gauge_color = "#FBBF24"  # Yellow
-                                    label = "Fairly Valued"
-                                    explanation = "P/E between 15-25 is average for most mature companies."
-                                elif pe_ratio < 40:
-                                    gauge_color = "#F59E0B"  # Orange
-                                    label = "Growth Stock"
-                                    explanation = "P/E between 25-40 suggests investors expect strong growth."
-                                else:
-                                    gauge_color = "#EF4444"  # Red
-                                    label = "Expensive / High Growth"
-                                    explanation = "P/E over 40 means very high growth expectations or speculation."
-                                
-                                # Visual bar
-                                bar_width = min(100, (pe_ratio / 50) * 100)
-                                st.markdown(f"""
-                                <div style="background: {get_box_gradient_bg()}; border: {get_box_border()}; box-shadow: {get_box_shadow()}; padding: 20px; border-radius: 10px; margin: 10px 0;">
-                                    <div style="font-size: 18px; font-weight: bold; color: {gauge_color}; margin-bottom: 10px;">
-                                        {label}
-                                    </div>
-                                    <div style="background: rgba(255,255,255,0.1); height: 30px; border-radius: 5px; overflow: hidden;">
-                                        <div style="background: {gauge_color}; height: 100%; width: {bar_width}%; transition: width 0.5s;"></div>
-                                    </div>
-                                    <div style="color: {get_text_color()}; margin-top: 10px; font-size: 14px;">
-                                        {explanation}
-                                    </div>
-                                </div>
-                                """, unsafe_allow_html=True)
-                                
-                                # Compare to similar companies
-                                st.markdown("**📊 Compare to similar companies:**")
-                                compare_tickers = {
-                                    "AAPL": ["MSFT", "GOOGL"],
-                                    "TSLA": ["F", "GM"],
-                                    "NVDA": ["AMD", "INTC"],
-                                    "MSFT": ["AAPL", "GOOGL"],
-                                }
-                                
-                                comparisons = compare_tickers.get(pe_ticker, ["SPY"])
-                                comp_data = []
-                                
-                                for comp_ticker in comparisons[:2]:
-                                    comp_url = f"{BASE_URL}/v3/quote/{comp_ticker}?apikey={FMP_API_KEY}"
-                                    comp_response = requests.get(comp_url).json()
-                                    if comp_response and len(comp_response) > 0:
-                                        comp_pe = comp_response[0].get('pe', 0)
-                                        if comp_pe and comp_pe > 0:
-                                            comp_data.append({
-                                                "Company": comp_ticker,
-                                                "P/E Ratio": f"{comp_pe:.1f}x"
-                                            })
-                                
-                                if comp_data:
-                                    comp_df = pd.DataFrame(comp_data)
-                                    st.dataframe(comp_df, use_container_width=True, hide_index=True)
-                                
-                            else:
-                                st.error("❌ No P/E data available (might be unprofitable)")
-                        else:
-                            st.error("❌ Stock not found. Try another ticker.")
-                    except Exception as e:
-                        st.error(f"Error: {str(e)}")
-        
-        with pe_col2:
-            st.markdown("**📚 What is P/E Ratio?**")
-            st.markdown(f"""
-            <div style="background: {get_box_gradient_bg()}; border: {get_box_border()}; box-shadow: {get_box_shadow()}; padding: 15px; border-radius: 8px;">
-                <div style="color: {get_text_color()};">
-                    <strong>Formula:</strong><br>
-                    P/E Ratio = Stock Price ÷ Earnings Per Share
-                    <br><br>
-                    <strong>What it means:</strong><br>
-                    How much you pay for $1 of earnings
-                    <br><br>
-                    <strong>Example:</strong><br>
-                    • Stock Price: $100<br>
-                    • EPS: $5<br>
-                    • P/E = 100 ÷ 5 = <strong>20x</strong>
-                    <br><br>
-                    You're paying $20 for every $1 of profit!
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            st.markdown("**💡 Quick Guide:**")
-            guide_data = {
-                "P/E Range": ["Under 15", "15-25", "25-40", "Over 40"],
-                "Meaning": ["Value Stock", "Fairly Valued", "Growth Stock", "Expensive/Hyper-growth"],
-                "Example": ["Banks, Utilities", "Most S&P 500", "Tech, NVDA", "High-growth startups"]
-            }
-            st.dataframe(pd.DataFrame(guide_data), use_container_width=True, hide_index=True)
-    
-    # TOOL 2: Compound Growth Visualizer
-    with tool_tabs[1]:
-        st.markdown("#### 📈 Compound Growth Visualizer")
-        st.caption("See how your money grows over time with compound returns")
-        
-        growth_col1, growth_col2 = st.columns([1, 1])
-        
-        with growth_col1:
-            initial = st.number_input("Initial Investment ($)", min_value=100, max_value=1000000, value=10000, step=1000, key="growth_initial")
-            annual_return = st.slider("Expected Annual Return (%)", min_value=0, max_value=20, value=10, step=1, key="growth_return")
-            years = st.slider("Time Period (years)", min_value=1, max_value=30, value=10, step=1, key="growth_years")
-            monthly_add = st.number_input("Monthly Contribution ($)", min_value=0, max_value=10000, value=0, step=100, key="growth_monthly")
-            
-            # Calculate growth
-            values = [initial]
-            for year in range(1, years + 1):
-                # Annual compounding + monthly contributions
-                yearly_contribution = monthly_add * 12
-                new_value = values[-1] * (1 + annual_return/100) + yearly_contribution
-                values.append(new_value)
-            
-            final_value = values[-1]
-            total_invested = initial + (monthly_add * 12 * years)
-            total_growth = final_value - total_invested
-            
-            st.metric("Final Value", f"${final_value:,.0f}", f"+${total_growth:,.0f} ({(total_growth/total_invested*100):.1f}%)")
-            st.caption(f"Total Invested: ${total_invested:,.0f}")
-        
-        with growth_col2:
-            # Create chart
-            years_list = list(range(len(values)))
-            
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(
-                x=years_list,
-                y=values,
-                mode='lines+markers',
-                name='Portfolio Value',
-                line=dict(color='#22C55E', width=3),
-                fill='tozeroy',
-                fillcolor='rgba(34, 197, 94, 0.1)'
-            ))
-            
-            fig.update_layout(
-                title=f"Growth of ${initial:,} at {annual_return}% per year",
-                xaxis_title="Years",
-                yaxis_title="Value ($)",
-                template='plotly_dark' if st.session_state.get('theme', 'dark') == 'dark' else 'plotly_white',
-                height=400,
-                showlegend=False
-            )
-            
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # Key insight
-            st.markdown(f"""
-            <div style="background: {get_box_gradient_bg()}; border: {get_box_border()}; box-shadow: {get_box_shadow()}; padding: 15px; border-radius: 8px; margin-top: 10px;">
-                <div style="color: {get_text_color()};">
-                    <strong>💡 The Power of Compound Growth:</strong><br>
-                    Your ${initial:,} grew to <strong>${final_value:,.0f}</strong> in {years} years!<br>
-                    That's a <strong>{(final_value/initial):.1f}x</strong> return on your initial investment.
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-    
-    # TOOL 3: Market Cap Calculator
-    with tool_tabs[2]:
-        st.markdown("#### 🏢 Market Cap Calculator")
-        st.caption("Calculate company size and compare to others")
-        
-        cap_col1, cap_col2 = st.columns([1, 1])
-        
-        with cap_col1:
-            cap_ticker = st.text_input("Enter stock ticker:", value="AAPL", key="cap_ticker").upper()
-            
-            if cap_ticker and st.button("Calculate Market Cap", key="calc_cap"):
-                with st.spinner("Fetching data..."):
-                    try:
-                        profile_url = f"{BASE_URL}/v3/profile/{cap_ticker}?apikey={FMP_API_KEY}"
-                        profile_data = requests.get(profile_url).json()
-                        
-                        if profile_data and len(profile_data) > 0:
-                            company = profile_data[0]
-                            market_cap = company.get('mktCap', 0)
-                            price = company.get('price', 0)
-                            shares = company.get('volAvg', 0)
-                            name = company.get('companyName', cap_ticker)
-                            
-                            st.success(f"✅ {name}")
-                            
-                            # Display market cap
-                            cap_billions = market_cap / 1_000_000_000
-                            st.metric("Market Cap", f"${cap_billions:.1f}B")
-                            st.caption(f"Stock Price: ${price:.2f}")
-                            
-                            # Determine size tier
-                            if cap_billions < 2:
-                                tier = "Small-Cap"
-                                color = "#EF4444"
-                                desc = "Small companies, high risk/reward"
-                            elif cap_billions < 10:
-                                tier = "Mid-Cap"
-                                color = "#F59E0B"
-                                desc = "Medium companies, balanced growth"
-                            elif cap_billions < 200:
-                                tier = "Large-Cap"
-                                color = "#22C55E"
-                                desc = "Established companies, lower risk"
-                            else:
-                                tier = "Mega-Cap"
-                                color = "#3B82F6"
-                                desc = "Massive companies, very stable"
-                            
-                            st.markdown(f"""
-                            <div style="background: {get_box_gradient_bg()}; border: {get_box_border()}; box-shadow: {get_box_shadow()}; padding: 20px; border-radius: 10px; margin: 10px 0; border-left: 4px solid {color};">
-                                <div style="color: {color}; font-size: 20px; font-weight: bold; margin-bottom: 5px;">
-                                    {tier}
-                                </div>
-                                <div style="color: {get_text_color()}; font-size: 14px;">
-                                    {desc}
-                                </div>
-                            </div>
-                            """, unsafe_allow_html=True)
-                            
-                        else:
-                            st.error("❌ Stock not found")
-                    except Exception as e:
-                        st.error(f"Error: {str(e)}")
-        
-        with cap_col2:
-            st.markdown("**📊 Company Size Tiers**")
-            size_data = {
-                "Tier": ["Mega-Cap", "Large-Cap", "Mid-Cap", "Small-Cap", "Micro-Cap"],
-                "Market Cap": [">$200B", "$10B-$200B", "$2B-$10B", "$300M-$2B", "<$300M"],
-                "Risk Level": ["Very Low", "Low", "Medium", "High", "Very High"],
-                "Example": ["AAPL, MSFT", "NVDA, TSLA", "Regional banks", "Small tech", "Penny stocks"]
-            }
-            st.dataframe(pd.DataFrame(size_data), use_container_width=True, hide_index=True)
-            
-            st.markdown(f"""
-            <div style="background: {get_box_gradient_bg()}; border: {get_box_border()}; box-shadow: {get_box_shadow()}; padding: 15px; border-radius: 8px; margin-top: 15px;">
-                <div style="color: {get_text_color()};">
-                    <strong>💡 Why Market Cap Matters:</strong><br>
-                    • Larger = More stable, slower growth<br>
-                    • Smaller = More volatile, higher potential<br>
-                    • Diversify across different sizes!
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-    
-    # TOOL 4: Dividend Yield Calculator
-    with tool_tabs[3]:
-        st.markdown("#### 💵 Dividend Yield Calculator")
-        st.caption("Calculate dividend income and see reinvestment impact")
-        
-        div_col1, div_col2 = st.columns([1, 1])
-        
-        with div_col1:
-            div_ticker = st.text_input("Enter stock ticker:", value="JNJ", key="div_ticker").upper()
-            investment_amount = st.number_input("Investment Amount ($)", min_value=1000, max_value=1000000, value=10000, step=1000, key="div_investment")
-            
-            if div_ticker and st.button("Calculate Dividend Yield", key="calc_div"):
-                with st.spinner("Fetching data..."):
-                    try:
-                        quote_url = f"{BASE_URL}/v3/quote/{div_ticker}?apikey={FMP_API_KEY}"
-                        quote_data = requests.get(quote_url).json()
-                        
-                        if quote_data and len(quote_data) > 0:
-                            price = quote_data[0].get('price', 0)
-                            div_per_share = quote_data[0].get('volume', 0) * 0.01  # Approximate
-                            name = quote_data[0].get('name', div_ticker)
-                            
-                            # Calculate yield (approximate)
-                            div_yield = 2.5  # Default assumption
-                            
-                            st.success(f"✅ {name}")
-                            
-                            shares = investment_amount / price
-                            annual_dividend = investment_amount * (div_yield / 100)
-                            monthly_dividend = annual_dividend / 12
-                            
-                            metric_col1, metric_col2, metric_col3 = st.columns(3)
-                            with metric_col1:
-                                st.metric("Dividend Yield", f"{div_yield:.2f}%")
-                            with metric_col2:
-                                st.metric("Annual Income", f"${annual_dividend:,.0f}")
-                            with metric_col3:
-                                st.metric("Monthly Income", f"${monthly_dividend:,.0f}")
-                            
-                            # Reinvestment calculator
-                            st.markdown("**📈 Reinvestment Impact (10 years)**")
-                            years_div = 10
-                            value_no_reinvest = investment_amount
-                            value_with_reinvest = investment_amount
-                            
-                            for year in range(years_div):
-                                dividend = value_with_reinvest * (div_yield / 100)
-                                value_with_reinvest += dividend
-                            
-                            difference = value_with_reinvest - value_no_reinvest
-                            
-                            st.markdown(f"""
-                            <div style="background: {get_box_gradient_bg()}; border: {get_box_border()}; box-shadow: {get_box_shadow()}; padding: 20px; border-radius: 10px;">
-                                <div style="color: {get_text_color()};">
-                                    <strong>Without Reinvesting:</strong> ${value_no_reinvest:,.0f}<br>
-                                    <strong>With Reinvesting:</strong> ${value_with_reinvest:,.0f}<br>
-                                    <strong>Extra Gain:</strong> <span style="color: #22C55E;">+${difference:,.0f}</span>
-                                </div>
-                            </div>
-                            """, unsafe_allow_html=True)
-                            
-                        else:
-                            st.error("❌ Stock not found")
-                    except Exception as e:
-                        st.error(f"Error: {str(e)}")
-        
-        with div_col2:
-            st.markdown("**💡 Dividend Yield Guide**")
-            yield_data = {
-                "Yield %": ["0-1%", "1-3%", "3-5%", "Over 5%"],
-                "Type": ["Growth", "Balanced", "Income", "High Yield"],
-                "Example": ["Tech stocks", "Blue chips", "REITs", "High risk/Cutters"],
-                "Risk": ["Low", "Low", "Medium", "High"]
-            }
-            st.dataframe(pd.DataFrame(yield_data), use_container_width=True, hide_index=True)
-            
-            st.markdown(f"""
-            <div style="background: {get_box_gradient_bg()}; border: {get_box_border()}; box-shadow: {get_box_shadow()}; padding: 15px; border-radius: 8px; margin-top: 15px;">
-                <div style="color: {get_text_color()};">
-                    <strong>⚠️ Warning:</strong><br>
-                    Very high yields (>7%) often signal:<br>
-                    • Dividend might be cut soon<br>
-                    • Stock price has fallen dramatically<br>
-                    • Unsustainable payout<br><br>
-                    <strong>✅ Sweet Spot:</strong> 2-4% from stable companies
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-    
-    # TOOL 5: Quick Valuation Score
-    with tool_tabs[4]:
-        st.markdown("#### ⭐ Quick Valuation Score")
-        st.caption("Get a 0-100 score for any stock based on key metrics")
-        
-        score_col1, score_col2 = st.columns([1, 1])
-        
-        with score_col1:
-            score_ticker = st.text_input("Enter stock ticker:", value="AAPL", key="score_ticker").upper()
-            
-            if score_ticker and st.button("Calculate Score", key="calc_score"):
-                with st.spinner("Analyzing..."):
-                    try:
-                        quote_url = f"{BASE_URL}/v3/quote/{score_ticker}?apikey={FMP_API_KEY}"
-                        quote_data = requests.get(quote_url).json()
-                        
-                        if quote_data and len(quote_data) > 0:
-                            data = quote_data[0]
-                            pe = data.get('pe', 0)
-                            change_pct = data.get('changesPercentage', 0)
-                            name = data.get('name', score_ticker)
-                            
-                            # Calculate score (0-100)
-                            score = 50  # Start at neutral
-                            
-                            # P/E scoring
-                            if pe and pe > 0:
-                                if pe < 15:
-                                    score += 20
-                                elif pe < 25:
-                                    score += 10
-                                elif pe < 40:
-                                    score += 0
-                                else:
-                                    score -= 10
-                            
-                            # Growth scoring (approximate from price change)
-                            if change_pct > 20:
-                                score += 15
-                            elif change_pct > 0:
-                                score += 10
-                            elif change_pct > -10:
-                                score += 5
-                            else:
-                                score -= 15
-                            
-                            # Assume some debt/profitability factors
-                            score += random.randint(-10, 15)  # Placeholder for actual metrics
-                            
-                            # Clamp score
-                            score = max(0, min(100, score))
-                            
-                            st.success(f"✅ {name}")
-                            
-                            # Score display
-                            if score >= 75:
-                                grade = "A"
-                                color = "#22C55E"
-                                verdict = "Strong Buy"
-                            elif score >= 60:
-                                grade = "B"
-                                color = "#FBBF24"
-                                verdict = "Buy"
-                            elif score >= 40:
-                                grade = "C"
-                                color = "#F59E0B"
-                                verdict = "Hold"
-                            else:
-                                grade = "D"
-                                color = "#EF4444"
-                                verdict = "Avoid"
-                            
-                            # Circular gauge
-                            st.markdown(f"""
-                            <div style="background: {get_box_gradient_bg()}; border: {get_box_border()}; box-shadow: {get_box_shadow()}; padding: 30px; border-radius: 10px; text-align: center;">
-                                <div style="font-size: 60px; font-weight: bold; color: {color};">
-                                    {score}
-                                </div>
-                                <div style="font-size: 24px; color: {color}; margin-bottom: 10px;">
-                                    Grade {grade}
-                                </div>
-                                <div style="font-size: 18px; color: {get_text_color()};">
-                                    {verdict}
-                                </div>
-                                <div style="background: rgba(255,255,255,0.1); height: 20px; border-radius: 10px; margin-top: 20px; overflow: hidden;">
-                                    <div style="background: {color}; height: 100%; width: {score}%; transition: width 0.5s;"></div>
-                                </div>
-                            </div>
-                            """, unsafe_allow_html=True)
-                            
-                            # Breakdown
-                            st.markdown("**📊 Score Breakdown:**")
-                            breakdown = {
-                                "Factor": ["Valuation (P/E)", "Growth Momentum", "Financial Health"],
-                                "Weight": ["40%", "30%", "30%"],
-                                "Your Score": [
-                                    f"{min(40, max(0, 40 - abs(pe - 20) * 2)) if pe else 20:.0f}/40",
-                                    f"{min(30, max(0, 15 + change_pct)) if change_pct else 15:.0f}/30",
-                                    "15/30"  # Placeholder
-                                ]
-                            }
-                            st.dataframe(pd.DataFrame(breakdown), use_container_width=True, hide_index=True)
-                            
-                        else:
-                            st.error("❌ Stock not found")
-                    except Exception as e:
-                        st.error(f"Error: {str(e)}")
-        
-        with score_col2:
-            st.markdown("**📚 How Scoring Works**")
-            st.markdown(f"""
-            <div style="background: {get_box_gradient_bg()}; border: {get_box_border()}; box-shadow: {get_box_shadow()}; padding: 15px; border-radius: 8px;">
-                <div style="color: {get_text_color()};">
-                    <strong>Valuation (40 points)</strong><br>
-                    • P/E under 15: +20 points<br>
-                    • P/E 15-25: +10 points<br>
-                    • P/E 25-40: 0 points<br>
-                    • P/E over 40: -10 points<br><br>
+        if st.button("Calculate P/E Ratio", key="pe_calc_btn", type="primary"):
+            with st.spinner("Fetching data..."):
+                try:
+                    price_url = f"{BASE_URL}/v3/quote/{pe_ticker}?apikey={FMP_API_KEY}"
+                    price_data = requests.get(price_url).json()
                     
-                    <strong>Growth (30 points)</strong><br>
-                    • Revenue growth rate<br>
-                    • Price momentum<br>
-                    • Earnings acceleration<br><br>
-                    
-                    <strong>Financial Health (30 points)</strong><br>
-                    • Debt levels<br>
-                    • Profitability<br>
-                    • Cash flow
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            st.markdown("**🎯 Score Guide:**")
-            score_guide = {
-                "Score": ["75-100", "60-74", "40-59", "0-39"],
-                "Grade": ["A", "B", "C", "D"],
-                "Action": ["Strong Buy", "Buy", "Hold", "Avoid"]
-            }
-            st.dataframe(pd.DataFrame(score_guide), use_container_width=True, hide_index=True)
+                    if price_data and len(price_data) > 0:
+                        price = price_data[0].get('price', 0)
+                        eps = price_data[0].get('eps', 0)
+                        pe_ratio = price_data[0].get('pe', 0)
+                        name = price_data[0].get('name', pe_ticker)
+                        
+                        if pe_ratio and pe_ratio > 0:
+                            st.success(f"✅ {name}")
+                            
+                            # Display metrics
+                            m1, m2, m3 = st.columns(3)
+                            with m1:
+                                st.metric("Stock Price", f"${price:.2f}")
+                            with m2:
+                                st.metric("EPS", f"${eps:.2f}")
+                            with m3:
+                                st.metric("P/E Ratio", f"{pe_ratio:.1f}x")
+                            
+                            # Simple evaluation
+                            if pe_ratio < 15:
+                                st.success("✅ **Cheap / Value Stock** - P/E under 15")
+                            elif pe_ratio < 25:
+                                st.info("ℹ️ **Fairly Valued** - P/E between 15-25")
+                            elif pe_ratio < 40:
+                                st.warning("⚠️ **Growth Stock** - P/E between 25-40")
+                            else:
+                                st.error("⚡ **Expensive** - P/E over 40 (high growth expected)")
+                        else:
+                            st.error("❌ No P/E data (might be unprofitable)")
+                    else:
+                        st.error("❌ Stock not found")
+                except Exception as e:
+                    st.error(f"Error: {str(e)}")
+    
+    with calc_col2:
+        st.markdown("**📚 What is P/E Ratio?**")
+        st.write("**Formula:** P/E = Stock Price ÷ Earnings Per Share")
+        st.write("**Meaning:** How much you pay for $1 of earnings")
+        st.write("")
+        st.write("**Quick Guide:**")
+        st.write("• **Under 15:** Value stock (cheap)")
+        st.write("• **15-25:** Fairly valued")
+        st.write("• **25-40:** Growth stock")
+        st.write("• **Over 40:** Expensive (or hyper-growth)")
     
     st.markdown("---")
     
