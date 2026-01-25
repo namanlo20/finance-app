@@ -594,971 +594,387 @@ if 'theme' not in st.session_state:
 if st.session_state.theme == 'dark':
     st.markdown("""
     <style>
-    /* DARK MODE - Pure Black Background with White Text */
-    .main { background: #000000 !important; padding-top: 80px !important; }
-    .stApp { background: #000000 !important; }
-    [data-testid="stAppViewContainer"] { background: #000000 !important; padding-top: 80px !important; }
-    [data-testid="stHeader"] { background: #000000 !important; }
-    [data-testid="stSidebar"] { background: #0a0a0a !important; padding-top: 80px !important; }
+    /* ==================== DARK MODE ==================== */
+    /* Professional dark theme with softer reds and high contrast */
     
-    /* CRITICAL: Force white text on dark background */
+    /* Base Colors */
+    .main { background: #0A0A1E !important; padding-top: 80px !important; }
+    .stApp { background: #0A0A1E !important; }
+    [data-testid="stAppViewContainer"] { background: #0A0A1E !important; padding-top: 80px !important; }
+    [data-testid="stHeader"] { background: #0A0A1E !important; }
+    [data-testid="stSidebar"] { background: #121826 !important; padding-top: 80px !important; }
+    
+    /* Text - High Contrast */
     html, body, .stApp, [data-testid="stAppViewContainer"], 
     [data-testid="stSidebar"], p, span, div, label, li, td, th,
     .stMarkdown, .stText, [data-testid="stMarkdownContainer"],
     .element-container, .stRadio label, .stSelectbox label,
     .stTextInput label, .stSlider label, .stCheckbox label {
-        color: #FFFFFF !important;
-    }
-    
-    /* Sidebar expander titles and captions */
-    [data-testid="stSidebar"] .stExpander summary, 
-    [data-testid="stSidebar"] .stExpander p,
-    [data-testid="stSidebar"] .stCaption,
-    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, 
-    [data-testid="stSidebar"] h3, [data-testid="stSidebar"] h4 {
-        color: #FFFFFF !important;
-    }
-    
-    /* SIDEBAR EXPANDER HEADERS - RED BACKGROUND FOR VISIBILITY */
-    [data-testid="stSidebar"] [data-testid="stExpander"] {
-        background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%) !important;
-        border-radius: 10px !important;
-        margin-bottom: 10px !important;
-        border: none !important;
-    }
-    [data-testid="stSidebar"] [data-testid="stExpander"] summary {
-        background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%) !important;
-        color: #FFFFFF !important;
-        font-weight: bold !important;
-        padding: 12px 15px !important;
-        border-radius: 10px !important;
-    }
-    [data-testid="stSidebar"] [data-testid="stExpander"] summary:hover {
-        background: linear-gradient(135deg, #FF6666 0%, #EE0000 100%) !important;
-    }
-    [data-testid="stSidebar"] [data-testid="stExpander"] [data-testid="stExpanderContent"] {
-        background: rgba(0, 0, 0, 0.3) !important;
-        border-radius: 0 0 10px 10px !important;
-        padding: 10px !important;
-    }
-    [data-testid="stSidebar"] [data-testid="stExpander"] summary span,
-    [data-testid="stSidebar"] [data-testid="stExpander"] summary p {
-        color: #FFFFFF !important;
-    }
-    
-    /* LIVE TICKER BAR - TOP OF PAGE */
-    .ticker-bar {
-        position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
-        right: 0 !important;
-        height: 40px !important;
-        background: linear-gradient(90deg, #0a0a0a 0%, #1a1a2e 50%, #0a0a0a 100%) !important;
-        border-bottom: 2px solid #FF4444 !important;
-        z-index: 99999 !important;
-        overflow: hidden !important;
-        display: flex !important;
-        align-items: center !important;
-    }
-    .ticker-content {
-        display: flex !important;
-        animation: scroll-left 60s linear infinite !important;
-        white-space: nowrap !important;
-    }
-    .ticker-bar:hover .ticker-content {
-        animation-play-state: paused !important;
-    }
-    @keyframes scroll-left {
-        0% { transform: translateX(0); }
-        100% { transform: translateX(-50%); }
-    }
-    .ticker-item {
-        display: inline-flex !important;
-        align-items: center !important;
-        padding: 0 20px !important;
-        border-right: 1px solid rgba(255,255,255,0.2) !important;
-    }
-    .ticker-item .symbol {
-        color: #00D9FF !important;
-        font-weight: bold !important;
-        margin-right: 8px !important;
-    }
-    .ticker-item .price {
-        color: #FFFFFF !important;
-        margin-right: 8px !important;
-    }
-    .ticker-item .change-up {
-        color: #00FF00 !important;
-    }
-    .ticker-item .change-down {
-        color: #FF4444 !important;
+        color: #E0E0E0 !important;
     }
     
     h1, h2, h3, h4, h5, h6 { color: #FFFFFF !important; }
-    a { color: #00D9FF !important; }
+    a { color: #3B82F6 !important; }
     
-    .stMetric { background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px; }
-    .stMetric label, .stMetric [data-testid="stMetricValue"], .stMetric [data-testid="stMetricDelta"] {
-        color: #FFFFFF !important;
-    }
-    
-    /* Dataframe/Table text */
-    .stDataFrame, .dataframe, table, tr, td, th { color: #FFFFFF !important; }
-    
-    /* UI CONTRAST AUDIT - Ensure all text is readable */
-    /* Form labels and inputs */
-    .stTextInput > label, .stNumberInput > label, .stSelectbox > label,
-    .stMultiSelect > label, .stSlider > label, .stCheckbox > label,
-    .stRadio > label, .stTextArea > label, .stDateInput > label,
-    .stTimeInput > label, .stFileUploader > label {
-        color: #FFFFFF !important;
-        font-weight: 500 !important;
-    }
-    
-    /* Placeholder text */
-    input::placeholder, textarea::placeholder {
-        color: rgba(255, 255, 255, 0.6) !important;
-    }
-    
-    /* Info, warning, error, success boxes */
-    .stAlert, [data-testid="stAlert"] {
-        color: #FFFFFF !important;
-    }
-    .stAlert p, [data-testid="stAlert"] p {
-        color: #FFFFFF !important;
-    }
-    
-    /* Expander content */
-    .streamlit-expanderContent, [data-testid="stExpanderContent"] {
-        color: #FFFFFF !important;
-    }
-    .streamlit-expanderContent p, [data-testid="stExpanderContent"] p,
-    .streamlit-expanderContent span, [data-testid="stExpanderContent"] span {
-        color: #FFFFFF !important;
-    }
-    
-    /* Tab labels */
-    .stTabs [data-baseweb="tab-list"] button {
-        color: #FFFFFF !important;
-    }
-    .stTabs [data-baseweb="tab-list"] button[aria-selected="true"] {
-        color: #00D9FF !important;
-        border-bottom-color: #00D9FF !important;
-    }
-    
-    /* Caption text */
-    .stCaption, [data-testid="stCaption"] {
-        color: rgba(255, 255, 255, 0.7) !important;
-    }
-    
-    /* Code blocks */
-    code, pre {
-        color: #00D9FF !important;
-        background: rgba(255, 255, 255, 0.1) !important;
-    }
-    
-    /* Markdown text in various containers */
-    [data-testid="stMarkdownContainer"] p,
-    [data-testid="stMarkdownContainer"] li,
-    [data-testid="stMarkdownContainer"] span {
-        color: #FFFFFF !important;
-    }
-    
-    /* Number input arrows */
-    .stNumberInput button {
-        color: #FFFFFF !important;
-    }
-    
-    /* Select dropdown options */
-    [data-baseweb="menu"] {
-        background: #1a1a2e !important;
-    }
-    [data-baseweb="menu"] li {
-        color: #FFFFFF !important;
-    }
-    [data-baseweb="menu"] li:hover {
-        background: rgba(0, 217, 255, 0.2) !important;
-    }
-    
-    .why-box { 
-        background: rgba(255,255,255,0.1); 
-        padding: 20px; 
-        border-radius: 10px; 
-        border-left: 5px solid #00D9FF;
-        margin: 10px 0;
-        color: #FFFFFF !important;
-    }
-    .personal-budget {
-        background: rgba(255,215,0,0.2);
-        padding: 15px;
-        border-radius: 10px;
-        border-left: 5px solid #FFD700;
-        color: #FFFFFF !important;
-    }
-    .risk-warning {
-        background: rgba(255,0,0,0.2);
-        padding: 15px;
-        border-radius: 10px;
-        border-left: 5px solid #FF0000;
-        color: #FFFFFF !important;
-    }
-    .risk-good {
-        background: rgba(0,255,0,0.2);
-        padding: 15px;
-        border-radius: 10px;
-        border-left: 5px solid #00FF00;
-        color: #FFFFFF !important;
-    }
-    .roast-box {
-        background: rgba(255,100,100,0.2);
-        padding: 20px;
-        border-radius: 15px;
-        border: 2px solid #FF6B6B;
-        margin: 15px 0;
-        font-size: 1.1em;
-        color: #FFFFFF !important;
-    }
-    .metric-explain {
-        background: rgba(255,255,255,0.1);
-        padding: 10px;
-        border-radius: 8px;
-        margin: 5px 0;
-        font-size: 0.9em;
-        border-left: 3px solid #00D9FF;
-        color: #FFFFFF !important;
-    }
-    .sector-info {
-        background: rgba(255,215,0,0.15);
-        padding: 8px;
-        border-radius: 6px;
-        margin: 3px 0;
-        font-size: 0.85em;
-        border-left: 3px solid #FFD700;
-        color: #FFFFFF !important;
-    }
-    .growth-note {
-        background: rgba(0,255,150,0.2);
-        padding: 15px;
-        border-radius: 10px;
-        border-left: 5px solid #00FF96;
-        margin: 10px 0;
-        font-size: 1em;
-        color: #FFFFFF !important;
-    }
-    
-    /* Tooltip styling for hover definitions */
-    .ratio-tooltip {
-        position: relative;
-        display: inline-block;
-        cursor: help;
-        color: #00D9FF;
-        margin-left: 5px;
-    }
-    .ratio-tooltip .tooltip-text {
-        visibility: hidden;
-        width: 300px;
-        background-color: #1a1a2e;
-        color: #FFFFFF;
-        text-align: left;
-        border-radius: 8px;
-        padding: 15px;
-        position: absolute;
-        z-index: 1000;
-        bottom: 125%;
-        left: 50%;
-        margin-left: -150px;
-        opacity: 0;
-        transition: opacity 0.3s;
-        border: 1px solid #00D9FF;
-        font-size: 14px;
-        line-height: 1.5;
-    }
-    .ratio-tooltip:hover .tooltip-text {
-        visibility: visible;
-        opacity: 1;
-    }
-    
-    /* RED BUTTONS - Global styling for Analyze buttons and dropdowns */
+    /* Buttons - Softer Red */
     .stButton > button {
-        background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%) !important;
+        background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%) !important;
         color: #FFFFFF !important;
         border: none !important;
         font-weight: bold !important;
         transition: all 0.3s ease !important;
     }
     .stButton > button:hover {
-        background: linear-gradient(135deg, #FF6666 0%, #EE0000 100%) !important;
+        background: linear-gradient(135deg, #F87171 0%, #EF4444 100%) !important;
         transform: translateY(-2px) !important;
-        box-shadow: 0 4px 15px rgba(255, 68, 68, 0.4) !important;
+        box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4) !important;
     }
     
-    /* VIP BUTTON - Gold styling */
-    button[data-testid="baseButton-secondary"]:has(div:contains("👑 Become a VIP")),
-    button:has(p:contains("👑 Become a VIP")) {
-        background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%) !important;
+    /* VIP Button - Gold */
+    button:has(p:contains("👑")) {
+        background: linear-gradient(135deg, #FBBF24 0%, #F59E0B 100%) !important;
         color: #000000 !important;
-        border: 2px solid #FFD700 !important;
-        font-weight: bold !important;
-        box-shadow: 0 4px 15px rgba(255, 215, 0, 0.5) !important;
-    }
-    button[data-testid="baseButton-secondary"]:has(div:contains("👑 Become a VIP")):hover,
-    button:has(p:contains("👑 Become a VIP")):hover {
-        background: linear-gradient(135deg, #FFED4E 0%, #FFB520 100%) !important;
-        transform: translateY(-2px) !important;
-        box-shadow: 0 6px 20px rgba(255, 215, 0, 0.6) !important;
     }
     
-    /* SIGN UP BUTTON - Green styling */
-    button:has(p:contains("📝 Sign Up")) {
-        background: linear-gradient(135deg, #00C853 0%, #00A843 100%) !important;
-        color: #FFFFFF !important;
-        border: none !important;
-    }
-    button:has(p:contains("📝 Sign Up")):hover {
-        background: linear-gradient(135deg, #00E676 0%, #00C853 100%) !important;
-        box-shadow: 0 4px 15px rgba(0, 200, 83, 0.4) !important;
-    }
-    
-    /* SIGN IN BUTTON - Blue styling */
-    button:has(p:contains("🔐 Sign In")) {
-        background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%) !important;
-        color: #FFFFFF !important;
-        border: none !important;
-    }
-    button:has(p:contains("🔐 Sign In")):hover {
-        background: linear-gradient(135deg, #42A5F5 0%, #2196F3 100%) !important;
-        box-shadow: 0 4px 15px rgba(33, 150, 243, 0.4) !important;
-    }
-    
-    /* RED SELECT/DROPDOWN styling */
-    div[data-baseweb="select"] {
-        background: #FF4444 !important;
-        border: 2px solid #FF4444 !important;
+    /* Input Fields - Dark with border */
+    input[type="text"], input[type="number"],
+    .stTextInput input, .stNumberInput input {
+        background: #1F2937 !important;
+        color: #E0E0E0 !important;
+        border: 2px solid #374151 !important;
         border-radius: 8px !important;
     }
-    div[data-baseweb="select"]:hover {
-        background: #FF6666 !important;
-        border-color: #FF6666 !important;
-        box-shadow: 0 0 10px rgba(255, 68, 68, 0.3) !important;
-    }
-    div[data-baseweb="select"] > div,
-    div[data-baseweb="select"] input,
-    div[data-baseweb="select"] span,
-    div[data-baseweb="select"] [role="button"] {
-        background: #FF4444 !important;
-        color: #FFFFFF !important;
-        font-weight: bold !important;
-    }
+    input:focus {
+        background: #374151 !important;
+        border-color: #3B82F6 !important;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
     }
     
-    /* Sidebar Navigation Buttons - Different style from main action buttons */
+    /* Dropdowns - Dark */
+    [data-testid="stSelectbox"] > div > div,
+    [data-baseweb="select"] > div {
+        background: #1F2937 !important;
+        color: #E0E0E0 !important;
+        border: 2px solid #374151 !important;
+    }
+    [data-baseweb="menu"] {
+        background: #1F2937 !important;
+    }
+    [data-baseweb="menu"] li {
+        color: #E0E0E0 !important;
+        background: #1F2937 !important;
+    }
+    [data-baseweb="menu"] li:hover {
+        background: #374151 !important;
+    }
+    [data-baseweb="menu"] li[aria-selected="true"] {
+        background: #3B82F6 !important;
+        color: #FFFFFF !important;
+    }
+    
+    /* Cards & Boxes */
+    .stMetric { 
+        background: rgba(255,255,255,0.05) !important; 
+        padding: 15px !important; 
+        border-radius: 10px !important;
+        border: 1px solid rgba(255,255,255,0.1) !important;
+    }
+    .stMetric label, .stMetric [data-testid="stMetricValue"], .stMetric [data-testid="stMetricDelta"] {
+        color: #E0E0E0 !important;
+    }
+    
+    /* Tables */
+    .stDataFrame, .dataframe, table, tr, td, th { 
+        color: #E0E0E0 !important; 
+        background: #1F2937 !important;
+    }
+    
+    /* Alerts */
+    .stAlert { 
+        background: rgba(255,255,255,0.05) !important;
+        border: 1px solid rgba(255,255,255,0.1) !important;
+    }
+    .stAlert * { color: #E0E0E0 !important; }
+    
+    /* Finance Boxes - Green for Gains */
+    .risk-good {
+        background: rgba(34, 197, 94, 0.15) !important;
+        border-left: 4px solid #22C55E !important;
+        color: #E0E0E0 !important;
+    }
+    
+    /* Finance Boxes - Red for Losses */
+    .risk-warning {
+        background: rgba(239, 68, 68, 0.15) !important;
+        border-left: 4px solid #EF4444 !important;
+        color: #E0E0E0 !important;
+    }
+    
+    /* Live Ticker Bar */
+    .ticker-bar {
+        background: linear-gradient(90deg, #0a0a1e 0%, #1a1a2e 50%, #0a0a1e 100%) !important;
+        border-bottom: 2px solid #EF4444 !important;
+    }
+    .ticker-item .change-up { color: #22C55E !important; }
+    .ticker-item .change-down { color: #EF4444 !important; }
+    
+    /* Tabs */
+    .stTabs [data-baseweb="tab-list"] button {
+        color: #9CA3AF !important;
+    }
+    .stTabs [data-baseweb="tab-list"] button[aria-selected="true"] {
+        color: #3B82F6 !important;
+        border-bottom-color: #3B82F6 !important;
+    }
+    
+    /* Sidebar Buttons */
     [data-testid="stSidebar"] .stButton > button {
         background: rgba(255,255,255,0.05) !important;
-        color: #FFFFFF !important;
-        border: 1px solid rgba(255,255,255,0.2) !important;
-        font-weight: normal !important;
-        text-align: left !important;
-        padding: 8px 12px !important;
-        transition: all 0.2s ease !important;
+        color: #E0E0E0 !important;
+        border: 1px solid rgba(255,255,255,0.1) !important;
     }
     [data-testid="stSidebar"] .stButton > button:hover {
-        background: rgba(0, 217, 255, 0.2) !important;
-        border-color: #00D9FF !important;
-        transform: translateX(5px) !important;
-        box-shadow: none !important;
+        background: rgba(59, 130, 246, 0.2) !important;
+        border-color: #3B82F6 !important;
     }
     
-    /* Expander styling in sidebar */
-    [data-testid="stSidebar"] .streamlit-expanderHeader {
+    /* Expanders */
+    [data-testid="stExpander"] {
         background: rgba(255,255,255,0.05) !important;
-        border-radius: 8px !important;
-        font-weight: bold !important;
-    }
-    
-    /* RED TEXT INPUT styling */
-    input[type="text"],
-    input[type="number"],
-    .stTextInput input,
-    .stNumberInput input {
-        background: #FF4444 !important;
-        color: #FFFFFF !important;
-        font-weight: bold !important;
-        border: 2px solid #FF4444 !important;
+        border: 1px solid rgba(255,255,255,0.1) !important;
         border-radius: 8px !important;
     }
-    input[type="text"]:focus,
-    input[type="number"]:focus,
-    .stTextInput input:focus,
-    .stNumberInput input:focus {
-        background: #FF6666 !important;
-        border-color: #FF6666 !important;
-        box-shadow: 0 0 10px rgba(255, 68, 68, 0.3) !important;
+    [data-testid="stExpander"] summary {
+        color: #E0E0E0 !important;
     }
-    
-    /* Fade-in animation for cards */
-    @keyframes fadeInUp {
-        from {
-            opacity: 0;
-            transform: translateY(20px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-    .fade-in {
-        animation: fadeInUp 0.5s ease-out forwards;
-    }
-    
-    /* Hover lift effect for cards */
-    .lift-card {
-        transition: all 0.3s ease !important;
-    }
-    .lift-card:hover {
-        transform: translateY(-5px) !important;
-        box-shadow: 0 10px 30px rgba(0, 217, 255, 0.2) !important;
-    }
-    
-    /* Live Ticker Bar styling */
-    .ticker-bar {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 35px;
-        background: linear-gradient(90deg, #0a0a0a 0%, #1a1a2e 50%, #0a0a0a 100%);
-        border-bottom: 1px solid #333;
-        z-index: 9999;
-        overflow: hidden;
-        display: flex;
-        align-items: center;
-    }
-    .ticker-content {
-        display: flex;
-        animation: scroll-left 60s linear infinite;
-        white-space: nowrap;
-    }
-    .ticker-bar:hover .ticker-content {
-        animation-play-state: paused;
-    }
-    @keyframes scroll-left {
-        0% { transform: translateX(0); }
-        100% { transform: translateX(-50%); }
-    }
-    .ticker-item {
-        display: inline-flex;
-        align-items: center;
-        padding: 0 20px;
-        font-size: 13px;
-        color: #FFFFFF;
-    }
-    .ticker-item .symbol {
-        font-weight: bold;
-        color: #00D9FF;
-        margin-right: 8px;
-    }
-    .ticker-item .price {
-        margin-right: 8px;
-    }
-    .ticker-item .change-up {
-        color: #00FF00;
-    }
-    .ticker-item .change-down {
-        color: #FF4444;
-    }
-    
-    /* Add padding to main content for ticker bar */
-    [data-testid="stAppViewContainer"] {
-        padding-top: 40px !important;
-    }
-    
-    /* Welcome popup styling */
-    .welcome-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.9);
-        z-index: 10000;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-    }
-    .welcome-popup {
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-        border: 2px solid #00D9FF;
-        border-radius: 20px;
-        padding: 40px;
-        max-width: 500px;
-        text-align: center;
-        animation: fadeInUp 0.5s ease-out;
-    }
-    .welcome-popup h1 {
-        color: #FFFFFF;
-        margin-bottom: 20px;
-    }
-    .welcome-popup ul {
-        text-align: left;
-        color: #FFFFFF;
-        line-height: 2;
-    }
-    .welcome-btn {
-        background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%) !important;
-        color: #FFFFFF !important;
-        padding: 15px 40px !important;
-        font-size: 18px !important;
-        font-weight: bold !important;
-        border: none !important;
-        border-radius: 10px !important;
-        cursor: pointer !important;
-        margin-top: 20px !important;
-    }
-    .welcome-btn:hover {
-        background: linear-gradient(135deg, #FF6666 0%, #EE0000 100%) !important;
-    }
-    
-    /* Confetti animation */
-    @keyframes confetti-fall {
-        0% { transform: translateY(-100vh) rotate(0deg); opacity: 1; }
-        100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
-    }
-    .confetti {
-        position: fixed;
-        width: 10px;
-        height: 10px;
-        z-index: 10001;
-        animation: confetti-fall 3s ease-out forwards;
+    [data-testid="stExpanderContent"] * {
+        color: #E0E0E0 !important;
     }
     </style>
     """, unsafe_allow_html=True)
 else:
     st.markdown("""
     <style>
-    /* LIGHT MODE - White Background with Black Text */
-    .main { background: #FFFFFF !important; padding-top: 80px !important; }
-    .stApp { background: #FFFFFF !important; }
-    [data-testid="stAppViewContainer"] { background: #FFFFFF !important; padding-top: 80px !important; }
-    [data-testid="stHeader"] { background: #FFFFFF !important; }
-    [data-testid="stSidebar"] { background: #F5F5F5 !important; padding-top: 80px !important; }
+    /* ==================== LIGHT MODE ==================== */
+    /* Clean light theme with high contrast and professional colors */
     
-    /* CRITICAL: Force black text on white background - EVERYWHERE */
+    /* Base Colors */
+    .main { background: #F9F9F9 !important; padding-top: 80px !important; }
+    .stApp { background: #F9F9F9 !important; }
+    [data-testid="stAppViewContainer"] { background: #F9F9F9 !important; padding-top: 80px !important; }
+    [data-testid="stHeader"] { background: #FFFFFF !important; border-bottom: 1px solid #E5E7EB !important; }
+    [data-testid="stSidebar"] { background: #F3F4F6 !important; padding-top: 80px !important; border-right: 1px solid #E5E7EB !important; }
+    
+    /* Text - High Contrast */
     html, body, .stApp, [data-testid="stAppViewContainer"], 
     [data-testid="stSidebar"], p, span, div, label, li, td, th,
     .stMarkdown, .stText, [data-testid="stMarkdownContainer"],
     .element-container, .stRadio label, .stSelectbox label,
     .stTextInput label, .stSlider label, .stCheckbox label {
-        color: #000000 !important;
+        color: #121212 !important;
     }
     
-    /* Sidebar text MUST be dark */
-    [data-testid="stSidebar"] * {
-        color: #000000 !important;
-    }
-    [data-testid="stSidebar"] .stMarkdown,
-    [data-testid="stSidebar"] p,
-    [data-testid="stSidebar"] span,
-    [data-testid="stSidebar"] label {
-        color: #000000 !important;
-    }
+    h1, h2, h3, h4, h5, h6 { color: #111827 !important; }
+    a { color: #2563EB !important; }
     
-    /* INPUT FIELDS - White background, dark text, visible border */
-    .stTextInput input, .stTextArea textarea, .stNumberInput input {
-        background: #FFFFFF !important;
-        color: #000000 !important;
-        border: 2px solid #CCCCCC !important;
-    }
-    .stTextInput input:focus, .stTextArea textarea:focus, .stNumberInput input:focus {
-        border-color: #FF4444 !important;
-    }
-    
-    /* DROPDOWNS - White background, dark text */
-    [data-testid="stSelectbox"] > div > div {
-        background: #FFFFFF !important;
-        color: #000000 !important;
-        border: 2px solid #CCCCCC !important;
-    }
-    [data-testid="stSelectbox"] [data-baseweb="select"] > div {
-        background: #FFFFFF !important;
-        color: #000000 !important;
-    }
-    [data-testid="stSelectbox"] [data-baseweb="select"] > div > div {
-        color: #000000 !important;
-    }
-    
-    /* Dropdown menu options */
-    [data-baseweb="menu"] {
-        background: #FFFFFF !important;
-        border: 2px solid #CCCCCC !important;
-    }
-    [data-baseweb="menu"] li {
-        background: #FFFFFF !important;
-        color: #000000 !important;
-    }
-    [data-baseweb="menu"] li:hover {
-        background: #F0F0F0 !important;
-        color: #000000 !important;
-    }
-    [data-baseweb="menu"] li[aria-selected="true"] {
-        background: #FF4444 !important;
-        color: #FFFFFF !important;
-    }
-    
-    /* EXPANDERS */
-    .streamlit-expanderHeader {
-        background: #F5F5F5 !important;
-        color: #000000 !important;
-        border: 1px solid #CCCCCC !important;
-    }
-    .streamlit-expanderContent {
-        background: #FAFAFA !important;
-        color: #000000 !important;
-    }
-    [data-testid="stExpander"] {
-        border: 1px solid #CCCCCC !important;
-    }
-    [data-testid="stExpanderContent"] * {
-        color: #000000 !important;
-    }
-    
-    /* TABS */
-    .stTabs [data-baseweb="tab-list"] {
-        background: #F5F5F5 !important;
-    }
-    .stTabs [data-baseweb="tab-list"] button {
-        color: #000000 !important;
-    }
-    .stTabs [data-baseweb="tab-list"] button[aria-selected="true"] {
-        color: #FF4444 !important;
-        border-bottom-color: #FF4444 !important;
-    }
-    
-    /* ALERTS */
-    .stAlert {
-        background: #F5F5F5 !important;
-        border: 1px solid #CCCCCC !important;
-    }
-    .stAlert * {
-        color: #000000 !important;
-    }
-    
-    h1, h2, h3, h4, h5, h6 { color: #000000 !important; }
-    a { color: #0066CC !important; }
-    
-    .stMetric { background: rgba(240,240,240,0.9); padding: 15px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-    .stMetric label, .stMetric [data-testid="stMetricValue"], .stMetric [data-testid="stMetricDelta"] {
-        color: #000000 !important;
-    }
-    
-    /* Dataframe/Table text */
-    .stDataFrame, .dataframe, table, tr, td, th { 
-        color: #000000 !important; 
-        background: #FFFFFF !important;
-    }
-    
-    .why-box { 
-        background: rgba(255,255,255,0.9); 
-        padding: 20px; 
-        border-radius: 10px; 
-        border-left: 5px solid #00D9FF;
-        margin: 10px 0;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        color: #000000 !important;
-    }
-    .personal-budget {
-        background: rgba(255,235,180,0.9);
-        padding: 15px;
-        border-radius: 10px;
-        border-left: 5px solid #FFD700;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        color: #000000 !important;
-    }
-    .risk-warning {
-        background: rgba(255,200,200,0.9);
-        padding: 15px;
-        border-radius: 10px;
-        border-left: 5px solid #FF0000;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        color: #000000 !important;
-    }
-    .risk-good {
-        background: rgba(200,255,200,0.9);
-        padding: 15px;
-        border-radius: 10px;
-        border-left: 5px solid #00FF00;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        color: #000000 !important;
-    }
-    .roast-box {
-        background: rgba(255,220,220,0.9);
-        padding: 20px;
-        border-radius: 15px;
-        border: 2px solid #FF6B6B;
-        margin: 15px 0;
-        font-size: 1.1em;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        color: #000000 !important;
-    }
-    .metric-explain {
-        background: rgba(240,248,255,0.95);
-        padding: 10px;
-        border-radius: 8px;
-        margin: 5px 0;
-        font-size: 0.9em;
-        border-left: 3px solid #00D9FF;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        color: #000000 !important;
-    }
-    .sector-info {
-        background: rgba(255,250,205,0.95);
-        padding: 8px;
-        border-radius: 6px;
-        margin: 3px 0;
-        font-size: 0.85em;
-        border-left: 3px solid #FFD700;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        color: #000000 !important;
-    }
-    .growth-note {
-        background: rgba(200,255,220,0.95);
-        padding: 15px;
-        border-radius: 10px;
-        border-left: 5px solid #00DD88;
-        margin: 10px 0;
-        font-size: 1em;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        color: #000000 !important;
-    }
-    
-    /* RED BUTTONS - Global styling for Analyze buttons */
+    /* Buttons - Darker Red for Visibility */
     .stButton > button {
-        background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%) !important;
+        background: linear-gradient(135deg, #DC2626 0%, #B91C1C 100%) !important;
         color: #FFFFFF !important;
         border: none !important;
         font-weight: bold !important;
         transition: all 0.3s ease !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
     }
     .stButton > button:hover {
-        background: linear-gradient(135deg, #FF6666 0%, #EE0000 100%) !important;
+        background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%) !important;
         transform: translateY(-2px) !important;
-        box-shadow: 0 4px 15px rgba(255, 68, 68, 0.4) !important;
+        box-shadow: 0 4px 8px rgba(220, 38, 38, 0.25) !important;
     }
     
-    /* VIP BUTTON - Gold styling */
-    button[data-testid="baseButton-secondary"]:has(div:contains("👑 Become a VIP")),
-    button:has(p:contains("👑 Become a VIP")) {
-        background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%) !important;
+    /* VIP Button - Gold */
+    button:has(p:contains("👑")) {
+        background: linear-gradient(135deg, #FBBF24 0%, #F59E0B 100%) !important;
         color: #000000 !important;
-        border: 2px solid #FFD700 !important;
-        font-weight: bold !important;
-        box-shadow: 0 4px 15px rgba(255, 215, 0, 0.5) !important;
+        border: 2px solid #D97706 !important;
     }
-    button[data-testid="baseButton-secondary"]:has(div:contains("👑 Become a VIP")):hover,
-    button:has(p:contains("👑 Become a VIP")):hover {
-        background: linear-gradient(135deg, #FFED4E 0%, #FFB520 100%) !important;
-        transform: translateY(-2px) !important;
-        box-shadow: 0 6px 20px rgba(255, 215, 0, 0.6) !important;
+    button:has(p:contains("👑")):hover {
+        background: linear-gradient(135deg, #FCD34D 0%, #FBBF24 100%) !important;
     }
     
-    /* SIGN UP BUTTON - Green styling */
+    /* Sign Up/Sign In Buttons */
     button:has(p:contains("📝 Sign Up")) {
-        background: linear-gradient(135deg, #00C853 0%, #00A843 100%) !important;
+        background: linear-gradient(135deg, #15803C 0%, #166534 100%) !important;
         color: #FFFFFF !important;
-        border: none !important;
     }
-    button:has(p:contains("📝 Sign Up")):hover {
-        background: linear-gradient(135deg, #00E676 0%, #00C853 100%) !important;
-        box-shadow: 0 4px 15px rgba(0, 200, 83, 0.4) !important;
-    }
-    
-    /* SIGN IN BUTTON - Blue styling */
     button:has(p:contains("🔐 Sign In")) {
-        background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%) !important;
+        background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%) !important;
         color: #FFFFFF !important;
-        border: none !important;
-    }
-    button:has(p:contains("🔐 Sign In")):hover {
-        background: linear-gradient(135deg, #42A5F5 0%, #2196F3 100%) !important;
-        box-shadow: 0 4px 15px rgba(33, 150, 243, 0.4) !important;
     }
     
-    /* RED SELECT/DROPDOWN styling */
-    div[data-baseweb="select"] {
-        background: #FF4444 !important;
-        border: 2px solid #FF4444 !important;
+    /* Input Fields - White with Border */
+    input[type="text"], input[type="number"],
+    .stTextInput input, .stNumberInput input {
+        background: #FFFFFF !important;
+        color: #111827 !important;
+        border: 2px solid #D1D5DB !important;
         border-radius: 8px !important;
     }
-    div[data-baseweb="select"]:hover {
-        background: #FF6666 !important;
-        border-color: #FF6666 !important;
-        box-shadow: 0 0 10px rgba(255, 68, 68, 0.3) !important;
+    input:focus {
+        border-color: #2563EB !important;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1) !important;
     }
-    div[data-baseweb="select"] > div,
-    div[data-baseweb="select"] input,
-    div[data-baseweb="select"] span,
-    div[data-baseweb="select"] [role="button"] {
-        background: #FF4444 !important;
-        color: #FFFFFF !important;
-        font-weight: bold !important;
+    input::placeholder {
+        color: #9CA3AF !important;
     }
     
-    /* RED TEXT INPUT styling */
-    input[type="text"],
-    input[type="number"],
-    .stTextInput input,
-    .stNumberInput input {
-        background: #FF4444 !important;
-        color: #FFFFFF !important;
-        font-weight: bold !important;
-        border: 2px solid #FF4444 !important;
-        border-radius: 8px !important;
+    /* Dropdowns - White with Dark Text */
+    [data-testid="stSelectbox"] > div > div,
+    [data-baseweb="select"] > div {
+        background: #FFFFFF !important;
+        color: #111827 !important;
+        border: 2px solid #D1D5DB !important;
     }
-    input[type="text"]:focus,
-    input[type="number"]:focus,
-    .stTextInput input:focus,
-    .stNumberInput input:focus {
-        background: #FF6666 !important;
-        border-color: #FF6666 !important;
-        box-shadow: 0 0 10px rgba(255, 68, 68, 0.3) !important;
+    [data-baseweb="select"] span,
+    [data-baseweb="select"] div {
+        color: #111827 !important;
+    }
+    [data-baseweb="menu"] {
+        background: #FFFFFF !important;
+        border: 1px solid #E5E7EB !important;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
+    }
+    [data-baseweb="menu"] li {
+        color: #111827 !important;
+        background: #FFFFFF !important;
+    }
+    [data-baseweb="menu"] li:hover {
+        background: #F3F4F6 !important;
+    }
+    [data-baseweb="menu"] li[aria-selected="true"] {
+        background: #2563EB !important;
+        color: #FFFFFF !important;
     }
     
-    /* Sidebar Navigation Buttons - Different style from main action buttons */
+    /* Cards & Boxes */
+    .stMetric { 
+        background: #FFFFFF !important; 
+        padding: 15px !important; 
+        border-radius: 10px !important;
+        border: 1px solid #E5E7EB !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+    }
+    .stMetric label, .stMetric [data-testid="stMetricValue"], .stMetric [data-testid="stMetricDelta"] {
+        color: #111827 !important;
+    }
+    
+    /* Tables */
+    .stDataFrame, .dataframe, table, tr, td, th { 
+        color: #111827 !important; 
+        background: #FFFFFF !important;
+    }
+    table { border: 1px solid #E5E7EB !important; }
+    th { background: #F9FAFB !important; font-weight: 600 !important; }
+    
+    /* Alerts */
+    .stAlert { 
+        background: #FFFFFF !important;
+        border: 1px solid #E5E7EB !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+    }
+    .stAlert * { color: #111827 !important; }
+    
+    /* Finance Boxes - Dark Green for Gains (High Contrast) */
+    .risk-good {
+        background: #D1FAE5 !important;
+        border: 1px solid #6EE7B7 !important;
+        border-left: 4px solid #15803C !important;
+        color: #065F46 !important;
+    }
+    .risk-good strong { color: #065F46 !important; }
+    
+    /* Finance Boxes - Dark Red for Losses (High Contrast) */
+    .risk-warning {
+        background: #FEE2E2 !important;
+        border: 1px solid #FECACA !important;
+        border-left: 4px solid #DC2626 !important;
+        color: #991B1B !important;
+    }
+    .risk-warning strong { color: #991B1B !important; }
+    
+    /* Warning/Info Boxes */
+    .personal-budget {
+        background: #FEF3C7 !important;
+        border: 1px solid #FDE68A !important;
+        border-left: 4px solid #D97706 !important;
+        color: #92400E !important;
+    }
+    
+    .why-box {
+        background: #DBEAFE !important;
+        border: 1px solid #BFDBFE !important;
+        border-left: 4px solid #2563EB !important;
+        color: #1E40AF !important;
+    }
+    
+    /* Live Ticker Bar */
+    .ticker-bar {
+        background: #FFFFFF !important;
+        border-bottom: 2px solid #E5E7EB !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+    }
+    .ticker-item { color: #111827 !important; }
+    .ticker-item .symbol { color: #2563EB !important; }
+    .ticker-item .change-up { color: #15803C !important; font-weight: 600 !important; }
+    .ticker-item .change-down { color: #DC2626 !important; font-weight: 600 !important; }
+    
+    /* Tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        background: #F9FAFB !important;
+        border-bottom: 1px solid #E5E7EB !important;
+    }
+    .stTabs [data-baseweb="tab-list"] button {
+        color: #6B7280 !important;
+    }
+    .stTabs [data-baseweb="tab-list"] button[aria-selected="true"] {
+        color: #DC2626 !important;
+        border-bottom-color: #DC2626 !important;
+        font-weight: 600 !important;
+    }
+    
+    /* Sidebar Buttons */
     [data-testid="stSidebar"] .stButton > button {
-        background: rgba(0,0,0,0.05) !important;
-        color: #1e1e1e !important;
-        border: 1px solid rgba(0,0,0,0.2) !important;
-        font-weight: normal !important;
-        text-align: left !important;
-        padding: 8px 12px !important;
-        transition: all 0.2s ease !important;
+        background: #FFFFFF !important;
+        color: #111827 !important;
+        border: 1px solid #D1D5DB !important;
     }
     [data-testid="stSidebar"] .stButton > button:hover {
-        background: rgba(0, 150, 255, 0.2) !important;
-        border-color: #0096FF !important;
-        transform: translateX(5px) !important;
-        box-shadow: none !important;
+        background: #F3F4F6 !important;
+        border-color: #2563EB !important;
+        color: #2563EB !important;
     }
     
-    /* Expander styling in sidebar */
-    [data-testid="stSidebar"] .streamlit-expanderHeader {
-        background: rgba(0,0,0,0.05) !important;
+    /* Expanders */
+    [data-testid="stExpander"] {
+        background: #FFFFFF !important;
+        border: 1px solid #E5E7EB !important;
         border-radius: 8px !important;
-        font-weight: bold !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+    }
+    [data-testid="stExpander"] summary {
+        color: #111827 !important;
+        font-weight: 500 !important;
+    }
+    [data-testid="stExpanderContent"] * {
+        color: #111827 !important;
     }
     
-    /* Fix text visibility on dark backgrounds in light mode - VIP pricing cards */
-    div[style*="background: #1a1a1a"] {
-        color: #FFFFFF !important;
+    /* Captions */
+    .stCaption, [data-testid="stCaption"] {
+        color: #6B7280 !important;
     }
-    div[style*="background: #1a1a1a"] h3,
-    div[style*="background: #1a1a1a"] p,
-    div[style*="background: #1a1a1a"] strong {
-        color: #FFFFFF !important;
-    }
-    div[style*="background: linear-gradient(135deg, #1a1a2e"] {
-        color: #FFFFFF !important;
-    }
-    div[style*="background: linear-gradient(135deg, #1a1a2e"] h2,
-    div[style*="background: linear-gradient(135deg, #1a1a2e"] p {
-        color: #FFFFFF !important;
-    }
-    
-    p, div, span, li { color: #000000 !important; }
     </style>
     """, unsafe_allow_html=True)
-
-# ============= METRIC EXPLANATIONS (FOR TOOLTIPS) =============
-# "Dumb-User" 10-Word Definitions for Beginners
-METRIC_EXPLANATIONS = {
-    "P/E Ratio": {
-        "short": "Price vs. Profit. How much you pay for $1 of earnings.",
-        "explanation": "How much you pay for $1 of earnings. Lower = cheaper. Tech average: 25 | Value stocks: 15",
-        "good": "15-25 is reasonable | >40 is expensive | <10 might be undervalued or troubled"
-    },
-    "P/S Ratio": {
-        "short": "Price vs. Sales. Good for companies not yet profitable.",
-        "explanation": "How much you pay for $1 of revenue. Useful when company isn't profitable yet.",
-        "good": "Tech: 5-10 | Retail: 0.5-2 | Lower = better value"
-    },
-    "P/B Ratio": {
-        "short": "Price vs. Book Value. What you pay for company's assets.",
-        "explanation": "Stock price divided by book value per share. Shows if stock is cheap relative to assets.",
-        "good": "<1.0 = Trading below asset value | 1-3 = Fair | >5 = Expensive"
-    },
-    "EV/EBITDA": {
-        "short": "Enterprise Value vs. Operating Profit. Compares total company value.",
-        "explanation": "Total company value (including debt) divided by operating earnings. Better than P/E for comparing companies with different debt levels.",
-        "good": "<10 = Cheap | 10-15 = Fair | >20 = Expensive"
-    },
-    "Debt-to-Equity": {
-        "short": "How much debt a company uses to grow. Lower is safer.",
-        "explanation": "Measures financial leverage. High debt = risky during recessions.",
-        "good": "<1.0 = Low debt (good) | 1-2 = Moderate | >2.0 = High risk"
-    },
-    "Current Ratio": {
-        "short": "Can the company pay its bills? Above 1.5 is safe.",
-        "explanation": "Current assets divided by current liabilities. Shows short-term financial health.",
-        "good": ">2.0 = Very safe | 1.5-2.0 = Good | <1.0 = Risky"
-    },
-    "Quick Ratio": {
-        "short": "Cash available to pay bills immediately. Above 1.0 is good.",
-        "explanation": "Can the company pay short-term bills without selling inventory?",
-        "good": ">1.5 = Excellent liquidity | 1.0-1.5 = Good | <1.0 = Potential cash problems"
-    },
-    "FCF per Share": {
-        "short": "Real cash generated per share. Can't be faked with accounting.",
-        "explanation": "Real cash generated per share you own. Unlike earnings, FCF can't be manipulated easily.",
-        "good": "Positive = good | Growing FCF/share = excellent | Negative = burning cash"
-    },
-    "FCF Yield": {
-        "short": "Free cash flow as % of stock price. Higher is better.",
-        "explanation": "FCF per share divided by stock price. Shows cash return on investment.",
-        "good": ">5% = Good yield | 3-5% = Average | <3% = Low yield"
-    },
-    "Gross Margin": {
-        "short": "Profit kept after making the product. Shows pricing power.",
-        "explanation": "Revenue minus cost of goods sold, as a percentage. Higher = better pricing power.",
-        "good": ">50% = Strong | 30-50% = Average | <30% = Weak pricing power"
-    },
-    "Operating Margin": {
-        "short": "Profit kept after bills are paid. Higher is more efficient.",
-        "explanation": "Operating income divided by revenue. Shows how efficiently company runs.",
-        "good": ">20% = Excellent | 10-20% = Good | <10% = Needs improvement"
-    },
-    "Net Margin": {
-        "short": "Final profit after everything. The bottom line percentage.",
-        "explanation": "Net income divided by revenue. The ultimate profitability measure.",
-        "good": ">15% = Strong | 5-15% = Average | <5% = Thin margins"
-    },
-    "ROE": {
-        "short": "Return on shareholder money. Buffett's favorite metric.",
-        "explanation": "Net income divided by shareholder equity. Shows how well company uses investor money.",
-        "good": ">20% = Excellent | 15-20% = Good | <10% = Poor"
-    },
-    "ROA": {
-        "short": "Return on all assets. How efficiently company uses everything.",
-        "explanation": "Net income divided by total assets. Shows overall efficiency.",
-        "good": ">10% = Excellent | 5-10% = Good | <5% = Inefficient"
-    },
-    "RSI": {
-        "short": "Speedometer for price. Over 70 is 'Hot,' under 30 is 'Cold'.",
-        "explanation": "Relative Strength Index. Measures if stock is overbought or oversold.",
-        "good": ">70 = Overbought (might drop) | 30-70 = Normal | <30 = Oversold (might rise)"
-    },
-    "Market Cap": {
-        "short": "Total value of all shares. Shows company size.",
-        "explanation": "Stock price × shares outstanding. Shows company size.",
-        "good": ">$200B = Mega cap | $10-200B = Large cap | <$2B = Small cap (risky)"
-    },
-    "Beta": {
-        "short": "Stock volatility vs market. Higher means more swings.",
-        "explanation": "Measures how much stock moves relative to market.",
-        "good": "<0.8 = Defensive | 1.0 = Moves with market | >1.3 = High volatility"
-    }
-}
-
-
-
 # ============= COMPREHENSIVE METRIC EXPLANATIONS =============
 FINANCIAL_METRICS_EXPLAINED = {
     # Income Statement Metrics
