@@ -35,6 +35,43 @@ STARTING_CASH = float(os.environ.get("STARTING_CASH", "100000"))
 
 st.set_page_config(page_title="Investing Made Simple", layout="wide", page_icon="💰")
 
+# ============= THEME-AWARE COLOR HELPERS =============
+def get_box_bg():
+    """Returns appropriate box background based on current theme"""
+    if st.session_state.get('theme', 'dark') == 'light':
+        return '#FFFFFF'  # White background for light mode
+    return 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)'  # Dark gradient for dark mode
+
+def get_box_gradient_bg():
+    """Returns gradient background based on theme"""
+    if st.session_state.get('theme', 'dark') == 'light':
+        return 'linear-gradient(135deg, #F3F4F6 0%, #E5E7EB 100%)'  # Light gradient
+    return 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)'  # Dark gradient
+
+def get_box_solid_bg():
+    """Returns solid background color based on theme"""
+    if st.session_state.get('theme', 'dark') == 'light':
+        return '#FFFFFF'
+    return '#1a1a2e'
+
+def get_text_color():
+    """Returns appropriate text color based on theme"""
+    if st.session_state.get('theme', 'dark') == 'light':
+        return '#111827'  # Dark text for light mode
+    return '#E0E0E0'  # Light text for dark mode
+
+def get_box_border():
+    """Returns box border based on theme"""
+    if st.session_state.get('theme', 'dark') == 'light':
+        return '1px solid #E5E7EB'
+    return 'none'
+
+def get_box_shadow():
+    """Returns box shadow based on theme"""
+    if st.session_state.get('theme', 'dark') == 'light':
+        return '0 1px 3px rgba(0,0,0,0.1)'
+    return 'none'
+
 # Initialize selected page
 if 'selected_page' not in st.session_state:
     st.session_state.selected_page = "🏠 Dashboard"
@@ -149,14 +186,14 @@ def show_page_popup(page_id, title, summary, cool_feature):
         return
     
     # Inject global CSS to style ALL dialogs with dark background
-    st.markdown("""
+    st.markdown(f"""
     <style>
     /* Force dark background on dialog */
     [data-testid="stDialog"] [data-testid="stVerticalBlock"] {
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%) !important;
+        background: {get_box_gradient_bg()} !important;
     }
     [data-testid="stDialog"] > div > div {
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%) !important;
+        background: {get_box_gradient_bg()} !important;
         border: 2px solid #ff4b4b !important;
         border-radius: 15px !important;
     }
@@ -167,11 +204,11 @@ def show_page_popup(page_id, title, summary, cool_feature):
     [data-testid="stDialog"] h2,
     [data-testid="stDialog"] h3,
     [data-testid="stDialog"] label {
-        color: #FFFFFF !important;
+        color: {get_text_color()} !important;
     }
     /* Style the close X button */
     [data-testid="stDialog"] button[kind="header"] {
-        color: #FFFFFF !important;
+        color: {get_text_color()} !important;
     }
     [data-testid="stDialog"] svg {
         fill: #FFFFFF !important;
@@ -185,14 +222,14 @@ def show_page_popup(page_id, title, summary, cool_feature):
     def page_intro_dialog():
         # Content with description and cool feature
         st.markdown(f"""
-        <p style="font-size: 16px; line-height: 1.7; margin-bottom: 20px; color: #E0E0E0;">{summary}</p>
+        <p style="font-size: 16px; line-height: 1.7; margin-bottom: 20px; color: {get_text_color()};">{summary}</p>
         <div style="
             background: linear-gradient(135deg, rgba(255, 75, 75, 0.3), rgba(255, 100, 100, 0.2)); 
             padding: 15px; 
             border-radius: 10px; 
             border-left: 4px solid #ff4b4b;
         ">
-            <p style="margin: 0; font-size: 15px; color: #FFFFFF;">
+            <p style="margin: 0; font-size: 15px; color: {get_text_color()};">
                 🌟 <strong style="color: #ff4b4b;">Cool Feature:</strong> {cool_feature}
             </p>
         </div>
@@ -610,16 +647,16 @@ if st.session_state.theme == 'dark':
     .stMarkdown, .stText, [data-testid="stMarkdownContainer"],
     .element-container, .stRadio label, .stSelectbox label,
     .stTextInput label, .stSlider label, .stCheckbox label {
-        color: #E0E0E0 !important;
+        color: {get_text_color()} !important;
     }
     
-    h1, h2, h3, h4, h5, h6 { color: #FFFFFF !important; }
+    h1, h2, h3, h4, h5, h6 { color: {get_text_color()} !important; }
     a { color: #3B82F6 !important; }
     
     /* Buttons - Softer Red */
     .stButton > button {
         background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%) !important;
-        color: #FFFFFF !important;
+        color: {get_text_color()} !important;
         border: none !important;
         font-weight: bold !important;
         transition: all 0.3s ease !important;
@@ -640,7 +677,7 @@ if st.session_state.theme == 'dark':
     input[type="text"], input[type="number"],
     .stTextInput input, .stNumberInput input {
         background: #1F2937 !important;
-        color: #E0E0E0 !important;
+        color: {get_text_color()} !important;
         border: 2px solid #374151 !important;
         border-radius: 8px !important;
     }
@@ -654,14 +691,14 @@ if st.session_state.theme == 'dark':
     [data-testid="stSelectbox"] > div > div,
     [data-baseweb="select"] > div {
         background: #1F2937 !important;
-        color: #E0E0E0 !important;
+        color: {get_text_color()} !important;
         border: 2px solid #374151 !important;
     }
     [data-baseweb="menu"] {
         background: #1F2937 !important;
     }
     [data-baseweb="menu"] li {
-        color: #E0E0E0 !important;
+        color: {get_text_color()} !important;
         background: #1F2937 !important;
     }
     [data-baseweb="menu"] li:hover {
@@ -669,7 +706,7 @@ if st.session_state.theme == 'dark':
     }
     [data-baseweb="menu"] li[aria-selected="true"] {
         background: #3B82F6 !important;
-        color: #FFFFFF !important;
+        color: {get_text_color()} !important;
     }
     
     /* Cards & Boxes */
@@ -680,12 +717,12 @@ if st.session_state.theme == 'dark':
         border: 1px solid rgba(255,255,255,0.1) !important;
     }
     .stMetric label, .stMetric [data-testid="stMetricValue"], .stMetric [data-testid="stMetricDelta"] {
-        color: #E0E0E0 !important;
+        color: {get_text_color()} !important;
     }
     
     /* Tables */
     .stDataFrame, .dataframe, table, tr, td, th { 
-        color: #E0E0E0 !important; 
+        color: {get_text_color()} !important; 
         background: #1F2937 !important;
     }
     
@@ -694,20 +731,20 @@ if st.session_state.theme == 'dark':
         background: rgba(255,255,255,0.05) !important;
         border: 1px solid rgba(255,255,255,0.1) !important;
     }
-    .stAlert * { color: #E0E0E0 !important; }
+    .stAlert * { color: {get_text_color()} !important; }
     
     /* Finance Boxes - Green for Gains */
     .risk-good {
         background: rgba(34, 197, 94, 0.15) !important;
         border-left: 4px solid #22C55E !important;
-        color: #E0E0E0 !important;
+        color: {get_text_color()} !important;
     }
     
     /* Finance Boxes - Red for Losses */
     .risk-warning {
         background: rgba(239, 68, 68, 0.15) !important;
         border-left: 4px solid #EF4444 !important;
-        color: #E0E0E0 !important;
+        color: {get_text_color()} !important;
     }
     
     /* Live Ticker Bar */
@@ -730,7 +767,7 @@ if st.session_state.theme == 'dark':
     /* Sidebar Buttons */
     [data-testid="stSidebar"] .stButton > button {
         background: rgba(255,255,255,0.05) !important;
-        color: #E0E0E0 !important;
+        color: {get_text_color()} !important;
         border: 1px solid rgba(255,255,255,0.1) !important;
     }
     [data-testid="stSidebar"] .stButton > button:hover {
@@ -745,10 +782,10 @@ if st.session_state.theme == 'dark':
         border-radius: 8px !important;
     }
     [data-testid="stExpander"] summary {
-        color: #E0E0E0 !important;
+        color: {get_text_color()} !important;
     }
     [data-testid="stExpanderContent"] * {
-        color: #E0E0E0 !important;
+        color: {get_text_color()} !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -780,7 +817,7 @@ else:
     /* Buttons - Darker Red for Visibility */
     .stButton > button {
         background: linear-gradient(135deg, #DC2626 0%, #B91C1C 100%) !important;
-        color: #FFFFFF !important;
+        color: {get_text_color()} !important;
         border: none !important;
         font-weight: bold !important;
         transition: all 0.3s ease !important;
@@ -805,11 +842,11 @@ else:
     /* Sign Up/Sign In Buttons */
     button:has(p:contains("📝 Sign Up")) {
         background: linear-gradient(135deg, #15803C 0%, #166534 100%) !important;
-        color: #FFFFFF !important;
+        color: {get_text_color()} !important;
     }
     button:has(p:contains("🔐 Sign In")) {
         background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%) !important;
-        color: #FFFFFF !important;
+        color: {get_text_color()} !important;
     }
     
     /* Input Fields - White with Border */
@@ -853,7 +890,7 @@ else:
     }
     [data-baseweb="menu"] li[aria-selected="true"] {
         background: #2563EB !important;
-        color: #FFFFFF !important;
+        color: {get_text_color()} !important;
     }
     
     /* Cards & Boxes */
@@ -1872,7 +1909,7 @@ def show_upgrade_prompt(message, cta_text="Upgrade Now", tier="pro"):
         border-radius: 8px;
         margin: 10px 0;
     ">
-        <span style="color: #FFF;">{message}</span>
+        <span style="color: {get_text_color()};">{message}</span>
         <span style="color: {tier_color}; font-weight: bold;"> → {tier_label}</span>
     </div>
     """, unsafe_allow_html=True)
@@ -1993,7 +2030,7 @@ def show_onboarding_tooltip(step_id, title, message, position="bottom"):
         margin: 10px 0;
         position: relative;
     ">
-        <div style="font-weight: bold; color: #FFF; margin-bottom: 5px;">💡 {title}</div>
+        <div style="font-weight: bold; color: {get_text_color()}; margin-bottom: 5px;">💡 {title}</div>
         <div style="color: rgba(255,255,255,0.9); font-size: 14px;">{message}</div>
     </div>
     """, unsafe_allow_html=True)
@@ -2009,9 +2046,9 @@ def show_first_time_welcome():
     if st.session_state.get('has_seen_welcome'):
         return False
     
-    st.markdown("""
+    st.markdown(f"""
     <div style="
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        background: {get_box_gradient_bg()};
         border: 2px solid #ff4b4b;
         border-radius: 20px;
         padding: 30px;
@@ -2019,11 +2056,11 @@ def show_first_time_welcome():
         margin: 20px 0;
     ">
         <div style="font-size: 48px; margin-bottom: 15px;">👋</div>
-        <h2 style="color: #FFF; margin-bottom: 10px;">Welcome to Finance Made Simple!</h2>
+        <h2 style="color: {get_text_color()}; margin-bottom: 10px;">Welcome to Finance Made Simple!</h2>
         <p style="color: #888; font-size: 16px; margin-bottom: 20px;">
             Your personal stock research assistant. No jargon, just clarity.
         </p>
-        <div style="text-align: left; max-width: 400px; margin: 0 auto; color: #FFF;">
+        <div style="text-align: left; max-width: 400px; margin: 0 auto; color: {get_text_color()};">
             <p>✅ <strong>Dashboard</strong> - Pin stocks to track</p>
             <p>✅ <strong>Company Analysis</strong> - Deep dive into any stock</p>
             <p>✅ <strong>Risk Quiz</strong> - Find your investor profile</p>
@@ -4392,7 +4429,7 @@ def render_right_side_ticker():
             right: 0;
             width: 180px;
             height: calc(100vh - 80px);
-            background: linear-gradient(180deg, #0a0a0a 0%, #1a1a2e 50%, #0a0a0a 100%);
+            background: {get_box_gradient_bg()};
             border-left: 1px solid #333;
             z-index: 9998;
             overflow: hidden;
@@ -4424,7 +4461,7 @@ def render_right_side_ticker():
             font-size: 14px;
         }}
         .right-ticker-price {{
-            color: #FFFFFF;
+            color: {get_text_color()};
             font-size: 13px;
             margin-top: 2px;
         }}
@@ -4525,13 +4562,13 @@ Guidelines:
 @st.dialog("🤖 AI Investment Assistant", width="large")
 def chatbot_dialog():
     """AI Chatbot dialog using Streamlit's native dialog"""
-    st.markdown("""
+    st.markdown(f"""
     <style>
     [data-testid="stDialog"] {
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%) !important;
+        background: {get_box_gradient_bg()} !important;
     }
     [data-testid="stDialog"] [data-testid="stMarkdownContainer"] p {
-        color: #FFFFFF !important;
+        color: {get_text_color()} !important;
     }
     .chat-message-user {
         background: rgba(255, 68, 68, 0.25);
@@ -4653,8 +4690,8 @@ def render_ai_chatbot():
         position: fixed !important;
         bottom: 100px !important;
         right: 20px !important;
-        background: rgba(0, 0, 0, 0.85) !important;
-        color: #FFFFFF !important;
+        background: {get_box_solid_bg()} !important;
+        color: {get_text_color()} !important;
         padding: 8px 12px !important;
         border-radius: 8px !important;
         font-size: 12px !important;
@@ -4710,14 +4747,14 @@ def show_welcome_popup():
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(0, 0, 0, 0.9);
+            background: {get_box_solid_bg()};
             z-index: 10000;
             display: flex;
             justify-content: center;
             align-items: center;
         }
         .welcome-popup {
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            background: {get_box_gradient_bg()};
             border: 2px solid #00D9FF;
             border-radius: 20px;
             padding: 40px;
@@ -4750,7 +4787,7 @@ def show_welcome_popup():
         }
         .welcome-close-btn:hover {
             background: #FF4444;
-            color: #FFFFFF;
+            color: {get_text_color()};
         }
         .welcome-start-form {
             margin-top: 20px;
@@ -4758,7 +4795,7 @@ def show_welcome_popup():
         .welcome-start-btn {
             background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%);
             border: none;
-            color: #FFFFFF;
+            color: {get_text_color()};
             font-size: 18px;
             font-weight: bold;
             padding: 15px 40px;
@@ -4780,8 +4817,8 @@ def show_welcome_popup():
                     <button class="welcome-close-btn" type="submit" name="dismiss_welcome" value="1">×</button>
                 </form>
                 <h1 style="color: #00D9FF; margin-bottom: 20px;">Welcome to Investing Made Simple!</h1>
-                <p style="color: #FFFFFF; font-size: 16px; margin-bottom: 20px;">We've upgraded your experience:</p>
-                <ul style="color: #FFFFFF; font-size: 14px; line-height: 2.2; text-align: left; padding-left: 20px;">
+                <p style="color: {get_text_color()}; font-size: 16px; margin-bottom: 20px;">We've upgraded your experience:</p>
+                <ul style="color: {get_text_color()}; font-size: 14px; line-height: 2.2; text-align: left; padding-left: 20px;">
                     <li><strong>Market Mood:</strong> Check the speedometer to see if the market is fearful or greedy.</li>
                     <li><strong>Easy Search:</strong> Type 'Apple' or 'Tesla'—no need to memorize tickers!</li>
                     <li><strong>Simpler Metrics:</strong> Hover over any number for a 'Sweet & Simple' explanation.</li>
@@ -4813,14 +4850,14 @@ def do_logout():
 @st.dialog("🔐 Sign In", width="large")
 def login_dialog():
     """Sign in dialog for existing users"""
-    st.markdown("""
+    st.markdown(f"""
     <style>
     [data-testid="stDialog"] {
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%) !important;
+        background: {get_box_gradient_bg()} !important;
     }
     [data-testid="stDialog"] [data-testid="stMarkdownContainer"] p,
     [data-testid="stDialog"] label {
-        color: #FFFFFF !important;
+        color: {get_text_color()} !important;
     }
     [data-testid="stDialog"] h1, [data-testid="stDialog"] h2, [data-testid="stDialog"] h3 {
         color: #FF4444 !important;
@@ -4892,14 +4929,14 @@ def login_dialog():
 @st.dialog("📝 Create Your Account", width="large")
 def signup_dialog():
     """Sign up dialog for new users"""
-    st.markdown("""
+    st.markdown(f"""
     <style>
     [data-testid="stDialog"] {
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%) !important;
+        background: {get_box_gradient_bg()} !important;
     }
     [data-testid="stDialog"] [data-testid="stMarkdownContainer"] p,
     [data-testid="stDialog"] label {
-        color: #FFFFFF !important;
+        color: {get_text_color()} !important;
     }
     [data-testid="stDialog"] h1, [data-testid="stDialog"] h2, [data-testid="stDialog"] h3 {
         color: #FF4444 !important;
@@ -5045,13 +5082,13 @@ def render_coffee_calculator(ticker, stock_name):
         gain_pct = (gain / total_invested) * 100
         
         st.markdown(f'''
-        <div class="fade-in lift-card" style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
+        <div class="fade-in lift-card" style="background: {get_box_gradient_bg()}; 
                     border: 2px solid #00D9FF; border-radius: 15px; padding: 25px; margin: 20px 0;">
             <h4 style="color: #00D9FF; margin-bottom: 15px;">If you invested ${weekly_amount} (the cost of a coffee) into {stock_name} every week for the last 5 years...</h4>
             <div style="display: flex; justify-content: space-around; text-align: center;">
                 <div>
                     <p style="color: #888; font-size: 14px;">Total Invested</p>
-                    <p style="color: #FFFFFF; font-size: 28px; font-weight: bold;">${total_invested:,.0f}</p>
+                    <p style="color: {get_text_color()}; font-size: 28px; font-weight: bold;">${total_invested:,.0f}</p>
                 </div>
                 <div>
                     <p style="color: #888; font-size: 14px;">You Would Have</p>
@@ -5077,7 +5114,7 @@ def render_progress_bar(current_step, total_steps, section_name, disable_celebra
     st.markdown(f'''
     <div style="margin: 20px 0;">
         <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-            <span style="color: #FFFFFF; font-size: 14px;">{section_name} Progress</span>
+            <span style="color: {get_text_color()}; font-size: 14px;">{section_name} Progress</span>
             <span style="color: #00D9FF; font-size: 14px;">{current_step}/{total_steps} Complete</span>
         </div>
         <div style="background: #333; border-radius: 10px; height: 20px; overflow: hidden;">
@@ -5219,7 +5256,7 @@ def render_metric_with_explanation(metric_name, value, explanation_key=None):
         st.markdown(f'''
         <div class="lift-card" style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px; margin: 5px 0;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span style="color: #FFFFFF;">{metric_name}</span>
+                <span style="color: {get_text_color()};">{metric_name}</span>
                 <span class="ratio-tooltip" style="color: #00D9FF;">&#x3F;
                     <span class="tooltip-text">{explanation}</span>
                 </span>
@@ -6193,7 +6230,7 @@ def render_fit_check_panel(ticker=None):
             st.image(logo_path, width=300)  # Fixed width for smaller size
     except:
         # Fallback if image not found - show text logo
-        st.markdown("""
+        st.markdown(f"""
         <div style="text-align: center; padding: 10px 0; margin-bottom: 10px;">
             <h3 style="color: #FF4444; margin: 0;">STOCKINVESTING.AI</h3>
             <p style="color: #888; margin: 5px 0; font-size: 0.9em;">
@@ -6206,9 +6243,9 @@ def render_fit_check_panel(ticker=None):
 def render_setup_nudge():
     """Render non-blocking setup nudge card"""
     if not st.session_state.get('onboarding_completed', False) and not st.session_state.get('setup_prompt_dismissed', False):
-        st.markdown("""
-        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 20px; border-radius: 10px; margin-bottom: 20px; border-left: 4px solid #00D9FF;">
-            <h3 style="color: #FFFFFF; margin: 0 0 5px 0;">Quick setup (60 seconds)</h3>
+        st.markdown(f"""
+        <div style="background: {get_box_gradient_bg()}; border: {get_box_border()}; box-shadow: {get_box_shadow()}; padding: 20px; border-radius: 10px; margin-bottom: 20px; border-left: 4px solid #00D9FF;">
+            <h3 style="color: {get_text_color()}; margin: 0 0 5px 0;">Quick setup (60 seconds)</h3>
             <p style="color: #B0B0B0; margin: 0;">Personalize the site (not a test).</p>
         </div>
         """, unsafe_allow_html=True)
@@ -6318,7 +6355,7 @@ def update_profile_dialog():
         st.markdown("""
         <div style="text-align: center; padding: 20px; background: rgba(0,217,255,0.1); border-radius: 10px; margin-bottom: 10px;">
             <div style="font-size: 40px; margin-bottom: 10px;">📋</div>
-            <h4 style="color: #FFFFFF; margin: 0;">Setup Quiz</h4>
+            <h4 style="color: {get_text_color()}; margin: 0;">Setup Quiz</h4>
             <p style="color: #B0B0B0; font-size: 0.9em;">60 seconds</p>
         </div>
         """, unsafe_allow_html=True)
@@ -6334,7 +6371,7 @@ def update_profile_dialog():
         st.markdown("""
         <div style="text-align: center; padding: 20px; background: rgba(255,68,68,0.1); border-radius: 10px; margin-bottom: 10px;">
             <div style="font-size: 40px; margin-bottom: 10px;">🎯</div>
-            <h4 style="color: #FFFFFF; margin: 0;">Risk Quiz</h4>
+            <h4 style="color: {get_text_color()}; margin: 0;">Risk Quiz</h4>
             <p style="color: #B0B0B0; font-size: 0.9em;">7 questions</p>
         </div>
         """, unsafe_allow_html=True)
@@ -8115,10 +8152,10 @@ if selected_page == "🏠 Dashboard":
         show_first_time_welcome()
         st.stop()
     
-    st.markdown("""
-    <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
+    st.markdown(f"""
+    <div style="background: {get_box_gradient_bg()}; 
                 padding: 25px; border-radius: 15px; margin-bottom: 25px;">
-        <h1 style="color: #FFFFFF; margin: 0; font-size: 28px;">🏠 Dashboard</h1>
+        <h1 style="color: {get_text_color()}; margin: 0; font-size: 28px;">🏠 Dashboard</h1>
         <p style="color: #B0B0B0; margin: 5px 0 0 0;">Your personalized investing command center</p>
     </div>
     """, unsafe_allow_html=True)
@@ -8593,10 +8630,10 @@ elif selected_page == "🏠 Start Here":
         first_buy_success_dialog()
     
     # Hero Visual (H3) - Bull vs Bear theme
-    st.markdown("""
-    <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 30px; border-radius: 15px; margin-bottom: 20px; text-align: center;">
+    st.markdown(f"""
+    <div style="background: {get_box_gradient_bg()}; border: {get_box_border()}; box-shadow: {get_box_shadow()}; padding: 30px; border-radius: 15px; margin-bottom: 20px; text-align: center;">
         <div style="font-size: 60px; margin-bottom: 10px;">🐂 vs 🐻</div>
-        <h2 style="color: #FFFFFF; margin: 0;">Learn to Invest Like a Pro</h2>
+        <h2 style="color: {get_text_color()}; margin: 0;">Learn to Invest Like a Pro</h2>
         <p style="color: #B0B0B0; margin-top: 10px;">Understand the market. Build wealth. Avoid the traps.</p>
     </div>
     """, unsafe_allow_html=True)
@@ -9997,9 +10034,9 @@ elif selected_page == "📚 Finance 101":
     # Display as vertical cards (ranked from most to least important)
     for i, metric in enumerate(metrics_data):
         st.markdown(f"""
-        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 20px; border-radius: 12px; margin-bottom: 15px; border-left: 4px solid #FF4444;">
+        <div style="background: {get_box_gradient_bg()}; border: {get_box_border()}; box-shadow: {get_box_shadow()}; padding: 20px; border-radius: 12px; margin-bottom: 15px; border-left: 4px solid #FF4444;">
             <div style="font-size: 28px; margin-bottom: 8px;">{metric['icon']}</div>
-            <h4 style="color: #FFFFFF; margin: 0 0 8px 0;">#{i+1}: {metric['name']}</h4>
+            <h4 style="color: {get_text_color()}; margin: 0 0 8px 0;">#{i+1}: {metric['name']}</h4>
             <p style="color: #B0B0B0; margin: 0 0 8px 0; font-size: 14px;">{metric['definition']}</p>
             <p style="color: #FF6B6B; margin: 0 0 8px 0; font-size: 13px;"><strong>Why it matters:</strong> {metric['why']}</p>
             <p style="color: #4ECDC4; margin: 0; font-size: 12px;"><em>{metric['example']}</em></p>
@@ -10024,9 +10061,9 @@ elif selected_page == "📚 Finance 101":
     st.markdown("## 📊 How Money Flows Through a Business")
     
     # Revenue to Profit diagram
-    st.markdown("""
-    <div style="background: #1a1a2e; padding: 25px; border-radius: 12px; margin-bottom: 20px;">
-        <h4 style="color: #FFFFFF; text-align: center; margin-bottom: 20px;">The Profit Waterfall</h4>
+    st.markdown(f"""
+    <div style="background: {get_box_solid_bg()}; border: {get_box_border()}; box-shadow: {get_box_shadow()}; padding: 25px; border-radius: 12px; margin-bottom: 20px;">
+        <h4 style="color: {get_text_color()}; text-align: center; margin-bottom: 20px;">The Profit Waterfall</h4>
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
             <div style="text-align: center; flex: 1; min-width: 100px;">
                 <div style="background: #4ECDC4; padding: 15px; border-radius: 8px; margin-bottom: 5px;">
@@ -10044,14 +10081,14 @@ elif selected_page == "📚 Finance 101":
             <div style="color: #888; font-size: 20px;">→</div>
             <div style="text-align: center; flex: 1; min-width: 100px;">
                 <div style="background: #FF6B6B; padding: 15px; border-radius: 8px; margin-bottom: 5px;">
-                    <span style="color: #FFF; font-weight: bold;">Operating Income</span>
+                    <span style="color: {get_text_color()}; font-weight: bold;">Operating Income</span>
                 </div>
                 <span style="color: #888; font-size: 12px;">$30 (- expenses)</span>
             </div>
             <div style="color: #888; font-size: 20px;">→</div>
             <div style="text-align: center; flex: 1; min-width: 100px;">
                 <div style="background: #9D4EDD; padding: 15px; border-radius: 8px; margin-bottom: 5px;">
-                    <span style="color: #FFF; font-weight: bold;">Net Income</span>
+                    <span style="color: {get_text_color()}; font-weight: bold;">Net Income</span>
                 </div>
                 <span style="color: #888; font-size: 12px;">$20 (- taxes)</span>
             </div>
@@ -10067,9 +10104,9 @@ elif selected_page == "📚 Finance 101":
     """, unsafe_allow_html=True)
     
     # Stock = slice of business diagram
-    st.markdown("""
-    <div style="background: #1a1a2e; padding: 25px; border-radius: 12px; margin-bottom: 20px;">
-        <h4 style="color: #FFFFFF; text-align: center; margin-bottom: 15px;">What is a Stock?</h4>
+    st.markdown(f"""
+    <div style="background: {get_box_solid_bg()}; border: {get_box_border()}; box-shadow: {get_box_shadow()}; padding: 25px; border-radius: 12px; margin-bottom: 20px;">
+        <h4 style="color: {get_text_color()}; text-align: center; margin-bottom: 15px;">What is a Stock?</h4>
         <div style="display: flex; align-items: center; justify-content: center; gap: 20px; flex-wrap: wrap;">
             <div style="text-align: center;">
                 <div style="font-size: 50px;">🏢</div>
@@ -10091,9 +10128,9 @@ elif selected_page == "📚 Finance 101":
     """, unsafe_allow_html=True)
     
     # Risk spectrum meter
-    st.markdown("""
-    <div style="background: #1a1a2e; padding: 25px; border-radius: 12px; margin-bottom: 20px;">
-        <h4 style="color: #FFFFFF; text-align: center; margin-bottom: 15px;">Risk Spectrum</h4>
+    st.markdown(f"""
+    <div style="background: {get_box_solid_bg()}; border: {get_box_border()}; box-shadow: {get_box_shadow()}; padding: 25px; border-radius: 12px; margin-bottom: 20px;">
+        <h4 style="color: {get_text_color()}; text-align: center; margin-bottom: 15px;">Risk Spectrum</h4>
         <div style="display: flex; justify-content: space-between; align-items: center; background: linear-gradient(90deg, #00C853 0%, #FFD93D 50%, #FF4444 100%); padding: 15px; border-radius: 8px;">
             <div style="text-align: center;">
                 <span style="color: #000; font-weight: bold;">Treasury Bonds</span><br>
@@ -10104,12 +10141,12 @@ elif selected_page == "📚 Finance 101":
                 <span style="color: #000; font-size: 12px;">~10% avg</span>
             </div>
             <div style="text-align: center;">
-                <span style="color: #FFF; font-weight: bold;">Individual Stocks</span><br>
-                <span style="color: #FFF; font-size: 12px;">Varies wildly</span>
+                <span style="color: {get_text_color()}; font-weight: bold;">Individual Stocks</span><br>
+                <span style="color: {get_text_color()}; font-size: 12px;">Varies wildly</span>
             </div>
             <div style="text-align: center;">
-                <span style="color: #FFF; font-weight: bold;">Meme Stocks</span><br>
-                <span style="color: #FFF; font-size: 12px;">Casino 🎰</span>
+                <span style="color: {get_text_color()}; font-weight: bold;">Meme Stocks</span><br>
+                <span style="color: {get_text_color()}; font-size: 12px;">Casino 🎰</span>
             </div>
         </div>
         <p style="color: #B0B0B0; text-align: center; margin-top: 10px; font-size: 13px;">Higher potential returns = Higher risk of loss</p>
@@ -11916,10 +11953,10 @@ elif selected_page == "📊 Company Analysis":
         st.info(f"💡 **What is this?** Compare 4 different ways to invest $100 in {ticker} vs the S&P 500. See how 'Paycheck Investing' (adding $100 every 2 weeks) compares to investing all at once!")
         
         # DCA Narrative (F) - Time in market beats timing
-        st.markdown("""
-        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 15px; border-radius: 10px; margin-bottom: 15px; border-left: 4px solid #00D9FF;">
+        st.markdown(f"""
+        <div style="background: {get_box_gradient_bg()}; border: {get_box_border()}; box-shadow: {get_box_shadow()}; padding: 15px; border-radius: 10px; margin-bottom: 15px; border-left: 4px solid #00D9FF;">
             <p style="color: #00D9FF; font-weight: bold; margin: 0 0 5px 0;">💡 The Golden Rule of Investing</p>
-            <p style="color: #E0E0E0; margin: 0; font-size: 14px;"><strong>Time in the market beats timing the market.</strong> Lump sum investing can look better historically, but it's rare to have a large sum available, emotionally hard to invest all at once, and not repeatable. DCA (Dollar Cost Averaging) lets you build wealth steadily with each paycheck.</p>
+            <p style="color: {get_text_color()}; margin: 0; font-size: 14px;"><strong>Time in the market beats timing the market.</strong> Lump sum investing can look better historically, but it's rare to have a large sum available, emotionally hard to invest all at once, and not repeatable. DCA (Dollar Cost Averaging) lets you build wealth steadily with each paycheck.</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -12300,7 +12337,7 @@ elif selected_page == "🔍 AI Stock Screener":
                 text-align: center; 
                 margin-bottom: 25px;
                 box-shadow: 0 4px 15px rgba(255, 51, 51, 0.3);">
-        <h2 style="margin: 0; color: #FFFFFF; font-size: 24px; font-weight: bold;">
+        <h2 style="margin: 0; color: {get_text_color()}; font-size: 24px; font-weight: bold;">
             🔍 AI Stock Screener — Just Ask!
         </h2>
         <p style="margin: 5px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">
@@ -12316,7 +12353,7 @@ elif selected_page == "🔍 AI Stock Screener":
             <div style="font-size: 48px; margin-bottom: 15px;">🔒</div>
             <h3 style="color: #FFD700; margin-bottom: 10px;">Ultimate Tier Feature</h3>
             <p style="color: #888; margin-bottom: 20px;">AI-powered stock screening is exclusive to Ultimate members</p>
-            <p style="color: #FFF;">Ask questions like:</p>
+            <p style="color: {get_text_color()};">Ask questions like:</p>
             <p style="color: #888; font-style: italic;">"Find undervalued tech stocks with strong cash flow"</p>
         </div>
         """, unsafe_allow_html=True)
@@ -12943,7 +12980,7 @@ elif selected_page == "📈 Financial Health":
             if ratio_col in ratios_df.columns:
                 # Render ratio name with hover tooltip (question mark icon)
                 st.markdown(f"""
-                <h3 style="color: #FFFFFF;">{ratio_name} 
+                <h3 style="color: {get_text_color()};">{ratio_name} 
                     <span class="ratio-tooltip">&#x3F;
                         <span class="tooltip-text">
                             <strong>Definition:</strong> {tooltip_def}<br><br>
@@ -13011,7 +13048,7 @@ elif selected_page == "📰 Market Intelligence":
         <div style="padding: 20px; text-align: center;">
             <div style="font-size: 48px; font-weight: bold; color: {sentiment_color}; margin-bottom: 10px;">{sentiment_score}</div>
             <h3 style="color: {sentiment_color}; margin-bottom: 20px;">{sentiment_label}</h3>
-            <div style="text-align: left; color: #FFFFFF; font-size: 14px; line-height: 2;">
+            <div style="text-align: left; color: {get_text_color()}; font-size: 14px; line-height: 2;">
                 <p><span style="color: #FF4444;">0-25:</span> Extreme Fear (Market on Sale)</p>
                 <p><span style="color: #FF8844;">25-45:</span> Fear</p>
                 <p><span style="color: #FFFF44;">45-55:</span> Neutral (Steady)</p>
@@ -13130,9 +13167,9 @@ Keep each bullet to ONE line. Be concise."""
     if top_news:
         # Display in a card with RED accent (matches app theme)
         st.markdown(f"""
-        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
+        <div style="background: {get_box_gradient_bg()}; 
                     border: 2px solid #ff3333; border-radius: 15px; padding: 30px; margin: 20px 0;">
-            <div style="color: #FFFFFF; font-size: 16px; line-height: 1.8;">
+            <div style="color: {get_text_color()}; font-size: 16px; line-height: 1.8;">
                 {top_news}
             </div>
         </div>
@@ -13229,7 +13266,7 @@ Keep each bullet to ONE line. Be concise."""
             st.markdown(f"""
             <div style="background: linear-gradient(135deg, #1a2e1a 0%, #162e21 100%); 
                         border: 2px solid #4CAF50; border-radius: 15px; padding: 30px; margin: 20px 0;">
-                <div style="color: #FFFFFF; font-size: 16px; line-height: 1.8;">
+                <div style="color: {get_text_color()}; font-size: 16px; line-height: 1.8;">
                     {portfolio_news}
                 </div>
             </div>
@@ -13338,9 +13375,9 @@ If a day has no major earnings, say "No major earnings."
     if weekly_earnings:
         # Display formatted earnings from Perplexity
         st.markdown(f"""
-        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
+        <div style="background: {get_box_gradient_bg()}; 
                     border: 2px solid #ff3333; border-radius: 15px; padding: 30px; margin: 20px 0;">
-            <div style="color: #FFFFFF; font-size: 16px; line-height: 1.8;">
+            <div style="color: {get_text_color()}; font-size: 16px; line-height: 1.8;">
                 {weekly_earnings}
             </div>
         </div>
@@ -13437,9 +13474,9 @@ If a day has no major earnings, say "No major earnings."
             st.markdown(f"### 📊 {intel_ticker.upper()} - Latest News & Analysis")
             
             st.markdown(f"""
-            <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
+            <div style="background: {get_box_gradient_bg()}; 
                         border: 2px solid #00D9FF; border-radius: 15px; padding: 30px; margin: 20px 0;">
-                <div style="color: #FFFFFF; font-size: 16px; line-height: 1.8;">
+                <div style="color: {get_text_color()}; font-size: 16px; line-height: 1.8;">
                     {stock_news}
                 </div>
             </div>
@@ -13491,8 +13528,8 @@ elif selected_page == "👤 Naman's Portfolio":
     # ============= WAITLIST OVERLAY FOR PRO/ULTIMATE =============
     if access_tier != "Free":
         st.markdown("---")
-        st.markdown("""
-        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
+        st.markdown(f"""
+        <div style="background: {get_box_gradient_bg()}; 
                     border: 2px solid #9D4EDD; border-radius: 15px; padding: 40px; 
                     text-align: center; margin: 20px 0;">
             <h2 style="color: #9D4EDD; margin-bottom: 20px;">🔒 Naman's Pro/Ultimate Portfolio is Locked for Exclusivity</h2>
@@ -13699,7 +13736,7 @@ elif selected_page == "👑 Become a VIP":
                     padding: 20px; text-align: center; box-shadow: {shadow};">
             <h3 style="color: #00C853; margin-bottom: 10px;">Free</h3>
             <p style="color: #888; font-size: 24px; margin: 10px 0;"><strong>$0</strong>/mo</p>
-            <p style="color: #FFFFFF; font-size: 14px;">Preview Access</p>
+            <p style="color: {get_text_color()}; font-size: 14px;">Preview Access</p>
         </div>
         """, unsafe_allow_html=True)
         if st.button("Select Free", key="select_free_vip", use_container_width=True):
@@ -13714,7 +13751,7 @@ elif selected_page == "👑 Become a VIP":
                     padding: 20px; text-align: center; box-shadow: {shadow};">
             <h3 style="color: #9D4EDD; margin-bottom: 10px;">Pro</h3>
             <p style="color: #888; font-size: 24px; margin: 10px 0;"><strong>$5</strong>/mo</p>
-            <p style="color: #FFFFFF; font-size: 14px;">Full Portfolio Access</p>
+            <p style="color: {get_text_color()}; font-size: 14px;">Full Portfolio Access</p>
         </div>
         """, unsafe_allow_html=True)
         if st.button("Select Pro", key="select_pro_vip", use_container_width=True):
@@ -13736,7 +13773,7 @@ elif selected_page == "👑 Become a VIP":
                     padding: 20px; text-align: center; box-shadow: {shadow};">
             <h3 style="color: #FFD700; margin-bottom: 10px;">Ultimate</h3>
             <p style="color: #888; font-size: 24px; margin: 10px 0;"><strong>$10</strong>/mo</p>
-            <p style="color: #FFFFFF; font-size: 14px;">VIP Access + Support</p>
+            <p style="color: {get_text_color()}; font-size: 14px;">VIP Access + Support</p>
         </div>
         """, unsafe_allow_html=True)
         if st.button("Select Ultimate", key="select_ultimate_vip", use_container_width=True):
@@ -13837,12 +13874,12 @@ elif selected_page == "👑 Become a VIP":
     # ============= WAITLIST OVERLAY FOR PRO/ULTIMATE =============
     if access_tier != "Free":
         st.markdown("---")
-        st.markdown("""
-        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
+        st.markdown(f"""
+        <div style="background: {get_box_gradient_bg()}; 
                     border: 2px solid #9D4EDD; border-radius: 15px; padding: 40px; 
                     text-align: center; margin: 20px 0;">
             <h2 style="color: #FFD700; margin-bottom: 20px;">🎉 Join the Waitlist</h2>
-            <p style="color: #FFFFFF; font-size: 18px; margin-bottom: 30px;">
+            <p style="color: {get_text_color()}; font-size: 18px; margin-bottom: 30px;">
                 Be among the first to access premium features when they launch!
             </p>
         </div>
@@ -16278,7 +16315,7 @@ elif selected_page == "💼 Paper Portfolio":
             # DARK GREEN background (readable on dark theme)
             st.markdown(f"""
             <div style="background-color: rgba(40, 100, 40, 0.8); padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 2px solid #4CAF50;">
-                <p style="margin: 0; color: #FFFFFF; font-size: 16px;"><strong>✅ Remaining Cash:</strong> ${post_cash:,.2f}</p>
+                <p style="margin: 0; color: {get_text_color()}; font-size: 16px;"><strong>✅ Remaining Cash:</strong> ${post_cash:,.2f}</p>
             </div>
             """, unsafe_allow_html=True)
         
@@ -16286,7 +16323,7 @@ elif selected_page == "💼 Paper Portfolio":
         if order['post_concentration'] > 0:
             st.markdown(f"""
             <div style="background-color: rgba(30, 50, 90, 0.8); padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 2px solid #2196F3;">
-                <p style="margin: 0; color: #FFFFFF; font-size: 16px;">
+                <p style="margin: 0; color: {get_text_color()}; font-size: 16px;">
                     <strong>⚠️ Post-trade Concentration:</strong> {order['post_concentration']:.1f}% in {order['ticker']}
                 </p>
             </div>
