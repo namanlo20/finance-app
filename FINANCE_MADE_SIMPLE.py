@@ -1,4 +1,4 @@
-import streamlit as st
+gitimport streamlit as st
 import pandas as pd
 import requests
 import plotly.express as px
@@ -7232,6 +7232,20 @@ with st.sidebar:
     )
     st.session_state.years_of_history = selected_timeline
     
+    # Dark/Light Mode Toggle
+    theme_toggle = st.toggle(
+        "🌓 Light Mode",
+        value=(st.session_state.theme == 'light'),
+        key="theme_toggle_switch",
+        help="Switch between dark and light themes"
+    )
+    if theme_toggle and st.session_state.theme == 'dark':
+        st.session_state.theme = 'light'
+        st.rerun()
+    elif not theme_toggle and st.session_state.theme == 'light':
+        st.session_state.theme = 'dark'
+        st.rerun()
+    
     st.markdown("---")
     
     # Initialize selected page in session state if not exists
@@ -7271,38 +7285,9 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # ============= MARKET SENTIMENT (Below Action Group) =============
-    st.markdown("### 📊 Market Sentiment")
-    
-    # USE SINGLE SOURCE OF TRUTH for market sentiment - ensures sync everywhere
-    sidebar_sentiment = get_global_market_sentiment()
-    sentiment_score = sidebar_sentiment["score"]
-    sentiment_label = sidebar_sentiment["label"]
-    sentiment_color = sidebar_sentiment["color"]
-    momentum_20d = sidebar_sentiment.get("momentum_20d", 0)
-    
-    # Display gauge - same values as Market Intelligence page
-    st.markdown(f"""
-    <div style="text-align: center; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 10px;">
-        <div style="font-size: 2em; font-weight: bold; color: {sentiment_color};">{sentiment_score}</div>
-        <div style="font-size: 1.2em; color: {sentiment_color};">{sentiment_label}</div>
-        <div style="font-size: 0.8em; margin-top: 5px;">S&P 500 20-day: {momentum_20d:+.1f}%</div>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    st.caption("Based on S&P 500 momentum. Not financial advice.")
-    
-    st.markdown("---")
-    
     if 'analysis_view' not in st.session_state:
         st.session_state.analysis_view = "🌟 The Big Picture"
     
-    
-    # ============= TOGGLE THEME AT BOTTOM OF SIDEBAR =============
-    st.markdown("---")
-    if st.button("🌓 Toggle Theme", key="sidebar_theme_toggle", use_container_width=True):
-        st.session_state.theme = 'light' if st.session_state.theme == 'dark' else 'dark'
-        st.rerun()
     
     # ============= UNHINGED MODE TOGGLE =============
     st.markdown("---")
@@ -8725,6 +8710,58 @@ if selected_page == "🏠 Dashboard":
             "Add your favorite stocks to track them here. Try typing AAPL, NVDA, or MSFT below."
         )
     
+    # ============= DASHBOARD TOUR =============
+    st.markdown("### 🎯 Dashboard Quick Tour")
+    
+    tour_col1, tour_col2, tour_col3 = st.columns(3)
+    
+    with tour_col1:
+        st.markdown("""
+        <div style="background: linear-gradient(135deg, #9D4EDD 0%, #7B2CBF 100%); 
+                    padding: 15px; 
+                    border-radius: 10px; 
+                    text-align: center;
+                    min-height: 140px;">
+            <div style="font-size: 32px; margin-bottom: 8px;">📌</div>
+            <div style="font-weight: bold; margin-bottom: 5px;">Pinned Watchlist</div>
+            <div style="font-size: 13px; color: rgba(255,255,255,0.9);">
+                Track your favorite stocks in one place. See live prices, changes, and market caps.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with tour_col2:
+        st.markdown("""
+        <div style="background: linear-gradient(135deg, #00D9FF 0%, #0099CC 100%); 
+                    padding: 15px; 
+                    border-radius: 10px; 
+                    text-align: center;
+                    min-height: 140px;">
+            <div style="font-size: 32px; margin-bottom: 8px;">⚡</div>
+            <div style="font-weight: bold; margin-bottom: 5px;">Quick Actions</div>
+            <div style="font-size: 13px; color: rgba(255,255,255,0.9);">
+                Jump directly to any tool. Analyze stocks, check markets, or manage your portfolio.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with tour_col3:
+        st.markdown("""
+        <div style="background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%); 
+                    padding: 15px; 
+                    border-radius: 10px; 
+                    text-align: center;
+                    min-height: 140px;">
+            <div style="font-size: 32px; margin-bottom: 8px;">📰</div>
+            <div style="font-weight: bold; margin-bottom: 5px;">Market Brief</div>
+            <div style="font-size: 13px; color: rgba(255,255,255,0.9);">
+                Stay updated with market snapshot, VIX fear index, and overall market sentiment.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
     # ============= BLOCK A: PINNED WATCHLIST =============
     st.markdown("### 📌 Pinned Watchlist")
     
@@ -9056,680 +9093,6 @@ if selected_page == "🏠 Dashboard":
         st.caption("0-25: Extreme Fear | 75-100: Extreme Greed")
     
     st.markdown("---")
-    
-    # ============= BLOCK D: PREMIUM WORKFLOWS =============
-    st.markdown("### 🚀 Premium Workflows")
-    st.caption("Deep-dive analysis modes for serious investors")
-    
-    # Ticker selector for workflows
-    default_ticker = st.session_state.get('last_ticker') or 'AAPL'
-    workflow_ticker_raw = st.text_input(
-        "Enter ticker for analysis:",
-        value=default_ticker,
-        key="workflow_ticker_input",
-        placeholder="e.g., AAPL, NVDA, MSFT"
-    )
-    workflow_ticker = workflow_ticker_raw.upper().strip() if workflow_ticker_raw else ""
-    
-    # Show ticker with logo header if valid ticker entered
-    if workflow_ticker:
-        workflow_logo = get_company_logo(workflow_ticker)
-        workflow_profile = get_profile(workflow_ticker)
-        company_name = workflow_profile.get('companyName', workflow_ticker) if workflow_profile else workflow_ticker
-        
-        if workflow_logo:
-            st.markdown(f"""
-            <div style="display: flex; align-items: center; background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; margin: 10px 0;">
-                <img src="{workflow_logo}" width="48" height="48" style="border-radius: 8px; margin-right: 15px;">
-                <div>
-                    <div style="font-size: 20px; font-weight: bold;">{workflow_ticker}</div>
-                    <div style="color: #888; font-size: 14px;">{company_name}</div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            st.markdown(f"""
-            <div style="display: flex; align-items: center; background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; margin: 10px 0;">
-                <div style="width: 48px; height: 48px; background: rgba(255,75,75,0.2); border-radius: 8px; margin-right: 15px; display: flex; align-items: center; justify-content: center; font-size: 24px;">📈</div>
-                <div>
-                    <div style="font-size: 20px; font-weight: bold;">{workflow_ticker}</div>
-                    <div style="color: #888; font-size: 14px;">{company_name}</div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-    
-    workflow_tabs = st.tabs(["💰 Valuation", "⚠️ Risk Analysis", "🏥 Portfolio Health"])
-    
-    # ============= WORKFLOW 1: VALUATION MODE =============
-    with workflow_tabs[0]:
-        st.markdown("#### 💰 Valuation Mode")
-        st.caption("Understand if a stock is cheap or expensive relative to history")
-        
-        if workflow_ticker:
-            with st.spinner(f"Loading valuation data for {workflow_ticker}..."):
-                # Use comprehensive valuation calculation
-                val_metrics = calculate_valuation_metrics(workflow_ticker)
-                profile = get_profile(workflow_ticker)
-                
-                pe_ratio = val_metrics.get('pe_ratio')
-                ps_ratio = val_metrics.get('ps_ratio')
-                ev_ebitda = val_metrics.get('ev_ebitda')
-                peg_ratio = val_metrics.get('peg_ratio')
-                is_profitable = val_metrics.get('is_profitable', True)
-                
-                st.markdown("##### 📊 Current Valuation Metrics")
-                
-                val_col1, val_col2, val_col3, val_col4 = st.columns(4)
-                
-                # P/E Ratio
-                with val_col1:
-                    if pe_ratio and pe_ratio > 0:
-                        pe_color = "#22c55e" if pe_ratio < 20 else "#f59e0b" if pe_ratio < 35 else "#ef4444"
-                        st.markdown(f"""
-                        <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
-                            <div style="color: #888; font-size: 12px;">P/E Ratio</div>
-                            <div style="font-size: 24px; font-weight: bold; color: {pe_color};">{pe_ratio:.1f}x</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                    elif not is_profitable:
-                        st.markdown(f"""
-                        <div style="background: rgba(239, 68, 68, 0.1); padding: 15px; border-radius: 10px; text-align: center; border: 1px solid #ef4444;">
-                            <div style="color: #888; font-size: 12px;">P/E Ratio</div>
-                            <div style="font-size: 18px; font-weight: bold; color: #ef4444;">Not Profitable</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                    else:
-                        st.markdown(f"""
-                        <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
-                            <div style="color: #888; font-size: 12px;">P/E Ratio</div>
-                            <div style="font-size: 24px; font-weight: bold; color: #888;">N/A</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                
-                # P/S Ratio
-                with val_col2:
-                    if ps_ratio and ps_ratio > 0:
-                        ps_color = "#22c55e" if ps_ratio < 5 else "#f59e0b" if ps_ratio < 10 else "#ef4444"
-                        st.markdown(f"""
-                        <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
-                            <div style="color: #888; font-size: 12px;">P/S Ratio</div>
-                            <div style="font-size: 24px; font-weight: bold; color: {ps_color};">{ps_ratio:.1f}x</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                    else:
-                        st.markdown(f"""
-                        <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
-                            <div style="color: #888; font-size: 12px;">P/S Ratio</div>
-                            <div style="font-size: 24px; font-weight: bold; color: #888;">N/A</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                
-                # EV/EBITDA
-                with val_col3:
-                    if ev_ebitda and ev_ebitda > 0:
-                        ev_color = "#22c55e" if ev_ebitda < 12 else "#f59e0b" if ev_ebitda < 20 else "#ef4444"
-                        st.markdown(f"""
-                        <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
-                            <div style="color: #888; font-size: 12px;">EV/EBITDA</div>
-                            <div style="font-size: 24px; font-weight: bold; color: {ev_color};">{ev_ebitda:.1f}x</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                    else:
-                        st.markdown(f"""
-                        <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
-                            <div style="color: #888; font-size: 12px;">EV/EBITDA</div>
-                            <div style="font-size: 24px; font-weight: bold; color: #888;">N/A</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                
-                # PEG Ratio
-                with val_col4:
-                    if peg_ratio and peg_ratio > 0 and peg_ratio < 10:  # Sanity check
-                        peg_color = "#22c55e" if peg_ratio < 1 else "#f59e0b" if peg_ratio < 2 else "#ef4444"
-                        st.markdown(f"""
-                        <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
-                            <div style="color: #888; font-size: 12px;">PEG Ratio</div>
-                            <div style="font-size: 24px; font-weight: bold; color: {peg_color};">{peg_ratio:.2f}</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                    else:
-                        st.markdown(f"""
-                        <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
-                            <div style="color: #888; font-size: 12px;">PEG Ratio</div>
-                            <div style="font-size: 24px; font-weight: bold; color: #888;">N/A</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                
-                # Valuation interpretation
-                st.markdown("##### 📏 Valuation Guide")
-                st.markdown("""
-                | Metric | Cheap | Fair | Expensive |
-                |--------|-------|------|-----------|
-                | P/E Ratio | < 15x | 15-25x | > 25x |
-                | P/S Ratio | < 3x | 3-8x | > 8x |
-                | EV/EBITDA | < 10x | 10-15x | > 15x |
-                | PEG Ratio | < 1.0 | 1.0-2.0 | > 2.0 |
-                """)
-                
-                show_data_source(source="FMP API", updated_at=datetime.now())
-                
-                # Debug info (collapsible)
-                with st.expander("🔧 Debug: Raw Data", expanded=False):
-                    st.json({
-                        "pe_ratio": pe_ratio,
-                        "ps_ratio": ps_ratio,
-                        "ev_ebitda": ev_ebitda,
-                        "peg_ratio": peg_ratio,
-                        "is_profitable": is_profitable,
-                        "eps_growth": val_metrics.get('eps_growth')
-                    })
-                
-                # AI Scenario
-                st.markdown("##### 🤖 AI Valuation Scenario")
-                with st.expander("What Would Justify Current Valuation?", expanded=False):
-                    if pe_ratio and pe_ratio > 25:
-                        st.markdown(f"""
-                        **{workflow_ticker} trades at {pe_ratio:.1f}x earnings - here's what would need to be true:**
-                        
-                        1. **High Growth:** Company needs to grow earnings 20%+ annually
-                        2. **Market Leadership:** Must maintain or expand competitive moat
-                        3. **Margin Expansion:** Operating margins should improve over time
-                        4. **Execution:** Management must deliver on promised initiatives
-                        
-                        ⚠️ **Risk:** If growth slows, multiple compression could cause significant downside.
-                        """)
-                    elif pe_ratio and pe_ratio < 15:
-                        st.markdown(f"""
-                        **{workflow_ticker} trades at {pe_ratio:.1f}x earnings - here's what the market might be worried about:**
-                        
-                        1. **Growth Concerns:** Market may expect slowing growth
-                        2. **Cyclical Risk:** Business may be sensitive to economic cycles
-                        3. **Competition:** Increased competitive pressure
-                        4. **Disruption:** Potential technology or market disruption
-                        
-                        ✅ **Opportunity:** If concerns are overblown, stock could re-rate higher.
-                        """)
-                    else:
-                        st.markdown(f"""
-                        **{workflow_ticker} appears fairly valued based on current metrics.**
-                        
-                        Look for catalysts that could shift the valuation:
-                        - Earnings beats/misses
-                        - New product announcements
-                        - Market share gains/losses
-                        - Macroeconomic shifts
-                        """)
-                    show_ai_disclaimer(inputs_used=[f"{workflow_ticker} valuation ratios", "P/E", "P/S", "PEG"])
-        else:
-            st.info("Enter a ticker above to see valuation analysis.")
-    
-    # ============= WORKFLOW 2: RISK ANALYSIS MODE =============
-    with workflow_tabs[1]:
-        st.markdown("#### ⚠️ Risk Analysis Mode")
-        st.caption("Identify potential risks before you invest")
-        
-        # Check if user has Pro tier for this feature
-        user_tier = get_user_tier()
-        if user_tier == "free":
-            # Show preview for free users
-            st.markdown("""
-            <div style="background: rgba(157, 78, 221, 0.1); border: 2px dashed #9D4EDD; border-radius: 15px; padding: 25px; text-align: center; margin: 20px 0;">
-                <div style="font-size: 40px; margin-bottom: 10px;">🔒</div>
-                <h4 style="color: #9D4EDD; margin-bottom: 10px;">Risk Analysis - Pro Feature</h4>
-                <p style="color: #888; margin-bottom: 15px;">Get comprehensive risk flags including:</p>
-                <div style="text-align: left; max-width: 300px; margin: 0 auto; color: #FFF;">
-                    • Volatility analysis<br>
-                    • Market cap risk tier<br>
-                    • Valuation risk flags<br>
-                    • Debt/leverage warnings<br>
-                    • Position sizing guidance
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            if st.button("🚀 Unlock with Pro - $5/mo", key="upgrade_risk_analysis", use_container_width=True):
-                st.session_state.selected_page = "👑 Become a VIP"
-                st.rerun()
-        else:
-            # Pro/Ultimate users get full access
-            if workflow_ticker:
-                with st.spinner(f"Analyzing risks for {workflow_ticker}..."):
-                    quote = get_quote(workflow_ticker)
-                    profile = get_profile(workflow_ticker)
-                    ratios_ttm = get_ratios_ttm(workflow_ticker)
-                    
-                    st.markdown("##### 🚩 Risk Flags (Deterministic)")
-                    
-                    risk_flags = []
-                    
-                    # Volatility check
-                    if quote:
-                        change_pct = abs(quote.get('changesPercentage', 0))
-                        if change_pct > 5:
-                            risk_flags.append(("🔴", "High Volatility", f"Stock moved {change_pct:.1f}% today"))
-                        
-                        # Market cap tier
-                        market_cap = quote.get('marketCap', 0)
-                        if market_cap < 2e9:
-                            risk_flags.append(("🟡", "Small Cap Risk", f"Market cap ${market_cap/1e9:.1f}B - higher volatility expected"))
-                        elif market_cap < 10e9:
-                            risk_flags.append(("🟢", "Mid Cap", f"Market cap ${market_cap/1e9:.1f}B"))
-                    else:
-                        risk_flags.append(("🟢", "Large Cap", f"Market cap ${market_cap/1e9:.0f}B - generally more stable"))
-                
-                # Valuation risk
-                if ratios_ttm:
-                    pe = ratios_ttm.get('peRatioTTM', 0)
-                    if pe and pe > 50:
-                        risk_flags.append(("🔴", "High Valuation Risk", f"P/E of {pe:.0f}x is very expensive"))
-                    elif pe and pe > 30:
-                        risk_flags.append(("🟡", "Elevated Valuation", f"P/E of {pe:.0f}x above market average"))
-                    
-                    # Debt check
-                    debt_equity = ratios_ttm.get('debtEquityRatioTTM', 0)
-                    if debt_equity and debt_equity > 2:
-                        risk_flags.append(("🔴", "High Leverage", f"Debt/Equity of {debt_equity:.1f}x is elevated"))
-                    elif debt_equity and debt_equity > 1:
-                        risk_flags.append(("🟡", "Moderate Debt", f"Debt/Equity of {debt_equity:.1f}x"))
-                
-                # Sector risk
-                if profile:
-                    sector = profile.get('sector', '')
-                    volatile_sectors = ['Technology', 'Consumer Cyclical', 'Energy']
-                    if sector in volatile_sectors:
-                        risk_flags.append(("🟡", "Cyclical Sector", f"{sector} can be volatile during economic shifts"))
-                
-                # Display flags
-                if risk_flags:
-                    for flag_color, flag_title, flag_desc in risk_flags:
-                        st.markdown(f"""
-                        <div style="background: rgba(128,128,128,0.1); padding: 12px 15px; border-radius: 8px; margin-bottom: 8px; display: flex; align-items: center;">
-                            <span style="font-size: 20px; margin-right: 10px;">{flag_color}</span>
-                            <div>
-                                <strong>{flag_title}</strong>
-                                <div style="color: #888; font-size: 13px;">{flag_desc}</div>
-                            </div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                else:
-                    st.success("✅ No major risk flags detected")
-                
-                # Risk score summary
-                red_flags = len([f for f in risk_flags if f[0] == "🔴"])
-                yellow_flags = len([f for f in risk_flags if f[0] == "🟡"])
-                
-                st.markdown("##### 📊 Risk Summary")
-                risk_col1, risk_col2, risk_col3 = st.columns(3)
-                with risk_col1:
-                    st.metric("🔴 High Risk Flags", red_flags)
-                with risk_col2:
-                    st.metric("🟡 Caution Flags", yellow_flags)
-                with risk_col3:
-                    overall_risk = "High" if red_flags >= 2 else "Moderate" if red_flags >= 1 or yellow_flags >= 2 else "Low"
-                    risk_color = "#ef4444" if overall_risk == "High" else "#f59e0b" if overall_risk == "Moderate" else "#22c55e"
-                    st.markdown(f"""
-                    <div style="background: rgba(128,128,128,0.1); padding: 10px; border-radius: 8px; text-align: center;">
-                        <div style="color: #888; font-size: 12px;">Overall Risk</div>
-                        <div style="font-size: 18px; font-weight: bold; color: {risk_color};">{overall_risk}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                
-                show_data_source(source="FMP API", updated_at=datetime.now())
-                
-                # AI Risk Narrative
-                st.markdown("##### 🤖 AI Risk Narrative")
-                with st.expander("Detailed Risk Assessment", expanded=False):
-                    st.markdown(f"""
-                    **Risk Assessment for {workflow_ticker}:**
-                    
-                    Based on the deterministic flags above, here's what to consider:
-                    
-                    {"⚠️ **High Volatility Alert:** This stock shows significant price swings. Only invest what you can afford to lose." if any('Volatility' in f[1] for f in risk_flags) else ""}
-                    
-                    {"💰 **Valuation Concern:** The stock is trading at a premium. Strong execution is needed to justify the price." if any('Valuation' in f[1] for f in risk_flags) else ""}
-                    
-                    {"🏦 **Leverage Risk:** High debt levels mean the company is more sensitive to interest rate changes and economic downturns." if any('Leverage' in f[1] for f in risk_flags) else ""}
-                    
-                    **Position Sizing Suggestion:**
-                    - {"Conservative: 1-2% of portfolio" if red_flags >= 2 else "Moderate: 3-5% of portfolio" if red_flags >= 1 else "Standard: 5-10% of portfolio"}
-                    
-                    *This is educational content, not investment advice.*
-                    """)
-                    show_ai_disclaimer(inputs_used=[f"{workflow_ticker} volatility", "Valuation metrics", "Debt levels", "Market cap"])
-            else:
-                st.info("Enter a ticker above to see risk analysis.")
-    
-    # ============= WORKFLOW 3: PORTFOLIO HEALTH MODE =============
-    with workflow_tabs[2]:
-        st.markdown("#### 🏥 Portfolio Health Check")
-        st.caption("Analyze your pinned watchlist for diversification and risk")
-        
-        # Check if user has Pro tier for this feature
-        user_tier = get_user_tier()
-        if user_tier == "free":
-            # Show preview for free users
-            st.markdown("""
-            <div style="background: rgba(157, 78, 221, 0.1); border: 2px dashed #9D4EDD; border-radius: 15px; padding: 25px; text-align: center; margin: 20px 0;">
-                <div style="font-size: 40px; margin-bottom: 10px;">🔒</div>
-                <h4 style="color: #9D4EDD; margin-bottom: 10px;">Portfolio Health - Pro Feature</h4>
-                <p style="color: #888; margin-bottom: 15px;">Analyze your watchlist with:</p>
-                <div style="text-align: left; max-width: 300px; margin: 0 auto; color: #FFF;">
-                    • Sector allocation breakdown<br>
-                    • Concentration warnings<br>
-                    • Diversification score<br>
-                    • Top gainers/losers<br>
-                    • AI portfolio suggestions
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            if st.button("🚀 Unlock with Pro - $5/mo", key="upgrade_portfolio_health", use_container_width=True):
-                st.session_state.selected_page = "👑 Become a VIP"
-                st.rerun()
-        else:
-            # Pro/Ultimate users get full access
-            pinned = st.session_state.get('pinned_tickers', [])
-            
-            if not pinned or len(pinned) == 0:
-                show_empty_state(
-                    title="No Tickers Pinned",
-                    message="Pin some stocks to your watchlist to analyze portfolio health",
-                    action_text="📌 Go to Dashboard",
-                    action_key="goto_dashboard_health",
-                    icon="🏥"
-                )
-            elif len(pinned) == 1:
-                st.warning("📌 Pin at least 2 tickers to analyze portfolio health.")
-                if st.button("➕ Add More Tickers", key="add_more_health"):
-                    st.session_state.selected_page = "📊 Company Analysis"
-                    st.rerun()
-            else:
-                # 2+ tickers - show full analysis
-                st.markdown("##### 📊 Portfolio Composition")
-            
-            # Gather data for all pinned tickers
-            portfolio_data = []
-            sector_allocation = {}
-            total_value = 0
-            
-            for ticker in pinned:
-                profile = get_profile(ticker)
-                quote = get_quote(ticker)
-                
-                if profile and quote:
-                    sector = profile.get('sector', 'Other')
-                    market_cap = quote.get('marketCap', 0)
-                    price = quote.get('price', 0)
-                    change = quote.get('changesPercentage', 0)
-                    
-                    portfolio_data.append({
-                        'ticker': ticker,
-                        'sector': sector,
-                        'market_cap': market_cap,
-                        'price': price,
-                        'change': change
-                    })
-                    
-                    # Equal weight assumption for sector allocation
-                    if sector in sector_allocation:
-                        sector_allocation[sector] += 1
-                    else:
-                        sector_allocation[sector] = 1
-            
-            # Display sector allocation
-            if sector_allocation:
-                st.markdown("##### 🏭 Sector Allocation")
-                
-                total_positions = len(pinned)
-                for sector, count in sorted(sector_allocation.items(), key=lambda x: x[1], reverse=True):
-                    pct = (count / total_positions) * 100
-                    bar_color = "#ef4444" if pct > 40 else "#f59e0b" if pct > 25 else "#22c55e"
-                    st.markdown(f"""
-                    <div style="margin-bottom: 8px;">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                            <span>{sector}</span>
-                            <span>{pct:.0f}% ({count} stocks)</span>
-                        </div>
-                        <div style="background: rgba(128,128,128,0.2); border-radius: 4px; height: 8px;">
-                            <div style="background: {bar_color}; width: {pct}%; height: 100%; border-radius: 4px;"></div>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-            
-            # Risk flags
-            st.markdown("##### 🚩 Diversification Flags")
-            
-            div_flags = []
-            
-            # Concentration check
-            if len(sector_allocation) == 1:
-                div_flags.append(("🔴", "Single Sector", "All positions in one sector - very high concentration risk"))
-            elif len(sector_allocation) <= 2:
-                div_flags.append(("🟡", "Low Diversification", "Only 2 sectors represented"))
-            else:
-                div_flags.append(("🟢", "Good Sector Spread", f"{len(sector_allocation)} sectors represented"))
-            
-            # Over-concentration in single sector
-            for sector, count in sector_allocation.items():
-                pct = (count / total_positions) * 100
-                if pct > 50:
-                    div_flags.append(("🔴", f"Heavy {sector}", f"{pct:.0f}% in {sector} - consider diversifying"))
-                elif pct > 40:
-                    div_flags.append(("🟡", f"High {sector} Weight", f"{pct:.0f}% in {sector}"))
-            
-            # Position count
-            if len(pinned) < 5:
-                div_flags.append(("🟡", "Few Positions", f"Only {len(pinned)} stocks - consider adding more for diversification"))
-            elif len(pinned) >= 10:
-                div_flags.append(("🟢", "Good Position Count", f"{len(pinned)} stocks in watchlist"))
-            
-            for flag_color, flag_title, flag_desc in div_flags:
-                st.markdown(f"""
-                <div style="background: rgba(128,128,128,0.1); padding: 10px 15px; border-radius: 8px; margin-bottom: 8px;">
-                    <span style="font-size: 18px; margin-right: 8px;">{flag_color}</span>
-                    <strong>{flag_title}:</strong> <span style="color: #888;">{flag_desc}</span>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            # Today's performance
-            st.markdown("##### 📈 Today's Performance")
-            
-            gainers = [p for p in portfolio_data if p['change'] > 0]
-            losers = [p for p in portfolio_data if p['change'] < 0]
-            
-            perf_col1, perf_col2 = st.columns(2)
-            with perf_col1:
-                st.metric("🟢 Gainers", len(gainers))
-            with perf_col2:
-                st.metric("🔴 Losers", len(losers))
-            
-            show_data_source(source="FMP API", updated_at=datetime.now())
-            
-            # AI Suggestions
-            st.markdown("##### 🤖 AI Suggestions")
-            with st.expander("Diversification Recommendations", expanded=False):
-                missing_sectors = set(['Technology', 'Healthcare', 'Financial Services', 'Consumer Defensive', 'Industrials']) - set(sector_allocation.keys())
-                
-                st.markdown(f"""
-                **Portfolio Health Summary:**
-                
-                - **Positions:** {len(pinned)} stocks
-                - **Sectors:** {len(sector_allocation)} represented
-                - **Diversification Score:** {"⚠️ Needs Work" if len(sector_allocation) <= 2 else "✅ Good" if len(sector_allocation) >= 4 else "🟡 Moderate"}
-                
-                {"**Consider adding exposure to:** " + ", ".join(list(missing_sectors)[:3]) if missing_sectors else "**Good sector coverage!**"}
-                
-                **General Guidelines:**
-                - Aim for 5-10 positions minimum
-                - No single sector > 30% of portfolio
-                - Include defensive sectors for stability
-                
-                *This is educational content, not investment advice.*
-                """)
-                show_ai_disclaimer(inputs_used=["Your pinned tickers", "Sector allocation", "Position count"])
-    
-    st.markdown("---")
-    
-    # ============= BLOCK E: CONTINUE WHERE YOU LEFT OFF =============
-    st.markdown("### 🔄 Continue Where You Left Off")
-    
-    last_ticker = st.session_state.get('last_ticker')
-    last_tab = st.session_state.get('last_tab')
-    
-    if last_ticker or last_tab:
-        resume_col1, resume_col2, resume_col3 = st.columns([2, 2, 1])
-        
-        with resume_col1:
-            if last_ticker:
-                st.markdown(f"""
-                <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px;">
-                    <div style="color: #888; font-size: 12px;">Last Ticker</div>
-                    <div style="font-size: 18px; font-weight: bold;">{last_ticker}</div>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.markdown(f"""
-                <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px;">
-                    <div style="color: #888; font-size: 12px;">Last Ticker</div>
-                    <div style="color: #888;">None yet</div>
-                </div>
-                """, unsafe_allow_html=True)
-        
-        with resume_col2:
-            if last_tab:
-                st.markdown(f"""
-                <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px;">
-                    <div style="color: #888; font-size: 12px;">Last Visited</div>
-                    <div style="font-size: 16px; font-weight: bold;">{last_tab}</div>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.markdown(f"""
-                <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px;">
-                    <div style="color: #888; font-size: 12px;">Last Visited</div>
-                    <div style="color: #888;">None yet</div>
-                </div>
-                """, unsafe_allow_html=True)
-        
-        with resume_col3:
-            if last_ticker and last_tab:
-                if st.button("▶️ Resume", key="resume_btn", type="primary", use_container_width=True):
-                    st.session_state.selected_ticker = last_ticker
-                    st.session_state.selected_page = last_tab
-                    st.rerun()
-            elif last_tab:
-                if st.button("▶️ Resume", key="resume_btn", type="primary", use_container_width=True):
-                    st.session_state.selected_page = last_tab
-                    st.rerun()
-    else:
-        st.markdown("""
-        <div style="background: rgba(128,128,128,0.05); padding: 20px; border-radius: 10px; text-align: center; color: #888;">
-            <p>Start exploring to build your history!</p>
-            <p style="font-size: 13px;">Your last visited page and ticker will appear here.</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    st.markdown("---")
-    
-    # ============= BLOCK E: SAVED VIEWS =============
-    st.markdown("### 📁 Saved Views")
-    
-    # Initialize saved views
-    if 'saved_views' not in st.session_state:
-        st.session_state.saved_views = []
-    
-    # Save current view button
-    with st.expander("💾 Save Current View", expanded=False):
-        view_name = st.text_input("View name:", placeholder="e.g., My Tech Watchlist", key="new_view_name")
-        
-        if st.button("💾 Save View", key="save_view_btn"):
-            if view_name:
-                # Check limit (free = 2, could be increased for premium)
-                max_views = 5  # Free tier limit
-                if len(st.session_state.saved_views) >= max_views:
-                    st.warning(f"📁 You've reached the limit of {max_views} saved views. Delete one to save more.")
-                else:
-                    # Capture current state
-                    new_view = {
-                        "name": view_name,
-                        "created_at": datetime.now().isoformat(),
-                        "page": st.session_state.get("selected_page", "🏠 Dashboard"),
-                        "ticker": st.session_state.get("selected_ticker", ""),
-                        "pinned_tickers": st.session_state.get("pinned_tickers", []).copy(),
-                    }
-                    st.session_state.saved_views.append(new_view)
-                    save_to_localstorage('saved_views', st.session_state.saved_views)
-                    
-                    # Save to DB if logged in
-                    if st.session_state.get('is_logged_in'):
-                        save_user_progress()
-                    
-                    st.success(f"✅ Saved view: {view_name}")
-                    st.rerun()
-            else:
-                st.warning("Please enter a name for your view.")
-    
-    # Display saved views
-    if st.session_state.saved_views:
-        for i, view in enumerate(st.session_state.saved_views):
-            view_col1, view_col2, view_col3 = st.columns([3, 1, 1])
-            
-            with view_col1:
-                st.markdown(f"""
-                <div style="background: rgba(128,128,128,0.1); padding: 12px 15px; border-radius: 8px; margin-bottom: 5px;">
-                    <strong>{view['name']}</strong>
-                    <span style="color: #888; font-size: 12px; margin-left: 10px;">{view.get('page', 'Dashboard')}</span>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            with view_col2:
-                if st.button("📂 Load", key=f"load_view_{i}", use_container_width=True):
-                    # Restore view state
-                    if view.get('page'):
-                        st.session_state.selected_page = view['page']
-                    if view.get('ticker'):
-                        st.session_state.selected_ticker = view['ticker']
-                    if view.get('pinned_tickers'):
-                        st.session_state.pinned_tickers = view['pinned_tickers'].copy()
-                        save_to_localstorage('pinned_tickers', st.session_state.pinned_tickers)
-                    st.success(f"✅ Loaded: {view['name']}")
-                    st.rerun()
-            
-            with view_col3:
-                if st.button("🗑️", key=f"delete_view_{i}", use_container_width=True, help="Delete this view"):
-                    st.session_state.saved_views.pop(i)
-                    save_to_localstorage('saved_views', st.session_state.saved_views)
-                    if st.session_state.get('is_logged_in'):
-                        save_user_progress()
-                    st.rerun()
-        
-        # Show usage
-        st.caption(f"📁 {len(st.session_state.saved_views)}/5 views saved")
-    else:
-        # Empty state with starter templates
-        st.markdown("""
-        <div style="background: rgba(128,128,128,0.05); padding: 15px; border-radius: 10px; text-align: center; color: #888; margin-bottom: 10px;">
-            <p style="margin: 0;">No saved views yet. Save your current setup to quickly restore it later!</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Starter template suggestions
-        st.markdown("**💡 Quick Start Templates:**")
-        template_cols = st.columns(3)
-        
-        templates = [
-            {"name": "Tech Giants", "tickers": ["AAPL", "MSFT", "GOOGL", "NVDA", "META"]},
-            {"name": "Dividend Kings", "tickers": ["JNJ", "KO", "PG", "MMM", "PEP"]},
-            {"name": "Growth Stocks", "tickers": ["TSLA", "AMZN", "NFLX", "CRM", "SHOP"]},
-        ]
-        
-        for i, template in enumerate(templates):
-            with template_cols[i]:
-                if st.button(f"📋 {template['name']}", key=f"template_{i}", use_container_width=True):
-                    st.session_state.pinned_tickers = template['tickers'].copy()
-                    save_to_localstorage('pinned_tickers', st.session_state.pinned_tickers)
-                    st.success(f"✅ Loaded {template['name']} watchlist!")
-                    st.rerun()
     
     # Footer
     st.markdown("---")
