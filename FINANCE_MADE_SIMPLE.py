@@ -10002,132 +10002,6 @@ elif selected_page == "📚 Learning":
         for term in ["P/E Ratio", "P/S Ratio", "Market Cap", "Beta", "Debt-to-Equity", "Quick Ratio"]:
             with st.expander(term):
                 st.write(GLOSSARY[term])
-    
-    
-    # ===== INTERACTIVE CALCULATOR (SIMPLE TEST) =====
-    st.markdown("### 🧮 P/E Ratio Calculator")
-    st.caption("Learn by doing! Calculate P/E ratio for any stock")
-    
-    calc_col1, calc_col2 = st.columns([1, 1])
-    
-    with calc_col1:
-        pe_ticker = st.text_input("Enter stock ticker:", value="AAPL", key="pe_calc_ticker").upper()
-        
-        if st.button("Calculate P/E Ratio", key="pe_calc_btn", type="primary"):
-            with st.spinner("Fetching data..."):
-                try:
-                    price_url = f"{BASE_URL}/v3/quote/{pe_ticker}?apikey={FMP_API_KEY}"
-                    price_data = requests.get(price_url).json()
-                    
-                    if price_data and len(price_data) > 0:
-                        price = price_data[0].get('price', 0)
-                        eps = price_data[0].get('eps', 0)
-                        pe_ratio = price_data[0].get('pe', 0)
-                        name = price_data[0].get('name', pe_ticker)
-                        
-                        if pe_ratio and pe_ratio > 0:
-                            st.success(f"✅ {name}")
-                            
-                            # Display metrics
-                            m1, m2, m3 = st.columns(3)
-                            with m1:
-                                st.metric("Stock Price", f"${price:.2f}")
-                            with m2:
-                                st.metric("EPS", f"${eps:.2f}")
-                            with m3:
-                                st.metric("P/E Ratio", f"{pe_ratio:.1f}x")
-                            
-                            # Simple evaluation
-                            if pe_ratio < 15:
-                                st.success("✅ **Cheap / Value Stock** - P/E under 15")
-                            elif pe_ratio < 25:
-                                st.info("ℹ️ **Fairly Valued** - P/E between 15-25")
-                            elif pe_ratio < 40:
-                                st.warning("⚠️ **Growth Stock** - P/E between 25-40")
-                            else:
-                                st.error("⚡ **Expensive** - P/E over 40 (high growth expected)")
-                        else:
-                            st.error("❌ No P/E data (might be unprofitable)")
-                    else:
-                        st.error("❌ Stock not found")
-                except Exception as e:
-                    st.error(f"Error: {str(e)}")
-    
-    with calc_col2:
-        st.markdown("**📚 What is P/E Ratio?**")
-        st.write("**Formula:** P/E = Stock Price ÷ Earnings Per Share")
-        st.write("**Meaning:** How much you pay for $1 of earnings")
-        st.write("")
-        st.write("**Quick Guide:**")
-        st.write("• **Under 15:** Value stock (cheap)")
-        st.write("• **15-25:** Fairly valued")
-        st.write("• **25-40:** Growth stock")
-        st.write("• **Over 40:** Expensive (or hyper-growth)")
-    
-    st.markdown("---")
-    
-    # Level selector
-    levels = ["All Levels", "Beginner", "Intermediate", "Advanced", "Behavior", "Repair"]
-    selected_level = st.radio(
-        "Filter by level:",
-        levels,
-        horizontal=True,
-        key="learn_level_selector"
-    )
-    st.session_state.learn_current_level = selected_level
-    
-    # Topic filter (multiselect)
-    topics = ["Foundations", "Buy & Hold", "Valuation", "Financials", "Risk", "Diversification", 
-              "ETFs", "Psychology", "Portfolio Analysis"]
-    selected_topics = st.multiselect("Filter by topic:", topics, key="learn_topic_selector")
-    st.session_state.learn_topic_filter = selected_topics
-    
-    # Search
-    search_query = st.text_input("🔍 Search lessons:", placeholder="e.g., diversification", key="learn_search_input")
-    st.session_state.learn_search = search_query
-    
-    st.markdown("---")
-    
-    # Filter lessons
-    filtered_lessons = []
-    for lesson_id, lesson in LEARN_HUB_LESSONS.items():
-        # Level filter
-        if selected_level != "All Levels" and lesson["level"] != selected_level:
-            continue
-        
-        # Topic filter
-        if selected_topics and not any(t in lesson["topics"] for t in selected_topics):
-            continue
-        
-        # Search filter
-        if search_query and search_query.lower() not in lesson["title"].lower():
-            continue
-        
-        filtered_lessons.append(lesson)
-    
-    # Show recommended if no filters
-    recommended_ids = []
-    if selected_level == "All Levels" and not selected_topics and not search_query:
-        recommended = get_recommended_lessons()
-        if recommended:
-            st.markdown("### 🎯 Recommended for You")
-            for lesson_id in recommended:
-                if lesson_id in LEARN_HUB_LESSONS:
-                    lesson = LEARN_HUB_LESSONS[lesson_id]
-                    _render_lesson_card(lesson)
-                    recommended_ids.append(lesson_id)  # Track which we showed
-            st.markdown("---")
-            st.markdown("### All Lessons")
-    
-    # Render lesson list (exclude already-shown recommended ones)
-    if not filtered_lessons:
-        st.info("No lessons match your filters. Try adjusting your selection.")
-    else:
-        for lesson in filtered_lessons:
-            # Skip if already shown in recommended section
-            if lesson["id"] not in recommended_ids:
-                _render_lesson_card(lesson)
-    
     # ============= INTERACTIVE LESSON VIEWER (PHASE 2) =============
     if st.session_state.learn_selected_lesson_id:
         selected_lesson_id = st.session_state.learn_selected_lesson_id
@@ -10388,7 +10262,73 @@ elif selected_page == "📚 Learning":
                             st.rerun()
     
     # AI Coach integration
-    render_ai_coach("Learning", ticker=None, facts=None)
+    
+    
+    # ===== INTERACTIVE CALCULATOR (SIMPLE TEST) =====
+    # Level selector
+    else:
+        levels = ["All Levels", "Beginner", "Intermediate", "Advanced", "Behavior", "Repair"]
+        selected_level = st.radio(
+            "Filter by level:",
+            levels,
+            horizontal=True,
+            key="learn_level_selector"
+        )
+        st.session_state.learn_current_level = selected_level
+    
+        # Topic filter (multiselect)
+        topics = ["Foundations", "Buy & Hold", "Valuation", "Financials", "Risk", "Diversification", 
+                  "ETFs", "Psychology", "Portfolio Analysis"]
+        selected_topics = st.multiselect("Filter by topic:", topics, key="learn_topic_selector")
+        st.session_state.learn_topic_filter = selected_topics
+    
+        # Search
+        search_query = st.text_input("🔍 Search lessons:", placeholder="e.g., diversification", key="learn_search_input")
+        st.session_state.learn_search = search_query
+    
+        st.markdown("---")
+    
+        # Filter lessons
+        filtered_lessons = []
+        for lesson_id, lesson in LEARN_HUB_LESSONS.items():
+            # Level filter
+            if selected_level != "All Levels" and lesson["level"] != selected_level:
+                continue
+        
+            # Topic filter
+            if selected_topics and not any(t in lesson["topics"] for t in selected_topics):
+                continue
+        
+            # Search filter
+            if search_query and search_query.lower() not in lesson["title"].lower():
+                continue
+        
+            filtered_lessons.append(lesson)
+    
+        # Show recommended if no filters
+        recommended_ids = []
+        if selected_level == "All Levels" and not selected_topics and not search_query:
+            recommended = get_recommended_lessons()
+            if recommended:
+                st.markdown("### 🎯 Recommended for You")
+                for lesson_id in recommended:
+                    if lesson_id in LEARN_HUB_LESSONS:
+                        lesson = LEARN_HUB_LESSONS[lesson_id]
+                        _render_lesson_card(lesson)
+                        recommended_ids.append(lesson_id)  # Track which we showed
+                st.markdown("---")
+                st.markdown("### All Lessons")
+    
+        # Render lesson list (exclude already-shown recommended ones)
+        if not filtered_lessons:
+            st.info("No lessons match your filters. Try adjusting your selection.")
+        else:
+            for lesson in filtered_lessons:
+                # Skip if already shown in recommended section
+                if lesson["id"] not in recommended_ids:
+                    _render_lesson_card(lesson)
+    
+        render_ai_coach("Learning", ticker=None, facts=None)
 
 elif selected_page == "🧠 Risk Quiz":
     
