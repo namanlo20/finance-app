@@ -331,7 +331,7 @@ def show_ai_disclaimer(inputs_used=None):
 
 def show_skeleton_loader(height=200, message="Loading..."):
     """Display a skeleton loader placeholder while content loads"""
-    st.markdown("""
+    st.markdown(f"""
     <div style="
         background: linear-gradient(90deg, 
             rgba(128,128,128,0.1) 25%, 
@@ -465,7 +465,7 @@ def show_warning_banner(message, warning_type="info"):
     }
     border_color, bg_color, icon = colors.get(warning_type, colors["info"])
     
-    st.markdown("""
+    st.markdown(f"""
     <div style="
         background: {bg_color};
         border-left: 3px solid {border_color};
@@ -549,7 +549,7 @@ def show_empty_state(title, message, action_text=None, action_key=None, icon="�
     Returns:
         True if action button clicked, False otherwise
     """
-    st.markdown("""
+    st.markdown(f"""
     <div style="
         text-align: center;
         padding: 40px 20px;
@@ -1901,7 +1901,7 @@ def show_upgrade_prompt(message, cta_text="Upgrade Now", tier="pro"):
     tier_color = "#9D4EDD" if tier == "pro" else "#FFD700"
     tier_label = "Pro" if tier == "pro" else "Ultimate"
     
-    st.markdown("""
+    st.markdown(f"""
     <div style="
         background: rgba(157, 78, 221, 0.1);
         border-left: 4px solid {tier_color};
@@ -2022,7 +2022,7 @@ def show_onboarding_tooltip(step_id, title, message, position="bottom"):
         return False
     
     # Show tooltip
-    st.markdown("""
+    st.markdown(f"""
     <div style="
         background: linear-gradient(135deg, #9D4EDD 0%, #7B2CBF 100%);
         padding: 15px 20px;
@@ -8485,7 +8485,7 @@ if selected_page == "🏠 Dashboard":
                 
                 # Display logo + ticker as clickable card
                 if starter_logo:
-                    st.markdown("""
+                    st.markdown(f"""
                     <div style="text-align: center; padding: 10px; background: rgba(255,75,75,0.15); border-radius: 10px; border: 1px solid #ff4b4b;">
                         <img src="{starter_logo}" width="40" height="40" style="border-radius: 8px; margin-bottom: 8px;">
                         <div style="font-weight: bold; font-size: 14px;">{ticker}</div>
@@ -8596,7 +8596,7 @@ if selected_page == "🏠 Dashboard":
         sentiment_label = sentiment_data["label"]
         sentiment_color = sentiment_data["color"]
         
-        st.markdown("""
+        st.markdown(f"""
         <div style="background: rgba(128,128,128,0.1); padding: 20px; border-radius: 10px; text-align: center;">
             <div style="font-size: 36px; font-weight: bold; color: {sentiment_color};">{sentiment_score}</div>
             <div style="color: {sentiment_color}; font-size: 16px; font-weight: 500;">{sentiment_label}</div>
@@ -8694,7 +8694,7 @@ elif selected_page == "🏠 Start Here":
             
             # Display with logo
             if logo_url:
-                st.markdown("""
+                st.markdown(f"""
                 <div style="display: flex; align-items: flex-start; margin-bottom: 15px; padding: 10px; background: rgba(0,200,83,0.1); border-radius: 8px; border-left: 4px solid #00C853;">
                     <img src="{logo_url}" width="40" height="40" style="border-radius: 6px; margin-right: 12px; margin-top: 2px;">
                     <div>
@@ -8718,7 +8718,7 @@ elif selected_page == "🏠 Start Here":
             
             # Display with logo
             if logo_url:
-                st.markdown("""
+                st.markdown(f"""
                 <div style="display: flex; align-items: flex-start; margin-bottom: 15px; padding: 10px; background: rgba(255,82,82,0.1); border-radius: 8px; border-left: 4px solid #FF5252;">
                     <img src="{logo_url}" width="40" height="40" style="border-radius: 6px; margin-right: 12px; margin-top: 2px;">
                     <div>
