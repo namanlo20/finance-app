@@ -38,6 +38,7 @@ st.set_page_config(page_title="Investing Made Simple", layout="wide", page_icon=
 # Initialize selected page
 if 'selected_page' not in st.session_state:
     st.session_state.selected_page = "🏠 Dashboard"
+selected_page = st.session_state.selected_page
 
 # Fix button text visibility CSS - SIMPLIFIED
 st.markdown("""
