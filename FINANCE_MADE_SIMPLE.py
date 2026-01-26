@@ -221,7 +221,7 @@ def show_page_popup(page_id, title, summary, cool_feature):
     @st.dialog(title)
     def page_intro_dialog():
         # Content with description and cool feature
-        st.markdown("""
+        st.markdown(f"""
         <p style="font-size: 16px; line-height: 1.7; margin-bottom: 20px; color: #E0E0E0;">{summary}</p>
         <div style="
             background: linear-gradient(135deg, rgba(255, 75, 75, 0.3), rgba(255, 100, 100, 0.2)); 
@@ -286,7 +286,7 @@ def show_data_source(source="FMP API", updated_at=None, is_cached=False, is_dela
     if badge_str:
         badge_str = f" • {badge_str}"
     
-    st.markdown("""
+    st.markdown(f"""
     <div style="
         display: flex;
         align-items: center;
@@ -6651,7 +6651,7 @@ with header_cols[0]:
 with header_cols[1]:
     st.selectbox(
         "Learn",
-        ["📚 Learn", "🏠 Start Here", "📖 Basics", "📚 Finance 101", "🧠 Risk Quiz"],
+        ["📚 Learn", "🏠 Start Here", "📚 Learning", "🧠 Risk Quiz"],
         key="nav_learn_select",
         label_visibility="collapsed",
         on_change=nav_learn_changed
@@ -8561,7 +8561,7 @@ if selected_page == "🏠 Dashboard":
                     mchange = mquote.get('changesPercentage', 0)
                     mcolor = "#22c55e" if mchange > 0 else "#ef4444" if mchange < 0 else "#888"
                     
-                    st.markdown("""
+                    st.markdown(f"""
                     <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
                         <div style="font-size: 14px; color: #888;">{mticker}</div>
                         <div style="font-size: 20px; font-weight: bold;">${mprice:.2f}</div>
@@ -8569,7 +8569,7 @@ if selected_page == "🏠 Dashboard":
                     </div>
                     """, unsafe_allow_html=True)
                 else:
-                    st.markdown("""
+                    st.markdown(f"""
                     <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
                         <div style="font-size: 14px; color: #888;">{mticker}</div>
                         <div style="font-size: 16px; color: #888;">Loading...</div>
@@ -8920,10 +8920,10 @@ elif selected_page == "🏠 Start Here":
 # COMPLETE LEARN HUB IMPLEMENTATION
 # This replaces lines 7343-8025 in the main file
 
-elif selected_page == "📖 Basics":
+elif selected_page == "📚 Learning":
     """
-    📖 LEARN HUB - Complete Learning System
-    - 55 total lessons (15 original + 40 new)
+    📚 LEARNING - Complete Learning System
+    Consolidates Learn Hub + Finance 101 content
     - XP & Badge system
     - Progress tracking (session + Supabase)
     - Quiz engine
@@ -8931,12 +8931,12 @@ elif selected_page == "📖 Basics":
     """
     
     # Show page popup
-    show_page_popup(
-        'learn_hub',
-        '📚 Learn Hub',
-        'Master investing with 55 interactive lessons. Earn XP and badges as you progress through beginner to advanced topics.',
-        'Take quizzes after each lesson to test your knowledge and unlock achievements!'
-    )
+    # show_page_popup( # DISABLED TO FIX DIALOG CONFLICTS
+    # 'learn_hub',
+    # '📚 Learn Hub',
+    # 'Master investing with 55 interactive lessons. Earn XP and badges as you progress through beginner to advanced topics.',
+    # 'Take quizzes after each lesson to test your knowledge and unlock achievements!'
+    # )
     
     # ============= SESSION STATE INITIALIZATION =============
     # Initialize all Learn Hub state variables
@@ -9765,8 +9765,8 @@ elif selected_page == "📖 Basics":
     render_setup_nudge()
     
     # Header
-    st.markdown("# 📖 Learn Hub")
-    st.caption("*Educational only. Not financial advice.*")
+    st.markdown("# 📚 Learning")
+    st.caption("*Master investing through interactive lessons and key concepts. Educational only, not financial advice.*")
     
     # Progress row
     total_lessons = len(LEARN_HUB_LESSONS)
@@ -9793,6 +9793,216 @@ elif selected_page == "📖 Basics":
         st.markdown(badge_chips, unsafe_allow_html=True)
     
     st.markdown("---")
+    st.markdown("---")
+    st.markdown("## 🏆 The 5 Metrics That Actually Matter")
+    st.markdown("*These are the numbers that separate winners from losers.*")
+    
+    # Top 5 Metrics as visual cards (D1)
+    metrics_data = [
+        {"icon": "💰", "name": "FCF per Share Growth", 
+         "definition": "Free cash flow divided by total shares outstanding.", 
+         "why": "FCF per share accounts for dilution from stock-based comp. Total FCF can grow 20% but if shares also grow 20%, FCF/share stays flat ($1.00 → $1.00). This is the most honest growth metric.", 
+         "example": "Good: Visa — FCF grows faster than shares. Bad: Snap — heavy dilution kills per-share growth"},
+        
+        {"icon": "⚙️", "name": "Operating Income Growth", 
+         "definition": "Profit from core business before interest and taxes.", 
+         "why": "Shows real operating leverage. Less noisy than net income because it excludes one-time items and financial engineering.", 
+         "example": "Good: Amazon — massive operating leverage as AWS scales. Bad: WeWork — burned cash despite revenue growth"},
+        
+        {"icon": "📊", "name": "Gross Margin Growth", 
+         "definition": "Revenue minus cost of goods sold, as a percentage.", 
+         "why": "Rising gross margins indicate pricing power and efficiency. Especially critical for software (should be 70%+) and consumer brands.", 
+         "example": "Good: Microsoft — software margins expand with scale. Bad: Peloton — hardware margins collapsed under competition"},
+        
+        {"icon": "📈", "name": "Revenue Growth", 
+         "definition": "Total money coming in from customer sales.", 
+         "why": "Important signal of demand, but can be 'bought' with unsustainable discounting or low-quality growth. Always check profitability too.", 
+         "example": "Good: NVIDIA — revenue explosion from AI chips. Bad: Uber (early years) — grew revenue while burning billions"},
+        
+        {"icon": "🛡️", "name": "Quick Ratio", 
+         "definition": "(Cash + receivables) / current liabilities. Excludes inventory.", 
+         "why": "Measures short-term liquidity and crisis survival. Quick ratio > 1 means the company can pay bills without selling inventory. Essential for risk management.", 
+         "example": "Good: Apple — ratio > 1, can survive any storm. Bad: Startups pre-profitability — often < 0.5, vulnerable to funding freezes"}
+    ]
+    
+    # Display as vertical cards (ranked from most to least important)
+    for i, metric in enumerate(metrics_data):
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border: none; box-shadow: none; padding: 20px; border-radius: 12px; margin-bottom: 15px; border-left: 4px solid #FF4444;">
+            <div style="font-size: 28px; margin-bottom: 8px;">{metric['icon']}</div>
+            <h4 style="color: #E0E0E0; margin: 0 0 8px 0;">#{i+1}: {metric['name']}</h4>
+            <p style="color: #B0B0B0; margin: 0 0 8px 0; font-size: 14px;">{metric['definition']}</p>
+            <p style="color: #FF6B6B; margin: 0 0 8px 0; font-size: 13px;"><strong>Why it matters:</strong> {metric['why']}</p>
+            <p style="color: #4ECDC4; margin: 0; font-size: 12px;"><em>{metric['example']}</em></p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Micro-quiz for Top 5 Metrics (E)
+    with st.expander("📝 Quick Quiz: Test Your Knowledge"):
+        quiz_answer = st.radio(
+            "Which metric best accounts for shareholder dilution from stock-based compensation?",
+            ["Total Free Cash Flow", "Revenue Growth", "FCF per Share", "Operating Income"],
+            key="finance101_quiz1"
+        )
+        if st.button("Check Answer", key="check_quiz1"):
+            if quiz_answer == "FCF per Share":
+                st.success("Correct! FCF per share divides total FCF by shares outstanding, so you see the true per-share growth after dilution.")
+            else:
+                st.error("Not quite. FCF per share is the answer - it accounts for dilution, unlike total FCF which can grow while per-share value stays flat.")
+    
+    # ============= VISUAL DIAGRAMS (D2) =============
+    st.markdown("---")
+    st.markdown("## 📊 How Money Flows Through a Business")
+    
+    # Revenue to Profit diagram
+    st.markdown("""
+    <div style="background: #1a1a2e; border: none; box-shadow: none; padding: 25px; border-radius: 12px; margin-bottom: 20px;">
+        <h4 style="color: #E0E0E0; text-align: center; margin-bottom: 20px;">The Profit Waterfall</h4>
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+            <div style="text-align: center; flex: 1; min-width: 100px;">
+                <div style="background: #4ECDC4; padding: 15px; border-radius: 8px; margin-bottom: 5px;">
+                    <span style="color: #000; font-weight: bold;">Revenue</span>
+                </div>
+                <span style="color: #888; font-size: 12px;">$100</span>
+            </div>
+            <div style="color: #888; font-size: 20px;">→</div>
+            <div style="text-align: center; flex: 1; min-width: 100px;">
+                <div style="background: #FFD93D; padding: 15px; border-radius: 8px; margin-bottom: 5px;">
+                    <span style="color: #000; font-weight: bold;">Gross Profit</span>
+                </div>
+                <span style="color: #888; font-size: 12px;">$60 (- costs)</span>
+            </div>
+            <div style="color: #888; font-size: 20px;">→</div>
+            <div style="text-align: center; flex: 1; min-width: 100px;">
+                <div style="background: #FF6B6B; padding: 15px; border-radius: 8px; margin-bottom: 5px;">
+                    <span style="color: #E0E0E0; font-weight: bold;">Operating Income</span>
+                </div>
+                <span style="color: #888; font-size: 12px;">$30 (- expenses)</span>
+            </div>
+            <div style="color: #888; font-size: 20px;">→</div>
+            <div style="text-align: center; flex: 1; min-width: 100px;">
+                <div style="background: #9D4EDD; padding: 15px; border-radius: 8px; margin-bottom: 5px;">
+                    <span style="color: #E0E0E0; font-weight: bold;">Net Income</span>
+                </div>
+                <span style="color: #888; font-size: 12px;">$20 (- taxes)</span>
+            </div>
+            <div style="color: #888; font-size: 20px;">→</div>
+            <div style="text-align: center; flex: 1; min-width: 100px;">
+                <div style="background: #00C853; padding: 15px; border-radius: 8px; margin-bottom: 5px;">
+                    <span style="color: #000; font-weight: bold;">Free Cash Flow</span>
+                </div>
+                <span style="color: #888; font-size: 12px;">$15 (actual cash)</span>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Stock = slice of business diagram
+    st.markdown("""
+    <div style="background: #1a1a2e; border: none; box-shadow: none; padding: 25px; border-radius: 12px; margin-bottom: 20px;">
+        <h4 style="color: #E0E0E0; text-align: center; margin-bottom: 15px;">What is a Stock?</h4>
+        <div style="display: flex; align-items: center; justify-content: center; gap: 20px; flex-wrap: wrap;">
+            <div style="text-align: center;">
+                <div style="font-size: 50px;">🏢</div>
+                <p style="color: #888; margin: 5px 0;">Company</p>
+            </div>
+            <div style="font-size: 30px; color: #888;">=</div>
+            <div style="text-align: center;">
+                <div style="font-size: 50px;">🍕🍕🍕🍕</div>
+                <p style="color: #888; margin: 5px 0;">Millions of Slices</p>
+            </div>
+            <div style="font-size: 30px; color: #888;">→</div>
+            <div style="text-align: center;">
+                <div style="font-size: 50px;">🍕</div>
+                <p style="color: #4ECDC4; margin: 5px 0; font-weight: bold;">1 Share = 1 Slice</p>
+            </div>
+        </div>
+        <p style="color: #B0B0B0; text-align: center; margin-top: 15px; font-size: 14px;">When you buy a stock, you own a tiny piece of a real business.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Risk spectrum meter
+    st.markdown("""
+    <div style="background: #1a1a2e; border: none; box-shadow: none; padding: 25px; border-radius: 12px; margin-bottom: 20px;">
+        <h4 style="color: #E0E0E0; text-align: center; margin-bottom: 15px;">Risk Spectrum</h4>
+        <div style="display: flex; justify-content: space-between; align-items: center; background: linear-gradient(90deg, #00C853 0%, #FFD93D 50%, #FF4444 100%); padding: 15px; border-radius: 8px;">
+            <div style="text-align: center;">
+                <span style="color: #000; font-weight: bold;">Treasury Bonds</span><br>
+                <span style="color: #000; font-size: 12px;">~4% return</span>
+            </div>
+            <div style="text-align: center;">
+                <span style="color: #000; font-weight: bold;">S&P 500 ETF</span><br>
+                <span style="color: #000; font-size: 12px;">~10% avg</span>
+            </div>
+            <div style="text-align: center;">
+                <span style="color: #E0E0E0; font-weight: bold;">Individual Stocks</span><br>
+                <span style="color: #E0E0E0; font-size: 12px;">Varies wildly</span>
+            </div>
+            <div style="text-align: center;">
+                <span style="color: #E0E0E0; font-weight: bold;">Meme Stocks</span><br>
+                <span style="color: #E0E0E0; font-size: 12px;">Casino 🎰</span>
+            </div>
+        </div>
+        <p style="color: #B0B0B0; text-align: center; margin-top: 10px; font-size: 13px;">Higher potential returns = Higher risk of loss</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # ============= INTERACTIVE WIDGETS (D3) =============
+    st.markdown("---")
+    st.markdown("## 🎮 Try It: Interactive Learning")
+    
+    # What if price drops widget
+    st.markdown("### What if the price drops?")
+    drop_pct = st.slider("Simulate a price drop:", 0, 50, 20, 5, key="price_drop_slider")
+    initial_value = 10000
+    new_value = initial_value * (1 - drop_pct / 100)
+    recovery_needed = ((initial_value / new_value) - 1) * 100
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Starting Value", f"${initial_value:,.0f}")
+    with col2:
+        st.metric("After Drop", f"${new_value:,.0f}", f"-{drop_pct}%")
+    with col3:
+        st.metric("Recovery Needed", f"+{recovery_needed:.1f}%", help="To get back to your starting value")
+    
+    st.caption(f"*If your portfolio drops {drop_pct}%, you need a {recovery_needed:.1f}% gain just to break even. This is why avoiding big losses matters!*")
+    
+    # Compound interest widget
+    st.markdown("### The Power of Compounding")
+    years_compound = st.slider("Years invested:", 1, 30, 10, key="compound_years")
+    annual_return = st.slider("Annual return (%):", 1, 20, 8, key="compound_return")
+    
+    initial_invest = 10000
+    final_value = initial_invest * ((1 + annual_return / 100) ** years_compound)
+    total_gain = final_value - initial_invest
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("Initial Investment", f"${initial_invest:,.0f}")
+    with col2:
+        st.metric(f"After {years_compound} Years", f"${final_value:,.0f}", f"+${total_gain:,.0f}")
+    
+    st.caption(f"*At {annual_return}% annual return, your money grows {final_value/initial_invest:.1f}x in {years_compound} years. Time is your biggest advantage!*")
+    
+    # ============= GLOSSARY SECTION =============
+    st.markdown("---")
+    st.markdown("## 📖 Full Glossary")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("### 💰 Income & Cash Flow")
+        for term in ["FCF After SBC", "Revenue", "Operating Income", "Net Income", "CAGR", "FCF per Share"]:
+            with st.expander(term):
+                st.write(GLOSSARY[term])
+    
+    with col2:
+        st.markdown("### 📊 Valuation & Risk")
+        for term in ["P/E Ratio", "P/S Ratio", "Market Cap", "Beta", "Debt-to-Equity", "Quick Ratio"]:
+            with st.expander(term):
+                st.write(GLOSSARY[term])
+    
     
     # ===== INTERACTIVE CALCULATOR (SIMPLE TEST) =====
     st.markdown("### 🧮 P/E Ratio Calculator")
@@ -10178,235 +10388,7 @@ elif selected_page == "📖 Basics":
                             st.rerun()
     
     # AI Coach integration
-    render_ai_coach("Learn Hub", ticker=None, facts=None)
-
-elif selected_page == "📚 Finance 101":
-    
-    st.header("📚 Finance 101")
-    st.caption("*Learn the language of investing through visual cards and interactive examples.*")
-    
-    # Show page popup
-    show_page_popup(
-        'finance_101',
-        '🎓 Finance 101',
-        'Quick crash course on investing basics. Learn key terms, understand stocks vs bonds, and master the 5 metrics that actually matter.',
-        'Visual card system makes complex topics super easy to understand!'
-    )
-    
-    # ============= TOP 5 METRICS SECTION (C - moved from Company Analysis) =============
-    st.markdown("---")
-    st.markdown("## 🏆 The 5 Metrics That Actually Matter")
-    st.markdown("*These are the numbers that separate winners from losers.*")
-    
-    # Top 5 Metrics as visual cards (D1)
-    metrics_data = [
-        {"icon": "💰", "name": "FCF per Share Growth", 
-         "definition": "Free cash flow divided by total shares outstanding.", 
-         "why": "FCF per share accounts for dilution from stock-based comp. Total FCF can grow 20% but if shares also grow 20%, FCF/share stays flat ($1.00 → $1.00). This is the most honest growth metric.", 
-         "example": "Good: Visa — FCF grows faster than shares. Bad: Snap — heavy dilution kills per-share growth"},
-        
-        {"icon": "⚙️", "name": "Operating Income Growth", 
-         "definition": "Profit from core business before interest and taxes.", 
-         "why": "Shows real operating leverage. Less noisy than net income because it excludes one-time items and financial engineering.", 
-         "example": "Good: Amazon — massive operating leverage as AWS scales. Bad: WeWork — burned cash despite revenue growth"},
-        
-        {"icon": "📊", "name": "Gross Margin Growth", 
-         "definition": "Revenue minus cost of goods sold, as a percentage.", 
-         "why": "Rising gross margins indicate pricing power and efficiency. Especially critical for software (should be 70%+) and consumer brands.", 
-         "example": "Good: Microsoft — software margins expand with scale. Bad: Peloton — hardware margins collapsed under competition"},
-        
-        {"icon": "📈", "name": "Revenue Growth", 
-         "definition": "Total money coming in from customer sales.", 
-         "why": "Important signal of demand, but can be 'bought' with unsustainable discounting or low-quality growth. Always check profitability too.", 
-         "example": "Good: NVIDIA — revenue explosion from AI chips. Bad: Uber (early years) — grew revenue while burning billions"},
-        
-        {"icon": "🛡️", "name": "Quick Ratio", 
-         "definition": "(Cash + receivables) / current liabilities. Excludes inventory.", 
-         "why": "Measures short-term liquidity and crisis survival. Quick ratio > 1 means the company can pay bills without selling inventory. Essential for risk management.", 
-         "example": "Good: Apple — ratio > 1, can survive any storm. Bad: Startups pre-profitability — often < 0.5, vulnerable to funding freezes"}
-    ]
-    
-    # Display as vertical cards (ranked from most to least important)
-    for i, metric in enumerate(metrics_data):
-        st.markdown("""
-        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border: none; box-shadow: none; padding: 20px; border-radius: 12px; margin-bottom: 15px; border-left: 4px solid #FF4444;">
-            <div style="font-size: 28px; margin-bottom: 8px;">{metric['icon']}</div>
-            <h4 style="color: #E0E0E0; margin: 0 0 8px 0;">#{i+1}: {metric['name']}</h4>
-            <p style="color: #B0B0B0; margin: 0 0 8px 0; font-size: 14px;">{metric['definition']}</p>
-            <p style="color: #FF6B6B; margin: 0 0 8px 0; font-size: 13px;"><strong>Why it matters:</strong> {metric['why']}</p>
-            <p style="color: #4ECDC4; margin: 0; font-size: 12px;"><em>{metric['example']}</em></p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # Micro-quiz for Top 5 Metrics (E)
-    with st.expander("📝 Quick Quiz: Test Your Knowledge"):
-        quiz_answer = st.radio(
-            "Which metric best accounts for shareholder dilution from stock-based compensation?",
-            ["Total Free Cash Flow", "Revenue Growth", "FCF per Share", "Operating Income"],
-            key="finance101_quiz1"
-        )
-        if st.button("Check Answer", key="check_quiz1"):
-            if quiz_answer == "FCF per Share":
-                st.success("Correct! FCF per share divides total FCF by shares outstanding, so you see the true per-share growth after dilution.")
-            else:
-                st.error("Not quite. FCF per share is the answer - it accounts for dilution, unlike total FCF which can grow while per-share value stays flat.")
-    
-    # ============= VISUAL DIAGRAMS (D2) =============
-    st.markdown("---")
-    st.markdown("## 📊 How Money Flows Through a Business")
-    
-    # Revenue to Profit diagram
-    st.markdown("""
-    <div style="background: #1a1a2e; border: none; box-shadow: none; padding: 25px; border-radius: 12px; margin-bottom: 20px;">
-        <h4 style="color: #E0E0E0; text-align: center; margin-bottom: 20px;">The Profit Waterfall</h4>
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
-            <div style="text-align: center; flex: 1; min-width: 100px;">
-                <div style="background: #4ECDC4; padding: 15px; border-radius: 8px; margin-bottom: 5px;">
-                    <span style="color: #000; font-weight: bold;">Revenue</span>
-                </div>
-                <span style="color: #888; font-size: 12px;">$100</span>
-            </div>
-            <div style="color: #888; font-size: 20px;">→</div>
-            <div style="text-align: center; flex: 1; min-width: 100px;">
-                <div style="background: #FFD93D; padding: 15px; border-radius: 8px; margin-bottom: 5px;">
-                    <span style="color: #000; font-weight: bold;">Gross Profit</span>
-                </div>
-                <span style="color: #888; font-size: 12px;">$60 (- costs)</span>
-            </div>
-            <div style="color: #888; font-size: 20px;">→</div>
-            <div style="text-align: center; flex: 1; min-width: 100px;">
-                <div style="background: #FF6B6B; padding: 15px; border-radius: 8px; margin-bottom: 5px;">
-                    <span style="color: #E0E0E0; font-weight: bold;">Operating Income</span>
-                </div>
-                <span style="color: #888; font-size: 12px;">$30 (- expenses)</span>
-            </div>
-            <div style="color: #888; font-size: 20px;">→</div>
-            <div style="text-align: center; flex: 1; min-width: 100px;">
-                <div style="background: #9D4EDD; padding: 15px; border-radius: 8px; margin-bottom: 5px;">
-                    <span style="color: #E0E0E0; font-weight: bold;">Net Income</span>
-                </div>
-                <span style="color: #888; font-size: 12px;">$20 (- taxes)</span>
-            </div>
-            <div style="color: #888; font-size: 20px;">→</div>
-            <div style="text-align: center; flex: 1; min-width: 100px;">
-                <div style="background: #00C853; padding: 15px; border-radius: 8px; margin-bottom: 5px;">
-                    <span style="color: #000; font-weight: bold;">Free Cash Flow</span>
-                </div>
-                <span style="color: #888; font-size: 12px;">$15 (actual cash)</span>
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Stock = slice of business diagram
-    st.markdown("""
-    <div style="background: #1a1a2e; border: none; box-shadow: none; padding: 25px; border-radius: 12px; margin-bottom: 20px;">
-        <h4 style="color: #E0E0E0; text-align: center; margin-bottom: 15px;">What is a Stock?</h4>
-        <div style="display: flex; align-items: center; justify-content: center; gap: 20px; flex-wrap: wrap;">
-            <div style="text-align: center;">
-                <div style="font-size: 50px;">🏢</div>
-                <p style="color: #888; margin: 5px 0;">Company</p>
-            </div>
-            <div style="font-size: 30px; color: #888;">=</div>
-            <div style="text-align: center;">
-                <div style="font-size: 50px;">🍕🍕🍕🍕</div>
-                <p style="color: #888; margin: 5px 0;">Millions of Slices</p>
-            </div>
-            <div style="font-size: 30px; color: #888;">→</div>
-            <div style="text-align: center;">
-                <div style="font-size: 50px;">🍕</div>
-                <p style="color: #4ECDC4; margin: 5px 0; font-weight: bold;">1 Share = 1 Slice</p>
-            </div>
-        </div>
-        <p style="color: #B0B0B0; text-align: center; margin-top: 15px; font-size: 14px;">When you buy a stock, you own a tiny piece of a real business.</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Risk spectrum meter
-    st.markdown("""
-    <div style="background: #1a1a2e; border: none; box-shadow: none; padding: 25px; border-radius: 12px; margin-bottom: 20px;">
-        <h4 style="color: #E0E0E0; text-align: center; margin-bottom: 15px;">Risk Spectrum</h4>
-        <div style="display: flex; justify-content: space-between; align-items: center; background: linear-gradient(90deg, #00C853 0%, #FFD93D 50%, #FF4444 100%); padding: 15px; border-radius: 8px;">
-            <div style="text-align: center;">
-                <span style="color: #000; font-weight: bold;">Treasury Bonds</span><br>
-                <span style="color: #000; font-size: 12px;">~4% return</span>
-            </div>
-            <div style="text-align: center;">
-                <span style="color: #000; font-weight: bold;">S&P 500 ETF</span><br>
-                <span style="color: #000; font-size: 12px;">~10% avg</span>
-            </div>
-            <div style="text-align: center;">
-                <span style="color: #E0E0E0; font-weight: bold;">Individual Stocks</span><br>
-                <span style="color: #E0E0E0; font-size: 12px;">Varies wildly</span>
-            </div>
-            <div style="text-align: center;">
-                <span style="color: #E0E0E0; font-weight: bold;">Meme Stocks</span><br>
-                <span style="color: #E0E0E0; font-size: 12px;">Casino 🎰</span>
-            </div>
-        </div>
-        <p style="color: #B0B0B0; text-align: center; margin-top: 10px; font-size: 13px;">Higher potential returns = Higher risk of loss</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # ============= INTERACTIVE WIDGETS (D3) =============
-    st.markdown("---")
-    st.markdown("## 🎮 Try It: Interactive Learning")
-    
-    # What if price drops widget
-    st.markdown("### What if the price drops?")
-    drop_pct = st.slider("Simulate a price drop:", 0, 50, 20, 5, key="price_drop_slider")
-    initial_value = 10000
-    new_value = initial_value * (1 - drop_pct / 100)
-    recovery_needed = ((initial_value / new_value) - 1) * 100
-    
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Starting Value", f"${initial_value:,.0f}")
-    with col2:
-        st.metric("After Drop", f"${new_value:,.0f}", f"-{drop_pct}%")
-    with col3:
-        st.metric("Recovery Needed", f"+{recovery_needed:.1f}%", help="To get back to your starting value")
-    
-    st.caption(f"*If your portfolio drops {drop_pct}%, you need a {recovery_needed:.1f}% gain just to break even. This is why avoiding big losses matters!*")
-    
-    # Compound interest widget
-    st.markdown("### The Power of Compounding")
-    years_compound = st.slider("Years invested:", 1, 30, 10, key="compound_years")
-    annual_return = st.slider("Annual return (%):", 1, 20, 8, key="compound_return")
-    
-    initial_invest = 10000
-    final_value = initial_invest * ((1 + annual_return / 100) ** years_compound)
-    total_gain = final_value - initial_invest
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        st.metric("Initial Investment", f"${initial_invest:,.0f}")
-    with col2:
-        st.metric(f"After {years_compound} Years", f"${final_value:,.0f}", f"+${total_gain:,.0f}")
-    
-    st.caption(f"*At {annual_return}% annual return, your money grows {final_value/initial_invest:.1f}x in {years_compound} years. Time is your biggest advantage!*")
-    
-    # ============= GLOSSARY SECTION =============
-    st.markdown("---")
-    st.markdown("## 📖 Full Glossary")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("### 💰 Income & Cash Flow")
-        for term in ["FCF After SBC", "Revenue", "Operating Income", "Net Income", "CAGR", "FCF per Share"]:
-            with st.expander(term):
-                st.write(GLOSSARY[term])
-    
-    with col2:
-        st.markdown("### 📊 Valuation & Risk")
-        for term in ["P/E Ratio", "P/S Ratio", "Market Cap", "Beta", "Debt-to-Equity", "Quick Ratio"]:
-            with st.expander(term):
-                st.write(GLOSSARY[term])
-    
-    # AI Coach integration
-    render_ai_coach("Finance 101", ticker=None, facts=None)
-
+    render_ai_coach("Learning", ticker=None, facts=None)
 
 elif selected_page == "🧠 Risk Quiz":
     
@@ -10625,12 +10607,12 @@ elif selected_page == "📊 Company Analysis":
     track_feature_usage("company_analysis")
     
     # Show page popup
-    show_page_popup(
-        'company_analysis',
-        '🔍 Company Analysis',
-        'Deep dive into any stock. View financial metrics, charts, and compare companies side-by-side.',
-        'AI explains complex metrics in simple terms - no jargon!'
-    )
+    # show_page_popup( # DISABLED TO FIX DIALOG CONFLICTS
+    # 'company_analysis',
+    # '🔍 Company Analysis',
+    # 'Deep dive into any stock. View financial metrics, charts, and compare companies side-by-side.',
+    # 'AI explains complex metrics in simple terms - no jargon!'
+    # )
     
     # Robinhood-style guidance
     st.caption("*This page explains how this company makes money and where the risks are.*")
@@ -13210,12 +13192,12 @@ elif selected_page == "📈 Financial Health":
 elif selected_page == "📰 Market Intelligence":
     
     # Show page popup
-    show_page_popup(
-        'market_intelligence',
-        '📰 Market Intelligence',
-        'Stay informed with AI-powered news, earnings calendar, and market sentiment. Search any stock for latest news.',
-        'Real-time market sentiment gauge shows fear vs greed levels!'
-    )
+    # show_page_popup( # DISABLED TO FIX DIALOG CONFLICTS
+    # 'market_intelligence',
+    # '📰 Market Intelligence',
+    # 'Stay informed with AI-powered news, earnings calendar, and market sentiment. Search any stock for latest news.',
+    # 'Real-time market sentiment gauge shows fear vs greed levels!'
+    # )
     
     st.header("📰 Market Intelligence & News")
     st.markdown("**Stay informed with AI-powered market insights, news, and earnings**")
@@ -14111,12 +14093,12 @@ elif selected_page == "👑 Become a VIP":
 elif selected_page == "📊 Pro Checklist":
     
     # Show page popup
-    show_page_popup(
-        'pro_checklist',
-        '📊 Pro Checklist',
-        'Upload stock charts for AI-powered technical pattern detection. Complete a pre-investment checklist.',
-        'AI explains chart patterns in plain English - no jargon!'
-    )
+    # show_page_popup( # DISABLED TO FIX DIALOG CONFLICTS
+    # 'pro_checklist',
+    # '📊 Pro Checklist',
+    # 'Upload stock charts for AI-powered technical pattern detection. Complete a pre-investment checklist.',
+    # 'AI explains chart patterns in plain English - no jargon!'
+    # )
     
     # ============= YELLOW PILL HEADER =============
     st.markdown("""
@@ -14891,12 +14873,12 @@ elif selected_page == "📊 Pro Checklist":
 elif selected_page == "👑 Ultimate":
     
     # Show page popup
-    show_page_popup(
-        'ultimate',
-        '👑 Ultimate',
-        'Upload portfolio screenshots for AI analysis. Get personalized feedback on your holdings.',
-        'AI analyzes diversification, risk, and allocation in seconds!'
-    )
+    # show_page_popup( # DISABLED TO FIX DIALOG CONFLICTS
+    # 'ultimate',
+    # '👑 Ultimate',
+    # 'Upload portfolio screenshots for AI analysis. Get personalized feedback on your holdings.',
+    # 'AI analyzes diversification, risk, and allocation in seconds!'
+    # )
     
     # ============= PURPLE PILL HEADER =============
     st.markdown("""
@@ -16264,12 +16246,12 @@ Return JSON with grade, summary, top_risks (MAX 5), improvement_playbook (MAX 5)
 elif selected_page == "💼 Paper Portfolio":
     
     # Show page popup
-    show_page_popup(
-        'paper_portfolio',
-        '💼 Paper Portfolio',
-        'Practice trading with $100,000 fake money. Track your performance vs the market.',
-        'Compare your returns against SPY benchmark to see how you stack up!'
-    )
+    # show_page_popup( # DISABLED TO FIX DIALOG CONFLICTS
+    # 'paper_portfolio',
+    # '💼 Paper Portfolio',
+    # 'Practice trading with $100,000 fake money. Track your performance vs the market.',
+    # 'Compare your returns against SPY benchmark to see how you stack up!'
+    # )
     
     st.header("💼 Paper Portfolio")
     st.caption("*Practice trading with fake money. Track your performance vs the market.*")
