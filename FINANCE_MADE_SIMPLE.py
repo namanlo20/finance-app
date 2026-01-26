@@ -35,43 +35,6 @@ STARTING_CASH = float(os.environ.get("STARTING_CASH", "100000"))
 
 st.set_page_config(page_title="Investing Made Simple", layout="wide", page_icon="💰")
 
-# ============= THEME-AWARE COLOR HELPERS =============
-def get_box_bg():
-    """Returns appropriate box background based on current theme"""
-    if st.session_state.get('theme', 'dark') == 'light':
-        return '#FFFFFF'  # White background for light mode
-    return 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)'  # Dark gradient for dark mode
-
-def get_box_gradient_bg():
-    """Returns gradient background based on theme"""
-    if st.session_state.get('theme', 'dark') == 'light':
-        return 'linear-gradient(135deg, #F3F4F6 0%, #E5E7EB 100%)'  # Light gradient
-    return 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)'  # Dark gradient
-
-def get_box_solid_bg():
-    """Returns solid background color based on theme"""
-    if st.session_state.get('theme', 'dark') == 'light':
-        return '#FFFFFF'
-    return '#1a1a2e'
-
-def get_text_color():
-    """Returns appropriate text color based on theme"""
-    if st.session_state.get('theme', 'dark') == 'light':
-        return '#111827'  # Dark text for light mode
-    return '#E0E0E0'  # Light text for dark mode
-
-def get_box_border():
-    """Returns box border based on theme"""
-    if st.session_state.get('theme', 'dark') == 'light':
-        return '1px solid #E5E7EB'
-    return 'none'
-
-def get_box_shadow():
-    """Returns box shadow based on theme"""
-    if st.session_state.get('theme', 'dark') == 'light':
-        return '0 1px 3px rgba(0,0,0,0.1)'
-    return 'none'
-
 # Initialize selected page
 if 'selected_page' not in st.session_state:
     st.session_state.selected_page = "🏠 Dashboard"
@@ -204,11 +167,11 @@ def show_page_popup(page_id, title, summary, cool_feature):
     [data-testid="stDialog"] h2,
     [data-testid="stDialog"] h3,
     [data-testid="stDialog"] label {
-        color: #E0E0E0 !important;
+        color: #FFFFFF !important;
     }
     /* Style the close X button */
     [data-testid="stDialog"] button[kind="header"] {
-        color: #E0E0E0 !important;
+        color: #FFFFFF !important;
     }
     [data-testid="stDialog"] svg {
         fill: #FFFFFF !important;
@@ -229,7 +192,7 @@ def show_page_popup(page_id, title, summary, cool_feature):
             border-radius: 10px; 
             border-left: 4px solid #ff4b4b;
         ">
-            <p style="margin: 0; font-size: 15px; color: #E0E0E0;">
+            <p style="margin: 0; font-size: 15px; color: #FFFFFF;">
                 🌟 <strong style="color: #ff4b4b;">Cool Feature:</strong> {cool_feature}
             </p>
         </div>
@@ -369,7 +332,7 @@ def show_skeleton_table(rows=5, cols=4):
         row_cells = ''.join(['<div style="background: linear-gradient(90deg, rgba(128,128,128,0.08) 25%, rgba(128,128,128,0.15) 50%, rgba(128,128,128,0.08) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; height: 35px; border-radius: 4px;"></div>' for _ in range(cols)])
         data_rows += f'<div style="display: grid; grid-template-columns: repeat({cols}, 1fr); gap: 10px; margin-top: 10px;">{row_cells}</div>'
     
-    st.markdown("""
+    st.markdown(f"""
     <div style="background: rgba(128,128,128,0.05); border-radius: 10px; padding: 15px; margin: 10px 0;">
         <div style="display: grid; grid-template-columns: repeat({cols}, 1fr); gap: 10px;">
             {header_cells}
@@ -391,7 +354,7 @@ def show_loading_timer():
         st.session_state.loading_start_time = time.time()
     
     elapsed = time.time() - st.session_state.loading_start_time
-    st.markdown("""
+    st.markdown(f"""
     <div style="
         display: inline-flex;
         align-items: center;
@@ -423,7 +386,7 @@ def show_error_with_retry(error_message, retry_key, error_details=None):
     Returns:
         True if retry button was clicked
     """
-    st.markdown("""
+    st.markdown(f"""
     <div style="
         background: rgba(255, 100, 100, 0.1);
         border: 1px solid rgba(255, 100, 100, 0.3);
@@ -631,485 +594,970 @@ if 'theme' not in st.session_state:
 if st.session_state.theme == 'dark':
     st.markdown("""
     <style>
-    /* ==================== DARK MODE ==================== */
-    /* Professional dark theme with softer reds and high contrast */
+    /* DARK MODE - Pure Black Background with White Text */
+    .main { background: #000000 !important; padding-top: 80px !important; }
+    .stApp { background: #000000 !important; }
+    [data-testid="stAppViewContainer"] { background: #000000 !important; padding-top: 80px !important; }
+    [data-testid="stHeader"] { background: #000000 !important; }
+    [data-testid="stSidebar"] { background: #0a0a0a !important; padding-top: 80px !important; }
     
-    /* Base Colors */
-    .main { background: #0A0A1E !important; padding-top: 80px !important; }
-    .stApp { background: #0A0A1E !important; }
-    [data-testid="stAppViewContainer"] { background: #0A0A1E !important; padding-top: 80px !important; }
-    [data-testid="stHeader"] { background: #0A0A1E !important; }
-    [data-testid="stSidebar"] { background: #121826 !important; padding-top: 80px !important; }
-    
-    /* Text - High Contrast */
+    /* CRITICAL: Force white text on dark background */
     html, body, .stApp, [data-testid="stAppViewContainer"], 
     [data-testid="stSidebar"], p, span, div, label, li, td, th,
     .stMarkdown, .stText, [data-testid="stMarkdownContainer"],
     .element-container, .stRadio label, .stSelectbox label,
     .stTextInput label, .stSlider label, .stCheckbox label {
-        color: #E0E0E0 !important;
+        color: #FFFFFF !important;
     }
     
-    h1, h2, h3, h4, h5, h6 { color: #E0E0E0 !important; }
-    a { color: #3B82F6 !important; }
+    /* Sidebar expander titles and captions */
+    [data-testid="stSidebar"] .stExpander summary, 
+    [data-testid="stSidebar"] .stExpander p,
+    [data-testid="stSidebar"] .stCaption,
+    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, 
+    [data-testid="stSidebar"] h3, [data-testid="stSidebar"] h4 {
+        color: #FFFFFF !important;
+    }
     
-    /* Buttons - Softer Red */
+    /* SIDEBAR EXPANDER HEADERS - RED BACKGROUND FOR VISIBILITY */
+    [data-testid="stSidebar"] [data-testid="stExpander"] {
+        background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%) !important;
+        border-radius: 10px !important;
+        margin-bottom: 10px !important;
+        border: none !important;
+    }
+    [data-testid="stSidebar"] [data-testid="stExpander"] summary {
+        background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%) !important;
+        color: #FFFFFF !important;
+        font-weight: bold !important;
+        padding: 12px 15px !important;
+        border-radius: 10px !important;
+    }
+    [data-testid="stSidebar"] [data-testid="stExpander"] summary:hover {
+        background: linear-gradient(135deg, #FF6666 0%, #EE0000 100%) !important;
+    }
+    [data-testid="stSidebar"] [data-testid="stExpander"] [data-testid="stExpanderContent"] {
+        background: rgba(0, 0, 0, 0.3) !important;
+        border-radius: 0 0 10px 10px !important;
+        padding: 10px !important;
+    }
+    [data-testid="stSidebar"] [data-testid="stExpander"] summary span,
+    [data-testid="stSidebar"] [data-testid="stExpander"] summary p {
+        color: #FFFFFF !important;
+    }
+    
+    /* LIVE TICKER BAR - TOP OF PAGE */
+    .ticker-bar {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        height: 40px !important;
+        background: linear-gradient(90deg, #0a0a0a 0%, #1a1a2e 50%, #0a0a0a 100%) !important;
+        border-bottom: 2px solid #FF4444 !important;
+        z-index: 99999 !important;
+        overflow: hidden !important;
+        display: flex !important;
+        align-items: center !important;
+    }
+    .ticker-content {
+        display: flex !important;
+        animation: scroll-left 60s linear infinite !important;
+        white-space: nowrap !important;
+    }
+    .ticker-bar:hover .ticker-content {
+        animation-play-state: paused !important;
+    }
+    @keyframes scroll-left {
+        0% { transform: translateX(0); }
+        100% { transform: translateX(-50%); }
+    }
+    .ticker-item {
+        display: inline-flex !important;
+        align-items: center !important;
+        padding: 0 20px !important;
+        border-right: 1px solid rgba(255,255,255,0.2) !important;
+    }
+    .ticker-item .symbol {
+        color: #00D9FF !important;
+        font-weight: bold !important;
+        margin-right: 8px !important;
+    }
+    .ticker-item .price {
+        color: #FFFFFF !important;
+        margin-right: 8px !important;
+    }
+    .ticker-item .change-up {
+        color: #00FF00 !important;
+    }
+    .ticker-item .change-down {
+        color: #FF4444 !important;
+    }
+    
+    h1, h2, h3, h4, h5, h6 { color: #FFFFFF !important; }
+    a { color: #00D9FF !important; }
+    
+    .stMetric { background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px; }
+    .stMetric label, .stMetric [data-testid="stMetricValue"], .stMetric [data-testid="stMetricDelta"] {
+        color: #FFFFFF !important;
+    }
+    
+    /* Dataframe/Table text */
+    .stDataFrame, .dataframe, table, tr, td, th { color: #FFFFFF !important; }
+    
+    /* UI CONTRAST AUDIT - Ensure all text is readable */
+    /* Form labels and inputs */
+    .stTextInput > label, .stNumberInput > label, .stSelectbox > label,
+    .stMultiSelect > label, .stSlider > label, .stCheckbox > label,
+    .stRadio > label, .stTextArea > label, .stDateInput > label,
+    .stTimeInput > label, .stFileUploader > label {
+        color: #FFFFFF !important;
+        font-weight: 500 !important;
+    }
+    
+    /* Placeholder text */
+    input::placeholder, textarea::placeholder {
+        color: rgba(255, 255, 255, 0.6) !important;
+    }
+    
+    /* Info, warning, error, success boxes */
+    .stAlert, [data-testid="stAlert"] {
+        color: #FFFFFF !important;
+    }
+    .stAlert p, [data-testid="stAlert"] p {
+        color: #FFFFFF !important;
+    }
+    
+    /* Expander content */
+    .streamlit-expanderContent, [data-testid="stExpanderContent"] {
+        color: #FFFFFF !important;
+    }
+    .streamlit-expanderContent p, [data-testid="stExpanderContent"] p,
+    .streamlit-expanderContent span, [data-testid="stExpanderContent"] span {
+        color: #FFFFFF !important;
+    }
+    
+    /* Tab labels */
+    .stTabs [data-baseweb="tab-list"] button {
+        color: #FFFFFF !important;
+    }
+    .stTabs [data-baseweb="tab-list"] button[aria-selected="true"] {
+        color: #00D9FF !important;
+        border-bottom-color: #00D9FF !important;
+    }
+    
+    /* Caption text */
+    .stCaption, [data-testid="stCaption"] {
+        color: rgba(255, 255, 255, 0.7) !important;
+    }
+    
+    /* Code blocks */
+    code, pre {
+        color: #00D9FF !important;
+        background: rgba(255, 255, 255, 0.1) !important;
+    }
+    
+    /* Markdown text in various containers */
+    [data-testid="stMarkdownContainer"] p,
+    [data-testid="stMarkdownContainer"] li,
+    [data-testid="stMarkdownContainer"] span {
+        color: #FFFFFF !important;
+    }
+    
+    /* Number input arrows */
+    .stNumberInput button {
+        color: #FFFFFF !important;
+    }
+    
+    /* Select dropdown options */
+    [data-baseweb="menu"] {
+        background: #1a1a2e !important;
+    }
+    [data-baseweb="menu"] li {
+        color: #FFFFFF !important;
+    }
+    [data-baseweb="menu"] li:hover {
+        background: rgba(0, 217, 255, 0.2) !important;
+    }
+    
+    .why-box { 
+        background: rgba(255,255,255,0.1); 
+        padding: 20px; 
+        border-radius: 10px; 
+        border-left: 5px solid #00D9FF;
+        margin: 10px 0;
+        color: #FFFFFF !important;
+    }
+    .personal-budget {
+        background: rgba(255,215,0,0.2);
+        padding: 15px;
+        border-radius: 10px;
+        border-left: 5px solid #FFD700;
+        color: #FFFFFF !important;
+    }
+    .risk-warning {
+        background: rgba(255,0,0,0.2);
+        padding: 15px;
+        border-radius: 10px;
+        border-left: 5px solid #FF0000;
+        color: #FFFFFF !important;
+    }
+    .risk-good {
+        background: rgba(0,255,0,0.2);
+        padding: 15px;
+        border-radius: 10px;
+        border-left: 5px solid #00FF00;
+        color: #FFFFFF !important;
+    }
+    .roast-box {
+        background: rgba(255,100,100,0.2);
+        padding: 20px;
+        border-radius: 15px;
+        border: 2px solid #FF6B6B;
+        margin: 15px 0;
+        font-size: 1.1em;
+        color: #FFFFFF !important;
+    }
+    .metric-explain {
+        background: rgba(255,255,255,0.1);
+        padding: 10px;
+        border-radius: 8px;
+        margin: 5px 0;
+        font-size: 0.9em;
+        border-left: 3px solid #00D9FF;
+        color: #FFFFFF !important;
+    }
+    .sector-info {
+        background: rgba(255,215,0,0.15);
+        padding: 8px;
+        border-radius: 6px;
+        margin: 3px 0;
+        font-size: 0.85em;
+        border-left: 3px solid #FFD700;
+        color: #FFFFFF !important;
+    }
+    .growth-note {
+        background: rgba(0,255,150,0.2);
+        padding: 15px;
+        border-radius: 10px;
+        border-left: 5px solid #00FF96;
+        margin: 10px 0;
+        font-size: 1em;
+        color: #FFFFFF !important;
+    }
+    
+    /* Tooltip styling for hover definitions */
+    .ratio-tooltip {
+        position: relative;
+        display: inline-block;
+        cursor: help;
+        color: #00D9FF;
+        margin-left: 5px;
+    }
+    .ratio-tooltip .tooltip-text {
+        visibility: hidden;
+        width: 300px;
+        background-color: #1a1a2e;
+        color: #FFFFFF;
+        text-align: left;
+        border-radius: 8px;
+        padding: 15px;
+        position: absolute;
+        z-index: 1000;
+        bottom: 125%;
+        left: 50%;
+        margin-left: -150px;
+        opacity: 0;
+        transition: opacity 0.3s;
+        border: 1px solid #00D9FF;
+        font-size: 14px;
+        line-height: 1.5;
+    }
+    .ratio-tooltip:hover .tooltip-text {
+        visibility: visible;
+        opacity: 1;
+    }
+    
+    /* RED BUTTONS - Global styling for Analyze buttons and dropdowns */
     .stButton > button {
-        background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%) !important;
-        color: #E0E0E0 !important;
+        background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%) !important;
+        color: #FFFFFF !important;
         border: none !important;
         font-weight: bold !important;
         transition: all 0.3s ease !important;
     }
     .stButton > button:hover {
-        background: linear-gradient(135deg, #F87171 0%, #EF4444 100%) !important;
+        background: linear-gradient(135deg, #FF6666 0%, #EE0000 100%) !important;
         transform: translateY(-2px) !important;
-        box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4) !important;
+        box-shadow: 0 4px 15px rgba(255, 68, 68, 0.4) !important;
     }
     
-    /* VIP Button - Gold */
-    button:has(p:contains("👑")) {
-        background: linear-gradient(135deg, #FBBF24 0%, #F59E0B 100%) !important;
+    /* VIP BUTTON - Gold styling */
+    button[data-testid="baseButton-secondary"]:has(div:contains("👑 Become a VIP")),
+    button:has(p:contains("👑 Become a VIP")) {
+        background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%) !important;
         color: #000000 !important;
+        border: 2px solid #FFD700 !important;
+        font-weight: bold !important;
+        box-shadow: 0 4px 15px rgba(255, 215, 0, 0.5) !important;
+    }
+    button[data-testid="baseButton-secondary"]:has(div:contains("👑 Become a VIP")):hover,
+    button:has(p:contains("👑 Become a VIP")):hover {
+        background: linear-gradient(135deg, #FFED4E 0%, #FFB520 100%) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 20px rgba(255, 215, 0, 0.6) !important;
     }
     
-    /* Input Fields - Dark with border */
-    input[type="text"], input[type="number"],
-    .stTextInput input, .stNumberInput input {
-        background: #1F2937 !important;
-        color: #E0E0E0 !important;
-        border: 2px solid #374151 !important;
+    /* SIGN UP BUTTON - Green styling */
+    button:has(p:contains("📝 Sign Up")) {
+        background: linear-gradient(135deg, #00C853 0%, #00A843 100%) !important;
+        color: #FFFFFF !important;
+        border: none !important;
+    }
+    button:has(p:contains("📝 Sign Up")):hover {
+        background: linear-gradient(135deg, #00E676 0%, #00C853 100%) !important;
+        box-shadow: 0 4px 15px rgba(0, 200, 83, 0.4) !important;
+    }
+    
+    /* SIGN IN BUTTON - Blue styling */
+    button:has(p:contains("🔐 Sign In")) {
+        background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%) !important;
+        color: #FFFFFF !important;
+        border: none !important;
+    }
+    button:has(p:contains("🔐 Sign In")):hover {
+        background: linear-gradient(135deg, #42A5F5 0%, #2196F3 100%) !important;
+        box-shadow: 0 4px 15px rgba(33, 150, 243, 0.4) !important;
+    }
+    
+    /* RED SELECT/DROPDOWN styling */
+    div[data-baseweb="select"] {
+        background: #FF4444 !important;
+        border: 2px solid #FF4444 !important;
         border-radius: 8px !important;
     }
-    input:focus {
-        background: #374151 !important;
-        border-color: #3B82F6 !important;
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
+    div[data-baseweb="select"]:hover {
+        background: #FF6666 !important;
+        border-color: #FF6666 !important;
+        box-shadow: 0 0 10px rgba(255, 68, 68, 0.3) !important;
+    }
+    div[data-baseweb="select"] > div,
+    div[data-baseweb="select"] input,
+    div[data-baseweb="select"] span,
+    div[data-baseweb="select"] [role="button"] {
+        background: #FF4444 !important;
+        color: #FFFFFF !important;
+        font-weight: bold !important;
+    }
     }
     
-    /* Dropdowns - Dark */
-    [data-testid="stSelectbox"] > div > div,
-    [data-baseweb="select"] > div {
-        background: #1F2937 !important;
-        color: #E0E0E0 !important;
-        border: 2px solid #374151 !important;
-    }
-    [data-baseweb="menu"] {
-        background: #1F2937 !important;
-    }
-    [data-baseweb="menu"] li {
-        color: #E0E0E0 !important;
-        background: #1F2937 !important;
-    }
-    [data-baseweb="menu"] li:hover {
-        background: #374151 !important;
-    }
-    [data-baseweb="menu"] li[aria-selected="true"] {
-        background: #3B82F6 !important;
-        color: #E0E0E0 !important;
-    }
-    
-    /* Cards & Boxes */
-    .stMetric { 
-        background: rgba(255,255,255,0.05) !important; 
-        padding: 15px !important; 
-        border-radius: 10px !important;
-        border: 1px solid rgba(255,255,255,0.1) !important;
-    }
-    .stMetric label, .stMetric [data-testid="stMetricValue"], .stMetric [data-testid="stMetricDelta"] {
-        color: #E0E0E0 !important;
-    }
-    
-    /* Tables */
-    .stDataFrame, .dataframe, table, tr, td, th { 
-        color: #E0E0E0 !important; 
-        background: #1F2937 !important;
-    }
-    
-    /* Alerts */
-    .stAlert { 
-        background: rgba(255,255,255,0.05) !important;
-        border: 1px solid rgba(255,255,255,0.1) !important;
-    }
-    .stAlert * { color: #E0E0E0 !important; }
-    
-    /* Finance Boxes - Green for Gains */
-    .risk-good {
-        background: rgba(34, 197, 94, 0.15) !important;
-        border-left: 4px solid #22C55E !important;
-        color: #E0E0E0 !important;
-    }
-    
-    /* Finance Boxes - Red for Losses */
-    .risk-warning {
-        background: rgba(239, 68, 68, 0.15) !important;
-        border-left: 4px solid #EF4444 !important;
-        color: #E0E0E0 !important;
-    }
-    
-    /* Live Ticker Bar */
-    .ticker-bar {
-        background: linear-gradient(90deg, #0a0a1e 0%, #1a1a2e 50%, #0a0a1e 100%) !important;
-        border-bottom: 2px solid #EF4444 !important;
-    }
-    .ticker-item .change-up { color: #22C55E !important; }
-    .ticker-item .change-down { color: #EF4444 !important; }
-    
-    /* Tabs */
-    .stTabs [data-baseweb="tab-list"] button {
-        color: #9CA3AF !important;
-    }
-    .stTabs [data-baseweb="tab-list"] button[aria-selected="true"] {
-        color: #3B82F6 !important;
-        border-bottom-color: #3B82F6 !important;
-    }
-    
-    /* Sidebar Buttons */
+    /* Sidebar Navigation Buttons - Different style from main action buttons */
     [data-testid="stSidebar"] .stButton > button {
         background: rgba(255,255,255,0.05) !important;
-        color: #E0E0E0 !important;
-        border: 1px solid rgba(255,255,255,0.1) !important;
+        color: #FFFFFF !important;
+        border: 1px solid rgba(255,255,255,0.2) !important;
+        font-weight: normal !important;
+        text-align: left !important;
+        padding: 8px 12px !important;
+        transition: all 0.2s ease !important;
     }
     [data-testid="stSidebar"] .stButton > button:hover {
-        background: rgba(59, 130, 246, 0.2) !important;
-        border-color: #3B82F6 !important;
+        background: rgba(0, 217, 255, 0.2) !important;
+        border-color: #00D9FF !important;
+        transform: translateX(5px) !important;
+        box-shadow: none !important;
     }
     
-    /* Expanders */
-    [data-testid="stExpander"] {
+    /* Expander styling in sidebar */
+    [data-testid="stSidebar"] .streamlit-expanderHeader {
         background: rgba(255,255,255,0.05) !important;
-        border: 1px solid rgba(255,255,255,0.1) !important;
+        border-radius: 8px !important;
+        font-weight: bold !important;
+    }
+    
+    /* RED TEXT INPUT styling */
+    input[type="text"],
+    input[type="number"],
+    .stTextInput input,
+    .stNumberInput input {
+        background: #FF4444 !important;
+        color: #FFFFFF !important;
+        font-weight: bold !important;
+        border: 2px solid #FF4444 !important;
         border-radius: 8px !important;
     }
-    [data-testid="stExpander"] summary {
-        color: #E0E0E0 !important;
+    input[type="text"]:focus,
+    input[type="number"]:focus,
+    .stTextInput input:focus,
+    .stNumberInput input:focus {
+        background: #FF6666 !important;
+        border-color: #FF6666 !important;
+        box-shadow: 0 0 10px rgba(255, 68, 68, 0.3) !important;
     }
-    [data-testid="stExpanderContent"] * {
-        color: #E0E0E0 !important;
+    
+    /* Fade-in animation for cards */
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    .fade-in {
+        animation: fadeInUp 0.5s ease-out forwards;
+    }
+    
+    /* Hover lift effect for cards */
+    .lift-card {
+        transition: all 0.3s ease !important;
+    }
+    .lift-card:hover {
+        transform: translateY(-5px) !important;
+        box-shadow: 0 10px 30px rgba(0, 217, 255, 0.2) !important;
+    }
+    
+    /* Live Ticker Bar styling */
+    .ticker-bar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 35px;
+        background: linear-gradient(90deg, #0a0a0a 0%, #1a1a2e 50%, #0a0a0a 100%);
+        border-bottom: 1px solid #333;
+        z-index: 9999;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+    }
+    .ticker-content {
+        display: flex;
+        animation: scroll-left 60s linear infinite;
+        white-space: nowrap;
+    }
+    .ticker-bar:hover .ticker-content {
+        animation-play-state: paused;
+    }
+    @keyframes scroll-left {
+        0% { transform: translateX(0); }
+        100% { transform: translateX(-50%); }
+    }
+    .ticker-item {
+        display: inline-flex;
+        align-items: center;
+        padding: 0 20px;
+        font-size: 13px;
+        color: #FFFFFF;
+    }
+    .ticker-item .symbol {
+        font-weight: bold;
+        color: #00D9FF;
+        margin-right: 8px;
+    }
+    .ticker-item .price {
+        margin-right: 8px;
+    }
+    .ticker-item .change-up {
+        color: #00FF00;
+    }
+    .ticker-item .change-down {
+        color: #FF4444;
+    }
+    
+    /* Add padding to main content for ticker bar */
+    [data-testid="stAppViewContainer"] {
+        padding-top: 40px !important;
+    }
+    
+    /* Welcome popup styling */
+    .welcome-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.9);
+        z-index: 10000;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    .welcome-popup {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        border: 2px solid #00D9FF;
+        border-radius: 20px;
+        padding: 40px;
+        max-width: 500px;
+        text-align: center;
+        animation: fadeInUp 0.5s ease-out;
+    }
+    .welcome-popup h1 {
+        color: #FFFFFF;
+        margin-bottom: 20px;
+    }
+    .welcome-popup ul {
+        text-align: left;
+        color: #FFFFFF;
+        line-height: 2;
+    }
+    .welcome-btn {
+        background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%) !important;
+        color: #FFFFFF !important;
+        padding: 15px 40px !important;
+        font-size: 18px !important;
+        font-weight: bold !important;
+        border: none !important;
+        border-radius: 10px !important;
+        cursor: pointer !important;
+        margin-top: 20px !important;
+    }
+    .welcome-btn:hover {
+        background: linear-gradient(135deg, #FF6666 0%, #EE0000 100%) !important;
+    }
+    
+    /* Confetti animation */
+    @keyframes confetti-fall {
+        0% { transform: translateY(-100vh) rotate(0deg); opacity: 1; }
+        100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+    }
+    .confetti {
+        position: fixed;
+        width: 10px;
+        height: 10px;
+        z-index: 10001;
+        animation: confetti-fall 3s ease-out forwards;
     }
     </style>
     """, unsafe_allow_html=True)
 else:
     st.markdown("""
     <style>
-    /* ==================== LIGHT MODE ==================== */
-    /* Clean light theme with high contrast and professional colors */
+    /* LIGHT MODE - White Background with Black Text */
+    .main { background: #FFFFFF !important; padding-top: 80px !important; }
+    .stApp { background: #FFFFFF !important; }
+    [data-testid="stAppViewContainer"] { background: #FFFFFF !important; padding-top: 80px !important; }
+    [data-testid="stHeader"] { background: #FFFFFF !important; }
+    [data-testid="stSidebar"] { background: #F5F5F5 !important; padding-top: 80px !important; }
     
-    /* Base Colors */
-    .main { background: #F9F9F9 !important; padding-top: 80px !important; }
-    .stApp { background: #F9F9F9 !important; }
-    [data-testid="stAppViewContainer"] { background: #F9F9F9 !important; padding-top: 80px !important; }
-    [data-testid="stHeader"] { background: #FFFFFF !important; border-bottom: 1px solid #E5E7EB !important; }
-    [data-testid="stSidebar"] { background: #F3F4F6 !important; padding-top: 80px !important; border-right: 1px solid #E5E7EB !important; }
-    
-    /* Text - High Contrast */
+    /* CRITICAL: Force black text on white background - EVERYWHERE */
     html, body, .stApp, [data-testid="stAppViewContainer"], 
     [data-testid="stSidebar"], p, span, div, label, li, td, th,
     .stMarkdown, .stText, [data-testid="stMarkdownContainer"],
     .element-container, .stRadio label, .stSelectbox label,
     .stTextInput label, .stSlider label, .stCheckbox label {
-        color: #121212 !important;
+        color: #000000 !important;
     }
     
-    h1, h2, h3, h4, h5, h6 { color: #111827 !important; }
-    a { color: #2563EB !important; }
+    /* Sidebar text MUST be dark */
+    [data-testid="stSidebar"] * {
+        color: #000000 !important;
+    }
+    [data-testid="stSidebar"] .stMarkdown,
+    [data-testid="stSidebar"] p,
+    [data-testid="stSidebar"] span,
+    [data-testid="stSidebar"] label {
+        color: #000000 !important;
+    }
     
-    /* Buttons - Darker Red for Visibility */
+    /* INPUT FIELDS - White background, dark text, visible border */
+    .stTextInput input, .stTextArea textarea, .stNumberInput input {
+        background: #FFFFFF !important;
+        color: #000000 !important;
+        border: 2px solid #CCCCCC !important;
+    }
+    .stTextInput input:focus, .stTextArea textarea:focus, .stNumberInput input:focus {
+        border-color: #FF4444 !important;
+    }
+    
+    /* DROPDOWNS - White background, dark text */
+    [data-testid="stSelectbox"] > div > div {
+        background: #FFFFFF !important;
+        color: #000000 !important;
+        border: 2px solid #CCCCCC !important;
+    }
+    [data-testid="stSelectbox"] [data-baseweb="select"] > div {
+        background: #FFFFFF !important;
+        color: #000000 !important;
+    }
+    [data-testid="stSelectbox"] [data-baseweb="select"] > div > div {
+        color: #000000 !important;
+    }
+    
+    /* Dropdown menu options */
+    [data-baseweb="menu"] {
+        background: #FFFFFF !important;
+        border: 2px solid #CCCCCC !important;
+    }
+    [data-baseweb="menu"] li {
+        background: #FFFFFF !important;
+        color: #000000 !important;
+    }
+    [data-baseweb="menu"] li:hover {
+        background: #F0F0F0 !important;
+        color: #000000 !important;
+    }
+    [data-baseweb="menu"] li[aria-selected="true"] {
+        background: #FF4444 !important;
+        color: #FFFFFF !important;
+    }
+    
+    /* EXPANDERS */
+    .streamlit-expanderHeader {
+        background: #F5F5F5 !important;
+        color: #000000 !important;
+        border: 1px solid #CCCCCC !important;
+    }
+    .streamlit-expanderContent {
+        background: #FAFAFA !important;
+        color: #000000 !important;
+    }
+    [data-testid="stExpander"] {
+        border: 1px solid #CCCCCC !important;
+    }
+    [data-testid="stExpanderContent"] * {
+        color: #000000 !important;
+    }
+    
+    /* TABS */
+    .stTabs [data-baseweb="tab-list"] {
+        background: #F5F5F5 !important;
+    }
+    .stTabs [data-baseweb="tab-list"] button {
+        color: #000000 !important;
+    }
+    .stTabs [data-baseweb="tab-list"] button[aria-selected="true"] {
+        color: #FF4444 !important;
+        border-bottom-color: #FF4444 !important;
+    }
+    
+    /* ALERTS */
+    .stAlert {
+        background: #F5F5F5 !important;
+        border: 1px solid #CCCCCC !important;
+    }
+    .stAlert * {
+        color: #000000 !important;
+    }
+    
+    h1, h2, h3, h4, h5, h6 { color: #000000 !important; }
+    a { color: #0066CC !important; }
+    
+    .stMetric { background: rgba(240,240,240,0.9); padding: 15px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .stMetric label, .stMetric [data-testid="stMetricValue"], .stMetric [data-testid="stMetricDelta"] {
+        color: #000000 !important;
+    }
+    
+    /* Dataframe/Table text */
+    .stDataFrame, .dataframe, table, tr, td, th { 
+        color: #000000 !important; 
+        background: #FFFFFF !important;
+    }
+    
+    .why-box { 
+        background: rgba(255,255,255,0.9); 
+        padding: 20px; 
+        border-radius: 10px; 
+        border-left: 5px solid #00D9FF;
+        margin: 10px 0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        color: #000000 !important;
+    }
+    .personal-budget {
+        background: rgba(255,235,180,0.9);
+        padding: 15px;
+        border-radius: 10px;
+        border-left: 5px solid #FFD700;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        color: #000000 !important;
+    }
+    .risk-warning {
+        background: rgba(255,200,200,0.9);
+        padding: 15px;
+        border-radius: 10px;
+        border-left: 5px solid #FF0000;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        color: #000000 !important;
+    }
+    .risk-good {
+        background: rgba(200,255,200,0.9);
+        padding: 15px;
+        border-radius: 10px;
+        border-left: 5px solid #00FF00;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        color: #000000 !important;
+    }
+    .roast-box {
+        background: rgba(255,220,220,0.9);
+        padding: 20px;
+        border-radius: 15px;
+        border: 2px solid #FF6B6B;
+        margin: 15px 0;
+        font-size: 1.1em;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        color: #000000 !important;
+    }
+    .metric-explain {
+        background: rgba(240,248,255,0.95);
+        padding: 10px;
+        border-radius: 8px;
+        margin: 5px 0;
+        font-size: 0.9em;
+        border-left: 3px solid #00D9FF;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        color: #000000 !important;
+    }
+    .sector-info {
+        background: rgba(255,250,205,0.95);
+        padding: 8px;
+        border-radius: 6px;
+        margin: 3px 0;
+        font-size: 0.85em;
+        border-left: 3px solid #FFD700;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        color: #000000 !important;
+    }
+    .growth-note {
+        background: rgba(200,255,220,0.95);
+        padding: 15px;
+        border-radius: 10px;
+        border-left: 5px solid #00DD88;
+        margin: 10px 0;
+        font-size: 1em;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        color: #000000 !important;
+    }
+    
+    /* RED BUTTONS - Global styling for Analyze buttons */
     .stButton > button {
-        background: linear-gradient(135deg, #DC2626 0%, #B91C1C 100%) !important;
-        color: #E0E0E0 !important;
+        background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%) !important;
+        color: #FFFFFF !important;
         border: none !important;
         font-weight: bold !important;
         transition: all 0.3s ease !important;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
     }
     .stButton > button:hover {
-        background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%) !important;
+        background: linear-gradient(135deg, #FF6666 0%, #EE0000 100%) !important;
         transform: translateY(-2px) !important;
-        box-shadow: 0 4px 8px rgba(220, 38, 38, 0.25) !important;
+        box-shadow: 0 4px 15px rgba(255, 68, 68, 0.4) !important;
     }
     
-    /* VIP Button - Gold */
-    button:has(p:contains("👑")) {
-        background: linear-gradient(135deg, #FBBF24 0%, #F59E0B 100%) !important;
+    /* VIP BUTTON - Gold styling */
+    button[data-testid="baseButton-secondary"]:has(div:contains("👑 Become a VIP")),
+    button:has(p:contains("👑 Become a VIP")) {
+        background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%) !important;
         color: #000000 !important;
-        border: 2px solid #D97706 !important;
+        border: 2px solid #FFD700 !important;
+        font-weight: bold !important;
+        box-shadow: 0 4px 15px rgba(255, 215, 0, 0.5) !important;
     }
-    button:has(p:contains("👑")):hover {
-        background: linear-gradient(135deg, #FCD34D 0%, #FBBF24 100%) !important;
+    button[data-testid="baseButton-secondary"]:has(div:contains("👑 Become a VIP")):hover,
+    button:has(p:contains("👑 Become a VIP")):hover {
+        background: linear-gradient(135deg, #FFED4E 0%, #FFB520 100%) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 20px rgba(255, 215, 0, 0.6) !important;
     }
     
-    /* Sign Up/Sign In Buttons */
+    /* SIGN UP BUTTON - Green styling */
     button:has(p:contains("📝 Sign Up")) {
-        background: linear-gradient(135deg, #15803C 0%, #166534 100%) !important;
-        color: #E0E0E0 !important;
+        background: linear-gradient(135deg, #00C853 0%, #00A843 100%) !important;
+        color: #FFFFFF !important;
+        border: none !important;
     }
-    button:has(p:contains("🔐 Sign In")) {
-        background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%) !important;
-        color: #E0E0E0 !important;
+    button:has(p:contains("📝 Sign Up")):hover {
+        background: linear-gradient(135deg, #00E676 0%, #00C853 100%) !important;
+        box-shadow: 0 4px 15px rgba(0, 200, 83, 0.4) !important;
     }
     
-    /* Input Fields - White with Border */
-    input[type="text"], input[type="number"],
-    .stTextInput input, .stNumberInput input {
-        background: #FFFFFF !important;
-        color: #111827 !important;
-        border: 2px solid #D1D5DB !important;
+    /* SIGN IN BUTTON - Blue styling */
+    button:has(p:contains("🔐 Sign In")) {
+        background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%) !important;
+        color: #FFFFFF !important;
+        border: none !important;
+    }
+    button:has(p:contains("🔐 Sign In")):hover {
+        background: linear-gradient(135deg, #42A5F5 0%, #2196F3 100%) !important;
+        box-shadow: 0 4px 15px rgba(33, 150, 243, 0.4) !important;
+    }
+    
+    /* RED SELECT/DROPDOWN styling */
+    div[data-baseweb="select"] {
+        background: #FF4444 !important;
+        border: 2px solid #FF4444 !important;
         border-radius: 8px !important;
     }
-    input:focus {
-        border-color: #2563EB !important;
-        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1) !important;
+    div[data-baseweb="select"]:hover {
+        background: #FF6666 !important;
+        border-color: #FF6666 !important;
+        box-shadow: 0 0 10px rgba(255, 68, 68, 0.3) !important;
     }
-    input::placeholder {
-        color: #9CA3AF !important;
-    }
-    
-    /* Dropdowns - White with Dark Text */
-    [data-testid="stSelectbox"] > div > div,
-    [data-baseweb="select"] > div {
-        background: #FFFFFF !important;
-        color: #111827 !important;
-        border: 2px solid #D1D5DB !important;
-    }
-    [data-baseweb="select"] span,
-    [data-baseweb="select"] div {
-        color: #111827 !important;
-    }
-    [data-baseweb="menu"] {
-        background: #FFFFFF !important;
-        border: 1px solid #E5E7EB !important;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
-    }
-    [data-baseweb="menu"] li {
-        color: #111827 !important;
-        background: #FFFFFF !important;
-    }
-    [data-baseweb="menu"] li:hover {
-        background: #F3F4F6 !important;
-    }
-    [data-baseweb="menu"] li[aria-selected="true"] {
-        background: #2563EB !important;
-        color: #E0E0E0 !important;
+    div[data-baseweb="select"] > div,
+    div[data-baseweb="select"] input,
+    div[data-baseweb="select"] span,
+    div[data-baseweb="select"] [role="button"] {
+        background: #FF4444 !important;
+        color: #FFFFFF !important;
+        font-weight: bold !important;
     }
     
-    /* Cards & Boxes */
-    .stMetric { 
-        background: #FFFFFF !important; 
-        padding: 15px !important; 
-        border-radius: 10px !important;
-        border: 1px solid #E5E7EB !important;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+    /* RED TEXT INPUT styling */
+    input[type="text"],
+    input[type="number"],
+    .stTextInput input,
+    .stNumberInput input {
+        background: #FF4444 !important;
+        color: #FFFFFF !important;
+        font-weight: bold !important;
+        border: 2px solid #FF4444 !important;
+        border-radius: 8px !important;
     }
-    .stMetric label, .stMetric [data-testid="stMetricValue"], .stMetric [data-testid="stMetricDelta"] {
-        color: #111827 !important;
-    }
-    
-    /* Tables */
-    .stDataFrame, .dataframe, table, tr, td, th { 
-        color: #111827 !important; 
-        background: #FFFFFF !important;
-    }
-    table { border: 1px solid #E5E7EB !important; }
-    th { background: #F9FAFB !important; font-weight: 600 !important; }
-    
-    /* Alerts */
-    .stAlert { 
-        background: #FFFFFF !important;
-        border: 1px solid #E5E7EB !important;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
-    }
-    .stAlert * { color: #111827 !important; }
-    
-    /* Finance Boxes - Dark Green for Gains (High Contrast) */
-    .risk-good {
-        background: #D1FAE5 !important;
-        border: 1px solid #6EE7B7 !important;
-        border-left: 4px solid #15803C !important;
-        color: #065F46 !important;
-    }
-    .risk-good strong { color: #065F46 !important; }
-    
-    /* Finance Boxes - Dark Red for Losses (High Contrast) */
-    .risk-warning {
-        background: #FEE2E2 !important;
-        border: 1px solid #FECACA !important;
-        border-left: 4px solid #DC2626 !important;
-        color: #991B1B !important;
-    }
-    .risk-warning strong { color: #991B1B !important; }
-    
-    /* Warning/Info Boxes */
-    .personal-budget {
-        background: #FEF3C7 !important;
-        border: 1px solid #FDE68A !important;
-        border-left: 4px solid #D97706 !important;
-        color: #92400E !important;
+    input[type="text"]:focus,
+    input[type="number"]:focus,
+    .stTextInput input:focus,
+    .stNumberInput input:focus {
+        background: #FF6666 !important;
+        border-color: #FF6666 !important;
+        box-shadow: 0 0 10px rgba(255, 68, 68, 0.3) !important;
     }
     
-    .why-box {
-        background: #DBEAFE !important;
-        border: 1px solid #BFDBFE !important;
-        border-left: 4px solid #2563EB !important;
-        color: #1E40AF !important;
-    }
-    
-    /* Live Ticker Bar */
-    .ticker-bar {
-        background: #FFFFFF !important;
-        border-bottom: 2px solid #E5E7EB !important;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
-    }
-    .ticker-item { color: #111827 !important; }
-    .ticker-item .symbol { color: #2563EB !important; }
-    .ticker-item .change-up { color: #15803C !important; font-weight: 600 !important; }
-    .ticker-item .change-down { color: #DC2626 !important; font-weight: 600 !important; }
-    
-    /* Tabs */
-    .stTabs [data-baseweb="tab-list"] {
-        background: #F9FAFB !important;
-        border-bottom: 1px solid #E5E7EB !important;
-    }
-    .stTabs [data-baseweb="tab-list"] button {
-        color: #6B7280 !important;
-    }
-    .stTabs [data-baseweb="tab-list"] button[aria-selected="true"] {
-        color: #DC2626 !important;
-        border-bottom-color: #DC2626 !important;
-        font-weight: 600 !important;
-    }
-    
-    /* Sidebar Buttons */
+    /* Sidebar Navigation Buttons - Different style from main action buttons */
     [data-testid="stSidebar"] .stButton > button {
-        background: #FFFFFF !important;
-        color: #111827 !important;
-        border: 1px solid #D1D5DB !important;
+        background: rgba(0,0,0,0.05) !important;
+        color: #1e1e1e !important;
+        border: 1px solid rgba(0,0,0,0.2) !important;
+        font-weight: normal !important;
+        text-align: left !important;
+        padding: 8px 12px !important;
+        transition: all 0.2s ease !important;
     }
     [data-testid="stSidebar"] .stButton > button:hover {
-        background: #F3F4F6 !important;
-        border-color: #2563EB !important;
-        color: #2563EB !important;
+        background: rgba(0, 150, 255, 0.2) !important;
+        border-color: #0096FF !important;
+        transform: translateX(5px) !important;
+        box-shadow: none !important;
     }
     
-    /* Expanders */
-    [data-testid="stExpander"] {
-        background: #FFFFFF !important;
-        border: 1px solid #E5E7EB !important;
+    /* Expander styling in sidebar */
+    [data-testid="stSidebar"] .streamlit-expanderHeader {
+        background: rgba(0,0,0,0.05) !important;
         border-radius: 8px !important;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
-    }
-    [data-testid="stExpander"] summary {
-        color: #111827 !important;
-        font-weight: 500 !important;
-    }
-    [data-testid="stExpanderContent"] * {
-        color: #111827 !important;
+        font-weight: bold !important;
     }
     
-    /* Captions */
-    .stCaption, [data-testid="stCaption"] {
-        color: #6B7280 !important;
+    /* Fix text visibility on dark backgrounds in light mode - VIP pricing cards */
+    div[style*="background: #1a1a1a"] {
+        color: #FFFFFF !important;
+    }
+    div[style*="background: #1a1a1a"] h3,
+    div[style*="background: #1a1a1a"] p,
+    div[style*="background: #1a1a1a"] strong {
+        color: #FFFFFF !important;
+    }
+    div[style*="background: linear-gradient(135deg, #1a1a2e"] {
+        color: #FFFFFF !important;
+    }
+    div[style*="background: linear-gradient(135deg, #1a1a2e"] h2,
+    div[style*="background: linear-gradient(135deg, #1a1a2e"] p {
+        color: #FFFFFF !important;
     }
     
-    /* Theme-Aware Boxes - Light Mode */
-    .theme-box-dark {
-        background: #FFFFFF !important;
-        border: 1px solid #E5E7EB !important;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
-    }
-    .theme-box-dark, .theme-box-dark * {
-        color: #111827 !important;
-    }
-    
-    .theme-box-gradient {
-        background: linear-gradient(135deg, #F3F4F6 0%, #E5E7EB 100%) !important;
-        border: 1px solid #D1D5DB !important;
-    }
-    .theme-box-gradient, .theme-box-gradient * {
-        color: #111827 !important;
-    }
-    
-    /* Onboarding/Tooltip boxes */
-    .tooltip-box-light {
-        background: #EFF6FF !important;
-        border: 2px solid #BFDBFE !important;
-    }
-    .tooltip-box-light, .tooltip-box-light * {
-        color: #1E40AF !important;
-    }
-    
-    /* Empty state boxes */
-    .empty-state-light {
-        background: #F9FAFB !important;
-        border: 2px dashed #D1D5DB !important;
-    }
-    .empty-state-light, .empty-state-light * {
-        color: #6B7280 !important;
-    }
+    p, div, span, li { color: #000000 !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# ============= JAVASCRIPT: AUTO-FIX DARK BOXES IN LIGHT MODE =============
-if st.session_state.theme == 'light':
-    st.markdown("""
-    <script>
-    // Auto-fix all dark boxes for light mode
-    function fixDarkBoxes() {
-        // Find all elements with dark gradient backgrounds
-        const darkGradients = [
-            'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
-            'linear-gradient(135deg, #0A0A1E 0%, #121826 100%)',
-            'linear-gradient(180deg, #0a0a0a 0%, #1a1a2e 50%, #0a0a0a 100%)',
-            'rgba(0, 0, 0, 0.85)',
-            'rgba(0, 0, 0, 0.9)',
-            '#1a1a2e',
-            '#16213e',
-            '#0a0a0a'
-        ];
-        
-        // Get all divs
-        const allDivs = document.querySelectorAll('div');
-        
-        allDivs.forEach(div => {
-            const bgStyle = window.getComputedStyle(div).background;
-            const bgColor = window.getComputedStyle(div).backgroundColor;
-            
-            // Check if has dark background
-            let isDark = false;
-            darkGradients.forEach(darkBg => {
-                if (bgStyle.includes(darkBg) || bgColor === darkBg) {
-                    isDark = true;
-                }
-            });
-            
-            if (isDark) {
-                // Convert to light mode
-                div.style.background = '#FFFFFF';
-                div.style.border = '1px solid #E5E7EB';
-                div.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
-                
-                // Fix all text colors inside
-                div.querySelectorAll('*').forEach(child => {
-                    if (child.style.color === 'rgb(255, 255, 255)' || child.style.color === '#FFFFFF' || child.style.color === '#E0E0E0') {
-                        child.style.color = '#111827';
-                    }
-                });
-            }
-        });
+# ============= METRIC EXPLANATIONS (FOR TOOLTIPS) =============
+# "Dumb-User" 10-Word Definitions for Beginners
+METRIC_EXPLANATIONS = {
+    "P/E Ratio": {
+        "short": "Price vs. Profit. How much you pay for $1 of earnings.",
+        "explanation": "How much you pay for $1 of earnings. Lower = cheaper. Tech average: 25 | Value stocks: 15",
+        "good": "15-25 is reasonable | >40 is expensive | <10 might be undervalued or troubled"
+    },
+    "P/S Ratio": {
+        "short": "Price vs. Sales. Good for companies not yet profitable.",
+        "explanation": "How much you pay for $1 of revenue. Useful when company isn't profitable yet.",
+        "good": "Tech: 5-10 | Retail: 0.5-2 | Lower = better value"
+    },
+    "P/B Ratio": {
+        "short": "Price vs. Book Value. What you pay for company's assets.",
+        "explanation": "Stock price divided by book value per share. Shows if stock is cheap relative to assets.",
+        "good": "<1.0 = Trading below asset value | 1-3 = Fair | >5 = Expensive"
+    },
+    "EV/EBITDA": {
+        "short": "Enterprise Value vs. Operating Profit. Compares total company value.",
+        "explanation": "Total company value (including debt) divided by operating earnings. Better than P/E for comparing companies with different debt levels.",
+        "good": "<10 = Cheap | 10-15 = Fair | >20 = Expensive"
+    },
+    "Debt-to-Equity": {
+        "short": "How much debt a company uses to grow. Lower is safer.",
+        "explanation": "Measures financial leverage. High debt = risky during recessions.",
+        "good": "<1.0 = Low debt (good) | 1-2 = Moderate | >2.0 = High risk"
+    },
+    "Current Ratio": {
+        "short": "Can the company pay its bills? Above 1.5 is safe.",
+        "explanation": "Current assets divided by current liabilities. Shows short-term financial health.",
+        "good": ">2.0 = Very safe | 1.5-2.0 = Good | <1.0 = Risky"
+    },
+    "Quick Ratio": {
+        "short": "Cash available to pay bills immediately. Above 1.0 is good.",
+        "explanation": "Can the company pay short-term bills without selling inventory?",
+        "good": ">1.5 = Excellent liquidity | 1.0-1.5 = Good | <1.0 = Potential cash problems"
+    },
+    "FCF per Share": {
+        "short": "Real cash generated per share. Can't be faked with accounting.",
+        "explanation": "Real cash generated per share you own. Unlike earnings, FCF can't be manipulated easily.",
+        "good": "Positive = good | Growing FCF/share = excellent | Negative = burning cash"
+    },
+    "FCF Yield": {
+        "short": "Free cash flow as % of stock price. Higher is better.",
+        "explanation": "FCF per share divided by stock price. Shows cash return on investment.",
+        "good": ">5% = Good yield | 3-5% = Average | <3% = Low yield"
+    },
+    "Gross Margin": {
+        "short": "Profit kept after making the product. Shows pricing power.",
+        "explanation": "Revenue minus cost of goods sold, as a percentage. Higher = better pricing power.",
+        "good": ">50% = Strong | 30-50% = Average | <30% = Weak pricing power"
+    },
+    "Operating Margin": {
+        "short": "Profit kept after bills are paid. Higher is more efficient.",
+        "explanation": "Operating income divided by revenue. Shows how efficiently company runs.",
+        "good": ">20% = Excellent | 10-20% = Good | <10% = Needs improvement"
+    },
+    "Net Margin": {
+        "short": "Final profit after everything. The bottom line percentage.",
+        "explanation": "Net income divided by revenue. The ultimate profitability measure.",
+        "good": ">15% = Strong | 5-15% = Average | <5% = Thin margins"
+    },
+    "ROE": {
+        "short": "Return on shareholder money. Buffett's favorite metric.",
+        "explanation": "Net income divided by shareholder equity. Shows how well company uses investor money.",
+        "good": ">20% = Excellent | 15-20% = Good | <10% = Poor"
+    },
+    "ROA": {
+        "short": "Return on all assets. How efficiently company uses everything.",
+        "explanation": "Net income divided by total assets. Shows overall efficiency.",
+        "good": ">10% = Excellent | 5-10% = Good | <5% = Inefficient"
+    },
+    "RSI": {
+        "short": "Speedometer for price. Over 70 is 'Hot,' under 30 is 'Cold'.",
+        "explanation": "Relative Strength Index. Measures if stock is overbought or oversold.",
+        "good": ">70 = Overbought (might drop) | 30-70 = Normal | <30 = Oversold (might rise)"
+    },
+    "Market Cap": {
+        "short": "Total value of all shares. Shows company size.",
+        "explanation": "Stock price × shares outstanding. Shows company size.",
+        "good": ">$200B = Mega cap | $10-200B = Large cap | <$2B = Small cap (risky)"
+    },
+    "Beta": {
+        "short": "Stock volatility vs market. Higher means more swings.",
+        "explanation": "Measures how much stock moves relative to market.",
+        "good": "<0.8 = Defensive | 1.0 = Moves with market | >1.3 = High volatility"
     }
-    
-    // Run on load
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', fixDarkBoxes);
-    } else {
-        fixDarkBoxes();
-    }
-    
-    // Also run after a short delay to catch dynamically loaded content
-    setTimeout(fixDarkBoxes, 500);
-    setTimeout(fixDarkBoxes, 1000);
-    </script>
-    """, unsafe_allow_html=True)
+}
+
+
 
 # ============= COMPREHENSIVE METRIC EXPLANATIONS =============
 FINANCIAL_METRICS_EXPLAINED = {
@@ -1386,7 +1834,7 @@ def render_ai_coach(tab, ticker=None, facts=None):
         # Panel header
         head_col1, head_col2 = st.columns([4, 1])
         with head_col1:
-            st.markdown("""
+            st.markdown(f"""
             <div style="background: linear-gradient(135deg, #ff3333 0%, #cc0000 100%); padding: 15px 20px; border-radius: 10px; margin-bottom: 15px;">
                 <h3 style="color: white; margin: 0; font-size: 18px;">🤖 AI Assistant</h3>
                 <p style="color: rgba(255,255,255,0.8); margin: 5px 0 0 0; font-size: 12px;">Powered by AI • Educational only</p>
@@ -1875,7 +2323,7 @@ def show_premium_gate(feature_name, required_tier="pro", show_preview=True):
     tier_color = "#9D4EDD" if required_tier == "pro" else "#FFD700"
     tier_label = "Pro" if required_tier == "pro" else "Ultimate"
     
-    st.markdown("""
+    st.markdown(f"""
     <div style="
         background: linear-gradient(135deg, rgba(157, 78, 221, 0.1), rgba(157, 78, 221, 0.05));
         border: 2px solid {tier_color};
@@ -1909,7 +2357,7 @@ def show_upgrade_prompt(message, cta_text="Upgrade Now", tier="pro"):
         border-radius: 8px;
         margin: 10px 0;
     ">
-        <span style="color: #E0E0E0;">{message}</span>
+        <span style="color: #FFF;">{message}</span>
         <span style="color: {tier_color}; font-weight: bold;"> → {tier_label}</span>
     </div>
     """, unsafe_allow_html=True)
@@ -2030,7 +2478,7 @@ def show_onboarding_tooltip(step_id, title, message, position="bottom"):
         margin: 10px 0;
         position: relative;
     ">
-        <div style="font-weight: bold; color: #E0E0E0; margin-bottom: 5px;">💡 {title}</div>
+        <div style="font-weight: bold; color: #FFF; margin-bottom: 5px;">💡 {title}</div>
         <div style="color: rgba(255,255,255,0.9); font-size: 14px;">{message}</div>
     </div>
     """, unsafe_allow_html=True)
@@ -2056,11 +2504,11 @@ def show_first_time_welcome():
         margin: 20px 0;
     ">
         <div style="font-size: 48px; margin-bottom: 15px;">👋</div>
-        <h2 style="color: #E0E0E0; margin-bottom: 10px;">Welcome to Finance Made Simple!</h2>
+        <h2 style="color: #FFF; margin-bottom: 10px;">Welcome to Finance Made Simple!</h2>
         <p style="color: #888; font-size: 16px; margin-bottom: 20px;">
             Your personal stock research assistant. No jargon, just clarity.
         </p>
-        <div style="text-align: left; max-width: 400px; margin: 0 auto; color: #E0E0E0;">
+        <div style="text-align: left; max-width: 400px; margin: 0 auto; color: #FFF;">
             <p>✅ <strong>Dashboard</strong> - Pin stocks to track</p>
             <p>✅ <strong>Company Analysis</strong> - Deep dive into any stock</p>
             <p>✅ <strong>Risk Quiz</strong> - Find your investor profile</p>
@@ -4429,7 +4877,7 @@ def render_right_side_ticker():
             right: 0;
             width: 180px;
             height: calc(100vh - 80px);
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            background: linear-gradient(180deg, #0a0a0a 0%, #1a1a2e 50%, #0a0a0a 100%);
             border-left: 1px solid #333;
             z-index: 9998;
             overflow: hidden;
@@ -4461,7 +4909,7 @@ def render_right_side_ticker():
             font-size: 14px;
         }}
         .right-ticker-price {{
-            color: #E0E0E0;
+            color: #FFFFFF;
             font-size: 13px;
             margin-top: 2px;
         }}
@@ -4568,7 +5016,7 @@ def chatbot_dialog():
         background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%) !important;
     }
     [data-testid="stDialog"] [data-testid="stMarkdownContainer"] p {
-        color: #E0E0E0 !important;
+        color: #FFFFFF !important;
     }
     .chat-message-user {
         background: rgba(255, 68, 68, 0.25);
@@ -4690,8 +5138,8 @@ def render_ai_chatbot():
         position: fixed !important;
         bottom: 100px !important;
         right: 20px !important;
-        background: #1a1a2e !important;
-        color: #E0E0E0 !important;
+        background: rgba(0, 0, 0, 0.85) !important;
+        color: #FFFFFF !important;
         padding: 8px 12px !important;
         border-radius: 8px !important;
         font-size: 12px !important;
@@ -4747,7 +5195,7 @@ def show_welcome_popup():
             left: 0;
             right: 0;
             bottom: 0;
-            background: #1a1a2e;
+            background: rgba(0, 0, 0, 0.9);
             z-index: 10000;
             display: flex;
             justify-content: center;
@@ -4787,7 +5235,7 @@ def show_welcome_popup():
         }
         .welcome-close-btn:hover {
             background: #FF4444;
-            color: #E0E0E0;
+            color: #FFFFFF;
         }
         .welcome-start-form {
             margin-top: 20px;
@@ -4795,7 +5243,7 @@ def show_welcome_popup():
         .welcome-start-btn {
             background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%);
             border: none;
-            color: #E0E0E0;
+            color: #FFFFFF;
             font-size: 18px;
             font-weight: bold;
             padding: 15px 40px;
@@ -4817,8 +5265,8 @@ def show_welcome_popup():
                     <button class="welcome-close-btn" type="submit" name="dismiss_welcome" value="1">×</button>
                 </form>
                 <h1 style="color: #00D9FF; margin-bottom: 20px;">Welcome to Investing Made Simple!</h1>
-                <p style="color: #E0E0E0; font-size: 16px; margin-bottom: 20px;">We've upgraded your experience:</p>
-                <ul style="color: #E0E0E0; font-size: 14px; line-height: 2.2; text-align: left; padding-left: 20px;">
+                <p style="color: #FFFFFF; font-size: 16px; margin-bottom: 20px;">We've upgraded your experience:</p>
+                <ul style="color: #FFFFFF; font-size: 14px; line-height: 2.2; text-align: left; padding-left: 20px;">
                     <li><strong>Market Mood:</strong> Check the speedometer to see if the market is fearful or greedy.</li>
                     <li><strong>Easy Search:</strong> Type 'Apple' or 'Tesla'—no need to memorize tickers!</li>
                     <li><strong>Simpler Metrics:</strong> Hover over any number for a 'Sweet & Simple' explanation.</li>
@@ -4857,7 +5305,7 @@ def login_dialog():
     }
     [data-testid="stDialog"] [data-testid="stMarkdownContainer"] p,
     [data-testid="stDialog"] label {
-        color: #E0E0E0 !important;
+        color: #FFFFFF !important;
     }
     [data-testid="stDialog"] h1, [data-testid="stDialog"] h2, [data-testid="stDialog"] h3 {
         color: #FF4444 !important;
@@ -4936,7 +5384,7 @@ def signup_dialog():
     }
     [data-testid="stDialog"] [data-testid="stMarkdownContainer"] p,
     [data-testid="stDialog"] label {
-        color: #E0E0E0 !important;
+        color: #FFFFFF !important;
     }
     [data-testid="stDialog"] h1, [data-testid="stDialog"] h2, [data-testid="stDialog"] h3 {
         color: #FF4444 !important;
@@ -5088,7 +5536,7 @@ def render_coffee_calculator(ticker, stock_name):
             <div style="display: flex; justify-content: space-around; text-align: center;">
                 <div>
                     <p style="color: #888; font-size: 14px;">Total Invested</p>
-                    <p style="color: #E0E0E0; font-size: 28px; font-weight: bold;">${total_invested:,.0f}</p>
+                    <p style="color: #FFFFFF; font-size: 28px; font-weight: bold;">${total_invested:,.0f}</p>
                 </div>
                 <div>
                     <p style="color: #888; font-size: 14px;">You Would Have</p>
@@ -5114,7 +5562,7 @@ def render_progress_bar(current_step, total_steps, section_name, disable_celebra
     st.markdown(f'''
     <div style="margin: 20px 0;">
         <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-            <span style="color: #E0E0E0; font-size: 14px;">{section_name} Progress</span>
+            <span style="color: #FFFFFF; font-size: 14px;">{section_name} Progress</span>
             <span style="color: #00D9FF; font-size: 14px;">{current_step}/{total_steps} Complete</span>
         </div>
         <div style="background: #333; border-radius: 10px; height: 20px; overflow: hidden;">
@@ -5256,7 +5704,7 @@ def render_metric_with_explanation(metric_name, value, explanation_key=None):
         st.markdown(f'''
         <div class="lift-card" style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px; margin: 5px 0;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span style="color: #E0E0E0;">{metric_name}</span>
+                <span style="color: #FFFFFF;">{metric_name}</span>
                 <span class="ratio-tooltip" style="color: #00D9FF;">&#x3F;
                     <span class="tooltip-text">{explanation}</span>
                 </span>
@@ -6218,7 +6666,7 @@ def render_fit_check_panel(ticker=None):
     # Display technical details (small text)
     st.caption(f"Risk tier: **{risk_tier}** | Volatility: **{vol_tier}** (method: {vol_method})")
 
-    # Render the site logo at top of page - centered, smaller size
+    """Render the site logo at top of page - centered, smaller size"""
     import base64
     
     # For deployment: User should add logo.png to their repo root
@@ -6230,7 +6678,7 @@ def render_fit_check_panel(ticker=None):
             st.image(logo_path, width=300)  # Fixed width for smaller size
     except:
         # Fallback if image not found - show text logo
-        st.markdown(f"""
+        st.markdown("""
         <div style="text-align: center; padding: 10px 0; margin-bottom: 10px;">
             <h3 style="color: #FF4444; margin: 0;">STOCKINVESTING.AI</h3>
             <p style="color: #888; margin: 5px 0; font-size: 0.9em;">
@@ -6244,8 +6692,8 @@ def render_setup_nudge():
     """Render non-blocking setup nudge card"""
     if not st.session_state.get('onboarding_completed', False) and not st.session_state.get('setup_prompt_dismissed', False):
         st.markdown("""
-        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border: none; box-shadow: none; padding: 20px; border-radius: 10px; margin-bottom: 20px; border-left: 4px solid #00D9FF;">
-            <h3 style="color: #E0E0E0; margin: 0 0 5px 0;">Quick setup (60 seconds)</h3>
+        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 20px; border-radius: 10px; margin-bottom: 20px; border-left: 4px solid #00D9FF;">
+            <h3 style="color: #FFFFFF; margin: 0 0 5px 0;">Quick setup (60 seconds)</h3>
             <p style="color: #B0B0B0; margin: 0;">Personalize the site (not a test).</p>
         </div>
         """, unsafe_allow_html=True)
@@ -6355,7 +6803,7 @@ def update_profile_dialog():
         st.markdown("""
         <div style="text-align: center; padding: 20px; background: rgba(0,217,255,0.1); border-radius: 10px; margin-bottom: 10px;">
             <div style="font-size: 40px; margin-bottom: 10px;">📋</div>
-            <h4 style="color: #E0E0E0; margin: 0;">Setup Quiz</h4>
+            <h4 style="color: #FFFFFF; margin: 0;">Setup Quiz</h4>
             <p style="color: #B0B0B0; font-size: 0.9em;">60 seconds</p>
         </div>
         """, unsafe_allow_html=True)
@@ -6371,7 +6819,7 @@ def update_profile_dialog():
         st.markdown("""
         <div style="text-align: center; padding: 20px; background: rgba(255,68,68,0.1); border-radius: 10px; margin-bottom: 10px;">
             <div style="font-size: 40px; margin-bottom: 10px;">🎯</div>
-            <h4 style="color: #E0E0E0; margin: 0;">Risk Quiz</h4>
+            <h4 style="color: #FFFFFF; margin: 0;">Risk Quiz</h4>
             <p style="color: #B0B0B0; font-size: 0.9em;">7 questions</p>
         </div>
         """, unsafe_allow_html=True)
@@ -6556,7 +7004,7 @@ elif action_param == "vip":
     st.rerun()
 
 # Top header with auth buttons (conditional based on login status)
-st.markdown("""
+st.markdown(f"""
 <style>
 .top-header {{
     position: fixed;
@@ -6651,7 +7099,7 @@ with header_cols[0]:
 with header_cols[1]:
     st.selectbox(
         "Learn",
-        ["📚 Learn", "🏠 Start Here", "📚 Learning", "🧠 Risk Quiz"],
+        ["📚 Learn", "🏠 Start Here", "📖 Basics", "📚 Finance 101", "🧠 Risk Quiz"],
         key="nav_learn_select",
         label_visibility="collapsed",
         on_change=nav_learn_changed
@@ -6669,7 +7117,7 @@ with header_cols[2]:
 with header_cols[3]:
     st.selectbox(
         "Action",
-        ["🎯 Action", "📊 Pro Checklist", "👑 Ultimate", "💼 Paper Portfolio", "👤 Naman's Portfolio"],
+        ["🎯 Action", "📊 Pro Checklist", "💼 Paper Portfolio", "👤 Naman's Portfolio"],
         key="nav_action_select", 
         label_visibility="collapsed",
         on_change=nav_action_changed
@@ -6717,18 +7165,6 @@ render_live_ticker_bar()
 render_right_side_ticker()
 
 # ============= AI CHATBOT (BOTTOM-RIGHT) =============
-# Check if chatbot should open via query param
-open_chat_param = st.query_params.get("open_chat")
-if isinstance(open_chat_param, (list, tuple)):
-    open_chat_param = open_chat_param[0] if open_chat_param else None
-
-if open_chat_param == "1":
-    st.session_state.chatbot_open = True
-    # Remove the query param
-    if "open_chat" in st.query_params:
-        del st.query_params["open_chat"]
-    st.rerun()
-
 render_ai_chatbot()
 
 # ============= WELCOME POPUP FOR FIRST-TIME USERS =============
@@ -6784,43 +7220,6 @@ with st.sidebar:
     )
     st.session_state.years_of_history = selected_timeline
     
-    # Dark/Light Mode Toggle
-    theme_toggle = st.toggle(
-        "🌓 Light Mode",
-        value=(st.session_state.theme == 'light'),
-        key="theme_toggle_switch",
-        help="Switch between dark and light themes"
-    )
-    if theme_toggle and st.session_state.theme == 'dark':
-        st.session_state.theme = 'light'
-        st.rerun()
-    elif not theme_toggle and st.session_state.theme == 'light':
-        st.session_state.theme = 'dark'
-        st.rerun()
-    
-    # Unhinged Mode Toggle (right below Light Mode, no divider)
-    # Initialize unhinged_mode if not exists
-    if 'unhinged_mode' not in st.session_state:
-        st.session_state.unhinged_mode = False
-    
-    # Check age restriction for unhinged mode
-    user_age = st.session_state.get("user_age", 25)
-    if user_age < 18:
-        st.caption("*🔥 Unhinged Mode requires age 18+*")
-        st.session_state.unhinged_mode = False
-    else:
-        unhinged_enabled = st.toggle(
-            "🔥 Unhinged Mode",
-            value=st.session_state.unhinged_mode,
-            key="unhinged_toggle",
-            help="Enable playful roast commentary. For entertainment only!"
-        )
-        if unhinged_enabled != st.session_state.unhinged_mode:
-            st.session_state.unhinged_mode = unhinged_enabled
-            # Save progress when toggle changes
-            save_user_progress()
-            st.rerun()
-    
     st.markdown("---")
     
     # Initialize selected page in session state if not exists
@@ -6837,8 +7236,49 @@ with st.sidebar:
     if 'last_tab' not in st.session_state:
         st.session_state.last_tab = None
     
+    # Quick Navigation (compact version)
+    st.markdown("### 🚀 Quick Nav")
+    nav_col1, nav_col2 = st.columns(2)
+    with nav_col1:
+        if st.button("🏠", key="qn_dash", help="Dashboard"):
+            st.session_state.selected_page = "🏠 Dashboard"
+            st.rerun()
+        if st.button("📊", key="qn_analysis", help="Company Analysis"):
+            st.session_state.selected_page = "📊 Company Analysis"
+            st.rerun()
+    with nav_col2:
+        if st.button("💼", key="qn_portfolio", help="Paper Portfolio"):
+            st.session_state.selected_page = "💼 Paper Portfolio"
+            st.rerun()
+        if st.button("🔍", key="qn_screener", help="AI Screener"):
+            st.session_state.selected_page = "🔍 AI Stock Screener"
+            st.rerun()
+    
     # Get the selected page from session state
     selected_page = st.session_state.selected_page
+    
+    st.markdown("---")
+    
+    # ============= MARKET SENTIMENT (Below Action Group) =============
+    st.markdown("### 📊 Market Sentiment")
+    
+    # USE SINGLE SOURCE OF TRUTH for market sentiment - ensures sync everywhere
+    sidebar_sentiment = get_global_market_sentiment()
+    sentiment_score = sidebar_sentiment["score"]
+    sentiment_label = sidebar_sentiment["label"]
+    sentiment_color = sidebar_sentiment["color"]
+    momentum_20d = sidebar_sentiment.get("momentum_20d", 0)
+    
+    # Display gauge - same values as Market Intelligence page
+    st.markdown(f"""
+    <div style="text-align: center; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 10px;">
+        <div style="font-size: 2em; font-weight: bold; color: {sentiment_color};">{sentiment_score}</div>
+        <div style="font-size: 1.2em; color: {sentiment_color};">{sentiment_label}</div>
+        <div style="font-size: 0.8em; margin-top: 5px;">S&P 500 20-day: {momentum_20d:+.1f}%</div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.caption("Based on S&P 500 momentum. Not financial advice.")
     
     st.markdown("---")
     
@@ -6846,6 +7286,111 @@ with st.sidebar:
         st.session_state.analysis_view = "🌟 The Big Picture"
     
     
+    # ============= TOGGLE THEME AT BOTTOM OF SIDEBAR =============
+    st.markdown("---")
+    if st.button("🌓 Toggle Theme", key="sidebar_theme_toggle", use_container_width=True):
+        st.session_state.theme = 'light' if st.session_state.theme == 'dark' else 'dark'
+        st.rerun()
+    
+    # ============= UNHINGED MODE TOGGLE =============
+    st.markdown("---")
+    st.markdown("### 🔥 Settings")
+    
+    # Initialize unhinged_mode if not exists
+    if 'unhinged_mode' not in st.session_state:
+        st.session_state.unhinged_mode = False
+    
+    # Check age restriction for unhinged mode
+    user_age = st.session_state.get("user_age", 25)
+    if user_age < 18:
+        st.caption("*Unhinged Mode requires age 18+*")
+        st.session_state.unhinged_mode = False
+    else:
+        unhinged_enabled = st.toggle(
+            "🔥 Unhinged Mode",
+            value=st.session_state.unhinged_mode,
+            key="unhinged_toggle",
+            help="Enable playful roast commentary. For entertainment only!"
+        )
+        if unhinged_enabled != st.session_state.unhinged_mode:
+            st.session_state.unhinged_mode = unhinged_enabled
+            # Save progress when toggle changes
+            save_user_progress()
+            st.rerun()
+    
+    # ============= AUTHENTICATION =============
+    st.markdown("---")
+    st.markdown("### 🔐 Account")
+    
+    # Check if logged in
+    if st.session_state.get("is_logged_in", False):
+        # Show user info and logout
+        first_name = st.session_state.get("first_name", "User")
+        user_email = st.session_state.get("user_email", "")
+        
+        st.success(f"👤 {first_name}")
+        st.caption(f"{user_email}")
+        
+        # Show founder badge if applicable
+        if st.session_state.get("is_founder", False):
+            st.info("👑 Founder Access")
+        
+        # Show current tier
+        current_tier = get_user_tier()
+        tier_colors = {"free": "#00C853", "pro": "#9D4EDD", "ultimate": "#FFD700"}
+        tier_labels = {"free": "Free", "pro": "Pro", "ultimate": "Ultimate"}
+        st.markdown(f"""
+        <div style="background: rgba(157, 78, 221, 0.1); padding: 8px 12px; border-radius: 8px; border-left: 3px solid {tier_colors.get(current_tier, '#888')}; margin: 10px 0;">
+            <span style="color: #888; font-size: 12px;">Current Tier</span><br>
+            <span style="color: {tier_colors.get(current_tier, '#FFF')}; font-weight: bold;">{tier_labels.get(current_tier, 'Free')}</span>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Founder badge
+        if st.session_state.get('is_founder'):
+            st.markdown("""
+            <div style="background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); padding: 8px 12px; border-radius: 8px; text-align: center; margin-bottom: 10px;">
+                <span style="color: #000; font-weight: bold;">👑 FOUNDER</span>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # Demo tier selector (for testing)
+        with st.expander("🧪 Demo: Switch Tier"):
+            demo_tier = st.selectbox(
+                "Select tier:",
+                options=["free", "pro", "ultimate"],
+                index=["free", "pro", "ultimate"].index(current_tier),
+                key="demo_tier_selector"
+            )
+            if demo_tier != current_tier:
+                if st.button("Apply Tier", key="apply_demo_tier"):
+                    set_user_tier(demo_tier)
+                    st.success(f"Switched to {demo_tier.title()} tier!")
+                    st.rerun()
+        
+        # Quick Stats
+        stats = get_quick_stats()
+        st.markdown("---")
+        st.markdown("##### 📊 Your Stats")
+        stat_col1, stat_col2 = st.columns(2)
+        with stat_col1:
+            st.metric("📌 Pinned", stats['pinned_count'])
+        with stat_col2:
+            st.metric("📊 Views", stats.get('saved_views', 0))
+        
+        if st.button("🚪 Log Out", use_container_width=True, type="secondary", key="sidebar_logout_btn"):
+            do_logout()
+    else:
+        # Show sign in / sign up buttons
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("📝 Sign Up", use_container_width=True, type="primary", key="sidebar_signup_btn"):
+                st.session_state.show_signup_popup = True
+                st.rerun()
+        with col2:
+            if st.button("🔐 Sign In", use_container_width=True, type="secondary", key="sidebar_login_btn"):
+                st.session_state.show_login_popup = True
+                st.rerun()
 
 # ============= HELPER FUNCTIONS FOR PAGES =============
 
@@ -8155,7 +8700,7 @@ if selected_page == "🏠 Dashboard":
     st.markdown("""
     <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
                 padding: 25px; border-radius: 15px; margin-bottom: 25px;">
-        <h1 style="color: #E0E0E0; margin: 0; font-size: 28px;">🏠 Dashboard</h1>
+        <h1 style="color: #FFFFFF; margin: 0; font-size: 28px;">🏠 Dashboard</h1>
         <p style="color: #B0B0B0; margin: 5px 0 0 0;">Your personalized investing command center</p>
     </div>
     """, unsafe_allow_html=True)
@@ -8167,114 +8712,6 @@ if selected_page == "🏠 Dashboard":
             "Start by pinning stocks!",
             "Add your favorite stocks to track them here. Try typing AAPL, NVDA, or MSFT below."
         )
-    
-    # Interactive Page Guide
-    st.markdown("### 🗺️ Site Navigation Guide")
-    st.caption("Click any page to learn what it does and jump directly to it")
-    
-    # Create page guide button
-    if st.button("📖 Show Full Site Tour", use_container_width=True, type="primary", key="tour_button_trigger"):
-        st.session_state.show_site_tour = True
-        st.rerun()
-    
-    # Show tour dialog if requested
-    if st.session_state.get('show_site_tour', False):
-        @st.dialog("🗺️ Complete Site Guide", width="large")
-        def show_tour_dialog():
-            st.markdown("### Every Page Explained")
-            st.caption("Click any page name to jump there directly")
-            
-            # Define all pages with descriptions
-            pages = [
-                {
-                    "name": "🏠 Dashboard",
-                    "desc": "Your command center. Pin stocks to track, see market snapshot, and access quick actions.",
-                    "icon": "📌"
-                },
-                {
-                    "name": "📊 Company Analysis",
-                    "desc": "Deep dive into any stock. See financials, charts, AI analysis, and valuation metrics.",
-                    "icon": "📈"
-                },
-                {
-                    "name": "📊 Market Overview",
-                    "desc": "Browse sectors, discover high-growth stocks, and find investment opportunities.",
-                    "icon": "🌍"
-                },
-                {
-                    "name": "📰 Market Intelligence",
-                    "desc": "Latest news, market sentiment, fear & greed index, and trending stocks.",
-                    "icon": "📰"
-                },
-                {
-                    "name": "📈 Financial Health",
-                    "desc": "Analyze company fundamentals: revenue, profit margins, debt levels, and growth trends.",
-                    "icon": "💊"
-                },
-                {
-                    "name": "🔍 AI Stock Screener",
-                    "desc": "Ask Claude to find stocks matching your criteria using natural language.",
-                    "icon": "🤖"
-                },
-                {
-                    "name": "📊 Pro Checklist",
-                    "desc": "Comprehensive investment checklist. Evaluate any stock across 20+ key factors.",
-                    "icon": "✅"
-                },
-                {
-                    "name": "💼 Paper Portfolio",
-                    "desc": "Practice trading with virtual money. Track performance and test strategies.",
-                    "icon": "💰"
-                },
-                {
-                    "name": "🧠 Risk Quiz",
-                    "desc": "Discover your investor profile. Get personalized risk tolerance assessment.",
-                    "icon": "🎯"
-                },
-                {
-                    "name": "📚 Learn Hub",
-                    "desc": "Interactive lessons on investing basics. Earn XP and badges as you learn.",
-                    "icon": "🎓"
-                },
-                {
-                    "name": "👑 Ultimate",
-                    "desc": "Advanced AI features: custom analyses, sector deep dives, and expert insights.",
-                    "icon": "⚡"
-                },
-            ]
-            
-            # Display pages in a grid
-            for i in range(0, len(pages), 2):
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    page = pages[i]
-                    st.markdown(f"#### {page['icon']} {page['name']}")
-                    st.caption(page['desc'])
-                    if st.button(f"Go to {page['name']}", key=f"tour_goto_{i}", use_container_width=True):
-                        st.session_state.selected_page = page['name']
-                        st.session_state.show_site_tour = False
-                        st.rerun()
-                    st.markdown("---")
-                
-                if i + 1 < len(pages):
-                    with col2:
-                        page = pages[i+1]
-                        st.markdown(f"#### {page['icon']} {page['name']}")
-                        st.caption(page['desc'])
-                        if st.button(f"Go to {page['name']}", key=f"tour_goto_{i+1}", use_container_width=True):
-                            st.session_state.selected_page = page['name']
-                            st.session_state.show_site_tour = False
-                            st.rerun()
-                        st.markdown("---")
-            
-            if st.button("✕ Close Guide", use_container_width=True):
-                st.session_state.show_site_tour = False
-                st.rerun()
-        
-        show_tour_dialog()
-    
-    st.markdown("---")
     
     # ============= BLOCK A: PINNED WATCHLIST =============
     st.markdown("### 📌 Pinned Watchlist")
@@ -8402,7 +8839,7 @@ if selected_page == "🏠 Dashboard":
                     </div>
                     """, unsafe_allow_html=True)
                 else:
-                    st.markdown("""
+                    st.markdown(f"""
                     <div style="display: flex; align-items: center; padding: 5px 0;">
                         <div style="width: 32px; height: 32px; background: rgba(128,128,128,0.2); border-radius: 6px; margin-right: 10px; display: flex; align-items: center; justify-content: center; font-size: 14px;">📈</div>
                         <span style="font-weight: bold; font-size: 16px;">{row['Ticker']}</span>
@@ -8451,7 +8888,7 @@ if selected_page == "🏠 Dashboard":
             worst = sorted_by_change[-1]
             
             if best['_change_val'] != 0 or worst['_change_val'] != 0:
-                st.markdown("""
+                st.markdown(f"""
                 <div style="background: rgba(128,128,128,0.1); padding: 10px 15px; border-radius: 8px; margin-top: 10px;">
                     <span style="color: #888;">📊 Today's Movers:</span>
                     <span style="color: #22c55e; margin-left: 10px;">🟢 {best['Ticker']} {best['Change']}</span>
@@ -8608,6 +9045,680 @@ if selected_page == "🏠 Dashboard":
     
     st.markdown("---")
     
+    # ============= BLOCK D: PREMIUM WORKFLOWS =============
+    st.markdown("### 🚀 Premium Workflows")
+    st.caption("Deep-dive analysis modes for serious investors")
+    
+    # Ticker selector for workflows
+    default_ticker = st.session_state.get('last_ticker') or 'AAPL'
+    workflow_ticker_raw = st.text_input(
+        "Enter ticker for analysis:",
+        value=default_ticker,
+        key="workflow_ticker_input",
+        placeholder="e.g., AAPL, NVDA, MSFT"
+    )
+    workflow_ticker = workflow_ticker_raw.upper().strip() if workflow_ticker_raw else ""
+    
+    # Show ticker with logo header if valid ticker entered
+    if workflow_ticker:
+        workflow_logo = get_company_logo(workflow_ticker)
+        workflow_profile = get_profile(workflow_ticker)
+        company_name = workflow_profile.get('companyName', workflow_ticker) if workflow_profile else workflow_ticker
+        
+        if workflow_logo:
+            st.markdown(f"""
+            <div style="display: flex; align-items: center; background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; margin: 10px 0;">
+                <img src="{workflow_logo}" width="48" height="48" style="border-radius: 8px; margin-right: 15px;">
+                <div>
+                    <div style="font-size: 20px; font-weight: bold;">{workflow_ticker}</div>
+                    <div style="color: #888; font-size: 14px;">{company_name}</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown(f"""
+            <div style="display: flex; align-items: center; background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; margin: 10px 0;">
+                <div style="width: 48px; height: 48px; background: rgba(255,75,75,0.2); border-radius: 8px; margin-right: 15px; display: flex; align-items: center; justify-content: center; font-size: 24px;">📈</div>
+                <div>
+                    <div style="font-size: 20px; font-weight: bold;">{workflow_ticker}</div>
+                    <div style="color: #888; font-size: 14px;">{company_name}</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    workflow_tabs = st.tabs(["💰 Valuation", "⚠️ Risk Analysis", "🏥 Portfolio Health"])
+    
+    # ============= WORKFLOW 1: VALUATION MODE =============
+    with workflow_tabs[0]:
+        st.markdown("#### 💰 Valuation Mode")
+        st.caption("Understand if a stock is cheap or expensive relative to history")
+        
+        if workflow_ticker:
+            with st.spinner(f"Loading valuation data for {workflow_ticker}..."):
+                # Use comprehensive valuation calculation
+                val_metrics = calculate_valuation_metrics(workflow_ticker)
+                profile = get_profile(workflow_ticker)
+                
+                pe_ratio = val_metrics.get('pe_ratio')
+                ps_ratio = val_metrics.get('ps_ratio')
+                ev_ebitda = val_metrics.get('ev_ebitda')
+                peg_ratio = val_metrics.get('peg_ratio')
+                is_profitable = val_metrics.get('is_profitable', True)
+                
+                st.markdown("##### 📊 Current Valuation Metrics")
+                
+                val_col1, val_col2, val_col3, val_col4 = st.columns(4)
+                
+                # P/E Ratio
+                with val_col1:
+                    if pe_ratio and pe_ratio > 0:
+                        pe_color = "#22c55e" if pe_ratio < 20 else "#f59e0b" if pe_ratio < 35 else "#ef4444"
+                        st.markdown(f"""
+                        <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
+                            <div style="color: #888; font-size: 12px;">P/E Ratio</div>
+                            <div style="font-size: 24px; font-weight: bold; color: {pe_color};">{pe_ratio:.1f}x</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    elif not is_profitable:
+                        st.markdown(f"""
+                        <div style="background: rgba(239, 68, 68, 0.1); padding: 15px; border-radius: 10px; text-align: center; border: 1px solid #ef4444;">
+                            <div style="color: #888; font-size: 12px;">P/E Ratio</div>
+                            <div style="font-size: 18px; font-weight: bold; color: #ef4444;">Not Profitable</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"""
+                        <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
+                            <div style="color: #888; font-size: 12px;">P/E Ratio</div>
+                            <div style="font-size: 24px; font-weight: bold; color: #888;">N/A</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                
+                # P/S Ratio
+                with val_col2:
+                    if ps_ratio and ps_ratio > 0:
+                        ps_color = "#22c55e" if ps_ratio < 5 else "#f59e0b" if ps_ratio < 10 else "#ef4444"
+                        st.markdown(f"""
+                        <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
+                            <div style="color: #888; font-size: 12px;">P/S Ratio</div>
+                            <div style="font-size: 24px; font-weight: bold; color: {ps_color};">{ps_ratio:.1f}x</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"""
+                        <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
+                            <div style="color: #888; font-size: 12px;">P/S Ratio</div>
+                            <div style="font-size: 24px; font-weight: bold; color: #888;">N/A</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                
+                # EV/EBITDA
+                with val_col3:
+                    if ev_ebitda and ev_ebitda > 0:
+                        ev_color = "#22c55e" if ev_ebitda < 12 else "#f59e0b" if ev_ebitda < 20 else "#ef4444"
+                        st.markdown(f"""
+                        <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
+                            <div style="color: #888; font-size: 12px;">EV/EBITDA</div>
+                            <div style="font-size: 24px; font-weight: bold; color: {ev_color};">{ev_ebitda:.1f}x</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"""
+                        <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
+                            <div style="color: #888; font-size: 12px;">EV/EBITDA</div>
+                            <div style="font-size: 24px; font-weight: bold; color: #888;">N/A</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                
+                # PEG Ratio
+                with val_col4:
+                    if peg_ratio and peg_ratio > 0 and peg_ratio < 10:  # Sanity check
+                        peg_color = "#22c55e" if peg_ratio < 1 else "#f59e0b" if peg_ratio < 2 else "#ef4444"
+                        st.markdown(f"""
+                        <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
+                            <div style="color: #888; font-size: 12px;">PEG Ratio</div>
+                            <div style="font-size: 24px; font-weight: bold; color: {peg_color};">{peg_ratio:.2f}</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"""
+                        <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
+                            <div style="color: #888; font-size: 12px;">PEG Ratio</div>
+                            <div style="font-size: 24px; font-weight: bold; color: #888;">N/A</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                
+                # Valuation interpretation
+                st.markdown("##### 📏 Valuation Guide")
+                st.markdown("""
+                | Metric | Cheap | Fair | Expensive |
+                |--------|-------|------|-----------|
+                | P/E Ratio | < 15x | 15-25x | > 25x |
+                | P/S Ratio | < 3x | 3-8x | > 8x |
+                | EV/EBITDA | < 10x | 10-15x | > 15x |
+                | PEG Ratio | < 1.0 | 1.0-2.0 | > 2.0 |
+                """)
+                
+                show_data_source(source="FMP API", updated_at=datetime.now())
+                
+                # Debug info (collapsible)
+                with st.expander("🔧 Debug: Raw Data", expanded=False):
+                    st.json({
+                        "pe_ratio": pe_ratio,
+                        "ps_ratio": ps_ratio,
+                        "ev_ebitda": ev_ebitda,
+                        "peg_ratio": peg_ratio,
+                        "is_profitable": is_profitable,
+                        "eps_growth": val_metrics.get('eps_growth')
+                    })
+                
+                # AI Scenario
+                st.markdown("##### 🤖 AI Valuation Scenario")
+                with st.expander("What Would Justify Current Valuation?", expanded=False):
+                    if pe_ratio and pe_ratio > 25:
+                        st.markdown(f"""
+                        **{workflow_ticker} trades at {pe_ratio:.1f}x earnings - here's what would need to be true:**
+                        
+                        1. **High Growth:** Company needs to grow earnings 20%+ annually
+                        2. **Market Leadership:** Must maintain or expand competitive moat
+                        3. **Margin Expansion:** Operating margins should improve over time
+                        4. **Execution:** Management must deliver on promised initiatives
+                        
+                        ⚠️ **Risk:** If growth slows, multiple compression could cause significant downside.
+                        """)
+                    elif pe_ratio and pe_ratio < 15:
+                        st.markdown(f"""
+                        **{workflow_ticker} trades at {pe_ratio:.1f}x earnings - here's what the market might be worried about:**
+                        
+                        1. **Growth Concerns:** Market may expect slowing growth
+                        2. **Cyclical Risk:** Business may be sensitive to economic cycles
+                        3. **Competition:** Increased competitive pressure
+                        4. **Disruption:** Potential technology or market disruption
+                        
+                        ✅ **Opportunity:** If concerns are overblown, stock could re-rate higher.
+                        """)
+                    else:
+                        st.markdown(f"""
+                        **{workflow_ticker} appears fairly valued based on current metrics.**
+                        
+                        Look for catalysts that could shift the valuation:
+                        - Earnings beats/misses
+                        - New product announcements
+                        - Market share gains/losses
+                        - Macroeconomic shifts
+                        """)
+                    show_ai_disclaimer(inputs_used=[f"{workflow_ticker} valuation ratios", "P/E", "P/S", "PEG"])
+        else:
+            st.info("Enter a ticker above to see valuation analysis.")
+    
+    # ============= WORKFLOW 2: RISK ANALYSIS MODE =============
+    with workflow_tabs[1]:
+        st.markdown("#### ⚠️ Risk Analysis Mode")
+        st.caption("Identify potential risks before you invest")
+        
+        # Check if user has Pro tier for this feature
+        user_tier = get_user_tier()
+        if user_tier == "free":
+            # Show preview for free users
+            st.markdown("""
+            <div style="background: rgba(157, 78, 221, 0.1); border: 2px dashed #9D4EDD; border-radius: 15px; padding: 25px; text-align: center; margin: 20px 0;">
+                <div style="font-size: 40px; margin-bottom: 10px;">🔒</div>
+                <h4 style="color: #9D4EDD; margin-bottom: 10px;">Risk Analysis - Pro Feature</h4>
+                <p style="color: #888; margin-bottom: 15px;">Get comprehensive risk flags including:</p>
+                <div style="text-align: left; max-width: 300px; margin: 0 auto; color: #FFF;">
+                    • Volatility analysis<br>
+                    • Market cap risk tier<br>
+                    • Valuation risk flags<br>
+                    • Debt/leverage warnings<br>
+                    • Position sizing guidance
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            if st.button("🚀 Unlock with Pro - $5/mo", key="upgrade_risk_analysis", use_container_width=True):
+                st.session_state.selected_page = "👑 Become a VIP"
+                st.rerun()
+        else:
+            # Pro/Ultimate users get full access
+            if workflow_ticker:
+                with st.spinner(f"Analyzing risks for {workflow_ticker}..."):
+                    quote = get_quote(workflow_ticker)
+                    profile = get_profile(workflow_ticker)
+                    ratios_ttm = get_ratios_ttm(workflow_ticker)
+                    
+                    st.markdown("##### 🚩 Risk Flags (Deterministic)")
+                    
+                    risk_flags = []
+                    
+                    # Volatility check
+                    if quote:
+                        change_pct = abs(quote.get('changesPercentage', 0))
+                        if change_pct > 5:
+                            risk_flags.append(("🔴", "High Volatility", f"Stock moved {change_pct:.1f}% today"))
+                        
+                        # Market cap tier
+                        market_cap = quote.get('marketCap', 0)
+                        if market_cap < 2e9:
+                            risk_flags.append(("🟡", "Small Cap Risk", f"Market cap ${market_cap/1e9:.1f}B - higher volatility expected"))
+                        elif market_cap < 10e9:
+                            risk_flags.append(("🟢", "Mid Cap", f"Market cap ${market_cap/1e9:.1f}B"))
+                    else:
+                        risk_flags.append(("🟢", "Large Cap", f"Market cap ${market_cap/1e9:.0f}B - generally more stable"))
+                
+                # Valuation risk
+                if ratios_ttm:
+                    pe = ratios_ttm.get('peRatioTTM', 0)
+                    if pe and pe > 50:
+                        risk_flags.append(("🔴", "High Valuation Risk", f"P/E of {pe:.0f}x is very expensive"))
+                    elif pe and pe > 30:
+                        risk_flags.append(("🟡", "Elevated Valuation", f"P/E of {pe:.0f}x above market average"))
+                    
+                    # Debt check
+                    debt_equity = ratios_ttm.get('debtEquityRatioTTM', 0)
+                    if debt_equity and debt_equity > 2:
+                        risk_flags.append(("🔴", "High Leverage", f"Debt/Equity of {debt_equity:.1f}x is elevated"))
+                    elif debt_equity and debt_equity > 1:
+                        risk_flags.append(("🟡", "Moderate Debt", f"Debt/Equity of {debt_equity:.1f}x"))
+                
+                # Sector risk
+                if profile:
+                    sector = profile.get('sector', '')
+                    volatile_sectors = ['Technology', 'Consumer Cyclical', 'Energy']
+                    if sector in volatile_sectors:
+                        risk_flags.append(("🟡", "Cyclical Sector", f"{sector} can be volatile during economic shifts"))
+                
+                # Display flags
+                if risk_flags:
+                    for flag_color, flag_title, flag_desc in risk_flags:
+                        st.markdown(f"""
+                        <div style="background: rgba(128,128,128,0.1); padding: 12px 15px; border-radius: 8px; margin-bottom: 8px; display: flex; align-items: center;">
+                            <span style="font-size: 20px; margin-right: 10px;">{flag_color}</span>
+                            <div>
+                                <strong>{flag_title}</strong>
+                                <div style="color: #888; font-size: 13px;">{flag_desc}</div>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                else:
+                    st.success("✅ No major risk flags detected")
+                
+                # Risk score summary
+                red_flags = len([f for f in risk_flags if f[0] == "🔴"])
+                yellow_flags = len([f for f in risk_flags if f[0] == "🟡"])
+                
+                st.markdown("##### 📊 Risk Summary")
+                risk_col1, risk_col2, risk_col3 = st.columns(3)
+                with risk_col1:
+                    st.metric("🔴 High Risk Flags", red_flags)
+                with risk_col2:
+                    st.metric("🟡 Caution Flags", yellow_flags)
+                with risk_col3:
+                    overall_risk = "High" if red_flags >= 2 else "Moderate" if red_flags >= 1 or yellow_flags >= 2 else "Low"
+                    risk_color = "#ef4444" if overall_risk == "High" else "#f59e0b" if overall_risk == "Moderate" else "#22c55e"
+                    st.markdown(f"""
+                    <div style="background: rgba(128,128,128,0.1); padding: 10px; border-radius: 8px; text-align: center;">
+                        <div style="color: #888; font-size: 12px;">Overall Risk</div>
+                        <div style="font-size: 18px; font-weight: bold; color: {risk_color};">{overall_risk}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                show_data_source(source="FMP API", updated_at=datetime.now())
+                
+                # AI Risk Narrative
+                st.markdown("##### 🤖 AI Risk Narrative")
+                with st.expander("Detailed Risk Assessment", expanded=False):
+                    st.markdown(f"""
+                    **Risk Assessment for {workflow_ticker}:**
+                    
+                    Based on the deterministic flags above, here's what to consider:
+                    
+                    {"⚠️ **High Volatility Alert:** This stock shows significant price swings. Only invest what you can afford to lose." if any('Volatility' in f[1] for f in risk_flags) else ""}
+                    
+                    {"💰 **Valuation Concern:** The stock is trading at a premium. Strong execution is needed to justify the price." if any('Valuation' in f[1] for f in risk_flags) else ""}
+                    
+                    {"🏦 **Leverage Risk:** High debt levels mean the company is more sensitive to interest rate changes and economic downturns." if any('Leverage' in f[1] for f in risk_flags) else ""}
+                    
+                    **Position Sizing Suggestion:**
+                    - {"Conservative: 1-2% of portfolio" if red_flags >= 2 else "Moderate: 3-5% of portfolio" if red_flags >= 1 else "Standard: 5-10% of portfolio"}
+                    
+                    *This is educational content, not investment advice.*
+                    """)
+                    show_ai_disclaimer(inputs_used=[f"{workflow_ticker} volatility", "Valuation metrics", "Debt levels", "Market cap"])
+            else:
+                st.info("Enter a ticker above to see risk analysis.")
+    
+    # ============= WORKFLOW 3: PORTFOLIO HEALTH MODE =============
+    with workflow_tabs[2]:
+        st.markdown("#### 🏥 Portfolio Health Check")
+        st.caption("Analyze your pinned watchlist for diversification and risk")
+        
+        # Check if user has Pro tier for this feature
+        user_tier = get_user_tier()
+        if user_tier == "free":
+            # Show preview for free users
+            st.markdown("""
+            <div style="background: rgba(157, 78, 221, 0.1); border: 2px dashed #9D4EDD; border-radius: 15px; padding: 25px; text-align: center; margin: 20px 0;">
+                <div style="font-size: 40px; margin-bottom: 10px;">🔒</div>
+                <h4 style="color: #9D4EDD; margin-bottom: 10px;">Portfolio Health - Pro Feature</h4>
+                <p style="color: #888; margin-bottom: 15px;">Analyze your watchlist with:</p>
+                <div style="text-align: left; max-width: 300px; margin: 0 auto; color: #FFF;">
+                    • Sector allocation breakdown<br>
+                    • Concentration warnings<br>
+                    • Diversification score<br>
+                    • Top gainers/losers<br>
+                    • AI portfolio suggestions
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            if st.button("🚀 Unlock with Pro - $5/mo", key="upgrade_portfolio_health", use_container_width=True):
+                st.session_state.selected_page = "👑 Become a VIP"
+                st.rerun()
+        else:
+            # Pro/Ultimate users get full access
+            pinned = st.session_state.get('pinned_tickers', [])
+            
+            if not pinned or len(pinned) == 0:
+                show_empty_state(
+                    title="No Tickers Pinned",
+                    message="Pin some stocks to your watchlist to analyze portfolio health",
+                    action_text="📌 Go to Dashboard",
+                    action_key="goto_dashboard_health",
+                    icon="🏥"
+                )
+            elif len(pinned) == 1:
+                st.warning("📌 Pin at least 2 tickers to analyze portfolio health.")
+                if st.button("➕ Add More Tickers", key="add_more_health"):
+                    st.session_state.selected_page = "📊 Company Analysis"
+                    st.rerun()
+            else:
+                # 2+ tickers - show full analysis
+                st.markdown("##### 📊 Portfolio Composition")
+            
+            # Gather data for all pinned tickers
+            portfolio_data = []
+            sector_allocation = {}
+            total_value = 0
+            
+            for ticker in pinned:
+                profile = get_profile(ticker)
+                quote = get_quote(ticker)
+                
+                if profile and quote:
+                    sector = profile.get('sector', 'Other')
+                    market_cap = quote.get('marketCap', 0)
+                    price = quote.get('price', 0)
+                    change = quote.get('changesPercentage', 0)
+                    
+                    portfolio_data.append({
+                        'ticker': ticker,
+                        'sector': sector,
+                        'market_cap': market_cap,
+                        'price': price,
+                        'change': change
+                    })
+                    
+                    # Equal weight assumption for sector allocation
+                    if sector in sector_allocation:
+                        sector_allocation[sector] += 1
+                    else:
+                        sector_allocation[sector] = 1
+            
+            # Display sector allocation
+            if sector_allocation:
+                st.markdown("##### 🏭 Sector Allocation")
+                
+                total_positions = len(pinned)
+                for sector, count in sorted(sector_allocation.items(), key=lambda x: x[1], reverse=True):
+                    pct = (count / total_positions) * 100
+                    bar_color = "#ef4444" if pct > 40 else "#f59e0b" if pct > 25 else "#22c55e"
+                    st.markdown(f"""
+                    <div style="margin-bottom: 8px;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                            <span>{sector}</span>
+                            <span>{pct:.0f}% ({count} stocks)</span>
+                        </div>
+                        <div style="background: rgba(128,128,128,0.2); border-radius: 4px; height: 8px;">
+                            <div style="background: {bar_color}; width: {pct}%; height: 100%; border-radius: 4px;"></div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+            
+            # Risk flags
+            st.markdown("##### 🚩 Diversification Flags")
+            
+            div_flags = []
+            
+            # Concentration check
+            if len(sector_allocation) == 1:
+                div_flags.append(("🔴", "Single Sector", "All positions in one sector - very high concentration risk"))
+            elif len(sector_allocation) <= 2:
+                div_flags.append(("🟡", "Low Diversification", "Only 2 sectors represented"))
+            else:
+                div_flags.append(("🟢", "Good Sector Spread", f"{len(sector_allocation)} sectors represented"))
+            
+            # Over-concentration in single sector
+            for sector, count in sector_allocation.items():
+                pct = (count / total_positions) * 100
+                if pct > 50:
+                    div_flags.append(("🔴", f"Heavy {sector}", f"{pct:.0f}% in {sector} - consider diversifying"))
+                elif pct > 40:
+                    div_flags.append(("🟡", f"High {sector} Weight", f"{pct:.0f}% in {sector}"))
+            
+            # Position count
+            if len(pinned) < 5:
+                div_flags.append(("🟡", "Few Positions", f"Only {len(pinned)} stocks - consider adding more for diversification"))
+            elif len(pinned) >= 10:
+                div_flags.append(("🟢", "Good Position Count", f"{len(pinned)} stocks in watchlist"))
+            
+            for flag_color, flag_title, flag_desc in div_flags:
+                st.markdown(f"""
+                <div style="background: rgba(128,128,128,0.1); padding: 10px 15px; border-radius: 8px; margin-bottom: 8px;">
+                    <span style="font-size: 18px; margin-right: 8px;">{flag_color}</span>
+                    <strong>{flag_title}:</strong> <span style="color: #888;">{flag_desc}</span>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            # Today's performance
+            st.markdown("##### 📈 Today's Performance")
+            
+            gainers = [p for p in portfolio_data if p['change'] > 0]
+            losers = [p for p in portfolio_data if p['change'] < 0]
+            
+            perf_col1, perf_col2 = st.columns(2)
+            with perf_col1:
+                st.metric("🟢 Gainers", len(gainers))
+            with perf_col2:
+                st.metric("🔴 Losers", len(losers))
+            
+            show_data_source(source="FMP API", updated_at=datetime.now())
+            
+            # AI Suggestions
+            st.markdown("##### 🤖 AI Suggestions")
+            with st.expander("Diversification Recommendations", expanded=False):
+                missing_sectors = set(['Technology', 'Healthcare', 'Financial Services', 'Consumer Defensive', 'Industrials']) - set(sector_allocation.keys())
+                
+                st.markdown(f"""
+                **Portfolio Health Summary:**
+                
+                - **Positions:** {len(pinned)} stocks
+                - **Sectors:** {len(sector_allocation)} represented
+                - **Diversification Score:** {"⚠️ Needs Work" if len(sector_allocation) <= 2 else "✅ Good" if len(sector_allocation) >= 4 else "🟡 Moderate"}
+                
+                {"**Consider adding exposure to:** " + ", ".join(list(missing_sectors)[:3]) if missing_sectors else "**Good sector coverage!**"}
+                
+                **General Guidelines:**
+                - Aim for 5-10 positions minimum
+                - No single sector > 30% of portfolio
+                - Include defensive sectors for stability
+                
+                *This is educational content, not investment advice.*
+                """)
+                show_ai_disclaimer(inputs_used=["Your pinned tickers", "Sector allocation", "Position count"])
+    
+    st.markdown("---")
+    
+    # ============= BLOCK E: CONTINUE WHERE YOU LEFT OFF =============
+    st.markdown("### 🔄 Continue Where You Left Off")
+    
+    last_ticker = st.session_state.get('last_ticker')
+    last_tab = st.session_state.get('last_tab')
+    
+    if last_ticker or last_tab:
+        resume_col1, resume_col2, resume_col3 = st.columns([2, 2, 1])
+        
+        with resume_col1:
+            if last_ticker:
+                st.markdown(f"""
+                <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px;">
+                    <div style="color: #888; font-size: 12px;">Last Ticker</div>
+                    <div style="font-size: 18px; font-weight: bold;">{last_ticker}</div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px;">
+                    <div style="color: #888; font-size: 12px;">Last Ticker</div>
+                    <div style="color: #888;">None yet</div>
+                </div>
+                """, unsafe_allow_html=True)
+        
+        with resume_col2:
+            if last_tab:
+                st.markdown(f"""
+                <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px;">
+                    <div style="color: #888; font-size: 12px;">Last Visited</div>
+                    <div style="font-size: 16px; font-weight: bold;">{last_tab}</div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px;">
+                    <div style="color: #888; font-size: 12px;">Last Visited</div>
+                    <div style="color: #888;">None yet</div>
+                </div>
+                """, unsafe_allow_html=True)
+        
+        with resume_col3:
+            if last_ticker and last_tab:
+                if st.button("▶️ Resume", key="resume_btn", type="primary", use_container_width=True):
+                    st.session_state.selected_ticker = last_ticker
+                    st.session_state.selected_page = last_tab
+                    st.rerun()
+            elif last_tab:
+                if st.button("▶️ Resume", key="resume_btn", type="primary", use_container_width=True):
+                    st.session_state.selected_page = last_tab
+                    st.rerun()
+    else:
+        st.markdown("""
+        <div style="background: rgba(128,128,128,0.05); padding: 20px; border-radius: 10px; text-align: center; color: #888;">
+            <p>Start exploring to build your history!</p>
+            <p style="font-size: 13px;">Your last visited page and ticker will appear here.</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # ============= BLOCK E: SAVED VIEWS =============
+    st.markdown("### 📁 Saved Views")
+    
+    # Initialize saved views
+    if 'saved_views' not in st.session_state:
+        st.session_state.saved_views = []
+    
+    # Save current view button
+    with st.expander("💾 Save Current View", expanded=False):
+        view_name = st.text_input("View name:", placeholder="e.g., My Tech Watchlist", key="new_view_name")
+        
+        if st.button("💾 Save View", key="save_view_btn"):
+            if view_name:
+                # Check limit (free = 2, could be increased for premium)
+                max_views = 5  # Free tier limit
+                if len(st.session_state.saved_views) >= max_views:
+                    st.warning(f"📁 You've reached the limit of {max_views} saved views. Delete one to save more.")
+                else:
+                    # Capture current state
+                    new_view = {
+                        "name": view_name,
+                        "created_at": datetime.now().isoformat(),
+                        "page": st.session_state.get("selected_page", "🏠 Dashboard"),
+                        "ticker": st.session_state.get("selected_ticker", ""),
+                        "pinned_tickers": st.session_state.get("pinned_tickers", []).copy(),
+                    }
+                    st.session_state.saved_views.append(new_view)
+                    save_to_localstorage('saved_views', st.session_state.saved_views)
+                    
+                    # Save to DB if logged in
+                    if st.session_state.get('is_logged_in'):
+                        save_user_progress()
+                    
+                    st.success(f"✅ Saved view: {view_name}")
+                    st.rerun()
+            else:
+                st.warning("Please enter a name for your view.")
+    
+    # Display saved views
+    if st.session_state.saved_views:
+        for i, view in enumerate(st.session_state.saved_views):
+            view_col1, view_col2, view_col3 = st.columns([3, 1, 1])
+            
+            with view_col1:
+                st.markdown(f"""
+                <div style="background: rgba(128,128,128,0.1); padding: 12px 15px; border-radius: 8px; margin-bottom: 5px;">
+                    <strong>{view['name']}</strong>
+                    <span style="color: #888; font-size: 12px; margin-left: 10px;">{view.get('page', 'Dashboard')}</span>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            with view_col2:
+                if st.button("📂 Load", key=f"load_view_{i}", use_container_width=True):
+                    # Restore view state
+                    if view.get('page'):
+                        st.session_state.selected_page = view['page']
+                    if view.get('ticker'):
+                        st.session_state.selected_ticker = view['ticker']
+                    if view.get('pinned_tickers'):
+                        st.session_state.pinned_tickers = view['pinned_tickers'].copy()
+                        save_to_localstorage('pinned_tickers', st.session_state.pinned_tickers)
+                    st.success(f"✅ Loaded: {view['name']}")
+                    st.rerun()
+            
+            with view_col3:
+                if st.button("🗑️", key=f"delete_view_{i}", use_container_width=True, help="Delete this view"):
+                    st.session_state.saved_views.pop(i)
+                    save_to_localstorage('saved_views', st.session_state.saved_views)
+                    if st.session_state.get('is_logged_in'):
+                        save_user_progress()
+                    st.rerun()
+        
+        # Show usage
+        st.caption(f"📁 {len(st.session_state.saved_views)}/5 views saved")
+    else:
+        # Empty state with starter templates
+        st.markdown("""
+        <div style="background: rgba(128,128,128,0.05); padding: 15px; border-radius: 10px; text-align: center; color: #888; margin-bottom: 10px;">
+            <p style="margin: 0;">No saved views yet. Save your current setup to quickly restore it later!</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Starter template suggestions
+        st.markdown("**💡 Quick Start Templates:**")
+        template_cols = st.columns(3)
+        
+        templates = [
+            {"name": "Tech Giants", "tickers": ["AAPL", "MSFT", "GOOGL", "NVDA", "META"]},
+            {"name": "Dividend Kings", "tickers": ["JNJ", "KO", "PG", "MMM", "PEP"]},
+            {"name": "Growth Stocks", "tickers": ["TSLA", "AMZN", "NFLX", "CRM", "SHOP"]},
+        ]
+        
+        for i, template in enumerate(templates):
+            with template_cols[i]:
+                if st.button(f"📋 {template['name']}", key=f"template_{i}", use_container_width=True):
+                    st.session_state.pinned_tickers = template['tickers'].copy()
+                    save_to_localstorage('pinned_tickers', st.session_state.pinned_tickers)
+                    st.success(f"✅ Loaded {template['name']} watchlist!")
+                    st.rerun()
+    
     # Footer
     st.markdown("---")
     st.caption("💡 **Tip:** Pin your favorite tickers to track them easily. Use Quick Actions to jump to any tool.")
@@ -8631,9 +9742,9 @@ elif selected_page == "🏠 Start Here":
     
     # Hero Visual (H3) - Bull vs Bear theme
     st.markdown("""
-    <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border: none; box-shadow: none; padding: 30px; border-radius: 15px; margin-bottom: 20px; text-align: center;">
+    <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 30px; border-radius: 15px; margin-bottom: 20px; text-align: center;">
         <div style="font-size: 60px; margin-bottom: 10px;">🐂 vs 🐻</div>
-        <h2 style="color: #E0E0E0; margin: 0;">Learn to Invest Like a Pro</h2>
+        <h2 style="color: #FFFFFF; margin: 0;">Learn to Invest Like a Pro</h2>
         <p style="color: #B0B0B0; margin-top: 10px;">Understand the market. Build wealth. Avoid the traps.</p>
     </div>
     """, unsafe_allow_html=True)
@@ -8920,10 +10031,10 @@ elif selected_page == "🏠 Start Here":
 # COMPLETE LEARN HUB IMPLEMENTATION
 # This replaces lines 7343-8025 in the main file
 
-elif selected_page == "📚 Learning":
+elif selected_page == "📖 Basics":
     """
-    📚 LEARNING - Complete Learning System
-    Consolidates Learn Hub + Finance 101 content
+    📖 LEARN HUB - Complete Learning System
+    - 55 total lessons (15 original + 40 new)
     - XP & Badge system
     - Progress tracking (session + Supabase)
     - Quiz engine
@@ -8931,12 +10042,12 @@ elif selected_page == "📚 Learning":
     """
     
     # Show page popup
-    # show_page_popup( # DISABLED TO FIX DIALOG CONFLICTS
-    # 'learn_hub',
-    # '📚 Learn Hub',
-    # 'Master investing with 55 interactive lessons. Earn XP and badges as you progress through beginner to advanced topics.',
-    # 'Take quizzes after each lesson to test your knowledge and unlock achievements!'
-    # )
+    show_page_popup(
+        'learn_hub',
+        '📚 Learn Hub',
+        'Master investing with 55 interactive lessons. Earn XP and badges as you progress through beginner to advanced topics.',
+        'Take quizzes after each lesson to test your knowledge and unlock achievements!'
+    )
     
     # ============= SESSION STATE INITIALIZATION =============
     # Initialize all Learn Hub state variables
@@ -9765,8 +10876,8 @@ elif selected_page == "📚 Learning":
     render_setup_nudge()
     
     # Header
-    st.markdown("# 📚 Learning")
-    st.caption("*Master investing through interactive lessons and key concepts. Educational only, not financial advice.*")
+    st.markdown("# 📖 Learn Hub")
+    st.caption("*Educational only. Not financial advice.*")
     
     # Progress row
     total_lessons = len(LEARN_HUB_LESSONS)
@@ -9793,216 +10904,7 @@ elif selected_page == "📚 Learning":
         st.markdown(badge_chips, unsafe_allow_html=True)
     
     st.markdown("---")
-    st.markdown("---")
-    st.markdown("## 🏆 The 5 Metrics That Actually Matter")
-    st.markdown("*These are the numbers that separate winners from losers.*")
     
-    # Top 5 Metrics as visual cards (D1)
-    metrics_data = [
-        {"icon": "💰", "name": "FCF per Share Growth", 
-         "definition": "Free cash flow divided by total shares outstanding.", 
-         "why": "FCF per share accounts for dilution from stock-based comp. Total FCF can grow 20% but if shares also grow 20%, FCF/share stays flat ($1.00 → $1.00). This is the most honest growth metric.", 
-         "example": "Good: Visa — FCF grows faster than shares. Bad: Snap — heavy dilution kills per-share growth"},
-        
-        {"icon": "⚙️", "name": "Operating Income Growth", 
-         "definition": "Profit from core business before interest and taxes.", 
-         "why": "Shows real operating leverage. Less noisy than net income because it excludes one-time items and financial engineering.", 
-         "example": "Good: Amazon — massive operating leverage as AWS scales. Bad: WeWork — burned cash despite revenue growth"},
-        
-        {"icon": "📊", "name": "Gross Margin Growth", 
-         "definition": "Revenue minus cost of goods sold, as a percentage.", 
-         "why": "Rising gross margins indicate pricing power and efficiency. Especially critical for software (should be 70%+) and consumer brands.", 
-         "example": "Good: Microsoft — software margins expand with scale. Bad: Peloton — hardware margins collapsed under competition"},
-        
-        {"icon": "📈", "name": "Revenue Growth", 
-         "definition": "Total money coming in from customer sales.", 
-         "why": "Important signal of demand, but can be 'bought' with unsustainable discounting or low-quality growth. Always check profitability too.", 
-         "example": "Good: NVIDIA — revenue explosion from AI chips. Bad: Uber (early years) — grew revenue while burning billions"},
-        
-        {"icon": "🛡️", "name": "Quick Ratio", 
-         "definition": "(Cash + receivables) / current liabilities. Excludes inventory.", 
-         "why": "Measures short-term liquidity and crisis survival. Quick ratio > 1 means the company can pay bills without selling inventory. Essential for risk management.", 
-         "example": "Good: Apple — ratio > 1, can survive any storm. Bad: Startups pre-profitability — often < 0.5, vulnerable to funding freezes"}
-    ]
-    
-    # Display as vertical cards (ranked from most to least important)
-    for i, metric in enumerate(metrics_data):
-        st.markdown(f"""
-        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border: none; box-shadow: none; padding: 20px; border-radius: 12px; margin-bottom: 15px; border-left: 4px solid #FF4444;">
-            <div style="font-size: 28px; margin-bottom: 8px;">{metric['icon']}</div>
-            <h4 style="color: #E0E0E0; margin: 0 0 8px 0;">#{i+1}: {metric['name']}</h4>
-            <p style="color: #B0B0B0; margin: 0 0 8px 0; font-size: 14px;">{metric['definition']}</p>
-            <p style="color: #FF6B6B; margin: 0 0 8px 0; font-size: 13px;"><strong>Why it matters:</strong> {metric['why']}</p>
-            <p style="color: #4ECDC4; margin: 0; font-size: 12px;"><em>{metric['example']}</em></p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # Micro-quiz for Top 5 Metrics (E)
-    with st.expander("📝 Quick Quiz: Test Your Knowledge"):
-        quiz_answer = st.radio(
-            "Which metric best accounts for shareholder dilution from stock-based compensation?",
-            ["Total Free Cash Flow", "Revenue Growth", "FCF per Share", "Operating Income"],
-            key="finance101_quiz1"
-        )
-        if st.button("Check Answer", key="check_quiz1"):
-            if quiz_answer == "FCF per Share":
-                st.success("Correct! FCF per share divides total FCF by shares outstanding, so you see the true per-share growth after dilution.")
-            else:
-                st.error("Not quite. FCF per share is the answer - it accounts for dilution, unlike total FCF which can grow while per-share value stays flat.")
-    
-    # ============= VISUAL DIAGRAMS (D2) =============
-    st.markdown("---")
-    st.markdown("## 📊 How Money Flows Through a Business")
-    
-    # Revenue to Profit diagram
-    st.markdown("""
-    <div style="background: #1a1a2e; border: none; box-shadow: none; padding: 25px; border-radius: 12px; margin-bottom: 20px;">
-        <h4 style="color: #E0E0E0; text-align: center; margin-bottom: 20px;">The Profit Waterfall</h4>
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
-            <div style="text-align: center; flex: 1; min-width: 100px;">
-                <div style="background: #4ECDC4; padding: 15px; border-radius: 8px; margin-bottom: 5px;">
-                    <span style="color: #000; font-weight: bold;">Revenue</span>
-                </div>
-                <span style="color: #888; font-size: 12px;">$100</span>
-            </div>
-            <div style="color: #888; font-size: 20px;">→</div>
-            <div style="text-align: center; flex: 1; min-width: 100px;">
-                <div style="background: #FFD93D; padding: 15px; border-radius: 8px; margin-bottom: 5px;">
-                    <span style="color: #000; font-weight: bold;">Gross Profit</span>
-                </div>
-                <span style="color: #888; font-size: 12px;">$60 (- costs)</span>
-            </div>
-            <div style="color: #888; font-size: 20px;">→</div>
-            <div style="text-align: center; flex: 1; min-width: 100px;">
-                <div style="background: #FF6B6B; padding: 15px; border-radius: 8px; margin-bottom: 5px;">
-                    <span style="color: #E0E0E0; font-weight: bold;">Operating Income</span>
-                </div>
-                <span style="color: #888; font-size: 12px;">$30 (- expenses)</span>
-            </div>
-            <div style="color: #888; font-size: 20px;">→</div>
-            <div style="text-align: center; flex: 1; min-width: 100px;">
-                <div style="background: #9D4EDD; padding: 15px; border-radius: 8px; margin-bottom: 5px;">
-                    <span style="color: #E0E0E0; font-weight: bold;">Net Income</span>
-                </div>
-                <span style="color: #888; font-size: 12px;">$20 (- taxes)</span>
-            </div>
-            <div style="color: #888; font-size: 20px;">→</div>
-            <div style="text-align: center; flex: 1; min-width: 100px;">
-                <div style="background: #00C853; padding: 15px; border-radius: 8px; margin-bottom: 5px;">
-                    <span style="color: #000; font-weight: bold;">Free Cash Flow</span>
-                </div>
-                <span style="color: #888; font-size: 12px;">$15 (actual cash)</span>
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Stock = slice of business diagram
-    st.markdown("""
-    <div style="background: #1a1a2e; border: none; box-shadow: none; padding: 25px; border-radius: 12px; margin-bottom: 20px;">
-        <h4 style="color: #E0E0E0; text-align: center; margin-bottom: 15px;">What is a Stock?</h4>
-        <div style="display: flex; align-items: center; justify-content: center; gap: 20px; flex-wrap: wrap;">
-            <div style="text-align: center;">
-                <div style="font-size: 50px;">🏢</div>
-                <p style="color: #888; margin: 5px 0;">Company</p>
-            </div>
-            <div style="font-size: 30px; color: #888;">=</div>
-            <div style="text-align: center;">
-                <div style="font-size: 50px;">🍕🍕🍕🍕</div>
-                <p style="color: #888; margin: 5px 0;">Millions of Slices</p>
-            </div>
-            <div style="font-size: 30px; color: #888;">→</div>
-            <div style="text-align: center;">
-                <div style="font-size: 50px;">🍕</div>
-                <p style="color: #4ECDC4; margin: 5px 0; font-weight: bold;">1 Share = 1 Slice</p>
-            </div>
-        </div>
-        <p style="color: #B0B0B0; text-align: center; margin-top: 15px; font-size: 14px;">When you buy a stock, you own a tiny piece of a real business.</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Risk spectrum meter
-    st.markdown("""
-    <div style="background: #1a1a2e; border: none; box-shadow: none; padding: 25px; border-radius: 12px; margin-bottom: 20px;">
-        <h4 style="color: #E0E0E0; text-align: center; margin-bottom: 15px;">Risk Spectrum</h4>
-        <div style="display: flex; justify-content: space-between; align-items: center; background: linear-gradient(90deg, #00C853 0%, #FFD93D 50%, #FF4444 100%); padding: 15px; border-radius: 8px;">
-            <div style="text-align: center;">
-                <span style="color: #000; font-weight: bold;">Treasury Bonds</span><br>
-                <span style="color: #000; font-size: 12px;">~4% return</span>
-            </div>
-            <div style="text-align: center;">
-                <span style="color: #000; font-weight: bold;">S&P 500 ETF</span><br>
-                <span style="color: #000; font-size: 12px;">~10% avg</span>
-            </div>
-            <div style="text-align: center;">
-                <span style="color: #E0E0E0; font-weight: bold;">Individual Stocks</span><br>
-                <span style="color: #E0E0E0; font-size: 12px;">Varies wildly</span>
-            </div>
-            <div style="text-align: center;">
-                <span style="color: #E0E0E0; font-weight: bold;">Meme Stocks</span><br>
-                <span style="color: #E0E0E0; font-size: 12px;">Casino 🎰</span>
-            </div>
-        </div>
-        <p style="color: #B0B0B0; text-align: center; margin-top: 10px; font-size: 13px;">Higher potential returns = Higher risk of loss</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # ============= INTERACTIVE WIDGETS (D3) =============
-    st.markdown("---")
-    st.markdown("## 🎮 Try It: Interactive Learning")
-    
-    # What if price drops widget
-    st.markdown("### What if the price drops?")
-    drop_pct = st.slider("Simulate a price drop:", 0, 50, 20, 5, key="price_drop_slider")
-    initial_value = 10000
-    new_value = initial_value * (1 - drop_pct / 100)
-    recovery_needed = ((initial_value / new_value) - 1) * 100
-    
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Starting Value", f"${initial_value:,.0f}")
-    with col2:
-        st.metric("After Drop", f"${new_value:,.0f}", f"-{drop_pct}%")
-    with col3:
-        st.metric("Recovery Needed", f"+{recovery_needed:.1f}%", help="To get back to your starting value")
-    
-    st.caption(f"*If your portfolio drops {drop_pct}%, you need a {recovery_needed:.1f}% gain just to break even. This is why avoiding big losses matters!*")
-    
-    # Compound interest widget
-    st.markdown("### The Power of Compounding")
-    years_compound = st.slider("Years invested:", 1, 30, 10, key="compound_years")
-    annual_return = st.slider("Annual return (%):", 1, 20, 8, key="compound_return")
-    
-    initial_invest = 10000
-    final_value = initial_invest * ((1 + annual_return / 100) ** years_compound)
-    total_gain = final_value - initial_invest
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        st.metric("Initial Investment", f"${initial_invest:,.0f}")
-    with col2:
-        st.metric(f"After {years_compound} Years", f"${final_value:,.0f}", f"+${total_gain:,.0f}")
-    
-    st.caption(f"*At {annual_return}% annual return, your money grows {final_value/initial_invest:.1f}x in {years_compound} years. Time is your biggest advantage!*")
-    
-    # ============= GLOSSARY SECTION =============
-    st.markdown("---")
-    st.markdown("## 📖 Full Glossary")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("### 💰 Income & Cash Flow")
-        for term in ["FCF After SBC", "Revenue", "Operating Income", "Net Income", "CAGR", "FCF per Share"]:
-            with st.expander(term):
-                st.write(GLOSSARY[term])
-    
-    with col2:
-        st.markdown("### 📊 Valuation & Risk")
-        for term in ["P/E Ratio", "P/S Ratio", "Market Cap", "Beta", "Debt-to-Equity", "Quick Ratio"]:
-            with st.expander(term):
-                st.write(GLOSSARY[term])
-    # ============= INTERACTIVE LESSON VIEWER (PHASE 2) =============
     if st.session_state.learn_selected_lesson_id:
         selected_lesson_id = st.session_state.learn_selected_lesson_id
         
@@ -10019,254 +10921,118 @@ elif selected_page == "📚 Learning":
             
             st.markdown("---")
             
-            # INTERACTIVE LESSON STRUCTURE
-            # Three tabs: Learn → Practice → Quiz
-            lesson_tabs = st.tabs(["📖 Learn", "🎯 Practice", "📝 Quiz"])
+            # Why it matters
+            st.markdown("### 💡 Why It Matters")
+            st.info(lesson['why_it_matters'])
             
-            # TAB 1: LEARN (Visual + Concise)
-            with lesson_tabs[0]:
-                st.markdown("### 💡 Why This Matters")
-                st.info(lesson['why_it_matters'])
-                
-                # Visual explainer (specific to each lesson)
-                if selected_lesson_id == "B1":  # Market Mechanics
-                    st.markdown("### 📊 How Markets Work (Visual)")
-                    
-                    # Simple visual diagram
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        st.markdown("""
-                        <div style="background: linear-gradient(135deg, #9D4EDD 0%, #7B2CBF 100%); 
-                                    padding: 20px; border-radius: 10px; text-align: center; min-height: 150px;">
-                            <div style="font-size: 40px; margin-bottom: 10px;">👥</div>
-                            <div style="font-weight: bold; font-size: 18px; margin-bottom: 8px;">Buyers</div>
-                            <div style="font-size: 14px; opacity: 0.9;">Want to own shares</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                    
-                    with col2:
-                        st.markdown("""
-                        <div style="background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%); 
-                                    padding: 20px; border-radius: 10px; text-align: center; min-height: 150px;">
-                            <div style="font-size: 40px; margin-bottom: 10px;">⚖️</div>
-                            <div style="font-weight: bold; font-size: 18px; margin-bottom: 8px;">Market</div>
-                            <div style="font-size: 14px; opacity: 0.9;">Matches buyers & sellers</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                    
-                    with col3:
-                        st.markdown("""
-                        <div style="background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%); 
-                                    padding: 20px; border-radius: 10px; text-align: center; min-height: 150px;">
-                            <div style="font-size: 40px; margin-bottom: 10px;">💰</div>
-                            <div style="font-weight: bold; font-size: 18px; margin-bottom: 8px;">Sellers</div>
-                            <div style="font-size: 14px; opacity: 0.9;">Want to sell shares</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                    
-                    st.markdown("---")
-                    
-                    # Key concepts (concise)
-                    st.markdown("### 🔑 Key Concepts")
-                    concept_col1, concept_col2 = st.columns(2)
-                    
-                    with concept_col1:
-                        st.markdown("**📈 What is a Stock?**")
-                        st.write("A stock represents partial ownership in a company. Buy 1 share of Apple = You own a tiny piece of Apple.")
-                        
-                        st.markdown("**💵 What is Market Cap?**")
-                        st.write("Market Cap = Stock Price × Total Shares")
-                        st.write("Shows the total value of the company.")
-                    
-                    with concept_col2:
-                        st.markdown("**📊 Why Do Prices Move?**")
-                        st.write("Prices change based on expectations about the future, not just current profits.")
-                        
-                        st.markdown("**🎢 What is Volatility?**")
-                        st.write("How much the price swings up and down. More uncertainty = more volatility.")
-                
-                else:
-                    # Default fallback for other lessons (will customize each)
-                    st.markdown("### 📋 Key Points")
-                    for point in lesson['summary']:
-                        st.markdown(f"• {point}")
-                    
-                    with st.expander("🔑 Key Ideas", expanded=False):
-                        for idea in lesson['key_ideas']:
-                            st.markdown(f"• {idea}")
-                
-                # Common Mistakes (always show)
-                with st.expander("⚠️ Common Mistakes to Avoid"):
-                    for mistake in lesson['common_mistakes']:
-                        st.markdown(f"• {mistake}")
+            # Summary
+            st.markdown("### 📋 Summary")
+            for point in lesson['summary']:
+                st.markdown(f"• {point}")
             
-            # TAB 2: PRACTICE (Hands-on exercises)
-            with lesson_tabs[1]:
-                st.markdown("### 🎯 Practice Exercise")
-                st.caption("Learn by doing! Try this with real stocks")
-                
-                if selected_lesson_id == "B1":  # Market Mechanics
-                    st.markdown("#### 📊 Exercise: Calculate Market Cap")
-                    st.write("Market Cap = Stock Price × Shares Outstanding")
-                    st.write("Let's calculate it for a real company!")
-                    
-                    practice_ticker = st.text_input("Enter a stock ticker:", value="AAPL", key="practice_ticker").upper()
-                    
-                    if st.button("Calculate Market Cap", key="practice_calc"):
-                        with st.spinner("Fetching data..."):
-                            try:
-                                profile_url = f"{BASE_URL}/v3/profile/{practice_ticker}?apikey={FMP_API_KEY}"
-                                profile_data = requests.get(profile_url).json()
-                                
-                                if profile_data and len(profile_data) > 0:
-                                    company = profile_data[0]
-                                    market_cap = company.get('mktCap', 0)
-                                    price = company.get('price', 0)
-                                    name = company.get('companyName', practice_ticker)
-                                    
-                                    st.success(f"✅ {name}")
-                                    
-                                    cap_billions = market_cap / 1_000_000_000
-                                    
-                                    metric_col1, metric_col2 = st.columns(2)
-                                    with metric_col1:
-                                        st.metric("Stock Price", f"${price:.2f}")
-                                    with metric_col2:
-                                        st.metric("Market Cap", f"${cap_billions:.1f}B")
-                                    
-                                    # Classify size
-                                    if cap_billions < 2:
-                                        st.info("📊 **Small-Cap Company** - Higher risk, higher potential")
-                                    elif cap_billions < 10:
-                                        st.info("📊 **Mid-Cap Company** - Balanced growth potential")
-                                    elif cap_billions < 200:
-                                        st.success("📊 **Large-Cap Company** - Established, lower risk")
-                                    else:
-                                        st.success("📊 **Mega-Cap Company** - Massive, very stable (like AAPL, MSFT)")
-                                    
-                                    # Award practice XP
-                                    st.balloons()
-                                    st.success("🎉 +10 XP for completing practice!")
-                                    
-                                else:
-                                    st.error("Stock not found. Try AAPL, TSLA, or NVDA")
-                            except Exception as e:
-                                st.error(f"Error: {str(e)}")
-                    
-                    st.markdown("---")
-                    st.markdown("**💡 Try different companies:**")
-                    st.write("• AAPL (Mega-cap)")
-                    st.write("• TSLA (Large-cap)")
-                    st.write("• Small companies in your area")
-                
-                else:
-                    # Default practice for other lessons
-                    st.info("Practice exercise coming soon for this lesson!")
-                    st.write("For now, complete the quiz to earn XP.")
+            # Key ideas
+            with st.expander("🔑 Key Ideas", expanded=True):
+                for idea in lesson['key_ideas']:
+                    st.markdown(f"• {idea}")
             
-            # TAB 3: QUIZ (Enhanced with visuals)
-            with lesson_tabs[2]:
-                st.markdown("### 📝 Test Your Knowledge")
-                st.caption("Answer 2/3 correctly to pass and earn XP!")
-                
-                quiz = lesson['quiz']
-                current_q = st.session_state.quiz_current_question
-                
-                if st.session_state.quiz_score is None:
-                    # Show question
-                    if current_q < len(quiz):
-                        question_data = quiz[current_q]
-                        
-                        # Progress bar
-                        progress = (current_q + 1) / len(quiz)
-                        st.progress(progress)
-                        st.caption(f"Question {current_q + 1} of {len(quiz)}")
-                        
-                        st.markdown(f"#### {question_data['question']}")
-                        
-                        # Answer options (enhanced with emojis)
-                        answer = st.radio(
-                            "Select your answer:",
-                            question_data['options'],
-                            key=f"quiz_answer_{selected_lesson_id}_{current_q}"
-                        )
-                        
-                        if st.button("✅ Check Answer", type="primary", use_container_width=True):
-                            selected_index = question_data['options'].index(answer)
-                            is_correct = selected_index == question_data['correct']
-                            st.session_state.quiz_answers.append(is_correct)
-                            
-                            if is_correct:
-                                st.success("✅ Correct! Great job!")
-                                st.balloons()
-                            else:
-                                st.error(f"❌ Not quite. {question_data['explanation']}")
-                            
-                            # Move to next question or finish
-                            if current_q < len(quiz) - 1:
-                                st.session_state.quiz_current_question += 1
-                                time.sleep(1)  # Brief pause to see feedback
-                                st.rerun()
-                            else:
-                                # Calculate score
-                                score = sum(st.session_state.quiz_answers)
-                                st.session_state.quiz_score = score
-                                
-                                # Award XP if passed
-                                if score >= 2:
-                                    old_best = st.session_state.learn_best_scores.get(selected_lesson_id, 0)
-                                    if score > old_best or selected_lesson_id not in st.session_state.learn_completed_lessons:
-                                        st.session_state.learn_completed_lessons.add(selected_lesson_id)
-                                        st.session_state.learn_best_scores[selected_lesson_id] = score
-                                        st.session_state.learn_xp_total += lesson['xp']
-                                        
-                                        # Award badge
-                                        new_badge = award_badges()
-                                        
-                                        # Save to DB
-                                        save_learn_progress_to_db(selected_lesson_id, score)
-                                
-                                st.rerun()
-                
-                else:
-                    # Show results (enhanced)
-                    score = st.session_state.quiz_score
+            # Common mistakes
+            with st.expander("⚠️ Common Mistakes"):
+                for mistake in lesson['common_mistakes']:
+                    st.markdown(f"• {mistake}")
+            
+            # Checklist
+            with st.expander("✅ Checklist"):
+                for item in lesson['checklist']:
+                    st.checkbox(item, key=f"check_{selected_lesson_id}_{lesson['checklist'].index(item)}")
+            
+            st.markdown("---")
+            
+            # QUIZ ENGINE
+            st.markdown("### 📝 Quiz (3 Questions)")
+            
+            quiz = lesson['quiz']
+            current_q = st.session_state.quiz_current_question
+            
+            if st.session_state.quiz_score is None:
+                # Show question
+                if current_q < len(quiz):
+                    question_data = quiz[current_q]
+                    st.markdown(f"**Question {current_q + 1}/{len(quiz)}:**")
+                    st.markdown(f"*{question_data['question']}*")
                     
-                    if score == 3:
-                        st.balloons()
-                        st.success("### 🎉 Perfect Score!")
-                        st.markdown(f"**3/3 correct** | **+{lesson['xp']} XP earned!**")
-                    elif score >= 2:
-                        st.success("### ✅ Passed!")
-                        st.markdown(f"**{score}/3 correct** | **+{lesson['xp']} XP earned!**")
-                    else:
-                        st.warning("### 📚 Keep Learning!")
-                        st.markdown(f"**{score}/3 correct** | Need 2/3 to pass")
+                    # Answer options
+                    answer = st.radio(
+                        "Select your answer:",
+                        question_data['options'],
+                        key=f"quiz_answer_{selected_lesson_id}_{current_q}"
+                    )
                     
-                    st.markdown("---")
-                    
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        if st.button("🔄 Retake Quiz", use_container_width=True):
-                            st.session_state.quiz_current_question = 0
-                            st.session_state.quiz_answers = []
-                            st.session_state.quiz_score = None
+                    if st.button("Check Answer", type="primary"):
+                        selected_index = question_data['options'].index(answer)
+                        is_correct = selected_index == question_data['correct']
+                        st.session_state.quiz_answers.append(is_correct)
+                        
+                        if is_correct:
+                            st.success("✅ Correct!")
+                        else:
+                            st.error(f"❌ Incorrect. {question_data['explanation']}")
+                        
+                        # Move to next question or finish
+                        if current_q < len(quiz) - 1:
+                            st.session_state.quiz_current_question += 1
                             st.rerun()
-                    
-                    with col2:
-                        if st.button("← Back to Lessons", use_container_width=True):
-                            st.session_state.learn_selected_lesson_id = None
-                            st.session_state.quiz_current_question = 0
-                            st.session_state.quiz_answers = []
-                            st.session_state.quiz_score = None
+                        else:
+                            # Calculate score
+                            score = sum(st.session_state.quiz_answers)
+                            st.session_state.quiz_score = score
+                            
+                            # Award XP if passed and new best
+                            if score >= 2:
+                                old_best = st.session_state.learn_best_scores.get(selected_lesson_id, 0)
+                                if score > old_best or selected_lesson_id not in st.session_state.learn_completed_lessons:
+                                    st.session_state.learn_completed_lessons.add(selected_lesson_id)
+                                    st.session_state.learn_best_scores[selected_lesson_id] = score
+                                    st.session_state.learn_xp_total += lesson['xp']
+                                    
+                                    # Award badge
+                                    new_badge = award_badges()
+                                    
+                                    # Save to DB
+                                    save_learn_progress_to_db(selected_lesson_id, score)
+                            
                             st.rerun()
+            
+            else:
+                # Show results
+                score = st.session_state.quiz_score
+                st.markdown(f"### Your Score: {score}/3")
+                
+                if score == 3:
+                    st.success("🎉 Perfect score!")
+                elif score >= 2:
+                    st.success(f"✅ Passed! (+{lesson['xp']} XP)")
+                else:
+                    st.warning("Try again to pass (need 2/3)")
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button("Retake Quiz"):
+                        st.session_state.quiz_current_question = 0
+                        st.session_state.quiz_answers = []
+                        st.session_state.quiz_score = None
+                        st.rerun()
+                
+                with col2:
+                    if st.button("← Back to Lessons"):
+                        st.session_state.learn_selected_lesson_id = None
+                        st.session_state.quiz_current_question = 0
+                        st.session_state.quiz_answers = []
+                        st.session_state.quiz_score = None
+                        st.rerun()
     
     # AI Coach integration
-    
-    
-    # ===== INTERACTIVE CALCULATOR (SIMPLE TEST) =====
-    # Level selector
     else:
+        # Level selector
         levels = ["All Levels", "Beginner", "Intermediate", "Advanced", "Behavior", "Repair"]
         selected_level = st.radio(
             "Filter by level:",
@@ -10328,7 +11094,236 @@ elif selected_page == "📚 Learning":
                 if lesson["id"] not in recommended_ids:
                     _render_lesson_card(lesson)
     
-        render_ai_coach("Learning", ticker=None, facts=None)
+        # ============= LESSON VIEWER =============
+    render_ai_coach("Learn Hub", ticker=None, facts=None)
+
+elif selected_page == "📚 Finance 101":
+    
+    st.header("📚 Finance 101")
+    st.caption("*Learn the language of investing through visual cards and interactive examples.*")
+    
+    # Show page popup
+    show_page_popup(
+        'finance_101',
+        '🎓 Finance 101',
+        'Quick crash course on investing basics. Learn key terms, understand stocks vs bonds, and master the 5 metrics that actually matter.',
+        'Visual card system makes complex topics super easy to understand!'
+    )
+    
+    # ============= TOP 5 METRICS SECTION (C - moved from Company Analysis) =============
+    st.markdown("---")
+    st.markdown("## 🏆 The 5 Metrics That Actually Matter")
+    st.markdown("*These are the numbers that separate winners from losers.*")
+    
+    # Top 5 Metrics as visual cards (D1)
+    metrics_data = [
+        {"icon": "💰", "name": "FCF per Share Growth", 
+         "definition": "Free cash flow divided by total shares outstanding.", 
+         "why": "FCF per share accounts for dilution from stock-based comp. Total FCF can grow 20% but if shares also grow 20%, FCF/share stays flat ($1.00 → $1.00). This is the most honest growth metric.", 
+         "example": "Good: Visa — FCF grows faster than shares. Bad: Snap — heavy dilution kills per-share growth"},
+        
+        {"icon": "⚙️", "name": "Operating Income Growth", 
+         "definition": "Profit from core business before interest and taxes.", 
+         "why": "Shows real operating leverage. Less noisy than net income because it excludes one-time items and financial engineering.", 
+         "example": "Good: Amazon — massive operating leverage as AWS scales. Bad: WeWork — burned cash despite revenue growth"},
+        
+        {"icon": "📊", "name": "Gross Margin Growth", 
+         "definition": "Revenue minus cost of goods sold, as a percentage.", 
+         "why": "Rising gross margins indicate pricing power and efficiency. Especially critical for software (should be 70%+) and consumer brands.", 
+         "example": "Good: Microsoft — software margins expand with scale. Bad: Peloton — hardware margins collapsed under competition"},
+        
+        {"icon": "📈", "name": "Revenue Growth", 
+         "definition": "Total money coming in from customer sales.", 
+         "why": "Important signal of demand, but can be 'bought' with unsustainable discounting or low-quality growth. Always check profitability too.", 
+         "example": "Good: NVIDIA — revenue explosion from AI chips. Bad: Uber (early years) — grew revenue while burning billions"},
+        
+        {"icon": "🛡️", "name": "Quick Ratio", 
+         "definition": "(Cash + receivables) / current liabilities. Excludes inventory.", 
+         "why": "Measures short-term liquidity and crisis survival. Quick ratio > 1 means the company can pay bills without selling inventory. Essential for risk management.", 
+         "example": "Good: Apple — ratio > 1, can survive any storm. Bad: Startups pre-profitability — often < 0.5, vulnerable to funding freezes"}
+    ]
+    
+    # Display as vertical cards (ranked from most to least important)
+    for i, metric in enumerate(metrics_data):
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 20px; border-radius: 12px; margin-bottom: 15px; border-left: 4px solid #FF4444;">
+            <div style="font-size: 28px; margin-bottom: 8px;">{metric['icon']}</div>
+            <h4 style="color: #FFFFFF; margin: 0 0 8px 0;">#{i+1}: {metric['name']}</h4>
+            <p style="color: #B0B0B0; margin: 0 0 8px 0; font-size: 14px;">{metric['definition']}</p>
+            <p style="color: #FF6B6B; margin: 0 0 8px 0; font-size: 13px;"><strong>Why it matters:</strong> {metric['why']}</p>
+            <p style="color: #4ECDC4; margin: 0; font-size: 12px;"><em>{metric['example']}</em></p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Micro-quiz for Top 5 Metrics (E)
+    with st.expander("📝 Quick Quiz: Test Your Knowledge"):
+        quiz_answer = st.radio(
+            "Which metric best accounts for shareholder dilution from stock-based compensation?",
+            ["Total Free Cash Flow", "Revenue Growth", "FCF per Share", "Operating Income"],
+            key="finance101_quiz1"
+        )
+        if st.button("Check Answer", key="check_quiz1"):
+            if quiz_answer == "FCF per Share":
+                st.success("Correct! FCF per share divides total FCF by shares outstanding, so you see the true per-share growth after dilution.")
+            else:
+                st.error("Not quite. FCF per share is the answer - it accounts for dilution, unlike total FCF which can grow while per-share value stays flat.")
+    
+    # ============= VISUAL DIAGRAMS (D2) =============
+    st.markdown("---")
+    st.markdown("## 📊 How Money Flows Through a Business")
+    
+    # Revenue to Profit diagram
+    st.markdown("""
+    <div style="background: #1a1a2e; padding: 25px; border-radius: 12px; margin-bottom: 20px;">
+        <h4 style="color: #FFFFFF; text-align: center; margin-bottom: 20px;">The Profit Waterfall</h4>
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+            <div style="text-align: center; flex: 1; min-width: 100px;">
+                <div style="background: #4ECDC4; padding: 15px; border-radius: 8px; margin-bottom: 5px;">
+                    <span style="color: #000; font-weight: bold;">Revenue</span>
+                </div>
+                <span style="color: #888; font-size: 12px;">$100</span>
+            </div>
+            <div style="color: #888; font-size: 20px;">→</div>
+            <div style="text-align: center; flex: 1; min-width: 100px;">
+                <div style="background: #FFD93D; padding: 15px; border-radius: 8px; margin-bottom: 5px;">
+                    <span style="color: #000; font-weight: bold;">Gross Profit</span>
+                </div>
+                <span style="color: #888; font-size: 12px;">$60 (- costs)</span>
+            </div>
+            <div style="color: #888; font-size: 20px;">→</div>
+            <div style="text-align: center; flex: 1; min-width: 100px;">
+                <div style="background: #FF6B6B; padding: 15px; border-radius: 8px; margin-bottom: 5px;">
+                    <span style="color: #FFF; font-weight: bold;">Operating Income</span>
+                </div>
+                <span style="color: #888; font-size: 12px;">$30 (- expenses)</span>
+            </div>
+            <div style="color: #888; font-size: 20px;">→</div>
+            <div style="text-align: center; flex: 1; min-width: 100px;">
+                <div style="background: #9D4EDD; padding: 15px; border-radius: 8px; margin-bottom: 5px;">
+                    <span style="color: #FFF; font-weight: bold;">Net Income</span>
+                </div>
+                <span style="color: #888; font-size: 12px;">$20 (- taxes)</span>
+            </div>
+            <div style="color: #888; font-size: 20px;">→</div>
+            <div style="text-align: center; flex: 1; min-width: 100px;">
+                <div style="background: #00C853; padding: 15px; border-radius: 8px; margin-bottom: 5px;">
+                    <span style="color: #000; font-weight: bold;">Free Cash Flow</span>
+                </div>
+                <span style="color: #888; font-size: 12px;">$15 (actual cash)</span>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Stock = slice of business diagram
+    st.markdown("""
+    <div style="background: #1a1a2e; padding: 25px; border-radius: 12px; margin-bottom: 20px;">
+        <h4 style="color: #FFFFFF; text-align: center; margin-bottom: 15px;">What is a Stock?</h4>
+        <div style="display: flex; align-items: center; justify-content: center; gap: 20px; flex-wrap: wrap;">
+            <div style="text-align: center;">
+                <div style="font-size: 50px;">🏢</div>
+                <p style="color: #888; margin: 5px 0;">Company</p>
+            </div>
+            <div style="font-size: 30px; color: #888;">=</div>
+            <div style="text-align: center;">
+                <div style="font-size: 50px;">🍕🍕🍕🍕</div>
+                <p style="color: #888; margin: 5px 0;">Millions of Slices</p>
+            </div>
+            <div style="font-size: 30px; color: #888;">→</div>
+            <div style="text-align: center;">
+                <div style="font-size: 50px;">🍕</div>
+                <p style="color: #4ECDC4; margin: 5px 0; font-weight: bold;">1 Share = 1 Slice</p>
+            </div>
+        </div>
+        <p style="color: #B0B0B0; text-align: center; margin-top: 15px; font-size: 14px;">When you buy a stock, you own a tiny piece of a real business.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Risk spectrum meter
+    st.markdown("""
+    <div style="background: #1a1a2e; padding: 25px; border-radius: 12px; margin-bottom: 20px;">
+        <h4 style="color: #FFFFFF; text-align: center; margin-bottom: 15px;">Risk Spectrum</h4>
+        <div style="display: flex; justify-content: space-between; align-items: center; background: linear-gradient(90deg, #00C853 0%, #FFD93D 50%, #FF4444 100%); padding: 15px; border-radius: 8px;">
+            <div style="text-align: center;">
+                <span style="color: #000; font-weight: bold;">Treasury Bonds</span><br>
+                <span style="color: #000; font-size: 12px;">~4% return</span>
+            </div>
+            <div style="text-align: center;">
+                <span style="color: #000; font-weight: bold;">S&P 500 ETF</span><br>
+                <span style="color: #000; font-size: 12px;">~10% avg</span>
+            </div>
+            <div style="text-align: center;">
+                <span style="color: #FFF; font-weight: bold;">Individual Stocks</span><br>
+                <span style="color: #FFF; font-size: 12px;">Varies wildly</span>
+            </div>
+            <div style="text-align: center;">
+                <span style="color: #FFF; font-weight: bold;">Meme Stocks</span><br>
+                <span style="color: #FFF; font-size: 12px;">Casino 🎰</span>
+            </div>
+        </div>
+        <p style="color: #B0B0B0; text-align: center; margin-top: 10px; font-size: 13px;">Higher potential returns = Higher risk of loss</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # ============= INTERACTIVE WIDGETS (D3) =============
+    st.markdown("---")
+    st.markdown("## 🎮 Try It: Interactive Learning")
+    
+    # What if price drops widget
+    st.markdown("### What if the price drops?")
+    drop_pct = st.slider("Simulate a price drop:", 0, 50, 20, 5, key="price_drop_slider")
+    initial_value = 10000
+    new_value = initial_value * (1 - drop_pct / 100)
+    recovery_needed = ((initial_value / new_value) - 1) * 100
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Starting Value", f"${initial_value:,.0f}")
+    with col2:
+        st.metric("After Drop", f"${new_value:,.0f}", f"-{drop_pct}%")
+    with col3:
+        st.metric("Recovery Needed", f"+{recovery_needed:.1f}%", help="To get back to your starting value")
+    
+    st.caption(f"*If your portfolio drops {drop_pct}%, you need a {recovery_needed:.1f}% gain just to break even. This is why avoiding big losses matters!*")
+    
+    # Compound interest widget
+    st.markdown("### The Power of Compounding")
+    years_compound = st.slider("Years invested:", 1, 30, 10, key="compound_years")
+    annual_return = st.slider("Annual return (%):", 1, 20, 8, key="compound_return")
+    
+    initial_invest = 10000
+    final_value = initial_invest * ((1 + annual_return / 100) ** years_compound)
+    total_gain = final_value - initial_invest
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("Initial Investment", f"${initial_invest:,.0f}")
+    with col2:
+        st.metric(f"After {years_compound} Years", f"${final_value:,.0f}", f"+${total_gain:,.0f}")
+    
+    st.caption(f"*At {annual_return}% annual return, your money grows {final_value/initial_invest:.1f}x in {years_compound} years. Time is your biggest advantage!*")
+    
+    # ============= GLOSSARY SECTION =============
+    st.markdown("---")
+    st.markdown("## 📖 Full Glossary")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("### 💰 Income & Cash Flow")
+        for term in ["FCF After SBC", "Revenue", "Operating Income", "Net Income", "CAGR", "FCF per Share"]:
+            with st.expander(term):
+                st.write(GLOSSARY[term])
+    
+    with col2:
+        st.markdown("### 📊 Valuation & Risk")
+        for term in ["P/E Ratio", "P/S Ratio", "Market Cap", "Beta", "Debt-to-Equity", "Quick Ratio"]:
+            with st.expander(term):
+                st.write(GLOSSARY[term])
+    
+    # AI Coach integration
+    render_ai_coach("Finance 101", ticker=None, facts=None)
+
 
 elif selected_page == "🧠 Risk Quiz":
     
@@ -10547,12 +11542,12 @@ elif selected_page == "📊 Company Analysis":
     track_feature_usage("company_analysis")
     
     # Show page popup
-    # show_page_popup( # DISABLED TO FIX DIALOG CONFLICTS
-    # 'company_analysis',
-    # '🔍 Company Analysis',
-    # 'Deep dive into any stock. View financial metrics, charts, and compare companies side-by-side.',
-    # 'AI explains complex metrics in simple terms - no jargon!'
-    # )
+    show_page_popup(
+        'company_analysis',
+        '🔍 Company Analysis',
+        'Deep dive into any stock. View financial metrics, charts, and compare companies side-by-side.',
+        'AI explains complex metrics in simple terms - no jargon!'
+    )
     
     # Robinhood-style guidance
     st.caption("*This page explains how this company makes money and where the risks are.*")
@@ -10706,8 +11701,7 @@ elif selected_page == "📊 Company Analysis":
         st.header("⚙️ Settings")
         period_type = st.radio("Time Period:", ["Annual", "Quarterly"])
         period = 'annual' if period_type == "Annual" else 'quarter'
-        # Use the global years_of_history from main sidebar (synced)
-        years = st.session_state.get('years_of_history', 5)
+        years = st.slider("Years of History:", 1, 30, 5)
         
         st.markdown("---")
         
@@ -12071,7 +13065,7 @@ elif selected_page == "📊 Company Analysis":
         
         # DCA Narrative (F) - Time in market beats timing
         st.markdown("""
-        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border: none; box-shadow: none; padding: 15px; border-radius: 10px; margin-bottom: 15px; border-left: 4px solid #00D9FF;">
+        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 15px; border-radius: 10px; margin-bottom: 15px; border-left: 4px solid #00D9FF;">
             <p style="color: #00D9FF; font-weight: bold; margin: 0 0 5px 0;">💡 The Golden Rule of Investing</p>
             <p style="color: #E0E0E0; margin: 0; font-size: 14px;"><strong>Time in the market beats timing the market.</strong> Lump sum investing can look better historically, but it's rare to have a large sum available, emotionally hard to invest all at once, and not repeatable. DCA (Dollar Cost Averaging) lets you build wealth steadily with each paycheck.</p>
         </div>
@@ -12454,7 +13448,7 @@ elif selected_page == "🔍 AI Stock Screener":
                 text-align: center; 
                 margin-bottom: 25px;
                 box-shadow: 0 4px 15px rgba(255, 51, 51, 0.3);">
-        <h2 style="margin: 0; color: #E0E0E0; font-size: 24px; font-weight: bold;">
+        <h2 style="margin: 0; color: #FFFFFF; font-size: 24px; font-weight: bold;">
             🔍 AI Stock Screener — Just Ask!
         </h2>
         <p style="margin: 5px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">
@@ -12470,7 +13464,7 @@ elif selected_page == "🔍 AI Stock Screener":
             <div style="font-size: 48px; margin-bottom: 15px;">🔒</div>
             <h3 style="color: #FFD700; margin-bottom: 10px;">Ultimate Tier Feature</h3>
             <p style="color: #888; margin-bottom: 20px;">AI-powered stock screening is exclusive to Ultimate members</p>
-            <p style="color: #E0E0E0;">Ask questions like:</p>
+            <p style="color: #FFF;">Ask questions like:</p>
             <p style="color: #888; font-style: italic;">"Find undervalued tech stocks with strong cash flow"</p>
         </div>
         """, unsafe_allow_html=True)
@@ -13097,7 +14091,7 @@ elif selected_page == "📈 Financial Health":
             if ratio_col in ratios_df.columns:
                 # Render ratio name with hover tooltip (question mark icon)
                 st.markdown(f"""
-                <h3 style="color: #E0E0E0;">{ratio_name} 
+                <h3 style="color: #FFFFFF;">{ratio_name} 
                     <span class="ratio-tooltip">&#x3F;
                         <span class="tooltip-text">
                             <strong>Definition:</strong> {tooltip_def}<br><br>
@@ -13132,12 +14126,12 @@ elif selected_page == "📈 Financial Health":
 elif selected_page == "📰 Market Intelligence":
     
     # Show page popup
-    # show_page_popup( # DISABLED TO FIX DIALOG CONFLICTS
-    # 'market_intelligence',
-    # '📰 Market Intelligence',
-    # 'Stay informed with AI-powered news, earnings calendar, and market sentiment. Search any stock for latest news.',
-    # 'Real-time market sentiment gauge shows fear vs greed levels!'
-    # )
+    show_page_popup(
+        'market_intelligence',
+        '📰 Market Intelligence',
+        'Stay informed with AI-powered news, earnings calendar, and market sentiment. Search any stock for latest news.',
+        'Real-time market sentiment gauge shows fear vs greed levels!'
+    )
     
     st.header("📰 Market Intelligence & News")
     st.markdown("**Stay informed with AI-powered market insights, news, and earnings**")
@@ -13165,7 +14159,7 @@ elif selected_page == "📰 Market Intelligence":
         <div style="padding: 20px; text-align: center;">
             <div style="font-size: 48px; font-weight: bold; color: {sentiment_color}; margin-bottom: 10px;">{sentiment_score}</div>
             <h3 style="color: {sentiment_color}; margin-bottom: 20px;">{sentiment_label}</h3>
-            <div style="text-align: left; color: #E0E0E0; font-size: 14px; line-height: 2;">
+            <div style="text-align: left; color: #FFFFFF; font-size: 14px; line-height: 2;">
                 <p><span style="color: #FF4444;">0-25:</span> Extreme Fear (Market on Sale)</p>
                 <p><span style="color: #FF8844;">25-45:</span> Fear</p>
                 <p><span style="color: #FFFF44;">45-55:</span> Neutral (Steady)</p>
@@ -13283,10 +14277,10 @@ Keep each bullet to ONE line. Be concise."""
     
     if top_news:
         # Display in a card with RED accent (matches app theme)
-        st.markdown("""
+        st.markdown(f"""
         <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
                     border: 2px solid #ff3333; border-radius: 15px; padding: 30px; margin: 20px 0;">
-            <div style="color: #E0E0E0; font-size: 16px; line-height: 1.8;">
+            <div style="color: #FFFFFF; font-size: 16px; line-height: 1.8;">
                 {top_news}
             </div>
         </div>
@@ -13380,10 +14374,10 @@ Keep each bullet to ONE line. Be concise."""
             st.info(f"📈 **Your Holdings:** {', '.join(portfolio_tickers)}")
             
             # Display portfolio news with GREEN accent
-            st.markdown("""
+            st.markdown(f"""
             <div style="background: linear-gradient(135deg, #1a2e1a 0%, #162e21 100%); 
                         border: 2px solid #4CAF50; border-radius: 15px; padding: 30px; margin: 20px 0;">
-                <div style="color: #E0E0E0; font-size: 16px; line-height: 1.8;">
+                <div style="color: #FFFFFF; font-size: 16px; line-height: 1.8;">
                     {portfolio_news}
                 </div>
             </div>
@@ -13491,10 +14485,10 @@ If a day has no major earnings, say "No major earnings."
     
     if weekly_earnings:
         # Display formatted earnings from Perplexity
-        st.markdown("""
+        st.markdown(f"""
         <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
                     border: 2px solid #ff3333; border-radius: 15px; padding: 30px; margin: 20px 0;">
-            <div style="color: #E0E0E0; font-size: 16px; line-height: 1.8;">
+            <div style="color: #FFFFFF; font-size: 16px; line-height: 1.8;">
                 {weekly_earnings}
             </div>
         </div>
@@ -13527,7 +14521,7 @@ If a day has no major earnings, say "No major earnings."
         intel_company_name = intel_profile.get('companyName', intel_ticker) if intel_profile else intel_ticker
         
         if intel_logo:
-            st.markdown("""
+            st.markdown(f"""
             <div style="display: flex; align-items: center; background: rgba(128,128,128,0.1); padding: 12px; border-radius: 10px; margin: 10px 0;">
                 <img src="{intel_logo}" width="40" height="40" style="border-radius: 6px; margin-right: 12px;">
                 <div>
@@ -13590,10 +14584,10 @@ If a day has no major earnings, say "No major earnings."
         if stock_news:
             st.markdown(f"### 📊 {intel_ticker.upper()} - Latest News & Analysis")
             
-            st.markdown("""
+            st.markdown(f"""
             <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
                         border: 2px solid #00D9FF; border-radius: 15px; padding: 30px; margin: 20px 0;">
-                <div style="color: #E0E0E0; font-size: 16px; line-height: 1.8;">
+                <div style="color: #FFFFFF; font-size: 16px; line-height: 1.8;">
                     {stock_news}
                 </div>
             </div>
@@ -13848,12 +14842,12 @@ elif selected_page == "👑 Become a VIP":
         # Highlight if selected
         border_color = "#00C853" if st.session_state.selected_tier == "Free" else "#333"
         shadow = "0 0 20px rgba(0,200,83,0.5)" if st.session_state.selected_tier == "Free" else "none"
-        st.markdown("""
+        st.markdown(f"""
         <div style="background: #1a1a1a; border: 3px solid {border_color}; border-radius: 15px; 
                     padding: 20px; text-align: center; box-shadow: {shadow};">
             <h3 style="color: #00C853; margin-bottom: 10px;">Free</h3>
             <p style="color: #888; font-size: 24px; margin: 10px 0;"><strong>$0</strong>/mo</p>
-            <p style="color: #E0E0E0; font-size: 14px;">Preview Access</p>
+            <p style="color: #FFFFFF; font-size: 14px;">Preview Access</p>
         </div>
         """, unsafe_allow_html=True)
         if st.button("Select Free", key="select_free_vip", use_container_width=True):
@@ -13863,12 +14857,12 @@ elif selected_page == "👑 Become a VIP":
     with col_pro:
         border_color = "#9D4EDD" if st.session_state.selected_tier == "Pro" else "#333"
         shadow = "0 0 20px rgba(157,78,221,0.5)" if st.session_state.selected_tier == "Pro" else "none"
-        st.markdown("""
+        st.markdown(f"""
         <div style="background: #1a1a1a; border: 3px solid {border_color}; border-radius: 15px; 
                     padding: 20px; text-align: center; box-shadow: {shadow};">
             <h3 style="color: #9D4EDD; margin-bottom: 10px;">Pro</h3>
             <p style="color: #888; font-size: 24px; margin: 10px 0;"><strong>$5</strong>/mo</p>
-            <p style="color: #E0E0E0; font-size: 14px;">Full Portfolio Access</p>
+            <p style="color: #FFFFFF; font-size: 14px;">Full Portfolio Access</p>
         </div>
         """, unsafe_allow_html=True)
         if st.button("Select Pro", key="select_pro_vip", use_container_width=True):
@@ -13885,12 +14879,12 @@ elif selected_page == "👑 Become a VIP":
     with col_ultimate:
         border_color = "#FFD700" if st.session_state.selected_tier == "Ultimate" else "#333"
         shadow = "0 0 20px rgba(255,215,0,0.5)" if st.session_state.selected_tier == "Ultimate" else "none"
-        st.markdown("""
+        st.markdown(f"""
         <div style="background: #1a1a1a; border: 3px solid {border_color}; border-radius: 15px; 
                     padding: 20px; text-align: center; box-shadow: {shadow};">
             <h3 style="color: #FFD700; margin-bottom: 10px;">Ultimate</h3>
             <p style="color: #888; font-size: 24px; margin: 10px 0;"><strong>$10</strong>/mo</p>
-            <p style="color: #E0E0E0; font-size: 14px;">VIP Access + Support</p>
+            <p style="color: #FFFFFF; font-size: 14px;">VIP Access + Support</p>
         </div>
         """, unsafe_allow_html=True)
         if st.button("Select Ultimate", key="select_ultimate_vip", use_container_width=True):
@@ -13996,7 +14990,7 @@ elif selected_page == "👑 Become a VIP":
                     border: 2px solid #9D4EDD; border-radius: 15px; padding: 40px; 
                     text-align: center; margin: 20px 0;">
             <h2 style="color: #FFD700; margin-bottom: 20px;">🎉 Join the Waitlist</h2>
-            <p style="color: #E0E0E0; font-size: 18px; margin-bottom: 30px;">
+            <p style="color: #FFFFFF; font-size: 18px; margin-bottom: 30px;">
                 Be among the first to access premium features when they launch!
             </p>
         </div>
@@ -14033,12 +15027,12 @@ elif selected_page == "👑 Become a VIP":
 elif selected_page == "📊 Pro Checklist":
     
     # Show page popup
-    # show_page_popup( # DISABLED TO FIX DIALOG CONFLICTS
-    # 'pro_checklist',
-    # '📊 Pro Checklist',
-    # 'Upload stock charts for AI-powered technical pattern detection. Complete a pre-investment checklist.',
-    # 'AI explains chart patterns in plain English - no jargon!'
-    # )
+    show_page_popup(
+        'pro_checklist',
+        '📊 Pro Checklist',
+        'Upload stock charts for AI-powered technical pattern detection. Complete a pre-investment checklist.',
+        'AI explains chart patterns in plain English - no jargon!'
+    )
     
     # ============= YELLOW PILL HEADER =============
     st.markdown("""
@@ -14176,7 +15170,7 @@ elif selected_page == "📊 Pro Checklist":
     with col4:
         # ELI5 toggle
         simple_mode = st.toggle("Explain like I'm 5", value=False, key="eli5_toggle")
-        analyze_button = st.button("Analyze", key="checklist_analyze", use_container_width=True, type="primary")
+        analyze_button = st.button("Analyze", key="checklist_analyze", use_container_width=True)
     
     # Store simple_mode in session state for use across features
     st.session_state.simple_mode = simple_mode
@@ -14552,7 +15546,7 @@ elif selected_page == "📊 Pro Checklist":
                         'Low': '#FF4444'
                     }
                     
-                    st.markdown("""
+                    st.markdown(f"""
                     <div style="background: rgba(50,50,50,0.5); padding: 20px; border-radius: 10px; border-left: 5px solid {confidence_color[confidence]};">
                         <h3 style="margin: 0; color: {confidence_color[confidence]};">🔍 {pattern_label}</h3>
                         <p style="margin: 5px 0; color: {confidence_color[confidence]}; font-size: 14px;">Confidence: {confidence}</p>
@@ -14813,12 +15807,12 @@ elif selected_page == "📊 Pro Checklist":
 elif selected_page == "👑 Ultimate":
     
     # Show page popup
-    # show_page_popup( # DISABLED TO FIX DIALOG CONFLICTS
-    # 'ultimate',
-    # '👑 Ultimate',
-    # 'Upload portfolio screenshots for AI analysis. Get personalized feedback on your holdings.',
-    # 'AI analyzes diversification, risk, and allocation in seconds!'
-    # )
+    show_page_popup(
+        'ultimate',
+        '👑 Ultimate',
+        'Upload portfolio screenshots for AI analysis. Get personalized feedback on your holdings.',
+        'AI analyzes diversification, risk, and allocation in seconds!'
+    )
     
     # ============= PURPLE PILL HEADER =============
     st.markdown("""
@@ -16021,7 +17015,7 @@ CRITICAL RULES:
                                             grade_colors = {'A': '#4CAF50', 'B': '#8BC34A', 'C': '#FFC107', 'D': '#FF5722'}
                                             grade_color = grade_colors.get(grade, '#FFC107')
                                             
-                                            st.markdown("""
+                                            st.markdown(f"""
                                             <div style="background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%); 
                                                         padding: 20px; border-radius: 12px; border: 2px solid {grade_color}; margin-bottom: 15px;">
                                                 <h2 style="color: {grade_color}; margin: 0;">Grade: {grade}</h2>
@@ -16186,12 +17180,12 @@ Return JSON with grade, summary, top_risks (MAX 5), improvement_playbook (MAX 5)
 elif selected_page == "💼 Paper Portfolio":
     
     # Show page popup
-    # show_page_popup( # DISABLED TO FIX DIALOG CONFLICTS
-    # 'paper_portfolio',
-    # '💼 Paper Portfolio',
-    # 'Practice trading with $100,000 fake money. Track your performance vs the market.',
-    # 'Compare your returns against SPY benchmark to see how you stack up!'
-    # )
+    show_page_popup(
+        'paper_portfolio',
+        '💼 Paper Portfolio',
+        'Practice trading with $100,000 fake money. Track your performance vs the market.',
+        'Compare your returns against SPY benchmark to see how you stack up!'
+    )
     
     st.header("💼 Paper Portfolio")
     st.caption("*Practice trading with fake money. Track your performance vs the market.*")
@@ -16432,7 +17426,7 @@ elif selected_page == "💼 Paper Portfolio":
             # DARK GREEN background (readable on dark theme)
             st.markdown(f"""
             <div style="background-color: rgba(40, 100, 40, 0.8); padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 2px solid #4CAF50;">
-                <p style="margin: 0; color: #E0E0E0; font-size: 16px;"><strong>✅ Remaining Cash:</strong> ${post_cash:,.2f}</p>
+                <p style="margin: 0; color: #FFFFFF; font-size: 16px;"><strong>✅ Remaining Cash:</strong> ${post_cash:,.2f}</p>
             </div>
             """, unsafe_allow_html=True)
         
@@ -16440,7 +17434,7 @@ elif selected_page == "💼 Paper Portfolio":
         if order['post_concentration'] > 0:
             st.markdown(f"""
             <div style="background-color: rgba(30, 50, 90, 0.8); padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 2px solid #2196F3;">
-                <p style="margin: 0; color: #E0E0E0; font-size: 16px;">
+                <p style="margin: 0; color: #FFFFFF; font-size: 16px;">
                     <strong>⚠️ Post-trade Concentration:</strong> {order['post_concentration']:.1f}% in {order['ticker']}
                 </p>
             </div>
