@@ -10845,44 +10845,44 @@ elif selected_page == "📖 Basics":
         return available[:3]
     # ============= HELPER FUNCTIONS FOR RENDERING =============
     def _render_lesson_card(lesson):
-    """Render a lesson card with buttons always visible"""
-    lesson_id = lesson["id"]
-    is_completed = lesson_id in st.session_state.learn_completed_lessons
-    best_score = st.session_state.learn_best_scores.get(lesson_id, 0)
+        """Render a lesson card with buttons always visible"""
+        lesson_id = lesson["id"]
+        is_completed = lesson_id in st.session_state.learn_completed_lessons
+        best_score = st.session_state.learn_best_scores.get(lesson_id, 0)
     
-    # Status badge
-    if is_completed:
-        status = f"✅ Completed ({best_score}/3)"
-        status_color = "#4CAF50"
-    else:
-        status = "◯ Not Started"
-        status_color = "#999"
-    
-    # Render title with status (clickable expander for details only)
-    expander = st.expander(f"{'✅' if is_completed else '📚'} {lesson['title']} ({lesson['time_min']} min)")
-    with expander:
-        st.markdown(f"**Level:** {lesson['level']} | **Topics:** {', '.join(lesson['topics'])}")
-        st.markdown(f"<span style='color:{status_color}'>{status}</span>", unsafe_allow_html=True)
-        st.markdown("")
-        st.markdown(f"**Why it matters:** {lesson['why_it_matters']}")
-    
-    # Buttons ALWAYS outside expander - visible immediately
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("📖 Start Lesson", key=f"start_{lesson_id}", use_container_width=True):
-            st.session_state.learn_selected_lesson_id = lesson_id
-            st.session_state.quiz_current_question = 0
-            st.session_state.quiz_answers = []
-            st.session_state.quiz_score = None
-            st.rerun()
-    
-    with col2:
-        if st.button("📝 Take Quiz", key=f"quiz_{lesson_id}", use_container_width=True):
-            st.session_state.learn_selected_lesson_id = lesson_id
-            st.session_state.quiz_current_question = 0
-            st.session_state.quiz_answers = []
-            st.session_state.quiz_score = None
-            st.rerun()
+        # Status badge
+        if is_completed:
+            status = f"✅ Completed ({best_score}/3)"
+            status_color = "#4CAF50"
+        else:
+            status = "◯ Not Started"
+            status_color = "#999"
+        
+        # Render title with status (clickable expander for details only)
+        expander = st.expander(f"{'✅' if is_completed else '📚'} {lesson['title']} ({lesson['time_min']} min)")
+        with expander:
+            st.markdown(f"**Level:** {lesson['level']} | **Topics:** {', '.join(lesson['topics'])}")
+            st.markdown(f"<span style='color:{status_color}'>{status}</span>", unsafe_allow_html=True)
+            st.markdown("")
+            st.markdown(f"**Why it matters:** {lesson['why_it_matters']}")
+        
+        # Buttons ALWAYS outside expander - visible immediately
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("📖 Start Lesson", key=f"start_{lesson_id}", use_container_width=True):
+                st.session_state.learn_selected_lesson_id = lesson_id
+                st.session_state.quiz_current_question = 0
+                st.session_state.quiz_answers = []
+                st.session_state.quiz_score = None
+                st.rerun()
+        
+        with col2:
+            if st.button("📝 Take Quiz", key=f"quiz_{lesson_id}", use_container_width=True):
+                st.session_state.learn_selected_lesson_id = lesson_id
+                st.session_state.quiz_current_question = 0
+                st.session_state.quiz_answers = []
+                st.session_state.quiz_score = None
+                st.rerun()
     
     # ============= UI RENDERING =============
     # Non-blocking setup nudge
