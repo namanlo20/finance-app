@@ -11030,7 +11030,6 @@ elif selected_page == "📖 Basics":
                         st.session_state.quiz_score = None
                         st.rerun()
     
-    # AI Coach integration
     else:
         # Level selector
         levels = ["All Levels", "Beginner", "Intermediate", "Advanced", "Behavior", "Repair"]
