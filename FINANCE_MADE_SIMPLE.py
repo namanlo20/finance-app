@@ -7221,6 +7221,142 @@ with st.sidebar:
     st.session_state.years_of_history = selected_timeline
     
     st.markdown("---")
+
+    # ============= THEME TOGGLE =============
+    st.markdown("### 🎨 Theme")
+    
+    # Initialize theme
+    if 'light_mode' not in st.session_state:
+        st.session_state.light_mode = False  # Default dark
+    
+    # Toggle
+    light_mode = st.toggle(
+        "☀️ Light Mode",
+        value=st.session_state.light_mode,
+        key="light_mode_toggle",
+        help="Switch between light and dark themes"
+    )
+    st.session_state.light_mode = light_mode
+    
+    # Apply theme CSS + JavaScript auto-fix
+    if st.session_state.light_mode:
+        st.markdown("""
+        <style>
+        /* LIGHT MODE - Grok's recommended colors */
+        
+        /* Main background and text */
+        [data-testid="stAppViewContainer"],
+        .main,
+        .main .block-container,
+        section[data-testid="stSidebar"] {
+            background-color: #FFFFFF !important;
+        }
+        
+        /* All text elements dark */
+        p, span, div, h1, h2, h3, h4, h5, h6, label, a {
+            color: #121212 !important;
+        }
+        
+        /* Sidebar specific */
+        section[data-testid="stSidebar"],
+        section[data-testid="stSidebar"] * {
+            background-color: #F9F9F9 !important;
+            color: #121212 !important;
+        }
+        
+        /* Override ALL custom styled boxes */
+        div[style*="background"],
+        div[style*="linear-gradient"],
+        div[style*="rgba"] {
+            background: #F3F4F6 !important;
+            border: 1px solid #D1D5DB !important;
+            color: #111827 !important;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+        }
+        
+        /* Force all nested text dark */
+        div[style*="background"] *,
+        div[style*="linear-gradient"] *,
+        div[style*="rgba"] * {
+            color: #111827 !important;
+        }
+        
+        /* Metrics */
+        [data-testid="stMetricValue"],
+        [data-testid="stMetricLabel"],
+        [data-testid="stMetricDelta"] {
+            color: #121212 !important;
+        }
+        
+        /* Expanders */
+        .streamlit-expanderHeader {
+            background-color: #F3F4F6 !important;
+            color: #111827 !important;
+        }
+        
+        /* Info/success/warning/error boxes */
+        .stAlert {
+            background-color: #F3F4F6 !important;
+            border: 1px solid #D1D5DB !important;
+            color: #111827 !important;
+        }
+        </style>
+        
+        <script>
+        // JavaScript auto-fix for any remaining dark boxes
+        function fixDarkBoxes() {
+            const allDivs = document.querySelectorAll('div');
+            
+            allDivs.forEach(div => {
+                const style = window.getComputedStyle(div);
+                const bg = style.backgroundColor;
+                
+                // List of dark colors to replace
+                const darkPatterns = [
+                    'rgba(0, 0, 0',
+                    'rgb(26, 26, 46)',
+                    'rgb(22, 33, 62)',
+                    'rgb(10, 10, 30)',
+                    'rgb(18, 24, 38)',
+                    'rgb(31, 41, 55)'
+                ];
+                
+                // Check if background is dark
+                let isDark = darkPatterns.some(pattern => bg.includes(pattern));
+                
+                if (isDark) {
+                    // Convert to light
+                    div.style.backgroundColor = '#F3F4F6';
+                    div.style.border = '1px solid #D1D5DB';
+                    div.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                    div.style.color = '#111827';
+                    
+                    // Fix all nested elements
+                    div.querySelectorAll('*').forEach(child => {
+                        child.style.color = '#111827';
+                    });
+                }
+            });
+        }
+        
+        // Run on load and after Streamlit updates
+        fixDarkBoxes();
+        setTimeout(fixDarkBoxes, 500);
+        setTimeout(fixDarkBoxes, 1000);
+        
+        // Watch for Streamlit updates
+        const observer = new MutationObserver(fixDarkBoxes);
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+        </script>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+
+    
     
     # Initialize selected page in session state if not exists
     if 'selected_page' not in st.session_state:
@@ -7237,63 +7373,10 @@ with st.sidebar:
         st.session_state.last_tab = None
     
     # Quick Navigation (compact version)
-    st.markdown("### 🚀 Quick Nav")
-    nav_col1, nav_col2 = st.columns(2)
-    with nav_col1:
-        if st.button("🏠", key="qn_dash", help="Dashboard"):
-            st.session_state.selected_page = "🏠 Dashboard"
-            st.rerun()
-        if st.button("📊", key="qn_analysis", help="Company Analysis"):
-            st.session_state.selected_page = "📊 Company Analysis"
-            st.rerun()
-    with nav_col2:
-        if st.button("💼", key="qn_portfolio", help="Paper Portfolio"):
-            st.session_state.selected_page = "💼 Paper Portfolio"
-            st.rerun()
-        if st.button("🔍", key="qn_screener", help="AI Screener"):
-            st.session_state.selected_page = "🔍 AI Stock Screener"
-            st.rerun()
-    
-    # Get the selected page from session state
-    selected_page = st.session_state.selected_page
     
     st.markdown("---")
     
     # ============= MARKET SENTIMENT (Below Action Group) =============
-    st.markdown("### 📊 Market Sentiment")
-    
-    # USE SINGLE SOURCE OF TRUTH for market sentiment - ensures sync everywhere
-    sidebar_sentiment = get_global_market_sentiment()
-    sentiment_score = sidebar_sentiment["score"]
-    sentiment_label = sidebar_sentiment["label"]
-    sentiment_color = sidebar_sentiment["color"]
-    momentum_20d = sidebar_sentiment.get("momentum_20d", 0)
-    
-    # Display gauge - same values as Market Intelligence page
-    st.markdown(f"""
-    <div style="text-align: center; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 10px;">
-        <div style="font-size: 2em; font-weight: bold; color: {sentiment_color};">{sentiment_score}</div>
-        <div style="font-size: 1.2em; color: {sentiment_color};">{sentiment_label}</div>
-        <div style="font-size: 0.8em; margin-top: 5px;">S&P 500 20-day: {momentum_20d:+.1f}%</div>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    st.caption("Based on S&P 500 momentum. Not financial advice.")
-    
-    st.markdown("---")
-    
-    if 'analysis_view' not in st.session_state:
-        st.session_state.analysis_view = "🌟 The Big Picture"
-    
-    
-    # ============= TOGGLE THEME AT BOTTOM OF SIDEBAR =============
-    st.markdown("---")
-    if st.button("🌓 Toggle Theme", key="sidebar_theme_toggle", use_container_width=True):
-        st.session_state.theme = 'light' if st.session_state.theme == 'dark' else 'dark'
-        st.rerun()
-    
-    # ============= UNHINGED MODE TOGGLE =============
-    st.markdown("---")
     st.markdown("### 🔥 Settings")
     
     # Initialize unhinged_mode if not exists
@@ -7320,80 +7403,6 @@ with st.sidebar:
     
     # ============= AUTHENTICATION =============
     st.markdown("---")
-    st.markdown("### 🔐 Account")
-    
-    # Check if logged in
-    if st.session_state.get("is_logged_in", False):
-        # Show user info and logout
-        first_name = st.session_state.get("first_name", "User")
-        user_email = st.session_state.get("user_email", "")
-        
-        st.success(f"👤 {first_name}")
-        st.caption(f"{user_email}")
-        
-        # Show founder badge if applicable
-        if st.session_state.get("is_founder", False):
-            st.info("👑 Founder Access")
-        
-        # Show current tier
-        current_tier = get_user_tier()
-        tier_colors = {"free": "#00C853", "pro": "#9D4EDD", "ultimate": "#FFD700"}
-        tier_labels = {"free": "Free", "pro": "Pro", "ultimate": "Ultimate"}
-        st.markdown(f"""
-        <div style="background: rgba(157, 78, 221, 0.1); padding: 8px 12px; border-radius: 8px; border-left: 3px solid {tier_colors.get(current_tier, '#888')}; margin: 10px 0;">
-            <span style="color: #888; font-size: 12px;">Current Tier</span><br>
-            <span style="color: {tier_colors.get(current_tier, '#FFF')}; font-weight: bold;">{tier_labels.get(current_tier, 'Free')}</span>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Founder badge
-        if st.session_state.get('is_founder'):
-            st.markdown("""
-            <div style="background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); padding: 8px 12px; border-radius: 8px; text-align: center; margin-bottom: 10px;">
-                <span style="color: #000; font-weight: bold;">👑 FOUNDER</span>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        # Demo tier selector (for testing)
-        with st.expander("🧪 Demo: Switch Tier"):
-            demo_tier = st.selectbox(
-                "Select tier:",
-                options=["free", "pro", "ultimate"],
-                index=["free", "pro", "ultimate"].index(current_tier),
-                key="demo_tier_selector"
-            )
-            if demo_tier != current_tier:
-                if st.button("Apply Tier", key="apply_demo_tier"):
-                    set_user_tier(demo_tier)
-                    st.success(f"Switched to {demo_tier.title()} tier!")
-                    st.rerun()
-        
-        # Quick Stats
-        stats = get_quick_stats()
-        st.markdown("---")
-        st.markdown("##### 📊 Your Stats")
-        stat_col1, stat_col2 = st.columns(2)
-        with stat_col1:
-            st.metric("📌 Pinned", stats['pinned_count'])
-        with stat_col2:
-            st.metric("📊 Views", stats.get('saved_views', 0))
-        
-        if st.button("🚪 Log Out", use_container_width=True, type="secondary", key="sidebar_logout_btn"):
-            do_logout()
-    else:
-        # Show sign in / sign up buttons
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("📝 Sign Up", use_container_width=True, type="primary", key="sidebar_signup_btn"):
-                st.session_state.show_signup_popup = True
-                st.rerun()
-        with col2:
-            if st.button("🔐 Sign In", use_container_width=True, type="secondary", key="sidebar_login_btn"):
-                st.session_state.show_login_popup = True
-                st.rerun()
-
-# ============= HELPER FUNCTIONS FOR PAGES =============
-
 def render_technical_quick_guide(price_data, ticker):
     """Render compact technical quick guide with mini visual examples"""
     with st.expander("📊 Technical Quick Guide (simple examples)"):
