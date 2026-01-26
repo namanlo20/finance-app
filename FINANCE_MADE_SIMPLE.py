@@ -186,7 +186,7 @@ def show_page_popup(page_id, title, summary, cool_feature):
         return
     
     # Inject global CSS to style ALL dialogs with dark background
-    st.markdown(f"""
+    st.markdown("""
     <style>
     /* Force dark background on dialog */
     [data-testid="stDialog"] [data-testid="stVerticalBlock"] {
@@ -221,7 +221,7 @@ def show_page_popup(page_id, title, summary, cool_feature):
     @st.dialog(title)
     def page_intro_dialog():
         # Content with description and cool feature
-        st.markdown(f"""
+        st.markdown("""
         <p style="font-size: 16px; line-height: 1.7; margin-bottom: 20px; color: #E0E0E0;">{summary}</p>
         <div style="
             background: linear-gradient(135deg, rgba(255, 75, 75, 0.3), rgba(255, 100, 100, 0.2)); 
@@ -286,7 +286,7 @@ def show_data_source(source="FMP API", updated_at=None, is_cached=False, is_dela
     if badge_str:
         badge_str = f" • {badge_str}"
     
-    st.markdown(f"""
+    st.markdown("""
     <div style="
         display: flex;
         align-items: center;
@@ -331,7 +331,7 @@ def show_ai_disclaimer(inputs_used=None):
 
 def show_skeleton_loader(height=200, message="Loading..."):
     """Display a skeleton loader placeholder while content loads"""
-    st.markdown(f"""
+    st.markdown("""
     <div style="
         background: linear-gradient(90deg, 
             rgba(128,128,128,0.1) 25%, 
@@ -369,7 +369,7 @@ def show_skeleton_table(rows=5, cols=4):
         row_cells = ''.join(['<div style="background: linear-gradient(90deg, rgba(128,128,128,0.08) 25%, rgba(128,128,128,0.15) 50%, rgba(128,128,128,0.08) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; height: 35px; border-radius: 4px;"></div>' for _ in range(cols)])
         data_rows += f'<div style="display: grid; grid-template-columns: repeat({cols}, 1fr); gap: 10px; margin-top: 10px;">{row_cells}</div>'
     
-    st.markdown(f"""
+    st.markdown("""
     <div style="background: rgba(128,128,128,0.05); border-radius: 10px; padding: 15px; margin: 10px 0;">
         <div style="display: grid; grid-template-columns: repeat({cols}, 1fr); gap: 10px;">
             {header_cells}
@@ -391,7 +391,7 @@ def show_loading_timer():
         st.session_state.loading_start_time = time.time()
     
     elapsed = time.time() - st.session_state.loading_start_time
-    st.markdown(f"""
+    st.markdown("""
     <div style="
         display: inline-flex;
         align-items: center;
@@ -423,7 +423,7 @@ def show_error_with_retry(error_message, retry_key, error_details=None):
     Returns:
         True if retry button was clicked
     """
-    st.markdown(f"""
+    st.markdown("""
     <div style="
         background: rgba(255, 100, 100, 0.1);
         border: 1px solid rgba(255, 100, 100, 0.3);
@@ -465,7 +465,7 @@ def show_warning_banner(message, warning_type="info"):
     }
     border_color, bg_color, icon = colors.get(warning_type, colors["info"])
     
-    st.markdown(f"""
+    st.markdown("""
     <div style="
         background: {bg_color};
         border-left: 3px solid {border_color};
@@ -549,7 +549,7 @@ def show_empty_state(title, message, action_text=None, action_key=None, icon="�
     Returns:
         True if action button clicked, False otherwise
     """
-    st.markdown(f"""
+    st.markdown("""
     <div style="
         text-align: center;
         padding: 40px 20px;
@@ -1386,7 +1386,7 @@ def render_ai_coach(tab, ticker=None, facts=None):
         # Panel header
         head_col1, head_col2 = st.columns([4, 1])
         with head_col1:
-            st.markdown(f"""
+            st.markdown("""
             <div style="background: linear-gradient(135deg, #ff3333 0%, #cc0000 100%); padding: 15px 20px; border-radius: 10px; margin-bottom: 15px;">
                 <h3 style="color: white; margin: 0; font-size: 18px;">🤖 AI Assistant</h3>
                 <p style="color: rgba(255,255,255,0.8); margin: 5px 0 0 0; font-size: 12px;">Powered by AI • Educational only</p>
@@ -1875,7 +1875,7 @@ def show_premium_gate(feature_name, required_tier="pro", show_preview=True):
     tier_color = "#9D4EDD" if required_tier == "pro" else "#FFD700"
     tier_label = "Pro" if required_tier == "pro" else "Ultimate"
     
-    st.markdown(f"""
+    st.markdown("""
     <div style="
         background: linear-gradient(135deg, rgba(157, 78, 221, 0.1), rgba(157, 78, 221, 0.05));
         border: 2px solid {tier_color};
@@ -1901,7 +1901,7 @@ def show_upgrade_prompt(message, cta_text="Upgrade Now", tier="pro"):
     tier_color = "#9D4EDD" if tier == "pro" else "#FFD700"
     tier_label = "Pro" if tier == "pro" else "Ultimate"
     
-    st.markdown(f"""
+    st.markdown("""
     <div style="
         background: rgba(157, 78, 221, 0.1);
         border-left: 4px solid {tier_color};
@@ -2022,7 +2022,7 @@ def show_onboarding_tooltip(step_id, title, message, position="bottom"):
         return False
     
     # Show tooltip
-    st.markdown(f"""
+    st.markdown("""
     <div style="
         background: linear-gradient(135deg, #9D4EDD 0%, #7B2CBF 100%);
         padding: 15px 20px;
@@ -2046,7 +2046,7 @@ def show_first_time_welcome():
     if st.session_state.get('has_seen_welcome'):
         return False
     
-    st.markdown(f"""
+    st.markdown("""
     <div style="
         background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
         border: 2px solid #ff4b4b;
@@ -4562,7 +4562,7 @@ Guidelines:
 @st.dialog("🤖 AI Investment Assistant", width="large")
 def chatbot_dialog():
     """AI Chatbot dialog using Streamlit's native dialog"""
-    st.markdown(f"""
+    st.markdown("""
     <style>
     [data-testid="stDialog"] {
         background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%) !important;
@@ -4850,7 +4850,7 @@ def do_logout():
 @st.dialog("🔐 Sign In", width="large")
 def login_dialog():
     """Sign in dialog for existing users"""
-    st.markdown(f"""
+    st.markdown("""
     <style>
     [data-testid="stDialog"] {
         background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%) !important;
@@ -4929,7 +4929,7 @@ def login_dialog():
 @st.dialog("📝 Create Your Account", width="large")
 def signup_dialog():
     """Sign up dialog for new users"""
-    st.markdown(f"""
+    st.markdown("""
     <style>
     [data-testid="stDialog"] {
         background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%) !important;
@@ -6243,7 +6243,7 @@ def render_fit_check_panel(ticker=None):
 def render_setup_nudge():
     """Render non-blocking setup nudge card"""
     if not st.session_state.get('onboarding_completed', False) and not st.session_state.get('setup_prompt_dismissed', False):
-        st.markdown(f"""
+        st.markdown("""
         <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border: none; box-shadow: none; padding: 20px; border-radius: 10px; margin-bottom: 20px; border-left: 4px solid #00D9FF;">
             <h3 style="color: #E0E0E0; margin: 0 0 5px 0;">Quick setup (60 seconds)</h3>
             <p style="color: #B0B0B0; margin: 0;">Personalize the site (not a test).</p>
@@ -6556,7 +6556,7 @@ elif action_param == "vip":
     st.rerun()
 
 # Top header with auth buttons (conditional based on login status)
-st.markdown(f"""
+st.markdown("""
 <style>
 .top-header {{
     position: fixed;
@@ -8152,7 +8152,7 @@ if selected_page == "🏠 Dashboard":
         show_first_time_welcome()
         st.stop()
     
-    st.markdown(f"""
+    st.markdown("""
     <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
                 padding: 25px; border-radius: 15px; margin-bottom: 25px;">
         <h1 style="color: #E0E0E0; margin: 0; font-size: 28px;">🏠 Dashboard</h1>
@@ -8402,7 +8402,7 @@ if selected_page == "🏠 Dashboard":
                     </div>
                     """, unsafe_allow_html=True)
                 else:
-                    st.markdown(f"""
+                    st.markdown("""
                     <div style="display: flex; align-items: center; padding: 5px 0;">
                         <div style="width: 32px; height: 32px; background: rgba(128,128,128,0.2); border-radius: 6px; margin-right: 10px; display: flex; align-items: center; justify-content: center; font-size: 14px;">📈</div>
                         <span style="font-weight: bold; font-size: 16px;">{row['Ticker']}</span>
@@ -8451,7 +8451,7 @@ if selected_page == "🏠 Dashboard":
             worst = sorted_by_change[-1]
             
             if best['_change_val'] != 0 or worst['_change_val'] != 0:
-                st.markdown(f"""
+                st.markdown("""
                 <div style="background: rgba(128,128,128,0.1); padding: 10px 15px; border-radius: 8px; margin-top: 10px;">
                     <span style="color: #888;">📊 Today's Movers:</span>
                     <span style="color: #22c55e; margin-left: 10px;">🟢 {best['Ticker']} {best['Change']}</span>
@@ -8485,7 +8485,7 @@ if selected_page == "🏠 Dashboard":
                 
                 # Display logo + ticker as clickable card
                 if starter_logo:
-                    st.markdown(f"""
+                    st.markdown("""
                     <div style="text-align: center; padding: 10px; background: rgba(255,75,75,0.15); border-radius: 10px; border: 1px solid #ff4b4b;">
                         <img src="{starter_logo}" width="40" height="40" style="border-radius: 8px; margin-bottom: 8px;">
                         <div style="font-weight: bold; font-size: 14px;">{ticker}</div>
@@ -8561,7 +8561,7 @@ if selected_page == "🏠 Dashboard":
                     mchange = mquote.get('changesPercentage', 0)
                     mcolor = "#22c55e" if mchange > 0 else "#ef4444" if mchange < 0 else "#888"
                     
-                    st.markdown(f"""
+                    st.markdown("""
                     <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
                         <div style="font-size: 14px; color: #888;">{mticker}</div>
                         <div style="font-size: 20px; font-weight: bold;">${mprice:.2f}</div>
@@ -8569,7 +8569,7 @@ if selected_page == "🏠 Dashboard":
                     </div>
                     """, unsafe_allow_html=True)
                 else:
-                    st.markdown(f"""
+                    st.markdown("""
                     <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
                         <div style="font-size: 14px; color: #888;">{mticker}</div>
                         <div style="font-size: 16px; color: #888;">Loading...</div>
@@ -8596,7 +8596,7 @@ if selected_page == "🏠 Dashboard":
         sentiment_label = sentiment_data["label"]
         sentiment_color = sentiment_data["color"]
         
-        st.markdown(f"""
+        st.markdown("""
         <div style="background: rgba(128,128,128,0.1); padding: 20px; border-radius: 10px; text-align: center;">
             <div style="font-size: 36px; font-weight: bold; color: {sentiment_color};">{sentiment_score}</div>
             <div style="color: {sentiment_color}; font-size: 16px; font-weight: 500;">{sentiment_label}</div>
@@ -8630,7 +8630,7 @@ elif selected_page == "🏠 Start Here":
         first_buy_success_dialog()
     
     # Hero Visual (H3) - Bull vs Bear theme
-    st.markdown(f"""
+    st.markdown("""
     <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border: none; box-shadow: none; padding: 30px; border-radius: 15px; margin-bottom: 20px; text-align: center;">
         <div style="font-size: 60px; margin-bottom: 10px;">🐂 vs 🐻</div>
         <h2 style="color: #E0E0E0; margin: 0;">Learn to Invest Like a Pro</h2>
@@ -8694,7 +8694,7 @@ elif selected_page == "🏠 Start Here":
             
             # Display with logo
             if logo_url:
-                st.markdown(f"""
+                st.markdown("""
                 <div style="display: flex; align-items: flex-start; margin-bottom: 15px; padding: 10px; background: rgba(0,200,83,0.1); border-radius: 8px; border-left: 4px solid #00C853;">
                     <img src="{logo_url}" width="40" height="40" style="border-radius: 6px; margin-right: 12px; margin-top: 2px;">
                     <div>
@@ -8718,7 +8718,7 @@ elif selected_page == "🏠 Start Here":
             
             # Display with logo
             if logo_url:
-                st.markdown(f"""
+                st.markdown("""
                 <div style="display: flex; align-items: flex-start; margin-bottom: 15px; padding: 10px; background: rgba(255,82,82,0.1); border-radius: 8px; border-left: 4px solid #FF5252;">
                     <img src="{logo_url}" width="40" height="40" style="border-radius: 6px; margin-right: 12px; margin-top: 2px;">
                     <div>
@@ -10228,7 +10228,7 @@ elif selected_page == "📚 Finance 101":
     
     # Display as vertical cards (ranked from most to least important)
     for i, metric in enumerate(metrics_data):
-        st.markdown(f"""
+        st.markdown("""
         <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border: none; box-shadow: none; padding: 20px; border-radius: 12px; margin-bottom: 15px; border-left: 4px solid #FF4444;">
             <div style="font-size: 28px; margin-bottom: 8px;">{metric['icon']}</div>
             <h4 style="color: #E0E0E0; margin: 0 0 8px 0;">#{i+1}: {metric['name']}</h4>
@@ -10256,7 +10256,7 @@ elif selected_page == "📚 Finance 101":
     st.markdown("## 📊 How Money Flows Through a Business")
     
     # Revenue to Profit diagram
-    st.markdown(f"""
+    st.markdown("""
     <div style="background: #1a1a2e; border: none; box-shadow: none; padding: 25px; border-radius: 12px; margin-bottom: 20px;">
         <h4 style="color: #E0E0E0; text-align: center; margin-bottom: 20px;">The Profit Waterfall</h4>
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
@@ -10299,7 +10299,7 @@ elif selected_page == "📚 Finance 101":
     """, unsafe_allow_html=True)
     
     # Stock = slice of business diagram
-    st.markdown(f"""
+    st.markdown("""
     <div style="background: #1a1a2e; border: none; box-shadow: none; padding: 25px; border-radius: 12px; margin-bottom: 20px;">
         <h4 style="color: #E0E0E0; text-align: center; margin-bottom: 15px;">What is a Stock?</h4>
         <div style="display: flex; align-items: center; justify-content: center; gap: 20px; flex-wrap: wrap;">
@@ -10323,7 +10323,7 @@ elif selected_page == "📚 Finance 101":
     """, unsafe_allow_html=True)
     
     # Risk spectrum meter
-    st.markdown(f"""
+    st.markdown("""
     <div style="background: #1a1a2e; border: none; box-shadow: none; padding: 25px; border-radius: 12px; margin-bottom: 20px;">
         <h4 style="color: #E0E0E0; text-align: center; margin-bottom: 15px;">Risk Spectrum</h4>
         <div style="display: flex; justify-content: space-between; align-items: center; background: linear-gradient(90deg, #00C853 0%, #FFD93D 50%, #FF4444 100%); padding: 15px; border-radius: 8px;">
@@ -12148,7 +12148,7 @@ elif selected_page == "📊 Company Analysis":
         st.info(f"💡 **What is this?** Compare 4 different ways to invest $100 in {ticker} vs the S&P 500. See how 'Paycheck Investing' (adding $100 every 2 weeks) compares to investing all at once!")
         
         # DCA Narrative (F) - Time in market beats timing
-        st.markdown(f"""
+        st.markdown("""
         <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border: none; box-shadow: none; padding: 15px; border-radius: 10px; margin-bottom: 15px; border-left: 4px solid #00D9FF;">
             <p style="color: #00D9FF; font-weight: bold; margin: 0 0 5px 0;">💡 The Golden Rule of Investing</p>
             <p style="color: #E0E0E0; margin: 0; font-size: 14px;"><strong>Time in the market beats timing the market.</strong> Lump sum investing can look better historically, but it's rare to have a large sum available, emotionally hard to invest all at once, and not repeatable. DCA (Dollar Cost Averaging) lets you build wealth steadily with each paycheck.</p>
@@ -13361,7 +13361,7 @@ Keep each bullet to ONE line. Be concise."""
     
     if top_news:
         # Display in a card with RED accent (matches app theme)
-        st.markdown(f"""
+        st.markdown("""
         <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
                     border: 2px solid #ff3333; border-radius: 15px; padding: 30px; margin: 20px 0;">
             <div style="color: #E0E0E0; font-size: 16px; line-height: 1.8;">
@@ -13458,7 +13458,7 @@ Keep each bullet to ONE line. Be concise."""
             st.info(f"📈 **Your Holdings:** {', '.join(portfolio_tickers)}")
             
             # Display portfolio news with GREEN accent
-            st.markdown(f"""
+            st.markdown("""
             <div style="background: linear-gradient(135deg, #1a2e1a 0%, #162e21 100%); 
                         border: 2px solid #4CAF50; border-radius: 15px; padding: 30px; margin: 20px 0;">
                 <div style="color: #E0E0E0; font-size: 16px; line-height: 1.8;">
@@ -13569,7 +13569,7 @@ If a day has no major earnings, say "No major earnings."
     
     if weekly_earnings:
         # Display formatted earnings from Perplexity
-        st.markdown(f"""
+        st.markdown("""
         <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
                     border: 2px solid #ff3333; border-radius: 15px; padding: 30px; margin: 20px 0;">
             <div style="color: #E0E0E0; font-size: 16px; line-height: 1.8;">
@@ -13605,7 +13605,7 @@ If a day has no major earnings, say "No major earnings."
         intel_company_name = intel_profile.get('companyName', intel_ticker) if intel_profile else intel_ticker
         
         if intel_logo:
-            st.markdown(f"""
+            st.markdown("""
             <div style="display: flex; align-items: center; background: rgba(128,128,128,0.1); padding: 12px; border-radius: 10px; margin: 10px 0;">
                 <img src="{intel_logo}" width="40" height="40" style="border-radius: 6px; margin-right: 12px;">
                 <div>
@@ -13668,7 +13668,7 @@ If a day has no major earnings, say "No major earnings."
         if stock_news:
             st.markdown(f"### 📊 {intel_ticker.upper()} - Latest News & Analysis")
             
-            st.markdown(f"""
+            st.markdown("""
             <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
                         border: 2px solid #00D9FF; border-radius: 15px; padding: 30px; margin: 20px 0;">
                 <div style="color: #E0E0E0; font-size: 16px; line-height: 1.8;">
@@ -13723,7 +13723,7 @@ elif selected_page == "👤 Naman's Portfolio":
     # ============= WAITLIST OVERLAY FOR PRO/ULTIMATE =============
     if access_tier != "Free":
         st.markdown("---")
-        st.markdown(f"""
+        st.markdown("""
         <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
                     border: 2px solid #9D4EDD; border-radius: 15px; padding: 40px; 
                     text-align: center; margin: 20px 0;">
@@ -13926,7 +13926,7 @@ elif selected_page == "👑 Become a VIP":
         # Highlight if selected
         border_color = "#00C853" if st.session_state.selected_tier == "Free" else "#333"
         shadow = "0 0 20px rgba(0,200,83,0.5)" if st.session_state.selected_tier == "Free" else "none"
-        st.markdown(f"""
+        st.markdown("""
         <div style="background: #1a1a1a; border: 3px solid {border_color}; border-radius: 15px; 
                     padding: 20px; text-align: center; box-shadow: {shadow};">
             <h3 style="color: #00C853; margin-bottom: 10px;">Free</h3>
@@ -13941,7 +13941,7 @@ elif selected_page == "👑 Become a VIP":
     with col_pro:
         border_color = "#9D4EDD" if st.session_state.selected_tier == "Pro" else "#333"
         shadow = "0 0 20px rgba(157,78,221,0.5)" if st.session_state.selected_tier == "Pro" else "none"
-        st.markdown(f"""
+        st.markdown("""
         <div style="background: #1a1a1a; border: 3px solid {border_color}; border-radius: 15px; 
                     padding: 20px; text-align: center; box-shadow: {shadow};">
             <h3 style="color: #9D4EDD; margin-bottom: 10px;">Pro</h3>
@@ -13963,7 +13963,7 @@ elif selected_page == "👑 Become a VIP":
     with col_ultimate:
         border_color = "#FFD700" if st.session_state.selected_tier == "Ultimate" else "#333"
         shadow = "0 0 20px rgba(255,215,0,0.5)" if st.session_state.selected_tier == "Ultimate" else "none"
-        st.markdown(f"""
+        st.markdown("""
         <div style="background: #1a1a1a; border: 3px solid {border_color}; border-radius: 15px; 
                     padding: 20px; text-align: center; box-shadow: {shadow};">
             <h3 style="color: #FFD700; margin-bottom: 10px;">Ultimate</h3>
@@ -14069,7 +14069,7 @@ elif selected_page == "👑 Become a VIP":
     # ============= WAITLIST OVERLAY FOR PRO/ULTIMATE =============
     if access_tier != "Free":
         st.markdown("---")
-        st.markdown(f"""
+        st.markdown("""
         <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
                     border: 2px solid #9D4EDD; border-radius: 15px; padding: 40px; 
                     text-align: center; margin: 20px 0;">
@@ -14630,7 +14630,7 @@ elif selected_page == "📊 Pro Checklist":
                         'Low': '#FF4444'
                     }
                     
-                    st.markdown(f"""
+                    st.markdown("""
                     <div style="background: rgba(50,50,50,0.5); padding: 20px; border-radius: 10px; border-left: 5px solid {confidence_color[confidence]};">
                         <h3 style="margin: 0; color: {confidence_color[confidence]};">🔍 {pattern_label}</h3>
                         <p style="margin: 5px 0; color: {confidence_color[confidence]}; font-size: 14px;">Confidence: {confidence}</p>
@@ -16099,7 +16099,7 @@ CRITICAL RULES:
                                             grade_colors = {'A': '#4CAF50', 'B': '#8BC34A', 'C': '#FFC107', 'D': '#FF5722'}
                                             grade_color = grade_colors.get(grade, '#FFC107')
                                             
-                                            st.markdown(f"""
+                                            st.markdown("""
                                             <div style="background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%); 
                                                         padding: 20px; border-radius: 12px; border: 2px solid {grade_color}; margin-bottom: 15px;">
                                                 <h2 style="color: {grade_color}; margin: 0;">Grade: {grade}</h2>
