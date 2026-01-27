@@ -1764,14 +1764,14 @@ def render_ai_coach(tab, ticker=None, facts=None):
         display: none !important;
     }
     
-    /* Fallback: hide any button with AI text at bottom */
-    .stButton button[kind="secondary"] {
-        position: absolute;
-        opacity: 0;
-        pointer-events: none;
+    /* Hide ONLY the AI Coach toggle button (scoped) */
+    .ai-coach-hidden-toggle .stButton button {
+        position: absolute !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
     }
-    
-    /* Floating AI button - single instance */
+
+/* Floating AI button - single instance */
     .ai-float-btn {
         position: fixed;
         bottom: 25px;
@@ -1822,11 +1822,13 @@ def render_ai_coach(tab, ticker=None, facts=None):
         """, unsafe_allow_html=True)
     
     # Toggle button - we'll hide it with CSS
+    st.markdown('<div class="ai-coach-hidden-toggle">', unsafe_allow_html=True)
     col_hidden, _ = st.columns([0.001, 0.999])
     with col_hidden:
         if st.button("🤖", key=f"ai_toggle_{tab}"):
             st.session_state.ai_coach_open = not st.session_state.ai_coach_open
             st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
     
     # Slide-out panel when open
     if st.session_state.ai_coach_open:
@@ -11316,7 +11318,7 @@ elif selected_page == "📖 Basics":
         # Buttons row: Start • Details • Quiz (details toggle sits between the two buttons)
         btn_col1, btn_col_mid, btn_col2 = st.columns([3, 2, 3])
         with btn_col1:
-            if st.button("📖 Start Lesson", key=f"start_{lesson_id}", use_container_width=True):
+            if st.button("📖 Start Lesson", key=f"start_{lesson_id}", use_container_width=True, type="primary"):
                 st.session_state.learn_selected_lesson_id = lesson_id
                 st.session_state.quiz_current_question = 0
                 st.session_state.quiz_answers = []
@@ -11325,12 +11327,12 @@ elif selected_page == "📖 Basics":
 
         with btn_col_mid:
             is_open = (st.session_state.get('expanded_lesson') == lesson_id)
-            if st.button("▾ Details" if not is_open else "✕ Hide", key=f"details_{lesson_id}", use_container_width=True):
+            if st.button("▾ Details" if not is_open else "✕ Hide", key=f"details_{lesson_id}", use_container_width=True, type="primary"):
                 st.session_state.expanded_lesson = None if is_open else lesson_id
                 st.rerun()
 
         with btn_col2:
-            if st.button("📝 Take Quiz", key=f"quiz_{lesson_id}", use_container_width=True):
+            if st.button("📝 Take Quiz", key=f"quiz_{lesson_id}", use_container_width=True, type="primary"):
                 st.session_state.learn_selected_lesson_id = lesson_id
                 st.session_state.quiz_current_question = 0
                 st.session_state.quiz_answers = []
