@@ -10845,11 +10845,11 @@ elif selected_page == "📖 Basics":
         return available[:3]
     # ============= HELPER FUNCTIONS FOR RENDERING =============
     def _render_lesson_card(lesson):
-        """Render a lesson card with buttons always visible"""
+        """Render a lesson card with buttons always visible and good spacing"""
         lesson_id = lesson["id"]
         is_completed = lesson_id in st.session_state.learn_completed_lessons
         best_score = st.session_state.learn_best_scores.get(lesson_id, 0)
-    
+        
         # Status badge
         if is_completed:
             status = f"✅ Completed ({best_score}/3)"
@@ -10858,15 +10858,14 @@ elif selected_page == "📖 Basics":
             status = "◯ Not Started"
             status_color = "#999"
         
-        # Render title with status (clickable expander for details only)
-        expander = st.expander(f"{'✅' if is_completed else '📚'} {lesson['title']} ({lesson['time_min']} min)")
-        with expander:
-            st.markdown(f"**Level:** {lesson['level']} | **Topics:** {', '.join(lesson['topics'])}")
-            st.markdown(f"<span style='color:{status_color}'>{status}</span>", unsafe_allow_html=True)
-            st.markdown("")
-            st.markdown(f"**Why it matters:** {lesson['why_it_matters']}")
+        # Lesson title - always visible, clean header
+        st.markdown(f"### {'✅' if is_completed else '📚'} {lesson['title']} ({lesson['time_min']} min)")
+        st.markdown(f"<span style='color:{status_color}; font-weight:bold;'>{status}</span>", unsafe_allow_html=True)
         
-        # Buttons ALWAYS outside expander - visible immediately
+        # Small spacing before buttons
+        st.markdown("")  # One empty line
+        
+        # Buttons row with good spacing
         col1, col2 = st.columns(2)
         with col1:
             if st.button("📖 Start Lesson", key=f"start_{lesson_id}", use_container_width=True):
@@ -10883,6 +10882,15 @@ elif selected_page == "📖 Basics":
                 st.session_state.quiz_answers = []
                 st.session_state.quiz_score = None
                 st.rerun()
+        
+        # Optional expander for extra info (collapsed by default)
+        with st.expander("Show lesson details", expanded=False):
+            st.markdown(f"**Level:** {lesson['level']} | **Topics:** {', '.join(lesson['topics'])}")
+            st.markdown(f"**Why it matters:** {lesson['why_it_matters']}")
+        
+        # Extra spacing after each card so they don't overlap next title
+        st.markdown("---")
+        st.markdown("")  # Two empty lines between cards
     
     # ============= UI RENDERING =============
     # Non-blocking setup nudge
