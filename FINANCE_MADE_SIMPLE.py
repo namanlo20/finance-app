@@ -7072,18 +7072,18 @@ st.markdown(f"""
 
 # Callback functions for navigation dropdowns
 def nav_learn_changed():
-    val = st.session_state.get('nav_learn_select', '📚 Learn')
-    if val != "📚 Learn":
+    val = st.session_state.get('nav_learn_select')
+    if val:
         st.session_state.selected_page = val
 
 def nav_analyze_changed():
-    val = st.session_state.get('nav_analyze_select', '📊 Analyze')
-    if val != "📊 Analyze":
+    val = st.session_state.get('nav_analyze_select')
+    if val:
         st.session_state.selected_page = val
 
 def nav_action_changed():
-    val = st.session_state.get('nav_action_select', '🎯 Action')
-    if val != "🎯 Action":
+    val = st.session_state.get('nav_action_select')
+    if val:
         st.session_state.selected_page = val
 
 # Create columns for header with navigation tabs + auth buttons
@@ -7102,7 +7102,7 @@ with header_cols[0]:
 with header_cols[1]:
     st.selectbox(
         "Learn",
-        ["📚 Learn", "🏠 Start Here", "📖 Basics", "📚 Finance 101", "🧠 Risk Quiz"],
+        ["🏠 Start Here", "📖 Basics", "📚 Finance 101", "🧠 Risk Quiz"],
         key="nav_learn_select",
         label_visibility="collapsed",
         on_change=nav_learn_changed
@@ -7111,7 +7111,7 @@ with header_cols[1]:
 with header_cols[2]:
     st.selectbox(
         "Analyze", 
-        ["📊 Analyze", "📊 Company Analysis", "📈 Financial Health", "📰 Market Intelligence", "📊 Market Overview", "🔍 AI Stock Screener"],
+        ["📊 Company Analysis", "📈 Financial Health", "📰 Market Intelligence", "📊 Market Overview", "🔍 AI Stock Screener"],
         key="nav_analyze_select",
         label_visibility="collapsed",
         on_change=nav_analyze_changed
@@ -7120,7 +7120,7 @@ with header_cols[2]:
 with header_cols[3]:
     st.selectbox(
         "Action",
-        ["🎯 Action", "📊 Pro Checklist", "💼 Paper Portfolio", "👤 Naman's Portfolio"],
+        ["📊 Pro Checklist", "💼 Paper Portfolio", "👤 Naman's Portfolio"],
         key="nav_action_select", 
         label_visibility="collapsed",
         on_change=nav_action_changed
@@ -15832,7 +15832,7 @@ elif selected_page == "📈 Financial Health":
         st.info("**Tip:** Try major stocks like AAPL, MSFT, GOOGL, or AMZN")
     
     # AI Coach integration
-    render_ai_coach("Financial Health", ticker=ratio_ticker if ratio_ticker else None, facts=None)
+    render_ai_coach("Financial Health", ticker=ticker if ticker else None, facts=None)
 
 
 # ============= MARKET INTELLIGENCE TAB =============
