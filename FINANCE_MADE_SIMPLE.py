@@ -7102,7 +7102,7 @@ with header_cols[0]:
 with header_cols[1]:
     st.selectbox(
         "Learn",
-        ["🏠 Start Here", "📖 Basics", "📚 Fundamentals", "🧮 Valuation Lab", "🧠 Risk Quiz"],
+        ["🏠 Start Here", "📖 Basics", "📚 Finance 101", "🧠 Risk Quiz"],
         key="nav_learn_select",
         label_visibility="collapsed",
         on_change=nav_learn_changed
@@ -12143,11 +12143,354 @@ elif selected_page == "📖 Basics":
                    'explanation': 'It builds honest feedback loops.'}],
          'apply_action': {'type': 'none'},
          'xp': 15,
-         'video_url': ''}}
+         'video_url': ''},
+ 'CM1': {       'apply_action': {'type': 'none'},
+        'checklist': [       'Is FCF positive and improving over several years?',
+                             'Is FCF per share growing (not just total FCF)?',
+                             'Are shares outstanding stable or shrinking?',
+                             'Is cash generation coming from operations, not '
+                             'one-offs?'],
+        'common_mistakes': [       'Looking only at total FCF and ignoring per-share '
+                                   'math.',
+                                   'Ignoring dilution (share count rising) and calling '
+                                   'it “growth.”',
+                                   'Treating a one-time cash windfall as a trend.'],
+        'id': 'CM1',
+        'key_ideas': [       'FCF per share = Free cash flow ÷ shares outstanding.',
+                             'Watch the share count trend; heavy stock-based '
+                             'compensation can dilute owners.',
+                             'Quality matters: stable, recurring cash beats one-time '
+                             'spikes.',
+                             'Connect the dots: revenue → margins → cash conversion → '
+                             'FCF per share.'],
+        'level': 'Intermediate',
+        'quiz': [       {       'correct': 1,
+                                'explanation': 'Per-share math shows what each share '
+                                               'is entitled to after dilution or '
+                                               'buybacks.',
+                                'options': [       'A) Ignores share count changes',
+                                                   'B) Adjusts for dilution/buybacks',
+                                                   'C) Is the same as revenue growth',
+                                                   'D) Only matters for banks'],
+                                'question': 'Free cash flow per share helps investors '
+                                            'because it:'},
+                        {       'correct': 0,
+                                'explanation': 'If shares rise faster than cash, each '
+                                               'share gets a smaller slice.',
+                                'options': [       'A) Shares outstanding increased a '
+                                                   'lot',
+                                                   'B) The company paid taxes',
+                                                   'C) Revenue grew too fast',
+                                                   'D) The stock price fell'],
+                                'question': 'A company’s total FCF rises, but FCF per '
+                                            'share falls. The most likely reason is:'},
+                        {       'correct': 1,
+                                'explanation': 'Consistency suggests durable cash '
+                                               'generation.',
+                                'options': [       'A) One huge FCF year after selling '
+                                                   'an asset',
+                                                   'B) Several years of steady FCF per '
+                                                   'share growth',
+                                                   'C) FCF that’s negative but '
+                                                   'trending',
+                                                   'D) Rising revenue with shrinking '
+                                                   'cash'],
+                                'question': 'Which is usually a better sign of '
+                                            'quality?'}],
+        'summary': [       'Free cash flow (FCF) is cash left after running and '
+                           'reinvesting in the business.',
+                           'Per-share is the key: it adjusts for dilution and '
+                           'buybacks.',
+                           'A company can grow revenue/profit and still hurt '
+                           'shareholders if shares outstanding rise faster.',
+                           'Consistent FCF per share growth is a strong signal of '
+                           'durable value creation.'],
+        'theme': 'Core Metrics',
+        'time_min': 8,
+        'title': 'Free Cash Flow per Share Growth',
+        'topics': ['Core Metrics', 'Cash Flow'],
+        'video_url': '',
+        'why_it_matters': 'This is the cleanest way to measure whether each share you '
+                          'own is becoming more valuable over time.',
+        'xp': 20},
+ 'CM2': {       'apply_action': {'type': 'none'},
+        'checklist': [       'Are margins stable or expanding over time?',
+                             'Is operating income growing faster than revenue?',
+                             'Is the business gaining pricing power or scale '
+                             'efficiency?',
+                             'Are margins competitive vs peers in the same industry?'],
+        'common_mistakes': [       'Celebrating revenue growth while margins collapse.',
+                                   'Using net margin only (mixes in taxes/financing '
+                                   'noise).',
+                                   'Assuming a temporary margin spike will last '
+                                   'forever.'],
+        'id': 'CM2',
+        'key_ideas': [       'Operating margin = Operating income ÷ revenue.',
+                             'Operating leverage: costs grow slower than revenue as '
+                             'the business scales.',
+                             'Margin durability matters more than a single good '
+                             'quarter.',
+                             'Compare margins within an industry—cross-industry '
+                             'comparisons can mislead.'],
+        'level': 'Intermediate',
+        'quiz': [       {       'correct': 1,
+                                'explanation': 'It measures core profitability as a '
+                                               'percent of revenue.',
+                                'options': [       'A) How much revenue the company '
+                                                   'has',
+                                                   'B) How much of each dollar of '
+                                                   'revenue becomes operating profit',
+                                                   'C) How many shares are outstanding',
+                                                   'D) The stock’s expected return'],
+                                'question': 'Operating margin tells you:'},
+                        {       'correct': 1,
+                                'explanation': 'Shrinking margins can signal '
+                                               'discounting, rising costs, or weaker '
+                                               'economics.',
+                                'options': [       'A) The business is getting more '
+                                                   'efficient',
+                                                   'B) Growth is coming at the cost of '
+                                                   'profitability',
+                                                   'C) The company is buying back '
+                                                   'stock',
+                                                   'D) Taxes are lower'],
+                                'question': 'If revenue grows 20% but operating margin '
+                                            'drops sharply, it often means:'},
+                        {       'correct': 0,
+                                'explanation': 'When profits scale faster than sales, '
+                                               'the business is leveraging fixed '
+                                               'costs.',
+                                'options': [       'A) Operating income grows faster '
+                                                   'than revenue',
+                                                   'B) Revenue grows faster than '
+                                                   'operating income',
+                                                   'C) Share count increases',
+                                                   'D) P/E rises'],
+                                'question': 'A classic sign of operating leverage '
+                                            'is:'}],
+        'summary': [       'Revenue alone doesn’t tell you if a business is getting '
+                           'stronger.',
+                           'Operating income focuses on core profitability before '
+                           'interest/taxes.',
+                           'Operating margin shows how much of each revenue dollar '
+                           'becomes operating profit.',
+                           'Rising margins often signal pricing power, efficiency, or '
+                           'a moat.'],
+        'theme': 'Core Metrics',
+        'time_min': 8,
+        'title': 'Operating Margin & Operating Income Growth',
+        'topics': ['Core Metrics', 'Profitability'],
+        'video_url': '',
+        'why_it_matters': 'Margins show the quality of growth—how much profit the core '
+                          'business produces from each dollar of revenue.',
+        'xp': 20},
+ 'CM3': {       'apply_action': {'type': 'none'},
+        'checklist': [       'Is ROIC consistently strong vs peers?',
+                             'Is ROIC stable or improving over time?',
+                             'Does the company have a clear reinvestment runway?',
+                             'Is growth funded internally (cash) or constantly with '
+                             'new capital?'],
+        'common_mistakes': [       'Chasing growth without checking if returns are '
+                                   'attractive.',
+                                   'Confusing ROE with ROIC (leverage can inflate '
+                                   'ROE).',
+                                   'Ignoring ROIC deterioration during expansion.'],
+        'id': 'CM3',
+        'key_ideas': [       'Think: ‘For every $1 invested, how much operating profit '
+                             'does the business generate?’',
+                             'High ROIC + long runway is a powerful combination.',
+                             'Watch for ROIC declining as companies scale (returns can '
+                             'mean-revert).',
+                             'Capital-intensive businesses often have lower ROIC and '
+                             'need more funding to grow.'],
+        'level': 'Intermediate',
+        'quiz': [       {       'correct': 1,
+                                'explanation': 'ROIC measures how much operating '
+                                               'profit is generated from invested '
+                                               'capital.',
+                                'options': [       'A) How cheap a stock is',
+                                                   'B) How efficiently a company '
+                                                   'reinvests capital',
+                                                   'C) Daily price movements',
+                                                   'D) Dividend tax rates'],
+                                'question': 'ROIC is most useful for understanding:'},
+                        {       'correct': 1,
+                                'explanation': 'If returns are low, growing can mean '
+                                               'pouring money into low-return '
+                                               'projects.',
+                                'options': [       'A) Creates value automatically',
+                                                   'B) Destroys value as it expands',
+                                                   'C) Has no need for capital',
+                                                   'D) Has higher FCF per share'],
+                                'question': 'A company growing fast with very low ROIC '
+                                            'often:'},
+                        {       'correct': 1,
+                                'explanation': 'Leverage can make ROE look high even '
+                                               'if underlying business returns are '
+                                               'mediocre.',
+                                'options': [       'A) ROE includes operating profit',
+                                                   'B) Debt/leverage can inflate ROE',
+                                                   'C) ROIC ignores operations',
+                                                   'D) ROE is only for tech companies'],
+                                'question': 'Why can ROE be misleading compared to '
+                                            'ROIC?'}],
+        'summary': [       'ROIC is a quality filter: it measures reinvestment '
+                           'efficiency.',
+                           'High ROIC businesses can compound for years without '
+                           'needing constant outside funding.',
+                           'Low ROIC growth can destroy value even if the company gets '
+                           'bigger.',
+                           'You don’t need perfect math—focus on the concept and '
+                           'trend.'],
+        'theme': 'Core Metrics',
+        'time_min': 8,
+        'title': 'Return on Capital (ROIC) — Simplified',
+        'topics': ['Core Metrics', 'Returns'],
+        'video_url': '',
+        'why_it_matters': 'ROIC shows how efficiently a company turns invested money '
+                          'into operating profit—great compounders usually have high '
+                          'returns on capital.',
+        'xp': 20},
+ 'CM4': {       'apply_action': {'type': 'none'},
+        'checklist': [       'Is growth consistent and repeatable (not a one-off)?',
+                             'Is growth improving margins/cash, or hurting them?',
+                             'Is the market/runway large enough to sustain growth?',
+                             'Are expectations realistic relative to valuation?'],
+        'common_mistakes': [       'Chasing the highest growth rate without checking '
+                                   'profitability.',
+                                   'Assuming growth continues forever at the same '
+                                   'rate.',
+                                   'Ignoring customer concentration or cyclicality.'],
+        'id': 'CM4',
+        'key_ideas': [       'Look for durable growth driven by retention, pricing '
+                             'power, and real demand.',
+                             'Watch growth vs margin trade-offs—discount-driven growth '
+                             'can be fragile.',
+                             'Slowing growth isn’t always bad if margins and cash '
+                             'improve.',
+                             'Compare growth to expectations—stocks price in future '
+                             'growth.'],
+        'level': 'Intermediate',
+        'quiz': [       {       'correct': 1,
+                                'explanation': 'Revenue growth measures how fast the '
+                                               'top line is expanding.',
+                                'options': [       'A) The cash left after expenses',
+                                                   'B) The demand/top-line expansion '
+                                                   'of the business',
+                                                   'C) The company’s debt level',
+                                                   'D) The stock’s valuation multiple'],
+                                'question': 'Revenue growth is best described as:'},
+                        {       'correct': 1,
+                                'explanation': 'If margins fall, growth may be less '
+                                               'valuable or less sustainable.',
+                                'options': [       'A) Stronger business quality',
+                                                   'B) Growth bought with discounts or '
+                                                   'rising costs',
+                                                   'C) Higher ROIC',
+                                                   'D) Better cash conversion'],
+                                'question': 'Fast revenue growth with collapsing '
+                                            'margins usually suggests:'},
+                        {       'correct': 1,
+                                'explanation': 'Quality + efficiency tends to compound '
+                                               'better than growth-at-all-costs.',
+                                'options': [       'A) High growth, shrinking margins, '
+                                                   'low ROIC',
+                                                   'B) Moderate growth, '
+                                                   'stable/expanding margins, high '
+                                                   'ROIC',
+                                                   'C) No growth, high valuation',
+                                                   'D) High growth, negative cash '
+                                                   'forever'],
+                                'question': 'Which combination is typically strongest '
+                                            'long-term?'}],
+        'summary': [       'Revenue growth is the top-line signal of market demand.',
+                           'It sets the ceiling for how big a business can become.',
+                           'Revenue growth alone is not enough—quality of growth '
+                           'matters.',
+                           'Combine revenue growth with margins and ROIC to judge '
+                           'compounding potential.'],
+        'theme': 'Core Metrics',
+        'time_min': 7,
+        'title': 'Revenue Growth (The Fuel)',
+        'topics': ['Core Metrics', 'Growth'],
+        'video_url': '',
+        'why_it_matters': 'Revenue growth shows demand and runway—but it only creates '
+                          'value when paired with margins, ROIC, and cash generation.',
+        'xp': 18},
+ 'CM5': {       'apply_action': {'type': 'none'},
+        'checklist': [       'Is the company profitable and earnings stable (for P/E)?',
+                             'If using P/S, are margins strong or improving?',
+                             'How does valuation compare to peers with similar '
+                             'growth/quality?',
+                             'Are expectations (implied by the multiple) realistic?'],
+        'common_mistakes': [       'Comparing multiples across totally different '
+                                   'industries.',
+                                   'Using P/E on companies with negative or highly '
+                                   'cyclical earnings.',
+                                   'Treating a low P/E as ‘safe’ without checking '
+                                   'business quality.',
+                                   'Paying any price for growth without verifying '
+                                   'margins/ROIC.'],
+        'id': 'CM5',
+        'key_ideas': [       'P/E works best for profitable, stable companies; it '
+                             'breaks with losses or cyclical earnings.',
+                             'P/S can help when profits are low, but you must consider '
+                             'margins and path to profitability.',
+                             'Compare within an industry and consider growth '
+                             'rates—context is everything.',
+                             'Valuation sets the ‘starting point’ for future returns.'],
+        'level': 'Intermediate',
+        'quiz': [       {       'correct': 1,
+                                'explanation': 'Multiples price in growth, durability, '
+                                               'and risk expectations.',
+                                'options': [       'A) Guaranteed future returns',
+                                                   'B) Market expectations about the '
+                                                   'future',
+                                                   'C) The company’s logo and brand',
+                                                   'D) Insider trading activity'],
+                                'question': 'Valuation multiples mostly reflect:'},
+                        {       'correct': 1,
+                                'explanation': 'When earnings are distorted, P/E can '
+                                               'mislead.',
+                                'options': [       'A) Earnings are stable and '
+                                                   'positive',
+                                                   'B) Earnings are negative or highly '
+                                                   'cyclical',
+                                                   'C) The company has a long history',
+                                                   'D) Revenue is rising'],
+                                'question': 'P/E is often unreliable when:'},
+                        {       'correct': 1,
+                                'explanation': 'Sales are only valuable if they can '
+                                               'eventually convert to profit/cash.',
+                                'options': [       'A) Weather forecasts',
+                                                   'B) Profit margins and path to '
+                                                   'profitability',
+                                                   'C) Dividend tax rates',
+                                                   'D) Chart patterns only'],
+                                'question': 'P/S becomes more meaningful when you also '
+                                            'consider:'}],
+        'summary': [       'P/E and P/S are quick ways to relate price to earnings or '
+                           'sales.',
+                           'Multiples reflect expectations about growth, margins, and '
+                           'durability.',
+                           'Cheap stocks can be cheap for a reason; expensive stocks '
+                           'can still outperform.',
+                           'Use valuation after you understand business quality '
+                           '(margins, ROIC, cash).'],
+        'theme': 'Core Metrics',
+        'time_min': 8,
+        'title': 'Valuation (P/E & P/S — Context Matters)',
+        'topics': ['Core Metrics', 'Valuation'],
+        'video_url': '',
+        'why_it_matters': 'Valuation tells you what expectations are already priced '
+                          'in. It’s a constraint and risk tool—not a shortcut to good '
+                          'investing.',
+        'xp': 20}
+}
 
     LEARN_HUB_LEVELS = ['Beginner', 'Intermediate', 'Advanced', 'Behavior', 'Repair']
     LEARN_HUB_THEMES = {'Beginner': ['ETFs & Diversification', 'Foundations', 'Risk Basics'],
- 'Intermediate': ['Business Quality', 'Financial Statements', 'Valuation'],
+ 'Intermediate': ['Core Metrics', 'Business Quality', 'Financial Statements', 'Valuation'],
  'Advanced': ['Advanced Risk', 'Portfolio Construction'],
  'Behavior': ['Behavioral Edge'],
  'Repair': ['Repair']}
@@ -12810,299 +13153,234 @@ elif selected_page == "📖 Basics":
         # AI coach on the side of Learn Hub (unchanged)
         render_ai_coach("Learn Hub", ticker=None, facts=None)
 
-elif selected_page in ("📚 Finance 101", "📚 Fundamentals"):
-
-    st.header("📚 Fundamentals")
-    st.caption("*A cohesive, beginner-friendly path: how markets work → how businesses make money → how to value → how to manage risk.*")
-
-    module = st.radio(
-        "Pick a module:",
-        ["1) Markets & Prices", "2) Business Money Flow", "3) The 5 Metrics", "4) Risk & Diversification", "5) Try It (Interactive)", "6) Glossary"],
-        horizontal=True,
-        key="fundamentals_module",
+elif selected_page == "📚 Finance 101":
+    
+    st.header("📚 Finance 101")
+    st.caption("*Learn the language of investing through visual cards and interactive examples.*")
+    
+    # Show page popup
+    show_page_popup(
+        'finance_101',
+        '🎓 Finance 101',
+        'Quick crash course on investing basics. Learn key terms, understand stocks vs bonds, and master the 5 metrics that actually matter.',
+        'Visual card system makes complex topics super easy to understand!'
     )
-
-    # -----------------------------
-    # 1) MARKETS & PRICES
-    # -----------------------------
-    if module == "1) Markets & Prices":
-        st.subheader("🎯 Markets & Prices (Why stocks move)")
-
-        st.markdown(
-            """
-**Big idea:** Prices move when expectations change.
-
-A stock’s price is the market’s *best guess* of the company’s future (cash flows + risk).
-When new information arrives (earnings, guidance, macro news, product launches), that guess updates instantly.
-
-**Three drivers explain most price moves:**
-- **Growth expectations** (revenue/earnings growth)
-- **Profitability expectations** (margins, operating leverage)
-- **Valuation / discount rate** (interest rates, risk appetite)
-
-**Beginner rule:** If a stock drops on “good news,” the news may have been *less good than expected*.
-"""
+    
+    # ============= TOP 5 METRICS SECTION (C - moved from Company Analysis) =============
+    st.markdown("---")
+    st.markdown("## 🏆 The 5 Metrics That Actually Matter")
+    st.markdown("*These are the numbers that separate winners from losers.*")
+    
+    # Top 5 Metrics as visual cards (D1)
+    metrics_data = [
+        {"icon": "💰", "name": "FCF per Share Growth", 
+         "definition": "Free cash flow divided by total shares outstanding.", 
+         "why": "FCF per share accounts for dilution from stock-based comp. Total FCF can grow 20% but if shares also grow 20%, FCF/share stays flat ($1.00 → $1.00). This is the most honest growth metric.", 
+         "example": "Good: Visa — FCF grows faster than shares. Bad: Snap — heavy dilution kills per-share growth"},
+        
+        {"icon": "⚙️", "name": "Operating Income Growth", 
+         "definition": "Profit from core business before interest and taxes.", 
+         "why": "Shows real operating leverage. Less noisy than net income because it excludes one-time items and financial engineering.", 
+         "example": "Good: Amazon — massive operating leverage as AWS scales. Bad: WeWork — burned cash despite revenue growth"},
+        
+        {"icon": "📊", "name": "Gross Margin Growth", 
+         "definition": "Revenue minus cost of goods sold, as a percentage.", 
+         "why": "Rising gross margins indicate pricing power and efficiency. Especially critical for software (should be 70%+) and consumer brands.", 
+         "example": "Good: Microsoft — software margins expand with scale. Bad: Peloton — hardware margins collapsed under competition"},
+        
+        {"icon": "📈", "name": "Revenue Growth", 
+         "definition": "Total money coming in from customer sales.", 
+         "why": "Important signal of demand, but can be 'bought' with unsustainable discounting or low-quality growth. Always check profitability too.", 
+         "example": "Good: NVIDIA — revenue explosion from AI chips. Bad: Uber (early years) — grew revenue while burning billions"},
+        
+        {"icon": "🛡️", "name": "Quick Ratio", 
+         "definition": "(Cash + receivables) / current liabilities. Excludes inventory.", 
+         "why": "Measures short-term liquidity and crisis survival. Quick ratio > 1 means the company can pay bills without selling inventory. Essential for risk management.", 
+         "example": "Good: Apple — ratio > 1, can survive any storm. Bad: Startups pre-profitability — often < 0.5, vulnerable to funding freezes"}
+    ]
+    
+    # Display as vertical cards (ranked from most to least important)
+    for i, metric in enumerate(metrics_data):
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 20px; border-radius: 12px; margin-bottom: 15px; border-left: 4px solid #FF4444;">
+            <div style="font-size: 28px; margin-bottom: 8px;">{metric['icon']}</div>
+            <h4 style="color: #FFFFFF; margin: 0 0 8px 0;">#{i+1}: {metric['name']}</h4>
+            <p style="color: #B0B0B0; margin: 0 0 8px 0; font-size: 14px;">{metric['definition']}</p>
+            <p style="color: #FF6B6B; margin: 0 0 8px 0; font-size: 13px;"><strong>Why it matters:</strong> {metric['why']}</p>
+            <p style="color: #4ECDC4; margin: 0; font-size: 12px;"><em>{metric['example']}</em></p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Micro-quiz for Top 5 Metrics (E)
+    with st.expander("📝 Quick Quiz: Test Your Knowledge"):
+        quiz_answer = st.radio(
+            "Which metric best accounts for shareholder dilution from stock-based compensation?",
+            ["Total Free Cash Flow", "Revenue Growth", "FCF per Share", "Operating Income"],
+            key="finance101_quiz1"
         )
-
-        st.markdown("##### Quick mental model")
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            st.metric("Growth", "↑ or ↓", help="Are future sales/earnings expected to be higher or lower?")
-        with c2:
-            st.metric("Margins", "↑ or ↓", help="Will the company keep more profit per $ of sales?")
-        with c3:
-            st.metric("Valuation", "↑ or ↓", help="What multiple will investors pay? Rates & risk matter.")
-
-        st.info("Tip: Your videos can live in the right-side slot on Learn Hub lessons. Here, you can link to a short 'Markets 101' video when ready.")
-
-    # -----------------------------
-    # 2) BUSINESS MONEY FLOW
-    # -----------------------------
-    elif module == "2) Business Money Flow":
-        st.subheader("📊 Business Money Flow (The profit waterfall)")
-        st.caption("If you understand this, every income statement becomes easier.")
-
-        # Simple visual waterfall
-        st.markdown(
-            """
-A business has one job: **turn revenue into cash**.
-
-But there are *layers* of profit. Each layer answers a different question:
-- **Gross Profit:** do we sell at a healthy markup?
-- **Operating Income:** is the core business efficient?
-- **Net Income:** after interest/taxes, what’s left “on paper”?
-- **Free Cash Flow:** what’s left as *real cash* after reinvestment?
-"""
-        )
-
-        st.markdown(
-            """
-<div style="background: linear-gradient(135deg, rgba(30,41,59,0.95), rgba(15,23,42,0.95));
-            border-radius: 16px; padding: 18px; border: 1px solid rgba(255,255,255,0.08);">
-  <div style="text-align:center; font-weight:700; font-size:20px; margin-bottom:8px;">The Profit Waterfall (Example)</div>
-  <div style="display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap;">
-    <div style="flex:1; min-width:160px; background:#4dd0c8; padding:10px 12px; border-radius:12px; color:#061018; font-weight:700; text-align:center;">Revenue<br><span style="font-weight:500;">$100</span></div>
-    <div style="color:#cbd5e1; font-weight:700;">→</div>
-    <div style="flex:1; min-width:160px; background:#ffd54a; padding:10px 12px; border-radius:12px; color:#1a1300; font-weight:700; text-align:center;">Gross Profit<br><span style="font-weight:500;">$60 (−COGS)</span></div>
-    <div style="color:#cbd5e1; font-weight:700;">→</div>
-    <div style="flex:1; min-width:160px; background:#ff6b6b; padding:10px 12px; border-radius:12px; color:#240a0a; font-weight:700; text-align:center;">Operating Income<br><span style="font-weight:500;">$30 (−Opex)</span></div>
-    <div style="color:#cbd5e1; font-weight:700;">→</div>
-    <div style="flex:1; min-width:160px; background:#a855f7; padding:10px 12px; border-radius:12px; color:#120217; font-weight:700; text-align:center;">Net Income<br><span style="font-weight:500;">$20 (−tax)</span></div>
-    <div style="color:#cbd5e1; font-weight:700;">→</div>
-    <div style="flex:1; min-width:160px; background:#34d399; padding:10px 12px; border-radius:12px; color:#02140d; font-weight:700; text-align:center;">Free Cash Flow<br><span style="font-weight:500;">$15 (cash)</span></div>
-  </div>
-</div>
-""",
-            unsafe_allow_html=True,
-        )
-
-        st.markdown("##### What is a stock?")
-        st.markdown(
-            """
-A stock is a **tiny ownership slice** of a company.
-
-You’re not buying a “ticker.” You’re buying a claim on future profits/cash flows.
-That’s why learning the business (and its cash generation) matters more than watching the chart.
-"""
-        )
-
-    # -----------------------------
-    # 3) THE 5 METRICS
-    # -----------------------------
-    elif module == "3) The 5 Metrics":
-        st.subheader("🏆 The 5 Metrics That Actually Matter")
-        st.caption("These help you separate durable businesses from hype.")
-
-        metrics = [
-            {
-                "title": "#1: FCF per Share Growth",
-                "one_liner": "Real cash growth after dilution.",
-                "why": "Free cash flow per share accounts for dilution from stock-based comp. Total FCF can rise, but if shares rise too, each share may not get richer.",
-                "good_bad": "Good: Visa (FCF/share often grows). Bad: heavy dilution stories (FCF/share can stagnate).",
-            },
-            {
-                "title": "#2: Operating Income Growth",
-                "one_liner": "Core business profit growth (less noisy than net income).",
-                "why": "Operating income reflects operating leverage and excludes some financing/tax noise. Watch it over time, not one quarter.",
-                "good_bad": "Good: scalable platforms. Bad: businesses that grow revenue but never scale expenses.",
-            },
-            {
-                "title": "#3: Gross Margin Trend",
-                "one_liner": "Pricing power + unit economics.",
-                "why": "Rising gross margins often signal pricing power or efficiency. Falling gross margins can signal competition or commoditization.",
-                "good_bad": "Good: strong brands / software. Bad: hardware businesses under price pressure.",
-            },
-            {
-                "title": "#4: ROIC (Return on Invested Capital)",
-                "one_liner": "How well the business turns investment into profit.",
-                "why": "High ROIC suggests a moat and efficient capital allocation. It’s one of the best long-term quality signals.",
-                "good_bad": "Good: durable moats. Bad: low-return, capital-hungry businesses.",
-            },
-            {
-                "title": "#5: Net Debt / EBITDA (or net cash)",
-                "one_liner": "Balance sheet risk (how fragile is the company?).",
-                "why": "Even great businesses can blow up if leverage is too high. Lower debt generally means more flexibility in downturns.",
-                "good_bad": "Good: net cash or modest leverage. Bad: high leverage + cyclical revenues.",
-            },
-        ]
-
-        for i, m in enumerate(metrics, start=1):
-            st.markdown(
-                f"""
-<div style="background: linear-gradient(135deg, rgba(30,41,59,0.95), rgba(15,23,42,0.95));
-            border-radius: 16px; padding: 16px; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 12px;">
-  <div style="font-weight:800; font-size:18px; margin-bottom:6px;">{m["title"]}</div>
-  <div style="opacity:0.9; margin-bottom:8px;"><b>In one line:</b> {m["one_liner"]}</div>
-  <div style="opacity:0.9; margin-bottom:8px;"><b>Why it matters:</b> {m["why"]}</div>
-  <div style="opacity:0.85;"><i>{m["good_bad"]}</i></div>
-</div>
-""",
-                unsafe_allow_html=True,
-            )
-
-        st.info("When you record videos, make each metric a 60–90 second clip. Beginners retain more that way.")
-
-    # -----------------------------
-    # 4) RISK & DIVERSIFICATION
-    # -----------------------------
-    elif module == "4) Risk & Diversification":
-        st.subheader("🛡️ Risk & Diversification (Stay in the game)")
-        st.markdown(
-            """
-**Risk isn’t just volatility.** Risk is the chance you lose money permanently.
-
-Beginners usually make the same mistakes:
-- Concentrating too much in one stock/sector
-- Chasing hype after a big run
-- Panic selling after a drawdown
-
-**Simple beginner framework**
-- Start diversified (index funds are fine)
-- Keep single stocks small until you have a process
-- Avoid leverage until you understand drawdowns
-"""
-        )
-
-        st.markdown(
-            """
-<div style="background: linear-gradient(135deg, rgba(30,41,59,0.95), rgba(15,23,42,0.95));
-            border-radius: 16px; padding: 18px; border: 1px solid rgba(255,255,255,0.08);">
-  <div style="text-align:center; font-weight:800; font-size:18px; margin-bottom:10px;">Risk Spectrum (intuition)</div>
-  <div style="display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap;">
-    <div style="flex:1; min-width:160px; background:#4ade80; padding:10px 12px; border-radius:12px; color:#04120a; font-weight:800; text-align:center;">Treasury Bonds<br><span style="font-weight:500;">~stable</span></div>
-    <div style="flex:1; min-width:160px; background:#facc15; padding:10px 12px; border-radius:12px; color:#1a1300; font-weight:800; text-align:center;">S&amp;P 500 ETF<br><span style="font-weight:500;">~10% avg</span></div>
-    <div style="flex:1; min-width:160px; background:#fb923c; padding:10px 12px; border-radius:12px; color:#201206; font-weight:800; text-align:center;">Individual Stocks<br><span style="font-weight:500;">varies</span></div>
-    <div style="flex:1; min-width:160px; background:#ef4444; padding:10px 12px; border-radius:12px; color:#240a0a; font-weight:800; text-align:center;">Meme Stocks<br><span style="font-weight:500;">casino 🎰</span></div>
-  </div>
-</div>
-""",
-            unsafe_allow_html=True,
-        )
-
-    # -----------------------------
-    # 5) INTERACTIVE
-    # -----------------------------
-    elif module == "5) Try It (Interactive)":
-        st.subheader("🎮 Try It: Interactive Learning")
-
-        st.markdown("##### What if the price drops?")
-        drop = st.slider("Simulate a price drop (%):", 0, 80, 20, key="try_drop_pct")
-        start_val = 10_000
-        after = int(start_val * (1 - drop / 100))
-        recovery = (start_val / after - 1) * 100 if after > 0 else 0.0
-
-        c1, c2, c3 = st.columns([2, 2, 1])
-        with c1:
-            st.metric("Starting Value", f"${start_val:,.0f}")
-        with c2:
-            st.metric("After Drop", f"${after:,.0f}", delta=f"-{drop}%")
-        with c3:
-            st.metric("Recovery Needed", f"{recovery:.1f}%")
-
-        st.caption("Big losses require disproportionately big recoveries — this is why risk management matters.")
-
-        st.divider()
-
-        st.markdown("##### The power of compounding")
-        years = st.slider("Years invested:", 1, 40, 10, key="try_years")
-        r = st.slider("Annual return (%):", 0, 20, 8, key="try_r")
-        fv = start_val * ((1 + r / 100) ** years)
-
-        c4, c5 = st.columns(2)
-        with c4:
-            st.metric("Initial Investment", f"${start_val:,.0f}")
-        with c5:
-            st.metric(f"After {years} Years", f"${fv:,.0f}", delta=f"+${(fv-start_val):,.0f}")
-
-        st.caption("Small differences in return compound over time — consistency beats hype.")
-
-    # -----------------------------
-    # 6) GLOSSARY
-    # -----------------------------
-    else:
-        st.subheader("📚 Glossary (keep it simple)")
-        st.caption("Short definitions you can scan fast.")
-
-        left, right = st.columns(2)
-
-        with left:
-            st.markdown("#### 💰 Income & Cash Flow")
-            for term, definition in [
-                ("Revenue", "Total sales (top line)."),
-                ("Gross Profit", "Revenue minus cost of goods sold (COGS)."),
-                ("Operating Income", "Profit from core operations after operating expenses."),
-                ("Net Income", "Profit after interest and taxes (accounting)."),
-                ("Free Cash Flow (FCF)", "Cash left after operating costs and reinvestment."),
-                ("FCF per Share", "FCF divided by shares outstanding (accounts for dilution)."),
-            ]:
-                with st.expander(term, expanded=False):
-                    st.write(definition)
-
-        with right:
-            st.markdown("#### 📈 Valuation & Risk")
-            for term, definition in [
-                ("P/E", "Price divided by earnings per share."),
-                ("P/S", "Price divided by sales per share (or market cap / revenue)."),
-                ("Market Cap", "Share price × shares outstanding."),
-                ("Beta", "How volatile a stock is vs the market."),
-                ("Debt-to-Equity", "Leverage metric: debt relative to equity."),
-                ("ROIC", "Return on invested capital — business quality signal."),
-            ]:
-                with st.expander(term, expanded=False):
-                    st.write(definition)
-
-elif selected_page == "🧮 Valuation Lab":
-
-    st.header("🧮 Valuation Lab")
-    st.caption("*Fast, beginner-friendly calculators. No walls of text.*")
-
-    st.subheader("P/E Calculator")
+        if st.button("Check Answer", key="check_quiz1"):
+            if quiz_answer == "FCF per Share":
+                st.success("Correct! FCF per share divides total FCF by shares outstanding, so you see the true per-share growth after dilution.")
+            else:
+                st.error("Not quite. FCF per share is the answer - it accounts for dilution, unlike total FCF which can grow while per-share value stays flat.")
+    
+    # ============= VISUAL DIAGRAMS (D2) =============
+    st.markdown("---")
+    st.markdown("## 📊 How Money Flows Through a Business")
+    
+    # Revenue to Profit diagram
+    st.markdown("""
+    <div style="background: #1a1a2e; padding: 25px; border-radius: 12px; margin-bottom: 20px;">
+        <h4 style="color: #FFFFFF; text-align: center; margin-bottom: 20px;">The Profit Waterfall</h4>
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+            <div style="text-align: center; flex: 1; min-width: 100px;">
+                <div style="background: #4ECDC4; padding: 15px; border-radius: 8px; margin-bottom: 5px;">
+                    <span style="color: #000; font-weight: bold;">Revenue</span>
+                </div>
+                <span style="color: #888; font-size: 12px;">$100</span>
+            </div>
+            <div style="color: #888; font-size: 20px;">→</div>
+            <div style="text-align: center; flex: 1; min-width: 100px;">
+                <div style="background: #FFD93D; padding: 15px; border-radius: 8px; margin-bottom: 5px;">
+                    <span style="color: #000; font-weight: bold;">Gross Profit</span>
+                </div>
+                <span style="color: #888; font-size: 12px;">$60 (- costs)</span>
+            </div>
+            <div style="color: #888; font-size: 20px;">→</div>
+            <div style="text-align: center; flex: 1; min-width: 100px;">
+                <div style="background: #FF6B6B; padding: 15px; border-radius: 8px; margin-bottom: 5px;">
+                    <span style="color: #FFF; font-weight: bold;">Operating Income</span>
+                </div>
+                <span style="color: #888; font-size: 12px;">$30 (- expenses)</span>
+            </div>
+            <div style="color: #888; font-size: 20px;">→</div>
+            <div style="text-align: center; flex: 1; min-width: 100px;">
+                <div style="background: #9D4EDD; padding: 15px; border-radius: 8px; margin-bottom: 5px;">
+                    <span style="color: #FFF; font-weight: bold;">Net Income</span>
+                </div>
+                <span style="color: #888; font-size: 12px;">$20 (- taxes)</span>
+            </div>
+            <div style="color: #888; font-size: 20px;">→</div>
+            <div style="text-align: center; flex: 1; min-width: 100px;">
+                <div style="background: #00C853; padding: 15px; border-radius: 8px; margin-bottom: 5px;">
+                    <span style="color: #000; font-weight: bold;">Free Cash Flow</span>
+                </div>
+                <span style="color: #888; font-size: 12px;">$15 (actual cash)</span>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Stock = slice of business diagram
+    st.markdown("""
+    <div style="background: #1a1a2e; padding: 25px; border-radius: 12px; margin-bottom: 20px;">
+        <h4 style="color: #FFFFFF; text-align: center; margin-bottom: 15px;">What is a Stock?</h4>
+        <div style="display: flex; align-items: center; justify-content: center; gap: 20px; flex-wrap: wrap;">
+            <div style="text-align: center;">
+                <div style="font-size: 50px;">🏢</div>
+                <p style="color: #888; margin: 5px 0;">Company</p>
+            </div>
+            <div style="font-size: 30px; color: #888;">=</div>
+            <div style="text-align: center;">
+                <div style="font-size: 50px;">🍕🍕🍕🍕</div>
+                <p style="color: #888; margin: 5px 0;">Millions of Slices</p>
+            </div>
+            <div style="font-size: 30px; color: #888;">→</div>
+            <div style="text-align: center;">
+                <div style="font-size: 50px;">🍕</div>
+                <p style="color: #4ECDC4; margin: 5px 0; font-weight: bold;">1 Share = 1 Slice</p>
+            </div>
+        </div>
+        <p style="color: #B0B0B0; text-align: center; margin-top: 15px; font-size: 14px;">When you buy a stock, you own a tiny piece of a real business.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Risk spectrum meter
+    st.markdown("""
+    <div style="background: #1a1a2e; padding: 25px; border-radius: 12px; margin-bottom: 20px;">
+        <h4 style="color: #FFFFFF; text-align: center; margin-bottom: 15px;">Risk Spectrum</h4>
+        <div style="display: flex; justify-content: space-between; align-items: center; background: linear-gradient(90deg, #00C853 0%, #FFD93D 50%, #FF4444 100%); padding: 15px; border-radius: 8px;">
+            <div style="text-align: center;">
+                <span style="color: #000; font-weight: bold;">Treasury Bonds</span><br>
+                <span style="color: #000; font-size: 12px;">~4% return</span>
+            </div>
+            <div style="text-align: center;">
+                <span style="color: #000; font-weight: bold;">S&P 500 ETF</span><br>
+                <span style="color: #000; font-size: 12px;">~10% avg</span>
+            </div>
+            <div style="text-align: center;">
+                <span style="color: #FFF; font-weight: bold;">Individual Stocks</span><br>
+                <span style="color: #FFF; font-size: 12px;">Varies wildly</span>
+            </div>
+            <div style="text-align: center;">
+                <span style="color: #FFF; font-weight: bold;">Meme Stocks</span><br>
+                <span style="color: #FFF; font-size: 12px;">Casino 🎰</span>
+            </div>
+        </div>
+        <p style="color: #B0B0B0; text-align: center; margin-top: 10px; font-size: 13px;">Higher potential returns = Higher risk of loss</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # ============= INTERACTIVE WIDGETS (D3) =============
+    st.markdown("---")
+    st.markdown("## 🎮 Try It: Interactive Learning")
+    
+    # What if price drops widget
+    st.markdown("### What if the price drops?")
+    drop_pct = st.slider("Simulate a price drop:", 0, 50, 20, 5, key="price_drop_slider")
+    initial_value = 10000
+    new_value = initial_value * (1 - drop_pct / 100)
+    recovery_needed = ((initial_value / new_value) - 1) * 100
+    
     col1, col2, col3 = st.columns(3)
     with col1:
-        price = st.number_input("Stock price ($)", min_value=0.0, value=100.0, step=1.0, key="val_price")
+        st.metric("Starting Value", f"${initial_value:,.0f}")
     with col2:
-        eps = st.number_input("EPS (earnings per share) ($)", min_value=0.0, value=5.0, step=0.1, key="val_eps")
+        st.metric("After Drop", f"${new_value:,.0f}", f"-{drop_pct}%")
     with col3:
-        pe = (price / eps) if eps > 0 else 0.0
-        st.metric("P/E", f"{pe:.1f}x" if eps > 0 else "—")
+        st.metric("Recovery Needed", f"+{recovery_needed:.1f}%", help="To get back to your starting value")
+    
+    st.caption(f"*If your portfolio drops {drop_pct}%, you need a {recovery_needed:.1f}% gain just to break even. This is why avoiding big losses matters!*")
+    
+    # Compound interest widget
+    st.markdown("### The Power of Compounding")
+    years_compound = st.slider("Years invested:", 1, 30, 10, key="compound_years")
+    annual_return = st.slider("Annual return (%):", 1, 20, 8, key="compound_return")
+    
+    initial_invest = 10000
+    final_value = initial_invest * ((1 + annual_return / 100) ** years_compound)
+    total_gain = final_value - initial_invest
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("Initial Investment", f"${initial_invest:,.0f}")
+    with col2:
+        st.metric(f"After {years_compound} Years", f"${final_value:,.0f}", f"+${total_gain:,.0f}")
+    
+    st.caption(f"*At {annual_return}% annual return, your money grows {final_value/initial_invest:.1f}x in {years_compound} years. Time is your biggest advantage!*")
+    
+    # ============= GLOSSARY SECTION =============
+    st.markdown("---")
+    st.markdown("## 📖 Full Glossary")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("### 💰 Income & Cash Flow")
+        for term in ["FCF After SBC", "Revenue", "Operating Income", "Net Income", "CAGR", "FCF per Share"]:
+            with st.expander(term):
+                st.write(GLOSSARY[term])
+    
+    with col2:
+        st.markdown("### 📊 Valuation & Risk")
+        for term in ["P/E Ratio", "P/S Ratio", "Market Cap", "Beta", "Debt-to-Equity", "Quick Ratio"]:
+            with st.expander(term):
+                st.write(GLOSSARY[term])
+    
+    # AI Coach integration
+    render_ai_coach("Finance 101", ticker=None, facts=None)
 
-    st.caption("Rule of thumb: a higher P/E usually means higher growth expectations (or a more 'expensive' stock).")
 
-    st.divider()
-
-    st.subheader("P/S Calculator")
-    col4, col5, col6 = st.columns(3)
-    with col4:
-        mktcap = st.number_input("Market cap ($B)", min_value=0.0, value=100.0, step=1.0, key="val_mktcap")
-    with col5:
-        revenue = st.number_input("Annual revenue ($B)", min_value=0.0, value=20.0, step=1.0, key="val_rev")
-    with col6:
-        ps = (mktcap / revenue) if revenue > 0 else 0.0
-        st.metric("P/S", f"{ps:.1f}x" if revenue > 0 else "—")
-
-    st.caption("P/S is useful when earnings are distorted or negative (common in early-stage growth companies).")
-
-    st.info("Next step: when you write your valuation lessons, we’ll wire them into Learn Hub + add a 'practice' quiz per formula.")
 elif selected_page == "🧠 Risk Quiz":
     
     st.header("🎯 Investment Risk Analysis Quiz")
@@ -20251,4 +20529,4 @@ elif selected_page == "📜 Founder Track Record":
 # ============= FOOTER =============
 st.divider()
 st.caption("💡 Investing Made Simple | FMP Premium | Real-time data")
-st.caption("⚠️ Educational purposes only. Not financial advice.")
+st.caption("⚠️ Educational purposes only. Not financial advice."
