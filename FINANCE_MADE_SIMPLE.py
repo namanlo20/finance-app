@@ -12288,7 +12288,7 @@ elif selected_page == "📖 Basics":
 
             return rec[:3]
     # ============= HELPER FUNCTIONS FOR RENDERING =============
-    def _render_lesson_card(lesson):
+    def _render_lesson_card(lesson, key_prefix: str = "lesson"):
         """Render a lesson card with always-visible key info + 2 clear actions."""
         lesson_id = lesson["id"]
         total_q = len(lesson.get("quiz", [])) or 3
@@ -12331,7 +12331,7 @@ elif selected_page == "📖 Basics":
         btn_col1, btn_col2 = st.columns([1, 1])
         with btn_col1:
             lesson_btn_label = "🔁 Review Lesson" if is_completed else "📖 Start Lesson"
-            if st.button(lesson_btn_label, key=f"start_{lesson_id}", use_container_width=True, type="primary"):
+            if st.button(lesson_btn_label, key=f"start_{key_prefix}_{lesson_id}", use_container_width=True, type="primary"):
                 st.session_state.learn_started_lessons.add(lesson_id)
                 st.session_state.learn_selected_lesson_id = lesson_id
                 st.session_state.learn_view_mode = "lesson"
@@ -12339,7 +12339,7 @@ elif selected_page == "📖 Basics":
 
         with btn_col2:
             quiz_btn_label = "🔁 Retake Quiz" if is_completed else "📝 Take Quiz"
-            if st.button(quiz_btn_label, key=f"quiz_{lesson_id}", use_container_width=True, type="primary"):
+            if st.button(quiz_btn_label, key=f"quiz_{key_prefix}_{lesson_id}", use_container_width=True, type="primary"):
                 st.session_state.learn_started_lessons.add(lesson_id)
                 st.session_state.learn_selected_lesson_id = lesson_id
                 st.session_state.learn_view_mode = "quiz"
@@ -12641,7 +12641,7 @@ elif selected_page == "📖 Basics":
 
             # Render lesson cards
             for lesson in lessons_to_show:
-                _render_lesson_card(lesson)
+                _render_lesson_card(lesson, key_prefix=f"list_{track_level}_{lesson.get('theme','')}")
 
         # Beginner tab
         with tabs[0]:
@@ -12678,7 +12678,7 @@ elif selected_page == "📖 Basics":
                 st.markdown("### 🎯 Recommended for You")
                 for lesson_id in recommended:
                     if lesson_id in LEARN_HUB_LESSONS:
-                        _render_lesson_card(LEARN_HUB_LESSONS[lesson_id])
+                        _render_lesson_card(LEARN_HUB_LESSONS[lesson_id], key_prefix=f"rec_{lesson_id}")
                 st.markdown("---")
 
             _render_track(None)
