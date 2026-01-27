@@ -10073,6 +10073,8 @@ elif selected_page == "📖 Basics":
         st.session_state.learn_selected_lesson_id = None
     if 'learn_completed_lessons' not in st.session_state:
         st.session_state.learn_completed_lessons = set()
+    if 'learn_started_lessons' not in st.session_state:
+        st.session_state.learn_started_lessons = set()
     if 'learn_best_scores' not in st.session_state:
         st.session_state.learn_best_scores = {}
     if 'learn_xp_total' not in st.session_state:
@@ -11295,61 +11297,69 @@ elif selected_page == "📖 Basics":
         return available[:3]
     # ============= HELPER FUNCTIONS FOR RENDERING =============
     def _render_lesson_card(lesson):
-        """Render a lesson card with buttons always visible and good spacing"""
+        """Render a lesson card with always-visible key info + 2 clear actions."""
         lesson_id = lesson["id"]
         is_completed = lesson_id in st.session_state.learn_completed_lessons
         best_score = st.session_state.learn_best_scores.get(lesson_id, 0)
-        
-        # Status badge
+        started = lesson_id in st.session_state.learn_started_lessons
+
+        # Progress: 0 = not started, 0.5 = started, 1 = completed (quiz submitted)
         if is_completed:
+            progress = 1.0
             status = f"✅ Completed ({best_score}/3)"
             status_color = "#4CAF50"
+        elif started:
+            progress = 0.5
+            status = "⏳ In Progress"
+            status_color = "#FBC02D"
         else:
+            progress = 0.0
             status = "◯ Not Started"
             status_color = "#999"
-        
-        # Lesson title - always visible, clean header
+
+        # Title
         st.markdown(f"### {'✅' if is_completed else '📚'} {lesson['title']} ({lesson['time_min']} min)")
         st.markdown(f"<span style='color:{status_color}; font-weight:bold;'>{status}</span>", unsafe_allow_html=True)
-        
-        # Small spacing before buttons
-        st.markdown("")  # One empty line
-        
-        # Buttons row: Start • Details • Quiz (details toggle sits between the two buttons)
-        btn_col1, btn_col_mid, btn_col2 = st.columns([3, 2, 3])
+
+        # Key info (always visible; replaces the old Details toggle)
+        st.markdown(
+            f"**Level:** {lesson['level']} &nbsp;&nbsp;|&nbsp;&nbsp; "
+            f"**Topics:** {', '.join(lesson['topics'])}",
+            unsafe_allow_html=True
+        )
+        st.markdown(f"**Why it matters:** {lesson['why_it_matters']}")
+
+        # Progress bar (game feel)
+        st.progress(progress)
+
+        st.markdown("")  # small spacing before actions
+
+        # Actions row: Start Lesson • Take Quiz
+        btn_col1, btn_col2 = st.columns([1, 1])
         with btn_col1:
             if st.button("📖 Start Lesson", key=f"start_{lesson_id}", use_container_width=True, type="primary"):
+                st.session_state.learn_started_lessons.add(lesson_id)
                 st.session_state.learn_selected_lesson_id = lesson_id
                 st.session_state.quiz_current_question = 0
                 st.session_state.quiz_answers = []
                 st.session_state.quiz_score = None
-                st.rerun()
-
-        with btn_col_mid:
-            is_open = (st.session_state.get('expanded_lesson') == lesson_id)
-            if st.button("▾ Details" if not is_open else "✕ Hide", key=f"details_{lesson_id}", use_container_width=True, type="primary"):
-                st.session_state.expanded_lesson = None if is_open else lesson_id
                 st.rerun()
 
         with btn_col2:
             if st.button("📝 Take Quiz", key=f"quiz_{lesson_id}", use_container_width=True, type="primary"):
+                st.session_state.learn_started_lessons.add(lesson_id)
                 st.session_state.learn_selected_lesson_id = lesson_id
                 st.session_state.quiz_current_question = 0
                 st.session_state.quiz_answers = []
                 st.session_state.quiz_score = None
                 st.rerun()
 
-        # Details panel (renders below buttons; no overlap)
-        if st.session_state.get('expanded_lesson') == lesson_id:
-            with st.container():
-                st.markdown(f"**Level:** {lesson['level']} | **Topics:** {', '.join(lesson['topics'])}")
-                st.markdown(f"**Why it matters:** {lesson['why_it_matters']}")
-        
-        # Extra spacing after each card so they don't overlap next title
+        # Extra spacing after each card
         st.markdown("---")
-        st.markdown("")  # Two empty lines between cards
-    
+        st.markdown("")
+
     # ============= UI RENDERING =============
+
     # Non-blocking setup nudge
     render_setup_nudge()
     
@@ -11402,6 +11412,55 @@ elif selected_page == "📖 Basics":
             # Why it matters
             st.markdown("### 💡 Why It Matters")
             st.info(lesson['why_it_matters'])
+
+            # Quick interactive (keep it light — no walls of text)
+            st.markdown("### 🎮 Quick Interactive")
+
+            if selected_lesson_id == "B1":
+                st.markdown("**Price move simulator (1 question):**")
+                pick = st.selectbox(
+                    "If more buyers show up than sellers at the current price, what usually happens?",
+                    ["— Select —", "Price falls", "Price stays about the same", "Price rises"],
+                    index=0,
+                    key=f"qi_{selected_lesson_id}_1",
+                )
+                if pick != "— Select —":
+                    if pick == "Price rises":
+                        st.success("Correct — more demand than supply typically pushes the price up.")
+                    else:
+                        st.info("Not quite — when demand > supply at a given price, buyers usually bid the price higher.")
+
+            elif selected_lesson_id == "B2":
+                st.markdown("**Compounding demo (move the sliders):**")
+                years = st.slider("Years", 1, 40, 20, key=f"qi_{selected_lesson_id}_years")
+                monthly = st.slider("Monthly contribution ($)", 25, 2000, 300, step=25, key=f"qi_{selected_lesson_id}_monthly")
+                rate = st.slider("Assumed annual return (%)", 0.0, 15.0, 7.0, step=0.5, key=f"qi_{selected_lesson_id}_rate")
+
+                r = (rate / 100.0) / 12.0
+                n = years * 12
+                fv = monthly * (n if r == 0 else ((1 + r) ** n - 1) / r)
+                st.metric("Estimated value (contributions + growth)", f"${fv:,.0f}")
+                st.caption("Educational estimate only — returns are not guaranteed.")
+
+            elif selected_lesson_id == "B3":
+                st.markdown("**Quick choice:**")
+                pick = st.selectbox(
+                    "Which is usually the safer default for a beginner?",
+                    ["— Select —", "One single stock", "A broad index ETF"],
+                    index=0,
+                    key=f"qi_{selected_lesson_id}_1",
+                )
+                if pick != "— Select —":
+                    if pick == "A broad index ETF":
+                        st.success("Correct — broad ETFs diversify across many companies.")
+                    else:
+                        st.info("Single stocks can work, but they carry much more company-specific risk.")
+
+            else:
+                st.caption("Tip: Finish the lesson, then take the 3-question quiz to lock in the concepts.")
+
+            st.markdown("---")
+
             
             # Summary
             st.markdown("### 📋 Summary")
@@ -11463,7 +11522,11 @@ elif selected_page == "📖 Basics":
                             # Calculate score
                             score = sum(st.session_state.quiz_answers)
                             st.session_state.quiz_score = score
-                            
+
+                            # Perfect score celebration
+                            if score == len(quiz):
+                                st.balloons()
+
                             # Award XP if passed and new best
                             if score >= 2:
                                 old_best = st.session_state.learn_best_scores.get(selected_lesson_id, 0)
