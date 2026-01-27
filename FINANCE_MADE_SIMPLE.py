@@ -11269,36 +11269,81 @@ elif selected_page == "📖 Basics":
         
         return None
     
+
+    # Normalize lesson objects so every lesson follows the same template (fail-soft defaults)
+    for _lid, _l in LEARN_HUB_LESSONS.items():
+        _l.setdefault("summary", [])
+        _l.setdefault("key_ideas", [])
+        _l.setdefault("common_mistakes", [])
+        _l.setdefault("checklist", [])
+        _l.setdefault("quiz", [])
+        _l.setdefault("video_url", None)
+
+        # If any section is empty, backfill with lightweight defaults based on existing fields
+        if not _l["summary"]:
+            _l["summary"] = [
+                _l.get("why_it_matters", "Key idea for this lesson."),
+                "Keep it simple: focus on the one takeaway you can use today."
+            ]
+        if not _l["key_ideas"]:
+            _l["key_ideas"] = _l["summary"][:]
+        if not _l["common_mistakes"]:
+            _l["common_mistakes"] = ["Overcomplicating the concept.", "Making decisions based on short-term noise."]
+        if not _l["checklist"]:
+            _l["checklist"] = ["Understand the main concept.", "Apply it once using a simple example.", "Review the quick check."]
     def get_recommended_lessons():
-        """Get personalized lesson recommendations"""
-        completed = st.session_state.learn_completed_lessons
-        all_lessons = list(LEARN_HUB_LESSONS.keys())
-        
-        # Remove completed
-        available = [l_id for l_id in all_lessons if l_id not in completed]
-        
-        if not available:
-            return []
-        
-        # New user - start with basics
-        if len(completed) == 0:
-            return ["B1", "B2", "B3"]
-        
-        # Beginner path
-        beginner_lessons = [l_id for l_id in available if l_id.startswith("B")]
-        if beginner_lessons and len(completed) < 5:
-            return beginner_lessons[:3]
-        
-        # After B3, recommend psychology
-        if "B3" in completed and "P1" not in completed:
-            return ["P1"] + [l for l in available if l != "P1"][:2]
-        
-        # Default: return first 3 available
-        return available[:3]
+            """Get personalized lesson recommendations.
+
+            IMPORTANT UX RULE: Lessons should never 'disappear' after completion.
+            This function returns a small set to feature at the top, but completed lessons
+            can still be featured (e.g., core basics) and will always remain in 'All Lessons'.
+            """
+            completed = st.session_state.learn_completed_lessons
+
+            # Core path (always safe to show, even if completed)
+            core = ["B1", "B2", "B3"]
+
+            # Prefer to feature the next unfinished lessons
+            all_ids = list(LEARN_HUB_LESSONS.keys())
+            available = [l_id for l_id in all_ids if l_id not in completed]
+
+            # New user: show the core path
+            if len(completed) == 0:
+                return core
+
+            rec = []
+
+            # If user hasn't finished core, keep core visible so nothing feels 'gone'
+            if any(c not in completed for c in core):
+                for c in core:
+                    if c not in rec:
+                        rec.append(c)
+
+            # Otherwise, show next best 3 available, but keep at least 1 completed core visible for continuity
+            if not rec:
+                # show one core as an anchor (completed is fine)
+                for c in core:
+                    if c in LEARN_HUB_LESSONS:
+                        rec.append(c)
+                        break
+
+            # After B3, recommend psychology first (even if core is complete)
+            if "B3" in completed and "P1" in LEARN_HUB_LESSONS and "P1" not in completed:
+                rec.append("P1")
+
+            # Fill remaining slots with available lessons
+            for l_id in available:
+                if l_id not in rec:
+                    rec.append(l_id)
+                if len(rec) >= 3:
+                    break
+
+            return rec[:3]
     # ============= HELPER FUNCTIONS FOR RENDERING =============
     def _render_lesson_card(lesson):
         """Render a lesson card with always-visible key info + 2 clear actions."""
         lesson_id = lesson["id"]
+        total_q = len(lesson.get("quiz", [])) or 3
         is_completed = lesson_id in st.session_state.learn_completed_lessons
         best_score = st.session_state.learn_best_scores.get(lesson_id, 0)
         started = lesson_id in st.session_state.learn_started_lessons
@@ -11306,7 +11351,7 @@ elif selected_page == "📖 Basics":
         # Progress: 0 = not started, 0.5 = started, 1 = completed (quiz submitted)
         if is_completed:
             progress = 1.0
-            status = f"✅ Completed ({best_score}/3)"
+            status = f"✅ Completed ({best_score}/{total_q})"
             status_color = "#4CAF50"
         elif started:
             progress = 0.5
@@ -11334,21 +11379,23 @@ elif selected_page == "📖 Basics":
 
         st.markdown("")  # small spacing before actions
 
-        # Actions row: Start Lesson • Take Quiz
+        # Actions row: Lesson • Quiz
         btn_col1, btn_col2 = st.columns([1, 1])
         with btn_col1:
-            if st.button("📖 Start Lesson", key=f"start_{lesson_id}", use_container_width=True, type="primary"):
+            lesson_btn_label = "🔁 Review Lesson" if is_completed else "📖 Start Lesson"
+            if st.button(lesson_btn_label, key=f"start_{lesson_id}", use_container_width=True, type="primary"):
                 st.session_state.learn_started_lessons.add(lesson_id)
                 st.session_state.learn_selected_lesson_id = lesson_id
-                st.session_state.quiz_current_question = 0
-                st.session_state.quiz_answers = []
-                st.session_state.quiz_score = None
+                st.session_state.learn_view_mode = "lesson"
                 st.rerun()
 
         with btn_col2:
-            if st.button("📝 Take Quiz", key=f"quiz_{lesson_id}", use_container_width=True, type="primary"):
+            quiz_btn_label = "🔁 Retake Quiz" if is_completed else "📝 Take Quiz"
+            if st.button(quiz_btn_label, key=f"quiz_{lesson_id}", use_container_width=True, type="primary"):
                 st.session_state.learn_started_lessons.add(lesson_id)
                 st.session_state.learn_selected_lesson_id = lesson_id
+                st.session_state.learn_view_mode = "quiz"
+                # reset quiz run state for this attempt
                 st.session_state.quiz_current_question = 0
                 st.session_state.quiz_answers = []
                 st.session_state.quiz_score = None
@@ -11634,8 +11681,133 @@ elif selected_page == "📖 Basics":
                 if lesson["id"] not in recommended_ids:
                     _render_lesson_card(lesson)
     
+
         # ============= LESSON VIEWER =============
-    render_ai_coach("Learn Hub", ticker=None, facts=None)
+        # When a user clicks Start Lesson / Take Quiz, show the selected lesson here.
+        selected_id = st.session_state.get("learn_selected_lesson_id")
+        if selected_id and selected_id in LEARN_HUB_LESSONS:
+            lesson = LEARN_HUB_LESSONS[selected_id]
+            st.markdown("---")
+            st.markdown(f"## 📚 {lesson['title']}")
+
+            # Mark as started/viewed
+            st.session_state.learn_started_lessons.add(selected_id)
+
+            # Progress (0/50/100)
+            quiz_done = selected_id in st.session_state.learn_completed_lessons
+            started = selected_id in st.session_state.learn_started_lessons
+            prog = 1.0 if quiz_done else (0.5 if started else 0.0)
+            st.progress(prog)
+
+            # Two-column layout: content (left) + video slot (right)
+            content_col, video_col = st.columns([2, 1], gap="large")
+
+            with content_col:
+                # Always-visible template sections (no walls of text)
+                st.markdown(
+                    f"**Level:** {lesson['level']} &nbsp;&nbsp;|&nbsp;&nbsp; "
+                    f"**Topics:** {', '.join(lesson['topics'])}",
+                    unsafe_allow_html=True
+                )
+                st.markdown(f"**Why it matters:** {lesson['why_it_matters']}")
+
+                st.markdown("### Key takeaways")
+                for b in lesson.get("summary", []):
+                    st.markdown(f"- {b}")
+
+                st.markdown("### Core ideas")
+                for b in lesson.get("key_ideas", []):
+                    st.markdown(f"- {b}")
+
+                st.markdown("### Common mistakes")
+                for b in lesson.get("common_mistakes", []):
+                    st.markdown(f"- {b}")
+
+                st.markdown("### Quick checklist")
+                for b in lesson.get("checklist", []):
+                    st.markdown(f"- {b}")
+
+                st.markdown("")
+
+                # Mode switch (simple, not a separate 'Details' tab)
+                mode = st.radio(
+                    "What do you want to do?",
+                    ["Lesson", "Quiz"],
+                    horizontal=True,
+                    index=0 if st.session_state.get("learn_view_mode", "lesson") == "lesson" else 1,
+                    key=f"learn_mode_{selected_id}"
+                )
+
+                if mode == "Lesson":
+                    st.info("Tip: skim the bullets, then take the quiz to lock it in.")
+                else:
+                    # ============= QUIZ RUNNER =============
+                    quiz = lesson.get("quiz", [])
+                    if not quiz:
+                        st.warning("Quiz coming soon for this lesson.")
+                    else:
+                        total_q = len(quiz)
+                        if st.session_state.get("quiz_answers") is None or st.session_state.get("learn_view_mode") != "quiz":
+                            st.session_state.quiz_answers = []
+                            st.session_state.quiz_score = None
+
+                        st.session_state.learn_view_mode = "quiz"
+
+                        # Render questions
+                        answers = []
+                        for i, q in enumerate(quiz):
+                            st.markdown(f"**Q{i+1}. {q['question']}**")
+                            ans = st.radio(
+                                label="",
+                                options=q["choices"],
+                                index=None,
+                                key=f"q_{selected_id}_{i}"
+                            )
+                            answers.append(ans)
+                            st.markdown("")
+
+                        # Submit
+                        can_submit = all(a is not None for a in answers)
+                        if st.button("✅ Submit Quiz", type="primary", use_container_width=True, disabled=not can_submit, key=f"submit_{selected_id}"):
+                            score = 0
+                            for i, q in enumerate(quiz):
+                                if answers[i] == q["answer"]:
+                                    score += 1
+
+                            # Track best score + completion
+                            prev_best = st.session_state.learn_best_scores.get(selected_id, 0)
+                            st.session_state.learn_best_scores[selected_id] = max(prev_best, score)
+                            st.session_state.learn_completed_lessons.add(selected_id)
+
+                            # XP (simple)
+                            st.session_state.learn_xp_total = st.session_state.learn_xp_total + (10 if score == total_q else 5)
+
+                            st.success(f"Score: {score}/{total_q}")
+
+                            # Perfect score celebration
+                            if score == total_q:
+                                st.balloons()
+
+                            # Save progress fail-soft
+                            try:
+                                save_learn_progress_to_db()
+                            except Exception:
+                                pass
+
+                            st.rerun()
+
+            with video_col:
+                st.markdown("### Video (coming soon)")
+                vurl = lesson.get("video_url")
+                if vurl:
+                    st.video(vurl)
+                else:
+                    st.info("Upload a short video for this lesson to make it feel premium. (This slot is ready.)")
+
+            st.markdown("---")
+
+        # AI coach on the side of Learn Hub (unchanged)
+        render_ai_coach("Learn Hub", ticker=None, facts=None)
 
 elif selected_page == "📚 Finance 101":
     
