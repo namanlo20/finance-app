@@ -80,18 +80,27 @@ div[data-baseweb="select"] svg {
 button[data-testid*="vip"] p,
 button:has(p:contains("👑")
 
-st.markdown("""<style>
-/* --- NAV DROPDOWN WIDTH FIX --- */
-[data-baseweb="select"] { min-width: 220px !important; }
-button[data-baseweb="tab"] > div > div { white-space: nowrap !important; }
-/* -------------------------------- */
-</style>""", unsafe_allow_html=True)
-) p {
+st.markdown("""
+<style>
+
+/* ---------------- NAV DROPDOWN WIDTH FIX ---------------- */
+[data-baseweb="select"] {
+    min-width: 220px !important;
+}
+
+button[data-baseweb="tab"] > div > div {
+    white-space: nowrap !important;
+}
+/* -------------------------------------------------------- */
+
+/* VIP button text should be black */
+button[data-testid="vip"] p,
+button:has(p:contains("👑")) p {
     color: black !important;
 }
+
 </style>
 """, unsafe_allow_html=True)
-
 
 # ============================================
 # PHASE 1: PREMIUM FOUNDATION UTILITIES
