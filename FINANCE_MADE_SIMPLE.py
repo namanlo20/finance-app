@@ -12705,28 +12705,28 @@ elif selected_page == "📖 Basics":
     st.markdown("# 📖 Learn Hub")
     st.caption("*Educational only. Not financial advice.*")
     # ================= Core Metrics Quick Link =================
-        with st.container():
-            st.markdown(
-                """
-                <div style="
-                    border:1px solid #333;
-                    border-radius:12px;
-                    padding:16px;
-                    margin-bottom:16px;
-                    background:linear-gradient(135deg, #0f2027, #203a43, #2c5364);
-                ">
-                    <h4 style="margin:0;">🏆 Core Metrics</h4>
-                    <p style="margin:6px 0 12px 0; color:#ccc;">
-                        The 5 numbers that actually matter for long-term investing.
-                    </p>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-        
-        if st.button("Go to Core Metrics →", key="core_metrics_quicklink"):
-            st.session_state.learn_selected_theme = "Core Metrics"
-            st.experimental_rerun()
+    with st.container():
+        st.markdown(
+            """
+            <div style="
+                border:1px solid #333;
+                border-radius:12px;
+                padding:16px;
+                margin-bottom:16px;
+                background:linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+            ">
+                <h4 style="margin:0;">🏆 Core Metrics</h4>
+                <p style="margin:6px 0 12px 0; color:#ccc;">
+                    The 5 numbers that actually matter for long-term investing.
+                </p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    
+    if st.button("Go to Core Metrics →", key="core_metrics_quicklink"):
+        st.session_state.learn_selected_theme = "Core Metrics"
+        st.experimental_rerun()
 # ==========================================================
 
     # Progress row
