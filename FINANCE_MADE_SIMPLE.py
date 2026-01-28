@@ -78,7 +78,15 @@ div[data-baseweb="select"] svg {
 
 /* VIP button text should be black */
 button[data-testid*="vip"] p,
-button:has(p:contains("👑")) p {
+button:has(p:contains("👑")
+
+st.markdown("""<style>
+/* --- NAV DROPDOWN WIDTH FIX --- */
+[data-baseweb="select"] { min-width: 220px !important; }
+button[data-baseweb="tab"] > div > div { white-space: nowrap !important; }
+/* -------------------------------- */
+</style>""", unsafe_allow_html=True)
+) p {
     color: black !important;
 }
 </style>
@@ -12664,6 +12672,11 @@ elif selected_page == "📖 Basics":
             unsafe_allow_html=True
         )
         st.markdown(f"**Why it matters:** {lesson['why_it_matters']}")
+        video_url = (lesson.get("video_url") or "").strip()
+        if video_url:
+            st.caption("🎥 Video: ready (will appear in the right-side slot when you add it)")
+        else:
+            st.caption("🎥 Video: coming soon (right-side slot)")
 
         # Progress bar (game feel)
         st.progress(progress)
@@ -12704,31 +12717,7 @@ elif selected_page == "📖 Basics":
     # Header
     st.markdown("# 📖 Learn Hub")
     st.caption("*Educational only. Not financial advice.*")
-    # ================= Core Metrics Quick Link =================
-    with st.container():
-        st.markdown(
-            """
-            <div style="
-                border:1px solid #333;
-                border-radius:12px;
-                padding:16px;
-                margin-bottom:16px;
-                background:linear-gradient(135deg, #0f2027, #203a43, #2c5364);
-            ">
-                <h4 style="margin:0;">🏆 Core Metrics</h4>
-                <p style="margin:6px 0 12px 0; color:#ccc;">
-                    The 5 numbers that actually matter for long-term investing.
-                </p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
     
-    if st.button("Go to Core Metrics →", key="core_metrics_quicklink"):
-        st.session_state.learn_selected_theme = "Core Metrics"
-        st.experimental_rerun()
-# ==========================================================
-
     # Progress row
     total_lessons = len(LEARN_HUB_LESSONS)
     completed_count = len(st.session_state.learn_completed_lessons)
@@ -12885,9 +12874,17 @@ elif selected_page == "📖 Basics":
                             score = sum(st.session_state.quiz_answers)
                             st.session_state.quiz_score = score
 
-                            # Perfect score celebration
+                            # Perfect score celebration (Streamlit has balloons; add toast when available)
                             if score == len(quiz):
-                                st.balloons()
+                                perfect_key = f"perfect_{selected_lesson_id}"
+                                already = st.session_state.get(perfect_key, False)
+                                st.session_state[perfect_key] = True
+                                if not already:
+                                    st.balloons()
+                                    try:
+                                        st.toast("Perfect score! 🏆", icon="🎉")
+                                    except Exception:
+                                        pass
 
                             # Award XP if passed and new best
                             if score >= 2:
@@ -13078,6 +13075,11 @@ elif selected_page == "📖 Basics":
                     unsafe_allow_html=True
                 )
                 st.markdown(f"**Why it matters:** {lesson['why_it_matters']}")
+        video_url = (lesson.get("video_url") or "").strip()
+        if video_url:
+            st.caption("🎥 Video: ready (will appear in the right-side slot when you add it)")
+        else:
+            st.caption("🎥 Video: coming soon (right-side slot)")
 
                 st.markdown("### Key takeaways")
                 for b in lesson.get("summary", []):
