@@ -40,12 +40,10 @@ if 'selected_page' not in st.session_state:
     st.session_state.selected_page = "🏠 Dashboard"
 selected_page = st.session_state.selected_page
 
-# Fix button text visibility CSS - SIMPLIFIED
+# Fix button text visibility + NAV dropdown width (single, valid CSS block)
 st.markdown("""
 <style>
 /* ==== CRITICAL: FORCE BUTTON TEXT TO BE VISIBLE ==== */
-
-/* Target ALL button text */
 .stButton button,
 .stButton button p,
 .stButton button span,
@@ -57,7 +55,6 @@ st.markdown("""
     overflow: visible !important;
 }
 
-/* Ensure buttons have enough height for text */
 .stButton button {
     min-height: 44px !important;
     padding: 10px 16px !important;
@@ -66,7 +63,7 @@ st.markdown("""
     justify-content: center !important;
 }
 
-/* All selectbox text white */
+/* Selectbox text/icon color */
 div[data-baseweb="select"],
 div[data-baseweb="select"] span,
 div[data-baseweb="select"] div,
@@ -76,16 +73,9 @@ div[data-baseweb="select"] svg {
     fill: white !important;
 }
 
-/* VIP button text should be black */
-button[data-testid*="vip"] p,
-button:has(p:contains("👑")
-
-st.markdown("""
-<style>
-
 /* ---------------- NAV DROPDOWN WIDTH FIX ---------------- */
-[data-baseweb="select"] {
-    min-width: 220px !important;
+[data-testid="stHorizontalBlock"] div[data-baseweb="select"] {
+    min-width: 260px !important;
 }
 
 button[data-baseweb="tab"] > div > div {
@@ -93,14 +83,14 @@ button[data-baseweb="tab"] > div > div {
 }
 /* -------------------------------------------------------- */
 
-/* VIP button text should be black */
-button[data-testid="vip"] p,
-button:has(p:contains("👑")) p {
+/* VIP button text should be black (avoid :has/:contains to prevent CSS parsing weirdness) */
+button[data-testid*="vip"] p,
+button[data-testid*="vip"] span {
     color: black !important;
 }
-
 </style>
 """, unsafe_allow_html=True)
+
 
 # ============================================
 # PHASE 1: PREMIUM FOUNDATION UTILITIES
