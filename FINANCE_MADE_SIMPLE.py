@@ -41,7 +41,6 @@ if 'selected_page' not in st.session_state:
 selected_page = st.session_state.selected_page
 
 # Fix button text visibility + NAV dropdown width (single, valid CSS block)
-# Fix button text visibility + NAV dropdown width (single, valid CSS block)
 st.markdown(
     """
     <style>
@@ -92,9 +91,6 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
-
-
-
 # ============================================
 # PHASE 1: PREMIUM FOUNDATION UTILITIES
 # ============================================
@@ -13049,7 +13045,7 @@ elif selected_page == "📖 Basics":
 
             _render_track(None)
 
-# ============= LESSON VIEWER =============
+        # ============= LESSON VIEWER =============
         # When a user clicks Start Lesson / Take Quiz, show the selected lesson here.
         selected_id = st.session_state.get("learn_selected_lesson_id")
         if selected_id and selected_id in LEARN_HUB_LESSONS:
@@ -13072,16 +13068,10 @@ elif selected_page == "📖 Basics":
             with content_col:
                 # Always-visible template sections (no walls of text)
                 st.markdown(
-                    f"**Level:** {lesson['level']} &nbsp;&nbsp;|&nbsp;&nbsp; "
-                    f"**Topics:** {', '.join(lesson['topics'])}",
-                    unsafe_allow_html=True
+                    f"**Level:** {lesson['level']} &nbsp;&nbsp;|&nbsp;&nbsp; **Topics:** {', '.join(lesson['topics'])}",
+                    unsafe_allow_html=True,
                 )
                 st.markdown(f"**Why it matters:** {lesson['why_it_matters']}")
-        video_url = (lesson.get("video_url") or "").strip()
-        if video_url:
-            st.caption("🎥 Video: ready (will appear in the right-side slot when you add it)")
-        else:
-            st.caption("🎥 Video: coming soon (right-side slot)")
 
                 st.markdown("### Key takeaways")
                 for b in lesson.get("summary", []):
@@ -13099,7 +13089,12 @@ elif selected_page == "📖 Basics":
                 for b in lesson.get("checklist", []):
                     st.markdown(f"- {b}")
 
-                st.markdown("")
+            with video_col:
+                video_url = (lesson.get("video_url") or "").strip()
+                if video_url:
+                    st.video(video_url)
+                else:
+                    st.caption("🎬 Video: coming soon (right-side slot)")
 
                 # Mode switch (simple, not a separate 'Details' tab)
                 mode = st.radio(
