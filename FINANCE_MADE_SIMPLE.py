@@ -1876,7 +1876,7 @@ def render_ai_coach(tab, ticker=None, facts=None):
                     for lesson in msg.get("lessons", []):
                         if st.button(f"📖 {lesson['label']}", key=f"lesson_{tab}_{lesson['id']}_{i}"):
                             st.session_state.learn_selected_lesson_id = lesson['id']
-                            st.session_state.selected_page = "📖 Basics"
+                            st.session_state.selected_page = "📚 Learn Hub"
                             st.rerun()
         
         st.markdown("---")
@@ -7108,7 +7108,7 @@ with header_cols[0]:
 with header_cols[1]:
     st.selectbox(
         "Learn",
-        ["🏠 Start Here", "📖 Basics", "📚 Finance 101", "🧠 Risk Quiz"],
+        ["🏠 Start Here", "📚 Learn Hub", "📘 Glossary", "🧠 Risk Quiz"],
         key="nav_learn_select",
         label_visibility="collapsed",
         on_change=nav_learn_changed
@@ -10049,7 +10049,7 @@ elif selected_page == "🏠 Start Here":
 # COMPLETE LEARN HUB IMPLEMENTATION
 # This replaces lines 7343-8025 in the main file
 
-elif selected_page == "📖 Basics":
+elif selected_page == "📚 Learn Hub":
     """
     📖 LEARN HUB - Complete Learning System
     - 55 total lessons (15 original + 40 new)
@@ -13176,9 +13176,9 @@ elif selected_page == "📖 Basics":
         # AI coach on the side of Learn Hub (unchanged)
         render_ai_coach("Learn Hub", ticker=None, facts=None)
 
-elif selected_page == "📚 Finance 101":
+elif selected_page == "📘 Glossary":
     
-    st.header("📚 Finance 101")
+    st.header("📘 Glossary")
     st.caption("*Learn the language of investing through visual cards and interactive examples.*")
     
     # Show page popup
