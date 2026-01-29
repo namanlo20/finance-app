@@ -41,55 +41,58 @@ if 'selected_page' not in st.session_state:
 selected_page = st.session_state.selected_page
 
 # Fix button text visibility + NAV dropdown width (single, valid CSS block)
-st.markdown("""
-<style>
-/* ==== CRITICAL: FORCE BUTTON TEXT TO BE VISIBLE ==== */
-.stButton button,
-.stButton button p,
-.stButton button span,
-.stButton button div {
-    color: white !important;
-    font-size: 14px !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    overflow: visible !important;
-}
+# Fix button text visibility + NAV dropdown width (single, valid CSS block)
+st.markdown(
+    """
+    <style>
+      /* Force button text to be visible */
+      .stButton button, .stButton button p, .stButton button span, .stButton button div {
+        color: white !important;
+        font-size: 14px !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        overflow: visible !important;
+      }
 
-.stButton button {
-    min-height: 44px !important;
-    padding: 10px 16px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-}
+      /* Keep nav buttons comfortably sized */
+      .stButton button {
+        min-height: 44px !important;
+        padding: 10px 16px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+      }
 
-/* Selectbox text/icon color */
-div[data-baseweb="select"],
-div[data-baseweb="select"] span,
-div[data-baseweb="select"] div,
-div[data-baseweb="select"] input,
-div[data-baseweb="select"] svg {
-    color: white !important;
-    fill: white !important;
-}
+      /* Selectbox text/icon color (for the nav dropdowns) */
+      div[data-baseweb="select"],
+      div[data-baseweb="select"] span,
+      div[data-baseweb="select"] div,
+      div[data-baseweb="select"] input,
+      div[data-baseweb="select"] svg {
+        color: white !important;
+        fill: white !important;
+      }
 
-/* ---------------- NAV DROPDOWN WIDTH FIX ---------------- */
-[data-testid="stHorizontalBlock"] div[data-baseweb="select"] {
-    min-width: 260px !important;
-}
+      /* --- NAV DROPDOWN WIDTH FIX --- */
+      [data-testid="stHorizontalBlock"] div[data-baseweb="select"] {
+        min-width: 260px !important;
+      }
 
-button[data-baseweb="tab"] > div > div {
-    white-space: nowrap !important;
-}
-/* -------------------------------------------------------- */
+      /* Prevent truncation inside tab-like buttons */
+      button[data-baseweb="tab"] > div > div {
+        white-space: nowrap !important;
+      }
 
-/* VIP button text should be black (avoid :has/:contains to prevent CSS parsing weirdness) */
-button[data-testid*="vip"] p,
-button[data-testid*="vip"] span {
-    color: black !important;
-}
-</style>
-""", unsafe_allow_html=True)
+      /* VIP button text should be black */
+      button[data-testid*="vip"] p,
+      button[data-testid*="vip"] span {
+        color: black !important;
+      }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 
 
 # ============================================
