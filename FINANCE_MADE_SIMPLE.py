@@ -36,6 +36,73 @@ STARTING_CASH = float(os.environ.get("STARTING_CASH", "100000"))
 
 st.set_page_config(page_title="Investing Made Simple", layout="wide", page_icon="💰")
 
+# PERMANENT LIGHT MODE - FORCE WHITE BACKGROUND + BLACK TEXT
+st.markdown("""
+<style>
+/* Force light theme */
+.stApp {
+    background-color: #FFFFFF !important;
+}
+
+[data-testid="stAppViewContainer"] {
+    background-color: #FFFFFF !important;
+}
+
+[data-testid="stHeader"] {
+    background-color: #FFFFFF !important;
+}
+
+.main {
+    background-color: #FFFFFF !important;
+}
+
+.block-container {
+    background-color: #FFFFFF !important;
+}
+
+/* Sidebar light gray */
+[data-testid="stSidebar"] {
+    background-color: #F9F9F9 !important;
+}
+
+[data-testid="stSidebar"] > div:first-child {
+    background-color: #F9F9F9 !important;
+}
+
+/* ALL TEXT BLACK */
+body, p, span, div, label, a, li, h1, h2, h3, h4, h5, h6,
+.stMarkdown, .stMarkdown *,
+[data-testid="stMarkdown"] *,
+[data-testid="stText"],
+[data-testid="stCaption"],
+[data-testid="stSidebar"] *,
+.element-container * {
+    color: #121212 !important;
+}
+
+/* Buttons keep their colors */
+.stButton button {
+    color: #FFFFFF !important;
+}
+
+/* Input fields */
+input, textarea, select {
+    background-color: #FFFFFF !important;
+    color: #121212 !important;
+    border: 1px solid #D1D5DB !important;
+}
+
+/* Dropdowns */
+[data-baseweb="select"] {
+    background-color: #FFFFFF !important;
+}
+
+[data-baseweb="select"] * {
+    color: #121212 !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
 # Initialize selected page
 if 'selected_page' not in st.session_state:
     st.session_state.selected_page = "🏠 Dashboard"
@@ -7195,6 +7262,44 @@ if st.session_state.get('show_onboarding_quiz', False):
     onboarding_quiz_dialog()
 
 # ============= LOGO =============
+# FINAL LIGHT MODE OVERRIDE - FORCE EVERYTHING WHITE/BLACK
+st.markdown("""
+<style>
+/* NUCLEAR OVERRIDE - FORCE LIGHT MODE */
+.stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"], .main, .block-container, body {
+    background-color: #FFFFFF !important;
+    background: #FFFFFF !important;
+}
+
+[data-testid="stSidebar"], [data-testid="stSidebar"] > div:first-child {
+    background-color: #F9F9F9 !important;
+    background: #F9F9F9 !important;
+}
+
+/* Override ALL dark gradients */
+div[style*="background: linear-gradient"][style*="#1a1a2e"],
+div[style*="background: linear-gradient"][style*="#0a0a0a"],
+div[style*="background: linear-gradient"][style*="#16213e"],
+div[style*="background: linear-gradient"][style*="#000000"] {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(168, 85, 247, 0.1) 100%) !important;
+}
+
+/* ALL TEXT BLACK - MAXIMUM SPECIFICITY */
+*, *::before, *::after,
+body, p, span, div:not([class*="button"]):not([class*="Button"]), label, a, li, h1, h2, h3, h4, h5, h6,
+.stMarkdown, .stMarkdown *, [data-testid="stMarkdown"] *, [data-testid="stText"],
+[data-testid="stCaption"], [data-testid="stSidebar"] *, .element-container *,
+[data-testid="stVerticalBlock"] *, [data-testid="stHorizontalBlock"] * {
+    color: #121212 !important;
+}
+
+/* Keep button text white */
+.stButton button, .stButton button *, button[kind="primary"], button[kind="primary"] * {
+    color: #FFFFFF !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
 # Logo
 try:
     col1, col2, col3 = st.columns([1, 1, 1])
