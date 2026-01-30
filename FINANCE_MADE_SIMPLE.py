@@ -7304,6 +7304,32 @@ with st.sidebar:
             background-color: #F9F9F9 !important;
         }
         
+        /* NUCLEAR SIDEBAR TEXT - EVERY POSSIBLE SELECTOR */
+        [data-testid="stSidebar"],
+        [data-testid="stSidebar"] *,
+        [data-testid="stSidebar"] h1,
+        [data-testid="stSidebar"] h2,
+        [data-testid="stSidebar"] h3,
+        [data-testid="stSidebar"] h4,
+        [data-testid="stSidebar"] h5,
+        [data-testid="stSidebar"] h6,
+        [data-testid="stSidebar"] p,
+        [data-testid="stSidebar"] span,
+        [data-testid="stSidebar"] div,
+        [data-testid="stSidebar"] label,
+        [data-testid="stSidebar"] a,
+        [data-testid="stSidebar"] li,
+        [data-testid="stSidebar"] [data-testid="stMarkdown"],
+        [data-testid="stSidebar"] [data-testid="stMarkdown"] *,
+        section[data-testid="stSidebar"],
+        section[data-testid="stSidebar"] *,
+        .sidebar,
+        .sidebar *,
+        [data-testid="stSidebar"] .element-container,
+        [data-testid="stSidebar"] .element-container * {
+            color: #121212 !important;
+        }
+        
         /* NUCLEAR - Force ALL text elements black */
         .stApp *,
         .stApp,
@@ -7494,6 +7520,14 @@ with st.sidebar:
                 document.querySelectorAll('[data-testid="stAlert"], [data-testid="stAlert"] *, [data-baseweb="notification"], [data-baseweb="notification"] *').forEach(el => {
                     el.style.setProperty('color', '#121212', 'important');
                 });
+                
+                // NUCLEAR SIDEBAR FIX - FORCE EVERY ELEMENT BLACK
+                const sidebar = document.querySelector('[data-testid="stSidebar"]');
+                if (sidebar) {
+                    sidebar.querySelectorAll('*').forEach(el => {
+                        el.style.setProperty('color', '#121212', 'important');
+                    });
+                }
             }
             
             // Run VERY aggressively
