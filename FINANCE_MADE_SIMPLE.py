@@ -7251,43 +7251,73 @@ with st.sidebar:
     if st.session_state.light_mode:
         st.markdown("""
         <style>
-        /* LIGHT MODE - Grok's recommended colors */
+        /* ================================================
+           COMPREHENSIVE LIGHT MODE
+           ================================================ */
         
-        /* Main background and text */
+        /* Main background */
         [data-testid="stAppViewContainer"],
+        [data-testid="stApp"],
         .main,
-        .main .block-container,
-        section[data-testid="stSidebar"] {
+        .main .block-container {
             background-color: #FFFFFF !important;
         }
         
-        /* All text elements dark */
-        p, span, div, h1, h2, h3, h4, h5, h6, label, a {
-            color: #121212 !important;
-        }
-        
-        /* Sidebar specific */
-        section[data-testid="stSidebar"],
-        section[data-testid="stSidebar"] * {
+        /* Sidebar */
+        section[data-testid="stSidebar"] {
             background-color: #F9F9F9 !important;
+        }
+        
+        section[data-testid="stSidebar"] * {
             color: #121212 !important;
         }
         
-        /* Override ALL custom styled boxes */
-        div[style*="background"],
-        div[style*="linear-gradient"],
-        div[style*="rgba"] {
-            background: #F3F4F6 !important;
-            border: 1px solid #D1D5DB !important;
-            color: #111827 !important;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+        /* ALL text elements */
+        body, p, span, div, h1, h2, h3, h4, h5, h6, 
+        label, a, li, td, th, caption,
+        .stMarkdown, .stMarkdown *,
+        [data-testid="stMarkdown"],
+        [data-testid="stMarkdownContainer"] * {
+            color: #121212 !important;
         }
         
-        /* Force all nested text dark */
-        div[style*="background"] *,
-        div[style*="linear-gradient"] *,
-        div[style*="rgba"] * {
-            color: #111827 !important;
+        /* Dropdowns */
+        div[data-baseweb="select"],
+        div[data-baseweb="select"] *,
+        [data-testid="stSelectbox"] *,
+        .stSelectbox * {
+            background-color: #FFFFFF !important;
+            color: #121212 !important;
+        }
+        
+        ul[role="listbox"] li {
+            background-color: #FFFFFF !important;
+            color: #121212 !important;
+        }
+        
+        ul[role="listbox"] li:hover {
+            background-color: #F3F4F6 !important;
+        }
+        
+        /* Text inputs */
+        input[type="text"],
+        input[type="number"],
+        textarea,
+        .stTextInput input,
+        .stTextArea textarea {
+            background-color: #FFFFFF !important;
+            color: #121212 !important;
+            border: 1px solid #D1D5DB !important;
+        }
+        
+        /* Buttons - keep red/yellow */
+        .stButton button {
+            background-color: #EF4444 !important;
+            color: #FFFFFF !important;
+        }
+        
+        .stButton button:hover {
+            background-color: #DC2626 !important;
         }
         
         /* Metrics */
@@ -7300,61 +7330,120 @@ with st.sidebar:
         /* Expanders */
         .streamlit-expanderHeader {
             background-color: #F3F4F6 !important;
-            color: #111827 !important;
+            color: #121212 !important;
         }
         
-        /* Info/success/warning/error boxes */
+        /* Alert boxes */
         .stAlert {
             background-color: #F3F4F6 !important;
-            border: 1px solid #D1D5DB !important;
-            color: #111827 !important;
+            color: #121212 !important;
+        }
+        
+        .stAlert * {
+            color: #121212 !important;
+        }
+        
+        /* Tables */
+        table {
+            background-color: #FFFFFF !important;
+            color: #121212 !important;
+        }
+        
+        td, th {
+            color: #121212 !important;
+        }
+        
+        /* Custom boxes */
+        div[style*="background"] {
+            background: #F3F4F6 !important;
+            color: #121212 !important;
+        }
+        
+        div[style*="background"] * {
+            color: #121212 !important;
+        }
+        
+        /* Red accent boxes */
+        div[style*="background: #EF4444"],
+        div[style*="background-color: #EF4444"] {
+            background: #FEE2E2 !important;
+            border: 2px solid #EF4444 !important;
+            color: #7F1D1D !important;
+        }
+        
+        div[style*="background: #EF4444"] * {
+            color: #7F1D1D !important;
+        }
+        
+        /* Yellow accent boxes */
+        div[style*="background: #FBBF24"],
+        div[style*="background-color: #FBBF24"] {
+            background: #FEF3C7 !important;
+            border: 2px solid #F59E0B !important;
+            color: #78350F !important;
+        }
+        
+        div[style*="background: #FBBF24"] * {
+            color: #78350F !important;
+        }
+        
+        /* Radio & Checkbox */
+        [data-testid="stRadio"] label,
+        [data-testid="stCheckbox"] label {
+            color: #121212 !important;
+        }
+        
+        /* Tabs */
+        .stTabs [data-baseweb="tab"] {
+            color: #121212 !important;
+        }
+        
+        /* Code blocks */
+        code {
+            background-color: #F3F4F6 !important;
+            color: #121212 !important;
+        }
+        
+        /* Plotly charts */
+        .js-plotly-plot,
+        .plotly {
+            background-color: #FFFFFF !important;
+        }
+        
+        .plotly text {
+            fill: #121212 !important;
         }
         </style>
         
         <script>
-        // JavaScript auto-fix for any remaining dark boxes
-        function fixDarkBoxes() {
-            const allDivs = document.querySelectorAll('div');
-            
-            allDivs.forEach(div => {
-                const style = window.getComputedStyle(div);
-                const bg = style.backgroundColor;
-                
-                // List of dark colors to replace
-                const darkPatterns = [
-                    'rgba(0, 0, 0',
-                    'rgb(26, 26, 46)',
-                    'rgb(22, 33, 62)',
-                    'rgb(10, 10, 30)',
-                    'rgb(18, 24, 38)',
-                    'rgb(31, 41, 55)'
-                ];
-                
-                // Check if background is dark
-                let isDark = darkPatterns.some(pattern => bg.includes(pattern));
-                
-                if (isDark) {
-                    // Convert to light
+        // Fix any remaining dark elements
+        function fixLightMode() {
+            document.querySelectorAll('div').forEach(div => {
+                const bg = window.getComputedStyle(div).backgroundColor;
+                if (bg.includes('rgba(0, 0, 0') || 
+                    bg.includes('rgb(0, 0, 0') ||
+                    bg.includes('rgb(26, 26, 46)') ||
+                    bg.includes('rgb(10, 10, 30)')) {
                     div.style.backgroundColor = '#F3F4F6';
-                    div.style.border = '1px solid #D1D5DB';
-                    div.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                    div.style.color = '#111827';
-                    
-                    // Fix all nested elements
-                    div.querySelectorAll('*').forEach(child => {
-                        child.style.color = '#111827';
-                    });
+                    div.style.color = '#121212';
+                }
+            });
+            
+            document.querySelectorAll('*').forEach(el => {
+                const color = window.getComputedStyle(el).color;
+                if (color.includes('rgb(255, 255, 255)') || 
+                    color.includes('rgb(224, 224, 224)')) {
+                    el.style.color = '#121212';
                 }
             });
         }
         
-        // Run on load and after Streamlit updates
-        fixDarkBoxes();
-        setTimeout(fixDarkBoxes, 500);
-        setTimeout(fixDarkBoxes, 1000);
+        fixLightMode();
+        setTimeout(fixLightMode, 500);
+        setTimeout(fixLightMode, 1000);
+        setTimeout(fixLightMode, 2000);
         
-        // Watch for Streamlit updates
-        const observer = new MutationObserver(fixDarkBoxes);
+        const observer = new MutationObserver(fixLightMode);
         observer.observe(document.body, {
             childList: true,
             subtree: true
@@ -13293,231 +13382,273 @@ elif selected_page == "📚 Learn Hub":
         # AI coach on the side of Learn Hub (unchanged)
         render_ai_coach("Learn Hub", ticker=None, facts=None)
 
+
 elif selected_page == "📘 Glossary":
     
-    st.header("📘 Glossary")
-    st.caption("*Learn the language of investing through visual cards and interactive examples.*")
+    st.header("🎓 Finance 101: From Theory to Practice")
+    st.caption("*Bridge from Learn Hub lessons to real company analysis. See exactly how the metrics work on actual companies.*")
     
     # Show page popup
     show_page_popup(
         'finance_101',
         '🎓 Finance 101',
-        'Quick crash course on investing basics. Learn key terms, understand stocks vs bonds, and master the 5 metrics that actually matter.',
-        'Visual card system makes complex topics super easy to understand!'
+        'Your bridge from Learn Hub lessons to real analysis. Pick a company and walk through the analysis step-by-step.',
+        'See how the 5 metrics work in practice!'
     )
     
-    # ============= TOP 5 METRICS SECTION (C - moved from Company Analysis) =============
     st.markdown("---")
-    st.markdown("## 🏆 The 5 Metrics That Actually Matter")
-    st.markdown("*These are the numbers that separate winners from losers.*")
     
-    # Top 5 Metrics as visual cards (D1)
-    metrics_data = [
-        {"icon": "💰", "name": "FCF per Share Growth", 
-         "definition": "Free cash flow divided by total shares outstanding.", 
-         "why": "FCF per share accounts for dilution from stock-based comp. Total FCF can grow 20% but if shares also grow 20%, FCF/share stays flat ($1.00 → $1.00). This is the most honest growth metric.", 
-         "example": "Good: Visa — FCF grows faster than shares. Bad: Snap — heavy dilution kills per-share growth"},
+    # ============= WHAT YOU LEARNED =============
+    st.markdown("## 🎯 What You Just Learned in Learn Hub")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("""
+        **Core Concepts:**
+        - 📊 Market Mechanics (supply/demand)
+        - ⏰ Time is Your Advantage (compounding)
+        - 📈 Index Funds Work (diversification)
+        """)
+    
+    with col2:
+        st.markdown("""
+        **The 5 Metrics:**
+        - 💰 FCF per Share Growth
+        - ⚙️ Operating Income Growth  
+        - 📊 Gross Margin Trends
+        - 📈 Revenue Quality
+        - 🛡️ Competitive Moat
+        """)
+    
+    st.markdown("**Now let's see how this works on real companies. ↓**")
+    
+    st.markdown("---")
+    
+    # ============= PICK COMPANY =============
+    st.markdown("## 🏢 Pick a Company to Analyze")
+    
+    company_data = {
+        "Apple (AAPL) 🍎": {
+            "ticker": "AAPL",
+            "famous_for": "iPhone, Mac, Services - $3T market cap",
+            "fcf": "$100B annual - massive cash machine",
+            "revenue_growth": "8-10% steady growth",
+            "margins": "Gross 44%, Operating 30% (premium pricing)",
+            "moat": "Brand loyalty + ecosystem lock-in",
+            "verdict": "✅ Quality company with pricing power",
+            "key_insight": "Hardware margins that look like software",
+            "watch_for": "Services growth (30%+ margins)"
+        },
+        "Amazon (AMZN) 📦": {
+            "ticker": "AMZN",
+            "famous_for": "E-commerce + AWS cloud dominance",
+            "fcf": "$35B+ from AWS, retail breaks even",
+            "revenue_growth": "Retail 10%, AWS 20-30%",
+            "margins": "Retail <5%, AWS 30%+ - mix matters!",
+            "moat": "Distribution network + AWS ecosystem",
+            "verdict": "✅ Two businesses in one - watch the mix",
+            "key_insight": "AWS subsidizes retail expansion",
+            "watch_for": "AWS margin expansion as it matures"
+        },
+        "Microsoft (MSFT) 💻": {
+            "ticker": "MSFT",
+            "famous_for": "Office 365, Azure, Windows",
+            "fcf": "$60B annual - very predictable",
+            "revenue_growth": "Azure 25%+, Office steady",
+            "margins": "Gross 69%, Operating 42% - software!",
+            "moat": "Enterprise lock-in + network effects",
+            "verdict": "✅ Software moat = pricing power",
+            "key_insight": "Margins expand with scale",
+            "watch_for": "Azure catching up to AWS"
+        },
+        "Tesla (TSLA) ⚡": {
+            "ticker": "TSLA",
+            "famous_for": "EV leader, high growth expectations",
+            "fcf": "$5-10B annual (varies with capex)",
+            "revenue_growth": "30-50% historically, now slowing",
+            "margins": "Gross 18%, Operating 10% (good for cars!)",
+            "moat": "Supercharger network + software edge",
+            "verdict": "⚠️ Growth stock - watch trends carefully",
+            "key_insight": "Manufacturing scale improving margins",
+            "watch_for": "Competition from legacy auto + China"
+        }
+    }
+    
+    selected = st.selectbox(
+        "Choose a company:",
+        list(company_data.keys()),
+        index=0
+    )
+    
+    company = company_data[selected]
+    
+    st.markdown("---")
+    
+    # ============= COMPANY WALKTHROUGH =============
+    st.markdown(f"## 📊 {selected} Walkthrough")
+    
+    # Overview card
+    st.markdown(f"""
+    <div style="
+        background: linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%);
+        padding: 25px;
+        border-radius: 12px;
+        margin: 20px 0;
+    ">
+        <div style="font-size: 28px; font-weight: bold; margin-bottom: 15px;">{selected}</div>
+        <div style="font-size: 16px; opacity: 0.95;">
+            <strong>Famous for:</strong> {company["famous_for"]}<br>
+            <strong>Key insight:</strong> {company["key_insight"]}<br>
+            <strong>Watch for:</strong> {company["watch_for"]}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # ============= THE 5 METRICS IN ACTION =============
+    st.markdown("### 🏆 The 5 Metrics - Applied")
+    
+    with st.expander("💰 1. Free Cash Flow (FCF)", expanded=True):
+        st.markdown(f"**{company['ticker']}'s FCF:** {company['fcf']}")
+        st.markdown("""
+        **Where to find it:**
+        - Company Analysis → Financial Health
+        - Look for: "Operating Cash Flow minus Capex"
         
-        {"icon": "⚙️", "name": "Operating Income Growth", 
-         "definition": "Profit from core business before interest and taxes.", 
-         "why": "Shows real operating leverage. Less noisy than net income because it excludes one-time items and financial engineering.", 
-         "example": "Good: Amazon — massive operating leverage as AWS scales. Bad: WeWork — burned cash despite revenue growth"},
+        **What good looks like:**
+        - ✅ Growing year-over-year
+        - ✅ FCF > Net Income (quality)
+        - ✅ Covers dividends + buybacks
+        """)
+    
+    with st.expander("⚙️ 2. Operating Income Growth"):
+        st.markdown(f"**{company['ticker']}'s Revenue:** {company['revenue_growth']}")
+        st.markdown("""
+        **Where to find it:**
+        - Company Analysis → Income Statement
+        - Look for: "Operating Income" trend
         
-        {"icon": "📊", "name": "Gross Margin Growth", 
-         "definition": "Revenue minus cost of goods sold, as a percentage.", 
-         "why": "Rising gross margins indicate pricing power and efficiency. Especially critical for software (should be 70%+) and consumer brands.", 
-         "example": "Good: Microsoft — software margins expand with scale. Bad: Peloton — hardware margins collapsed under competition"},
+        **What good looks like:**
+        - ✅ Growth faster than revenue (leverage!)
+        - ✅ Consistent, not lumpy
+        - ✅ Positive even in downturns
+        """)
+    
+    with st.expander("📊 3. Margin Trends"):
+        st.markdown(f"**{company['ticker']}'s Margins:** {company['margins']}")
+        st.markdown("""
+        **Where to find it:**
+        - Company Analysis → Margins chart
+        - Gross = (Revenue - COGS) / Revenue
+        - Operating = Operating Income / Revenue
         
-        {"icon": "📈", "name": "Revenue Growth", 
-         "definition": "Total money coming in from customer sales.", 
-         "why": "Important signal of demand, but can be 'bought' with unsustainable discounting or low-quality growth. Always check profitability too.", 
-         "example": "Good: NVIDIA — revenue explosion from AI chips. Bad: Uber (early years) — grew revenue while burning billions"},
+        **What good looks like:**
+        - ✅ Expanding over time
+        - ✅ Software: 70%+ gross
+        - ✅ Hardware: 30-50% gross
+        - ✅ Compare to competitors
+        """)
+    
+    with st.expander("📈 4. Revenue Quality"):
+        st.markdown("""
+        **Questions to ask:**
+        - Is it growing consistently? ✅
+        - Is it one-time or recurring? (recurring = better)
+        - Is growth accelerating or slowing?
         
-        {"icon": "🛡️", "name": "Quick Ratio", 
-         "definition": "(Cash + receivables) / current liabilities. Excludes inventory.", 
-         "why": "Measures short-term liquidity and crisis survival. Quick ratio > 1 means the company can pay bills without selling inventory. Essential for risk management.", 
-         "example": "Good: Apple — ratio > 1, can survive any storm. Bad: Startups pre-profitability — often < 0.5, vulnerable to funding freezes"}
+        **Where to find it:**
+        - Company Analysis → Revenue chart
+        """)
+    
+    with st.expander("🛡️ 5. Competitive Moat"):
+        st.markdown(f"**{company['ticker']}'s Moat:** {company['moat']}")
+        st.markdown("""
+        **Questions to ask:**
+        - Can competitors copy this easily? (NO = moat ✅)
+        - Does the company have pricing power? ✅
+        - Customer lock-in / switching costs? ✅
+        - Network effects or economies of scale? ✅
+        
+        **Where to research:**
+        - Market Intelligence tab
+        - Company's 10-K annual report
+        """)
+    
+    st.markdown(f"**Verdict:** {company['verdict']}")
+    
+    st.markdown("---")
+    
+    # ============= ANALYSIS CHECKLIST =============
+    st.markdown("## ✅ Your Step-by-Step Checklist")
+    st.caption("*Use this for ANY company you analyze*")
+    
+    checklist = [
+        "📊 Revenue trend - growing consistently?",
+        "💰 FCF trend - healthy cash flow?",
+        "📈 Margins - expanding or stable?",
+        "⚙️ Operating income - growing faster than revenue?",
+        "🛡️ Moat - competitive advantages?",
+        "📰 Recent news - any risks or catalysts?",
+        "💡 Would I own this for 5+ years?"
     ]
     
-    # Display as vertical cards (ranked from most to least important)
-    for i, metric in enumerate(metrics_data):
-        st.markdown(f"""
-        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 20px; border-radius: 12px; margin-bottom: 15px; border-left: 4px solid #FF4444;">
-            <div style="font-size: 28px; margin-bottom: 8px;">{metric['icon']}</div>
-            <h4 style="color: #FFFFFF; margin: 0 0 8px 0;">#{i+1}: {metric['name']}</h4>
-            <p style="color: #B0B0B0; margin: 0 0 8px 0; font-size: 14px;">{metric['definition']}</p>
-            <p style="color: #FF6B6B; margin: 0 0 8px 0; font-size: 13px;"><strong>Why it matters:</strong> {metric['why']}</p>
-            <p style="color: #4ECDC4; margin: 0; font-size: 12px;"><em>{metric['example']}</em></p>
+    for item in checklist:
+        st.checkbox(item, key=f"check_{item[:10]}")
+    
+    st.markdown("---")
+    
+    # ============= CALL TO ACTION =============
+    st.markdown("## 🚀 Ready to Try It Yourself?")
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    
+    with col2:
+        st.markdown("""
+        <div style="
+            background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
+            padding: 35px;
+            border-radius: 15px;
+            text-align: center;
+        ">
+            <div style="font-size: 22px; font-weight: bold; margin-bottom: 20px;">
+                You've learned the theory ✅<br>
+                You've seen real examples ✅<br>
+                Now analyze your first stock! 🎯
+            </div>
         </div>
         """, unsafe_allow_html=True)
+        
+        st.markdown("")
+        
+        if st.button("📊 Go to Company Analysis", type="primary", use_container_width=True):
+            st.session_state.selected_page = "📊 Company Analysis"
+            st.rerun()
+        
+        st.caption("*All the tools are ready for you*")
     
-    # Micro-quiz for Top 5 Metrics (E)
-    with st.expander("📝 Quick Quiz: Test Your Knowledge"):
-        quiz_answer = st.radio(
-            "Which metric best accounts for shareholder dilution from stock-based compensation?",
-            ["Total Free Cash Flow", "Revenue Growth", "FCF per Share", "Operating Income"],
-            key="finance101_quiz1"
-        )
-        if st.button("Check Answer", key="check_quiz1"):
-            if quiz_answer == "FCF per Share":
-                st.success("Correct! FCF per share divides total FCF by shares outstanding, so you see the true per-share growth after dilution.")
-            else:
-                st.error("Not quite. FCF per share is the answer - it accounts for dilution, unlike total FCF which can grow while per-share value stays flat.")
-    
-    # ============= VISUAL DIAGRAMS (D2) =============
     st.markdown("---")
-    st.markdown("## 📊 How Money Flows Through a Business")
     
-    # Revenue to Profit diagram
-    st.markdown("""
-    <div style="background: #1a1a2e; padding: 25px; border-radius: 12px; margin-bottom: 20px;">
-        <h4 style="color: #FFFFFF; text-align: center; margin-bottom: 20px;">The Profit Waterfall</h4>
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
-            <div style="text-align: center; flex: 1; min-width: 100px;">
-                <div style="background: #4ECDC4; padding: 15px; border-radius: 8px; margin-bottom: 5px;">
-                    <span style="color: #000; font-weight: bold;">Revenue</span>
-                </div>
-                <span style="color: #888; font-size: 12px;">$100</span>
-            </div>
-            <div style="color: #888; font-size: 20px;">→</div>
-            <div style="text-align: center; flex: 1; min-width: 100px;">
-                <div style="background: #FFD93D; padding: 15px; border-radius: 8px; margin-bottom: 5px;">
-                    <span style="color: #000; font-weight: bold;">Gross Profit</span>
-                </div>
-                <span style="color: #888; font-size: 12px;">$60 (- costs)</span>
-            </div>
-            <div style="color: #888; font-size: 20px;">→</div>
-            <div style="text-align: center; flex: 1; min-width: 100px;">
-                <div style="background: #FF6B6B; padding: 15px; border-radius: 8px; margin-bottom: 5px;">
-                    <span style="color: #FFF; font-weight: bold;">Operating Income</span>
-                </div>
-                <span style="color: #888; font-size: 12px;">$30 (- expenses)</span>
-            </div>
-            <div style="color: #888; font-size: 20px;">→</div>
-            <div style="text-align: center; flex: 1; min-width: 100px;">
-                <div style="background: #9D4EDD; padding: 15px; border-radius: 8px; margin-bottom: 5px;">
-                    <span style="color: #FFF; font-weight: bold;">Net Income</span>
-                </div>
-                <span style="color: #888; font-size: 12px;">$20 (- taxes)</span>
-            </div>
-            <div style="color: #888; font-size: 20px;">→</div>
-            <div style="text-align: center; flex: 1; min-width: 100px;">
-                <div style="background: #00C853; padding: 15px; border-radius: 8px; margin-bottom: 5px;">
-                    <span style="color: #000; font-weight: bold;">Free Cash Flow</span>
-                </div>
-                <span style="color: #888; font-size: 12px;">$15 (actual cash)</span>
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    # ============= QUICK REFERENCE =============
+    with st.expander("📚 Quick Metrics Reference Card"):
+        st.markdown("""
+        **Keep this handy:**
+        
+        💰 **FCF** = Operating Cash Flow - Capex  
+        Good: Growing, > Net Income
+        
+        ⚙️ **Operating Income** = Revenue - COGS - OpEx  
+        Good: Growing faster than revenue
+        
+        📊 **Gross Margin** = (Revenue - COGS) / Revenue  
+        Good: Software 70%+, Hardware 30-50%
+        
+        📈 **Operating Margin** = Operating Income / Revenue  
+        Good: Expanding over time
+        
+        💸 **P/E Ratio** = Price / Earnings  
+        Good: <15 value, 15-25 fair, >25 growth
+        """)
     
-    # Stock = slice of business diagram
-    st.markdown("""
-    <div style="background: #1a1a2e; padding: 25px; border-radius: 12px; margin-bottom: 20px;">
-        <h4 style="color: #FFFFFF; text-align: center; margin-bottom: 15px;">What is a Stock?</h4>
-        <div style="display: flex; align-items: center; justify-content: center; gap: 20px; flex-wrap: wrap;">
-            <div style="text-align: center;">
-                <div style="font-size: 50px;">🏢</div>
-                <p style="color: #888; margin: 5px 0;">Company</p>
-            </div>
-            <div style="font-size: 30px; color: #888;">=</div>
-            <div style="text-align: center;">
-                <div style="font-size: 50px;">🍕🍕🍕🍕</div>
-                <p style="color: #888; margin: 5px 0;">Millions of Slices</p>
-            </div>
-            <div style="font-size: 30px; color: #888;">→</div>
-            <div style="text-align: center;">
-                <div style="font-size: 50px;">🍕</div>
-                <p style="color: #4ECDC4; margin: 5px 0; font-weight: bold;">1 Share = 1 Slice</p>
-            </div>
-        </div>
-        <p style="color: #B0B0B0; text-align: center; margin-top: 15px; font-size: 14px;">When you buy a stock, you own a tiny piece of a real business.</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Risk spectrum meter
-    st.markdown("""
-    <div style="background: #1a1a2e; padding: 25px; border-radius: 12px; margin-bottom: 20px;">
-        <h4 style="color: #FFFFFF; text-align: center; margin-bottom: 15px;">Risk Spectrum</h4>
-        <div style="display: flex; justify-content: space-between; align-items: center; background: linear-gradient(90deg, #00C853 0%, #FFD93D 50%, #FF4444 100%); padding: 15px; border-radius: 8px;">
-            <div style="text-align: center;">
-                <span style="color: #000; font-weight: bold;">Treasury Bonds</span><br>
-                <span style="color: #000; font-size: 12px;">~4% return</span>
-            </div>
-            <div style="text-align: center;">
-                <span style="color: #000; font-weight: bold;">S&P 500 ETF</span><br>
-                <span style="color: #000; font-size: 12px;">~10% avg</span>
-            </div>
-            <div style="text-align: center;">
-                <span style="color: #FFF; font-weight: bold;">Individual Stocks</span><br>
-                <span style="color: #FFF; font-size: 12px;">Varies wildly</span>
-            </div>
-            <div style="text-align: center;">
-                <span style="color: #FFF; font-weight: bold;">Meme Stocks</span><br>
-                <span style="color: #FFF; font-size: 12px;">Casino 🎰</span>
-            </div>
-        </div>
-        <p style="color: #B0B0B0; text-align: center; margin-top: 10px; font-size: 13px;">Higher potential returns = Higher risk of loss</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # ============= INTERACTIVE WIDGETS (D3) =============
-    st.markdown("---")
-    st.markdown("## 🎮 Try It: Interactive Learning")
-    
-    # What if price drops widget
-    st.markdown("### What if the price drops?")
-    drop_pct = st.slider("Simulate a price drop:", 0, 50, 20, 5, key="price_drop_slider")
-    initial_value = 10000
-    new_value = initial_value * (1 - drop_pct / 100)
-    recovery_needed = ((initial_value / new_value) - 1) * 100
-    
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Starting Value", f"${initial_value:,.0f}")
-    with col2:
-        st.metric("After Drop", f"${new_value:,.0f}", f"-{drop_pct}%")
-    with col3:
-        st.metric("Recovery Needed", f"+{recovery_needed:.1f}%", help="To get back to your starting value")
-    
-    st.caption(f"*If your portfolio drops {drop_pct}%, you need a {recovery_needed:.1f}% gain just to break even. This is why avoiding big losses matters!*")
-    
-    # Compound interest widget
-    st.markdown("### The Power of Compounding")
-    years_compound = st.slider("Years invested:", 1, 30, 10, key="compound_years")
-    annual_return = st.slider("Annual return (%):", 1, 20, 8, key="compound_return")
-    
-    initial_invest = 10000
-    final_value = initial_invest * ((1 + annual_return / 100) ** years_compound)
-    total_gain = final_value - initial_invest
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        st.metric("Initial Investment", f"${initial_invest:,.0f}")
-    with col2:
-        st.metric(f"After {years_compound} Years", f"${final_value:,.0f}", f"+${total_gain:,.0f}")
-    
-    st.caption(f"*At {annual_return}% annual return, your money grows {final_value/initial_invest:.1f}x in {years_compound} years. Time is your biggest advantage!*")
-    
-    # ============= GLOSSARY SECTION =============
-    st.markdown("---")
-    st.markdown("## 📖 Full Glossary")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("### 💰 Income & Cash Flow")
-        for term in ["FCF After SBC", "Revenue", "Operating Income", "Net Income", "CAGR", "FCF per Share"]:
-            with st.expander(term):
-                st.write(GLOSSARY[term])
-    
-    with col2:
-        st.markdown("### 📊 Valuation & Risk")
-        for term in ["P/E Ratio", "P/S Ratio", "Market Cap", "Beta", "Debt-to-Equity", "Quick Ratio"]:
-            with st.expander(term):
-                st.write(GLOSSARY[term])
-    
-    # AI Coach integration
     render_ai_coach("Finance 101", ticker=None, facts=None)
 
 
