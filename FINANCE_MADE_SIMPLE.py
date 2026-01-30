@@ -8,6 +8,16 @@ from datetime import datetime, timedelta
 import random
 from difflib import get_close_matches
 import numpy as np
+# Theme color helper
+def get_text_color():
+    """Returns text color based on current theme"""
+    return "#121212" if st.session_state.get('light_mode', False) else "#FFFFFF"
+
+def get_subtitle_color():
+    """Returns subtitle color based on current theme"""  
+    return "#6B7280" if st.session_state.get('light_mode', False) else "#888888"
+
+
 
 # ============= CONFIGURATION =============
 import os
