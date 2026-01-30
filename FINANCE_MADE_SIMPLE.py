@@ -1465,7 +1465,7 @@ else:
     
     /* Fix text visibility ONLY for actual dark cards in light mode */
     div[style*="background: #1a1a1a"],
-    div[style*="background: linear-gradient(135deg, #1a1a2e"] {
+    div[style*="background: linear-gradient(135deg, #1a1a2e)"] {
         color: #FFFFFF !important;
     }
     
@@ -1482,7 +1482,6 @@ else:
         color: #000000 !important;
     }
 
-    p, div, span, li { color: #000000 !important; }
     </style>
     """, unsafe_allow_html=True)
 
