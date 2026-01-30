@@ -92,12 +92,14 @@ input, textarea, select {
     border: 1px solid #D1D5DB !important;
 }
 
-/* Dropdowns */
-[data-baseweb="select"] {
+/* Dropdowns - only apply white background to non-navigation dropdowns */
+.main [data-baseweb="select"],
+[data-testid="stSidebar"] [data-baseweb="select"] {
     background-color: #FFFFFF !important;
 }
 
-[data-baseweb="select"] * {
+.main [data-baseweb="select"] *,
+[data-testid="stSidebar"] [data-baseweb="select"] * {
     color: #121212 !important;
 }
 </style>
@@ -260,7 +262,7 @@ def show_page_popup(page_id, title, summary, cool_feature):
     def page_intro_dialog():
         # Content with description and cool feature
         st.markdown(f"""
-        <p style="font-size: 16px; line-height: 1.7; margin-bottom: 20px; color: #E0E0E0;">{summary}</p>
+        <p style="font-size: 16px; line-height: 1.7; margin-bottom: 20px; color: #FFFFFF;">{summary}</p>
         <div style="
             background: linear-gradient(135deg, rgba(255, 75, 75, 0.3), rgba(255, 100, 100, 0.2)); 
             padding: 15px; 
@@ -268,7 +270,7 @@ def show_page_popup(page_id, title, summary, cool_feature):
             border-left: 4px solid #ff4b4b;
         ">
             <p style="margin: 0; font-size: 15px; color: #FFFFFF;">
-                🌟 <strong style="color: #ff4b4b;">Cool Feature:</strong> {cool_feature}
+                🌟 <strong style="color: #FFD700;">Cool Feature:</strong> {cool_feature}
             </p>
         </div>
         """, unsafe_allow_html=True)
@@ -7163,9 +7165,9 @@ def nav_action_changed():
 # Create columns for header with navigation tabs + auth buttons
 # Layout: [Dashboard] [Learn▼] [Analyze▼] [Action▼] [---spacer---] [Sign Up] [Sign In] [VIP]
 if st.session_state.get("is_logged_in"):
-    header_cols = st.columns([1.3, 1.3, 1.3, 1.3, 2, 1.5, 1.3])
+    header_cols = st.columns([1.3, 1.5, 1.8, 1.5, 1.5, 1.5, 1.3])
 else:
-    header_cols = st.columns([1.3, 1.3, 1.3, 1.3, 1, 1.2, 1.2, 1.5])
+    header_cols = st.columns([1.3, 1.5, 1.8, 1.5, 0.8, 1.2, 1.2, 1.5])
 
 # Navigation tabs on the LEFT
 with header_cols[0]:
@@ -7338,6 +7340,17 @@ section[data-testid="stSidebar"] .stMarkdown * {
     color: #121212 !important;
 }
 
+/* EXCEPTION: Navigation dropdowns should have WHITE text on RED background */
+[data-testid="stHorizontalBlock"] [data-baseweb="select"],
+[data-testid="stHorizontalBlock"] [data-baseweb="select"] *,
+[data-testid="stHorizontalBlock"] [data-baseweb="select"] span,
+[data-testid="stHorizontalBlock"] [data-baseweb="select"] div,
+[data-testid="stHorizontalBlock"] [data-baseweb="select"] input,
+[data-testid="stHorizontalBlock"] [data-baseweb="select"] svg {
+    color: #FFFFFF !important;
+    fill: #FFFFFF !important;
+}
+
 /* Keep button text white */
 .stButton button, .stButton button *, button[kind="primary"], button[kind="primary"] * {
     color: #FFFFFF !important;
@@ -7363,6 +7376,21 @@ with col2:
     st.caption("FMP Premium")
 
 
+# ============= SESSION STATE INITIALIZATION =============
+# Initialize selected page in session state if not exists
+if 'selected_page' not in st.session_state:
+    st.session_state.selected_page = "🏠 Dashboard"
+
+# Initialize pinned tickers
+if 'pinned_tickers' not in st.session_state:
+    st.session_state.pinned_tickers = []
+
+# Initialize last visited tracking
+if 'last_ticker' not in st.session_state:
+    st.session_state.last_ticker = None
+if 'last_tab' not in st.session_state:
+    st.session_state.last_tab = None
+
 # ============= VERTICAL SIDEBAR (Simplified) =============
 with st.sidebar:
     st.markdown("## ⚙️ Settings")
@@ -7380,32 +7408,7 @@ with st.sidebar:
     )
     st.session_state.years_of_history = selected_timeline
     
-    st.markdown("---")
-
-    st.markdown("---")
-    
-
-    
-    
-    # Initialize selected page in session state if not exists
-    if 'selected_page' not in st.session_state:
-        st.session_state.selected_page = "🏠 Dashboard"
-    
-    # Initialize pinned tickers
-    if 'pinned_tickers' not in st.session_state:
-        st.session_state.pinned_tickers = []
-    
-    # Initialize last visited tracking
-    if 'last_ticker' not in st.session_state:
-        st.session_state.last_ticker = None
-    if 'last_tab' not in st.session_state:
-        st.session_state.last_tab = None
-    
-    # Quick Navigation (compact version)
-    
-    st.markdown("---")
-    
-    # ============= MARKET SENTIMENT (Below Action Group) =============
+    # ============= UNHINGED MODE (Right below Timeline) =============
     st.markdown("### 🔥 Settings")
     
     # Initialize unhinged_mode if not exists
@@ -7430,8 +7433,9 @@ with st.sidebar:
             save_user_progress()
             st.rerun()
     
-    # ============= AUTHENTICATION =============
     st.markdown("---")
+
+    
 def render_technical_quick_guide(price_data, ticker):
     """Render compact technical quick guide with mini visual examples"""
     with st.expander("📊 Technical Quick Guide (simple examples)"):
