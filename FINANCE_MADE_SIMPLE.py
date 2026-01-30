@@ -7406,6 +7406,23 @@ with st.sidebar:
         div[style*="background: linear-gradient"] * {
             color: #1E3A8A !important;
         }
+        
+        /* Streamlit info/alert boxes - FORCE BLACK TEXT */
+        [data-testid="stAlert"],
+        [data-testid="stAlert"] *,
+        .stAlert,
+        .stAlert *,
+        [data-testid="stNotification"],
+        [data-testid="stNotification"] *,
+        .element-container [data-testid="stMarkdownContainer"] {
+            color: #121212 !important;
+        }
+        
+        /* Info box specifically */
+        [data-testid="stAlert"][data-baseweb="notification"],
+        [data-testid="stAlert"][data-baseweb="notification"] * {
+            color: #121212 !important;
+        }
         </style>
         
         <script>
@@ -7471,6 +7488,11 @@ with st.sidebar:
                 
                 document.querySelectorAll('.stRadio label').forEach(label => {
                     label.style.setProperty('color', '#121212', 'important');
+                });
+                
+                // FORCE ALERT/INFO BOX TEXT BLACK
+                document.querySelectorAll('[data-testid="stAlert"], [data-testid="stAlert"] *, [data-baseweb="notification"], [data-baseweb="notification"] *').forEach(el => {
+                    el.style.setProperty('color', '#121212', 'important');
                 });
             }
             
