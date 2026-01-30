@@ -7108,7 +7108,7 @@ with header_cols[0]:
 with header_cols[1]:
     st.selectbox(
         "Learn",
-        ["🏠 Start Here", "📚 Learn Hub", "📘 Glossary", "🧠 Risk Quiz"],
+        ["🏠 Start Here", "🧠 Risk Quiz", "📚 Learn Hub", "📘 Glossary"],
         key="nav_learn_select",
         label_visibility="collapsed",
         on_change=nav_learn_changed
@@ -7251,76 +7251,63 @@ with st.sidebar:
     if st.session_state.light_mode:
         st.markdown("""
         <style>
-        /* ================================================
-           COMPREHENSIVE LIGHT MODE
-           ================================================ */
+        /* NUCLEAR LIGHT MODE - FORCE ALL TEXT BLACK */
         
-        /* Main background */
+        /* Backgrounds white */
         [data-testid="stAppViewContainer"],
         [data-testid="stApp"],
         .main,
-        .main .block-container {
+        .main .block-container,
+        body {
             background-color: #FFFFFF !important;
         }
         
-        /* Sidebar */
         section[data-testid="stSidebar"] {
             background-color: #F9F9F9 !important;
         }
         
+        /* FORCE ALL TEXT BLACK - NUCLEAR */
+        * {
+            color: #121212 !important;
+        }
+        
+        /* Sidebar text black */
         section[data-testid="stSidebar"] * {
             color: #121212 !important;
         }
         
-        /* ALL text elements */
-        body, p, span, div, h1, h2, h3, h4, h5, h6, 
-        label, a, li, td, th, caption,
+        /* Text elements black */
+        body, p, span, div, h1, h2, h3, h4, h5, h6,
+        label, a, li, td, th, caption, strong, em, b, i,
         .stMarkdown, .stMarkdown *,
-        [data-testid="stMarkdown"],
-        [data-testid="stMarkdownContainer"] * {
+        [data-testid="stMarkdown"] *,
+        [data-testid="stMarkdownContainer] * {
             color: #121212 !important;
+        }
+        
+        /* Inputs */
+        input, textarea, select {
+            background-color: #FFFFFF !important;
+            color: #121212 !important;
+            border: 1px solid #D1D5DB !important;
         }
         
         /* Dropdowns */
         div[data-baseweb="select"],
         div[data-baseweb="select"] *,
         [data-testid="stSelectbox"] *,
-        .stSelectbox * {
-            background-color: #FFFFFF !important;
-            color: #121212 !important;
-        }
-        
         ul[role="listbox"] li {
             background-color: #FFFFFF !important;
             color: #121212 !important;
         }
         
-        ul[role="listbox"] li:hover {
-            background-color: #F3F4F6 !important;
-        }
-        
-        /* Text inputs */
-        input[type="text"],
-        input[type="number"],
-        textarea,
-        .stTextInput input,
-        .stTextArea textarea {
-            background-color: #FFFFFF !important;
-            color: #121212 !important;
-            border: 1px solid #D1D5DB !important;
-        }
-        
-        /* Buttons - keep red/yellow */
+        /* Buttons - keep red */
         .stButton button {
             background-color: #EF4444 !important;
             color: #FFFFFF !important;
         }
         
-        .stButton button:hover {
-            background-color: #DC2626 !important;
-        }
-        
-        /* Metrics */
+        /* Metrics black text */
         [data-testid="stMetricValue"],
         [data-testid="stMetricLabel"],
         [data-testid="stMetricDelta"] {
@@ -7333,27 +7320,39 @@ with st.sidebar:
             color: #121212 !important;
         }
         
-        /* Alert boxes */
-        .stAlert {
+        /* Alerts - light backgrounds, dark text */
+        .stAlert, .stAlert * {
             background-color: #F3F4F6 !important;
             color: #121212 !important;
         }
         
-        .stAlert * {
-            color: #121212 !important;
+        .stSuccess, .stSuccess * {
+            background-color: #D1FAE5 !important;
+            color: #065F46 !important;
+        }
+        
+        .stWarning, .stWarning * {
+            background-color: #FEF3C7 !important;
+            color: #78350F !important;
+        }
+        
+        .stError, .stError * {
+            background-color: #FEE2E2 !important;
+            color: #7F1D1D !important;
+        }
+        
+        .stInfo, .stInfo * {
+            background-color: #DBEAFE !important;
+            color: #1E3A8A !important;
         }
         
         /* Tables */
-        table {
+        table, table * {
             background-color: #FFFFFF !important;
             color: #121212 !important;
         }
         
-        td, th {
-            color: #121212 !important;
-        }
-        
-        /* Custom boxes */
+        /* Custom boxes - light background, dark text */
         div[style*="background"] {
             background: #F3F4F6 !important;
             color: #121212 !important;
@@ -7363,91 +7362,88 @@ with st.sidebar:
             color: #121212 !important;
         }
         
-        /* Red accent boxes */
-        div[style*="background: #EF4444"],
-        div[style*="background-color: #EF4444"] {
+        /* Red accent boxes - keep red but readable */
+        div[style*="#EF4444"] {
             background: #FEE2E2 !important;
             border: 2px solid #EF4444 !important;
             color: #7F1D1D !important;
         }
         
-        div[style*="background: #EF4444"] * {
+        div[style*="#EF4444"] * {
             color: #7F1D1D !important;
         }
         
-        /* Yellow accent boxes */
-        div[style*="background: #FBBF24"],
-        div[style*="background-color: #FBBF24"] {
+        /* Yellow accent boxes - keep yellow but readable */
+        div[style*="#FBBF24"] {
             background: #FEF3C7 !important;
             border: 2px solid #F59E0B !important;
             color: #78350F !important;
         }
         
-        div[style*="background: #FBBF24"] * {
+        div[style*="#FBBF24"] * {
             color: #78350F !important;
         }
         
-        /* Radio & Checkbox */
-        [data-testid="stRadio"] label,
-        [data-testid="stCheckbox"] label {
-            color: #121212 !important;
+        /* Blue gradient boxes - readable */
+        div[style*="linear-gradient"][style*="blue"],
+        div[style*="#1E3A8A"],
+        div[style*="#3B82F6"] {
+            background: #DBEAFE !important;
+            border: 2px solid #3B82F6 !important;
+            color: #1E3A8A !important;
         }
         
-        /* Tabs */
-        .stTabs [data-baseweb="tab"] {
-            color: #121212 !important;
+        div[style*="linear-gradient"][style*="blue"] *,
+        div[style*="#1E3A8A"] *,
+        div[style*="#3B82F6"] * {
+            color: #1E3A8A !important;
         }
         
-        /* Code blocks */
-        code {
-            background-color: #F3F4F6 !important;
-            color: #121212 !important;
-        }
-        
-        /* Plotly charts */
-        .js-plotly-plot,
-        .plotly {
-            background-color: #FFFFFF !important;
-        }
-        
-        .plotly text {
-            fill: #121212 !important;
+        /* Captions slightly gray but readable */
+        .stCaptionContainer,
+        .stCaption,
+        caption {
+            color: #6B7280 !important;
         }
         </style>
         
         <script>
-        // Fix any remaining dark elements
-        function fixLightMode() {
-            document.querySelectorAll('div').forEach(div => {
-                const bg = window.getComputedStyle(div).backgroundColor;
-                if (bg.includes('rgba(0, 0, 0') || 
-                    bg.includes('rgb(0, 0, 0') ||
-                    bg.includes('rgb(26, 26, 46)') ||
-                    bg.includes('rgb(10, 10, 30)')) {
-                    div.style.backgroundColor = '#F3F4F6';
-                    div.style.color = '#121212';
-                }
-            });
-            
+        // Nuclear force ALL text black
+        function forceBlackText() {
             document.querySelectorAll('*').forEach(el => {
                 const color = window.getComputedStyle(el).color;
-                if (color.includes('rgb(255, 255, 255)') || 
-                    color.includes('rgb(224, 224, 224)')) {
-                    el.style.color = '#121212';
+                // If white or light, make black
+                if (color.includes('255, 255, 255') ||
+                    color.includes('224, 224, 224')) {
+                    el.style.setProperty('color', '#121212', 'important');
+                }
+                
+                const bg = window.getComputedStyle(el).backgroundColor;
+                if (bg.includes('0, 0, 0') || bg.includes('26, 26, 46')) {
+                    // Don't change accent colors
+                    if (!bg.includes('239, 68, 68') && !bg.includes('251, 191, 36')) {
+                        el.style.setProperty('background-color', '#F3F4F6', 'important');
+                    }
                 }
             });
         }
         
-        fixLightMode();
-        setTimeout(fixLightMode, 500);
-        setTimeout(fixLightMode, 1000);
-        setTimeout(fixLightMode, 2000);
+        // Run aggressively
+        forceBlackText();
+        setTimeout(forceBlackText, 100);
+        setTimeout(forceBlackText, 300);
+        setTimeout(forceBlackText, 500);
+        setTimeout(forceBlackText, 1000);
+        setTimeout(forceBlackText, 2000);
         
-        const observer = new MutationObserver(fixLightMode);
-        observer.observe(document.body, {
+        // Watch changes
+        new MutationObserver(() => setTimeout(forceBlackText, 50)).observe(document.body, {
             childList: true,
-            subtree: true
+            subtree: true,
+            attributes: true
         });
+        
+        document.addEventListener('scroll', forceBlackText);
         </script>
         """, unsafe_allow_html=True)
     
