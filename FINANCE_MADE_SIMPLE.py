@@ -2503,9 +2503,14 @@ def show_first_time_welcome():
     if st.session_state.get('has_seen_welcome'):
         return False
     
-    st.markdown("""
+    # Dynamic colors based on theme
+    text_color = "#121212" if st.session_state.get('light_mode', False) else "#FFF"
+    subtitle_color = "#6B7280" if st.session_state.get('light_mode', False) else "#888"
+    box_bg = "linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(168, 85, 247, 0.1) 100%)" if st.session_state.get('light_mode', False) else "linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)"
+    
+    st.markdown(f"""
     <div style="
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        background: {box_bg};
         border: 2px solid #ff4b4b;
         border-radius: 20px;
         padding: 30px;
@@ -2513,11 +2518,11 @@ def show_first_time_welcome():
         margin: 20px 0;
     ">
         <div style="font-size: 48px; margin-bottom: 15px;">👋</div>
-        <h2 style="color: #FFF; margin-bottom: 10px;">Welcome to Finance Made Simple!</h2>
-        <p style="color: #888; font-size: 16px; margin-bottom: 20px;">
+        <h2 style="color: {text_color}; margin-bottom: 10px;">Welcome to Finance Made Simple!</h2>
+        <p style="color: {subtitle_color}; font-size: 16px; margin-bottom: 20px;">
             Your personal stock research assistant. No jargon, just clarity.
         </p>
-        <div style="text-align: left; max-width: 400px; margin: 0 auto; color: #FFF;">
+        <div style="text-align: left; max-width: 400px; margin: 0 auto; color: {text_color};">
             <p>✅ <strong>Dashboard</strong> - Pin stocks to track</p>
             <p>✅ <strong>Company Analysis</strong> - Deep dive into any stock</p>
             <p>✅ <strong>Risk Quiz</strong> - Find your investor profile</p>
@@ -7289,62 +7294,58 @@ with st.sidebar:
             background-color: #F9F9F9 !important;
         }
         
-        /* ALL text black - NUCLEAR */
+        /* NUCLEAR - Force ALL text elements black */
+        .stApp *,
         .stApp,
-        .stApp * {
+        [data-testid="stAppViewContainer"] *,
+        .main *,
+        body *,
+        h1, h2, h3, h4, h5, h6,
+        p, span, div, label, a, li,
+        .stMarkdown, .stMarkdown *,
+        [data-testid="stMarkdown"] *,
+        [data-testid="stSidebar"] *,
+        [data-testid="stText"],
+        [data-testid="stCaption"],
+        .st-emotion-cache-* {
             color: #121212 !important;
         }
         
-        /* Sidebar text */
-        [data-testid="stSidebar"],
-        [data-testid="stSidebar"] * {
+        /* Override ANY inline styles with attribute selector */
+        *[style*="color: #FFF"],
+        *[style*="color:#FFF"],
+        *[style*="color: #fff"],
+        *[style*="color:#fff"],
+        *[style*="color: white"],
+        *[style*="color:white"],
+        *[style*="color: #FFFFFF"],
+        *[style*="color:#FFFFFF"] {
             color: #121212 !important;
         }
         
-        /* Markdown text */
-        .stMarkdown,
-        .stMarkdown * {
+        /* Streamlit title component */
+        .stTitle, .stTitle *, h1.stTitle {
             color: #121212 !important;
         }
         
-        /* Headers - override inline styles */
-        h1, h2, h3, h4, h5, h6 {
-            color: #121212 !important;
+        /* Streamlit caption component */
+        .stCaption, .stCaption * {
+            color: #6B7280 !important;
         }
         
-        h1[style*="color"],
-        h2[style*="color"],
-        h3[style*="color"],
-        h4[style*="color"],
-        h5[style*="color"],
-        h6[style*="color"] {
-            color: #121212 !important;
-        }
-        
-        /* Paragraphs and spans - override inline styles */
-        p, span, div, label {
-            color: #121212 !important;
-        }
-        
-        p[style*="color"],
-        span[style*="color"],
-        div[style*="color"] {
-            color: #121212 !important;
-        }
-        
-        /* RADIO BUTTONS - FORCE LABELS BLACK */
+        /* RADIO BUTTONS - super specific */
         [data-testid="stRadio"],
         [data-testid="stRadio"] *,
         [data-testid="stRadio"] label,
+        [data-testid="stRadio"] p,
+        [data-testid="stRadio"] span,
+        [data-testid="stRadio"] div,
+        [role="radiogroup"],
+        [role="radiogroup"] *,
+        [role="radiogroup"] label,
         .stRadio,
         .stRadio *,
         .stRadio label {
-            color: #121212 !important;
-        }
-        
-        /* Radio button text specifically */
-        input[type="radio"] + label,
-        input[type="radio"] ~ label {
             color: #121212 !important;
         }
         
