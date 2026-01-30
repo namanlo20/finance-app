@@ -663,7 +663,7 @@ div[data-baseweb="select"]{
 
 # ============= DARK/LIGHT MODE =============
 if 'theme' not in st.session_state:
-    st.session_state.theme = 'dark'
+    st.session_state.theme = 'light'
 
 # ============= THEME STYLING =============
 if st.session_state.theme == 'dark':
@@ -7288,8 +7288,53 @@ div[style*="background: linear-gradient"][style*="#000000"] {
 *, *::before, *::after,
 body, p, span, div:not([class*="button"]):not([class*="Button"]), label, a, li, h1, h2, h3, h4, h5, h6,
 .stMarkdown, .stMarkdown *, [data-testid="stMarkdown"] *, [data-testid="stText"],
-[data-testid="stCaption"], [data-testid="stSidebar"] *, .element-container *,
+[data-testid="stCaption"], .element-container *,
 [data-testid="stVerticalBlock"] *, [data-testid="stHorizontalBlock"] * {
+    color: #121212 !important;
+}
+
+/* SIDEBAR TEXT - FORCE BLACK - HIGHEST PRIORITY */
+[data-testid="stSidebar"] *,
+[data-testid="stSidebar"] p,
+[data-testid="stSidebar"] span,
+[data-testid="stSidebar"] div,
+[data-testid="stSidebar"] label,
+[data-testid="stSidebar"] h1,
+[data-testid="stSidebar"] h2,
+[data-testid="stSidebar"] h3,
+[data-testid="stSidebar"] h4,
+[data-testid="stSidebar"] h5,
+[data-testid="stSidebar"] h6,
+[data-testid="stSidebar"] .stMarkdown,
+[data-testid="stSidebar"] .stMarkdown *,
+[data-testid="stSidebar"] [data-testid="stMarkdown"],
+[data-testid="stSidebar"] [data-testid="stMarkdown"] *,
+section[data-testid="stSidebar"] *,
+section[data-testid="stSidebar"] .stMarkdown * {
+    color: #121212 !important;
+}
+
+/* Slider labels and values in sidebar */
+[data-testid="stSidebar"] .stSlider label,
+[data-testid="stSidebar"] .stSlider [data-testid="stTickBarMin"],
+[data-testid="stSidebar"] .stSlider [data-testid="stTickBarMax"],
+[data-testid="stSidebar"] .stSlider [data-testid="stThumbValue"],
+[data-testid="stSidebar"] [data-baseweb="slider"] * {
+    color: #121212 !important;
+}
+
+/* Toggle labels in sidebar */
+[data-testid="stSidebar"] .stToggle label,
+[data-testid="stSidebar"] .stToggle span,
+[data-testid="stSidebar"] [data-testid="stToggle"] * {
+    color: #121212 !important;
+}
+
+/* Expander text in sidebar */
+[data-testid="stSidebar"] [data-testid="stExpander"] summary,
+[data-testid="stSidebar"] [data-testid="stExpander"] summary *,
+[data-testid="stSidebar"] .streamlit-expanderHeader,
+[data-testid="stSidebar"] .streamlit-expanderHeader * {
     color: #121212 !important;
 }
 
