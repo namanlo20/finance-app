@@ -102,6 +102,20 @@ input, textarea, select {
 [data-testid="stSidebar"] [data-baseweb="select"] * {
     color: #121212 !important;
 }
+
+/* Navigation dropdowns MUST be RED - highest priority */
+[data-testid="stHorizontalBlock"] [data-baseweb="select"],
+[data-testid="stHorizontalBlock"] [data-baseweb="select"] > div {
+    background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%) !important;
+    border: none !important;
+}
+
+[data-testid="stHorizontalBlock"] [data-baseweb="select"] *,
+[data-testid="stHorizontalBlock"] [data-baseweb="select"] span,
+[data-testid="stHorizontalBlock"] [data-baseweb="select"] div:not([data-baseweb="select"]) {
+    color: #FFFFFF !important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -7341,7 +7355,15 @@ section[data-testid="stSidebar"] .stMarkdown * {
 }
 
 /* EXCEPTION: Navigation dropdowns should have WHITE text on RED background */
+/* HIGHEST PRIORITY - Force red background on closed dropdown */
 [data-testid="stHorizontalBlock"] [data-baseweb="select"],
+[data-testid="stHorizontalBlock"] [data-baseweb="select"] > div,
+[data-testid="stHorizontalBlock"] [data-baseweb="select"] > div:first-child {
+    background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%) !important;
+    border-radius: 8px !important;
+    min-height: 42px !important;
+}
+
 [data-testid="stHorizontalBlock"] [data-baseweb="select"] *,
 [data-testid="stHorizontalBlock"] [data-baseweb="select"] span,
 [data-testid="stHorizontalBlock"] [data-baseweb="select"] div,
