@@ -1171,6 +1171,13 @@ else:
         color: #000000 !important;
     }
 
+    /* FINAL OVERRIDE: force black text inside light-blue cards */
+    div[style*="background: rgb(219, 234, 254)"] *,
+    div[style*="background: #DBEAFF"] *,
+    div[style*="background: #E0F2FE"] * {
+        color: #000000 !important;
+    }
+
     
     .main { background: #FFFFFF !important; padding-top: 80px !important; }
     .stApp { background: #FFFFFF !important; }
