@@ -1463,23 +1463,25 @@ else:
         font-weight: bold !important;
     }
     
-    /* Fix text visibility on dark backgrounds in light mode - VIP pricing cards */
-    div[style*="background: #1a1a1a"] {
-        color: #FFFFFF !important;
-    }
-    div[style*="background: #1a1a1a"] h3,
-    div[style*="background: #1a1a1a"] p,
-    div[style*="background: #1a1a1a"] strong {
-        color: #FFFFFF !important;
-    }
+    /* Fix text visibility ONLY for actual dark cards in light mode */
+    div[style*="background: #1a1a1a"],
     div[style*="background: linear-gradient(135deg, #1a1a2e"] {
         color: #FFFFFF !important;
     }
-    div[style*="background: linear-gradient(135deg, #1a1a2e"] h2,
-    div[style*="background: linear-gradient(135deg, #1a1a2e"] p {
-        color: #FFFFFF !important;
+    
+    /* Explicitly force black text for light welcome cards */
+    div[style*="background: rgb(219, 234, 254)"],
+    div[style*="background: #DBEAFF"],
+    div[style*="background: #E0F2FE"] {
+        color: #000000 !important;
     }
     
+    div[style*="background: rgb(219, 234, 254)"] h1,
+    div[style*="background: rgb(219, 234, 254)"] h2,
+    div[style*="background: rgb(219, 234, 254)"] p {
+        color: #000000 !important;
+    }
+
     p, div, span, li { color: #000000 !important; }
     </style>
     """, unsafe_allow_html=True)
