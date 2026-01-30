@@ -1153,25 +1153,31 @@ else:
     st.markdown("""
     <style>
     /* LIGHT MODE - White Background with Black Text */
+
+    /* GLOBAL light-mode text fix */
+    [data-testid="stAppViewContainer"] {
+        color: #000000 !important;
+    }
+    
+    [data-testid="stAppViewContainer"] p,
+    [data-testid="stAppViewContainer"] span,
+    [data-testid="stAppViewContainer"] li,
+    [data-testid="stAppViewContainer"] label,
+    [data-testid="stAppViewContainer"] h1,
+    [data-testid="stAppViewContainer"] h2,
+    [data-testid="stAppViewContainer"] h3,
+    [data-testid="stAppViewContainer"] h4,
+    [data-testid="stAppViewContainer"] h5 {
+        color: #000000 !important;
+    }
+
+    
     .main { background: #FFFFFF !important; padding-top: 80px !important; }
     .stApp { background: #FFFFFF !important; }
     [data-testid="stAppViewContainer"] { background: #FFFFFF !important; padding-top: 80px !important; }
     [data-testid="stHeader"] { background: #FFFFFF !important; }
     [data-testid="stSidebar"] { background: #F5F5F5 !important; padding-top: 80px !important; }
     
-    /* CRITICAL: Force black text on white background - EVERYWHERE */
-    html, body, .stApp, [data-testid="stAppViewContainer"], 
-    [data-testid="stSidebar"], p, span, div, label, li, td, th,
-    .stMarkdown, .stText, [data-testid="stMarkdownContainer"],
-    .element-container, .stRadio label, .stSelectbox label,
-    .stTextInput label, .stSlider label, .stCheckbox label {
-        color: #000000 !important;
-    }
-    
-    /* Sidebar text MUST be dark */
-    [data-testid="stSidebar"] * {
-        color: #000000 !important;
-    }
     [data-testid="stSidebar"] .stMarkdown,
     [data-testid="stSidebar"] p,
     [data-testid="stSidebar"] span,
