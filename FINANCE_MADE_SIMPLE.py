@@ -7289,7 +7289,7 @@ with st.sidebar:
             background-color: #F9F9F9 !important;
         }
         
-        /* ALL text black */
+        /* ALL text black - NUCLEAR */
         .stApp,
         .stApp * {
             color: #121212 !important;
@@ -7307,13 +7307,44 @@ with st.sidebar:
             color: #121212 !important;
         }
         
-        /* Headers */
+        /* Headers - override inline styles */
         h1, h2, h3, h4, h5, h6 {
             color: #121212 !important;
         }
         
-        /* Paragraphs and spans */
+        h1[style*="color"],
+        h2[style*="color"],
+        h3[style*="color"],
+        h4[style*="color"],
+        h5[style*="color"],
+        h6[style*="color"] {
+            color: #121212 !important;
+        }
+        
+        /* Paragraphs and spans - override inline styles */
         p, span, div, label {
+            color: #121212 !important;
+        }
+        
+        p[style*="color"],
+        span[style*="color"],
+        div[style*="color"] {
+            color: #121212 !important;
+        }
+        
+        /* RADIO BUTTONS - FORCE LABELS BLACK */
+        [data-testid="stRadio"],
+        [data-testid="stRadio"] *,
+        [data-testid="stRadio"] label,
+        .stRadio,
+        .stRadio *,
+        .stRadio label {
+            color: #121212 !important;
+        }
+        
+        /* Radio button text specifically */
+        input[type="radio"] + label,
+        input[type="radio"] ~ label {
             color: #121212 !important;
         }
         
@@ -7385,24 +7416,35 @@ with st.sidebar:
                     container.style.setProperty('background-color', '#FFFFFF', 'important');
                 }
                 
-                // Force black text everywhere
+                // NUCLEAR: Remove ALL inline color styles and force black
+                document.querySelectorAll('*').forEach(el => {
+                    // Remove inline color if it exists
+                    if (el.style.color) {
+                        el.style.removeProperty('color');
+                    }
+                    
+                    // Now force black
+                    el.style.setProperty('color', '#121212', 'important');
+                });
+                
+                // Check computed colors and force again if needed
                 document.querySelectorAll('*').forEach(el => {
                     const computed = window.getComputedStyle(el);
                     const color = computed.color;
                     const bg = computed.backgroundColor;
                     
-                    // If text is white/light, make it black
+                    // If text is STILL white/light after forcing, try even harder
                     if (color.includes('255, 255, 255') || 
                         color.includes('rgb(255') ||
-                        color.includes('224, 224, 224')) {
-                        el.style.setProperty('color', '#121212', 'important');
+                        color.includes('224, 224, 224') ||
+                        color.includes('136, 136, 136')) {
+                        el.style.cssText = el.style.cssText.replace(/color:[^;]+;?/g, '') + '; color: #121212 !important;';
                     }
                     
                     // If background is dark, make it light
                     if (bg.includes('0, 0, 0') || 
                         bg.includes('26, 26, 46') ||
                         bg.includes('10, 10, 30')) {
-                        // Don't override red/yellow buttons
                         if (!el.closest('.stButton') &&
                             !bg.includes('239, 68, 68') && 
                             !bg.includes('251, 191, 36')) {
@@ -7410,20 +7452,32 @@ with st.sidebar:
                         }
                     }
                 });
+                
+                // FORCE RADIO BUTTON LABELS BLACK
+                document.querySelectorAll('[data-testid="stRadio"] label').forEach(label => {
+                    label.style.setProperty('color', '#121212', 'important');
+                });
+                
+                document.querySelectorAll('.stRadio label').forEach(label => {
+                    label.style.setProperty('color', '#121212', 'important');
+                });
             }
             
-            // Run multiple times
+            // Run VERY aggressively
             forceTheme();
+            setTimeout(forceTheme, 10);
             setTimeout(forceTheme, 50);
             setTimeout(forceTheme, 100);
             setTimeout(forceTheme, 200);
+            setTimeout(forceTheme, 300);
             setTimeout(forceTheme, 500);
             setTimeout(forceTheme, 1000);
             setTimeout(forceTheme, 2000);
+            setTimeout(forceTheme, 3000);
             
             // Watch for changes
             const observer = new MutationObserver(() => {
-                setTimeout(forceTheme, 10);
+                forceTheme();
             });
             
             observer.observe(document.body, {
@@ -7433,8 +7487,9 @@ with st.sidebar:
                 attributeFilter: ['style', 'class']
             });
             
-            // Force on scroll
+            // Force on scroll and clicks
             window.addEventListener('scroll', forceTheme);
+            document.addEventListener('click', forceTheme);
         })();
         </script>
         """, unsafe_allow_html=True)
