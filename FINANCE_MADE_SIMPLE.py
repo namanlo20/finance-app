@@ -7251,199 +7251,191 @@ with st.sidebar:
     if st.session_state.light_mode:
         st.markdown("""
         <style>
-        /* NUCLEAR LIGHT MODE - FORCE ALL TEXT BLACK */
+        /* Override Streamlit's root theme variables */
+        :root {
+            --background-color: #FFFFFF;
+            --secondary-background-color: #F9F9F9;
+            --text-color: #121212;
+            --font: sans-serif;
+        }
         
-        /* Backgrounds white */
-        [data-testid="stAppViewContainer"],
-        [data-testid="stApp"],
-        .main,
-        .main .block-container,
-        body {
+        /* Force Streamlit app containers */
+        .stApp {
             background-color: #FFFFFF !important;
         }
         
-        section[data-testid="stSidebar"] {
+        [data-testid="stAppViewContainer"] {
+            background-color: #FFFFFF !important;
+        }
+        
+        [data-testid="stHeader"] {
+            background-color: #FFFFFF !important;
+        }
+        
+        .main {
+            background-color: #FFFFFF !important;
+        }
+        
+        .block-container {
+            background-color: #FFFFFF !important;
+        }
+        
+        /* Sidebar */
+        [data-testid="stSidebar"] {
             background-color: #F9F9F9 !important;
         }
         
-        /* FORCE ALL TEXT BLACK - NUCLEAR */
-        * {
+        [data-testid="stSidebar"] > div:first-child {
+            background-color: #F9F9F9 !important;
+        }
+        
+        /* ALL text black */
+        .stApp,
+        .stApp * {
             color: #121212 !important;
         }
         
-        /* Sidebar text black */
-        section[data-testid="stSidebar"] * {
+        /* Sidebar text */
+        [data-testid="stSidebar"],
+        [data-testid="stSidebar"] * {
             color: #121212 !important;
         }
         
-        /* Text elements black */
-        body, p, span, div, h1, h2, h3, h4, h5, h6,
-        label, a, li, td, th, caption, strong, em, b, i,
-        .stMarkdown, .stMarkdown *,
-        [data-testid="stMarkdown"] *,
-        [data-testid="stMarkdownContainer] * {
+        /* Markdown text */
+        .stMarkdown,
+        .stMarkdown * {
+            color: #121212 !important;
+        }
+        
+        /* Headers */
+        h1, h2, h3, h4, h5, h6 {
+            color: #121212 !important;
+        }
+        
+        /* Paragraphs and spans */
+        p, span, div, label {
+            color: #121212 !important;
+        }
+        
+        /* Buttons keep red */
+        .stButton > button {
+            background-color: #EF4444 !important;
+            color: #FFFFFF !important;
+            border: none !important;
+        }
+        
+        /* Dropdowns */
+        [data-baseweb="select"] {
+            background-color: #FFFFFF !important;
+        }
+        
+        [data-baseweb="select"] * {
             color: #121212 !important;
         }
         
         /* Inputs */
-        input, textarea, select {
+        input, textarea {
             background-color: #FFFFFF !important;
             color: #121212 !important;
             border: 1px solid #D1D5DB !important;
         }
         
-        /* Dropdowns */
-        div[data-baseweb="select"],
-        div[data-baseweb="select"] *,
-        [data-testid="stSelectbox"] *,
-        ul[role="listbox"] li {
-            background-color: #FFFFFF !important;
-            color: #121212 !important;
-        }
-        
-        /* Buttons - keep red */
-        .stButton button {
-            background-color: #EF4444 !important;
-            color: #FFFFFF !important;
-        }
-        
-        /* Metrics black text */
+        /* Metrics */
         [data-testid="stMetricValue"],
-        [data-testid="stMetricLabel"],
-        [data-testid="stMetricDelta"] {
+        [data-testid="stMetricLabel"] {
             color: #121212 !important;
         }
         
         /* Expanders */
-        .streamlit-expanderHeader {
+        details {
             background-color: #F3F4F6 !important;
+        }
+        
+        summary {
             color: #121212 !important;
         }
         
-        /* Alerts - light backgrounds, dark text */
-        .stAlert, .stAlert * {
-            background-color: #F3F4F6 !important;
-            color: #121212 !important;
-        }
-        
-        .stSuccess, .stSuccess * {
-            background-color: #D1FAE5 !important;
-            color: #065F46 !important;
-        }
-        
-        .stWarning, .stWarning * {
-            background-color: #FEF3C7 !important;
-            color: #78350F !important;
-        }
-        
-        .stError, .stError * {
-            background-color: #FEE2E2 !important;
-            color: #7F1D1D !important;
-        }
-        
-        .stInfo, .stInfo * {
-            background-color: #DBEAFE !important;
-            color: #1E3A8A !important;
-        }
-        
-        /* Tables */
-        table, table * {
-            background-color: #FFFFFF !important;
-            color: #121212 !important;
-        }
-        
-        /* Custom boxes - light background, dark text */
-        div[style*="background"] {
-            background: #F3F4F6 !important;
-            color: #121212 !important;
-        }
-        
-        div[style*="background"] * {
-            color: #121212 !important;
-        }
-        
-        /* Red accent boxes - keep red but readable */
-        div[style*="#EF4444"] {
-            background: #FEE2E2 !important;
-            border: 2px solid #EF4444 !important;
-            color: #7F1D1D !important;
-        }
-        
-        div[style*="#EF4444"] * {
-            color: #7F1D1D !important;
-        }
-        
-        /* Yellow accent boxes - keep yellow but readable */
-        div[style*="#FBBF24"] {
-            background: #FEF3C7 !important;
-            border: 2px solid #F59E0B !important;
-            color: #78350F !important;
-        }
-        
-        div[style*="#FBBF24"] * {
-            color: #78350F !important;
-        }
-        
-        /* Blue gradient boxes - readable */
-        div[style*="linear-gradient"][style*="blue"],
-        div[style*="#1E3A8A"],
-        div[style*="#3B82F6"] {
+        /* Custom boxes */
+        div[style*="background: linear-gradient"] {
             background: #DBEAFE !important;
-            border: 2px solid #3B82F6 !important;
             color: #1E3A8A !important;
         }
         
-        div[style*="linear-gradient"][style*="blue"] *,
-        div[style*="#1E3A8A"] *,
-        div[style*="#3B82F6"] * {
+        div[style*="background: linear-gradient"] * {
             color: #1E3A8A !important;
-        }
-        
-        /* Captions slightly gray but readable */
-        .stCaptionContainer,
-        .stCaption,
-        caption {
-            color: #6B7280 !important;
         }
         </style>
         
         <script>
-        // Nuclear force ALL text black
-        function forceBlackText() {
-            document.querySelectorAll('*').forEach(el => {
-                const color = window.getComputedStyle(el).color;
-                // If white or light, make black
-                if (color.includes('255, 255, 255') ||
-                    color.includes('224, 224, 224')) {
-                    el.style.setProperty('color', '#121212', 'important');
+        (function() {
+            function forceTheme() {
+                // Force white background on main containers
+                const app = document.querySelector('.stApp');
+                if (app) {
+                    app.style.setProperty('background-color', '#FFFFFF', 'important');
                 }
                 
-                const bg = window.getComputedStyle(el).backgroundColor;
-                if (bg.includes('0, 0, 0') || bg.includes('26, 26, 46')) {
-                    // Don't change accent colors
-                    if (!bg.includes('239, 68, 68') && !bg.includes('251, 191, 36')) {
-                        el.style.setProperty('background-color', '#F3F4F6', 'important');
-                    }
+                const main = document.querySelector('.main');
+                if (main) {
+                    main.style.setProperty('background-color', '#FFFFFF', 'important');
                 }
+                
+                const container = document.querySelector('[data-testid="stAppViewContainer"]');
+                if (container) {
+                    container.style.setProperty('background-color', '#FFFFFF', 'important');
+                }
+                
+                // Force black text everywhere
+                document.querySelectorAll('*').forEach(el => {
+                    const computed = window.getComputedStyle(el);
+                    const color = computed.color;
+                    const bg = computed.backgroundColor;
+                    
+                    // If text is white/light, make it black
+                    if (color.includes('255, 255, 255') || 
+                        color.includes('rgb(255') ||
+                        color.includes('224, 224, 224')) {
+                        el.style.setProperty('color', '#121212', 'important');
+                    }
+                    
+                    // If background is dark, make it light
+                    if (bg.includes('0, 0, 0') || 
+                        bg.includes('26, 26, 46') ||
+                        bg.includes('10, 10, 30')) {
+                        // Don't override red/yellow buttons
+                        if (!el.closest('.stButton') &&
+                            !bg.includes('239, 68, 68') && 
+                            !bg.includes('251, 191, 36')) {
+                            el.style.setProperty('background-color', '#F3F4F6', 'important');
+                        }
+                    }
+                });
+            }
+            
+            // Run multiple times
+            forceTheme();
+            setTimeout(forceTheme, 50);
+            setTimeout(forceTheme, 100);
+            setTimeout(forceTheme, 200);
+            setTimeout(forceTheme, 500);
+            setTimeout(forceTheme, 1000);
+            setTimeout(forceTheme, 2000);
+            
+            // Watch for changes
+            const observer = new MutationObserver(() => {
+                setTimeout(forceTheme, 10);
             });
-        }
-        
-        // Run aggressively
-        forceBlackText();
-        setTimeout(forceBlackText, 100);
-        setTimeout(forceBlackText, 300);
-        setTimeout(forceBlackText, 500);
-        setTimeout(forceBlackText, 1000);
-        setTimeout(forceBlackText, 2000);
-        
-        // Watch changes
-        new MutationObserver(() => setTimeout(forceBlackText, 50)).observe(document.body, {
-            childList: true,
-            subtree: true,
-            attributes: true
-        });
-        
-        document.addEventListener('scroll', forceBlackText);
+            
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true,
+                attributes: true,
+                attributeFilter: ['style', 'class']
+            });
+            
+            // Force on scroll
+            window.addEventListener('scroll', forceTheme);
+        })();
         </script>
         """, unsafe_allow_html=True)
     
