@@ -10190,6 +10190,114 @@ elif selected_page == "📚 Learn Hub":
         
         except Exception as e:
             print(f"[DEBUG] Learn Hub DB save error: {e}")
+
+    
+    # ============= VIDEO DATA LOADING =============
+    def load_lesson_videos():
+        """Load video URLs from Supabase lesson_videos table"""
+        if not SUPABASE_ENABLED:
+            return {}
+        
+        try:
+            response = supabase.table("lesson_videos").select("lesson_id, video_url").execute()
+            
+            if response.data:
+                return {row["lesson_id"]: row["video_url"] for row in response.data}
+            return {}
+        except Exception as e:
+            print(f"[DEBUG] Lesson videos load error: {e}")
+            return {}
+    
+    # Initialize video map in session state
+    if "lesson_videos_map" not in st.session_state:
+        st.session_state.lesson_videos_map = load_lesson_videos()
+    
+    def save_lesson_video(lesson_id: str, video_url: str):
+        """Save or update video URL for a lesson (founder only)"""
+        if not SUPABASE_ENABLED:
+            st.warning("⚠️ Supabase not enabled - video URLs won't persist")
+            return False
+        
+        if not st.session_state.get("is_founder", False):
+            st.error("❌ Only the founder can edit video links")
+            return False
+        
+        try:
+            # Normalize the URL
+            normalized_url = normalize_video_url(video_url)
+            
+            # Upsert to Supabase
+            response = supabase.table("lesson_videos").upsert({
+                "lesson_id": lesson_id,
+                "video_url": normalized_url,
+                "updated_at": "now()"
+            }).execute()
+            
+            # Update session state map
+            st.session_state.lesson_videos_map[lesson_id] = normalized_url
+            
+            return True
+        except Exception as e:
+            st.error(f"❌ Failed to save video: {str(e)}")
+            print(f"[DEBUG] Video save error: {e}")
+            return False
+    
+    def render_video_panel(lesson_id: str, is_founder: bool):
+        """Render the video panel for a lesson"""
+        
+        # Get current video URL
+        video_url = st.session_state.lesson_videos_map.get(lesson_id, "").strip()
+        
+        st.markdown("### 🎥 Video")
+        
+        # Founder editing UI
+        if is_founder:
+            st.caption("*Founder only - edit video link*")
+            
+            new_url = st.text_input(
+                "Video URL",
+                value=video_url,
+                key=f"video_edit_{lesson_id}",
+                placeholder="Paste Google Drive, YouTube, or Loom link",
+                help="Google Drive links will be normalized automatically"
+            )
+            
+            if st.button("💾 Save Video", key=f"save_video_{lesson_id}"):
+                if save_lesson_video(lesson_id, new_url):
+                    st.success("✅ Video saved!")
+                    st.rerun()
+        
+        # Video display
+        if video_url:
+            try:
+                # Try to embed the video
+                st.video(video_url)
+                
+                # Show link as backup
+                st.caption(f"[Open in new tab]({video_url})")
+                
+            except Exception as e:
+                # Graceful fallback if embed fails
+                st.warning("⚠️ This video couldn't embed. Click link below to watch:")
+                st.markdown(f"**[🔗 Watch Video]({video_url})**")
+                st.caption("*Best embed reliability: YouTube unlisted or Loom*")
+                st.caption("*(Google Drive embedding is best-effort)*")
+        else:
+            # Empty state - no video yet
+            st.markdown("""
+            <div style="
+                border: 2px dashed #4B5563; 
+                border-radius: 10px; 
+                padding: 40px 20px; 
+                text-align: center;
+                background: rgba(31, 41, 55, 0.3);
+            ">
+                <div style="font-size: 48px; margin-bottom: 10px;">🎥</div>
+                <div style="font-size: 18px; color: #9CA3AF; margin-bottom: 5px;">Video Coming Soon</div>
+                <div style="font-size: 14px; color: #6B7280;">Check back later for video content</div>
+            </div>
+            """, unsafe_allow_html=True)
+    
             # Fail-soft: continue without DB
     
     # Load progress on page load
@@ -12758,78 +12866,87 @@ elif selected_page == "📚 Learn Hub":
             
             st.markdown("---")
             
-            # Why it matters
-            st.markdown("### 💡 Why It Matters")
-            st.info(lesson['why_it_matters'])
 
-            # Quick interactive (keep it light — no walls of text)
-            st.markdown("### 🎮 Quick Interactive")
-
-            if selected_lesson_id == "B1":
-                st.markdown("**Price move simulator (1 question):**")
-                pick = st.selectbox(
-                    "If more buyers show up than sellers at the current price, what usually happens?",
-                    ["— Select —", "Price falls", "Price stays about the same", "Price rises"],
-                    index=0,
-                    key=f"qi_{selected_lesson_id}_1",
-                )
-                if pick != "— Select —":
-                    if pick == "Price rises":
-                        st.success("Correct — more demand than supply typically pushes the price up.")
-                    else:
-                        st.info("Not quite — when demand > supply at a given price, buyers usually bid the price higher.")
-
-            elif selected_lesson_id == "B2":
-                st.markdown("**Compounding demo (move the sliders):**")
-                years = st.slider("Years", 1, 40, 20, key=f"qi_{selected_lesson_id}_years")
-                monthly = st.slider("Monthly contribution ($)", 25, 2000, 300, step=25, key=f"qi_{selected_lesson_id}_monthly")
-                rate = st.slider("Assumed annual return (%)", 0.0, 15.0, 7.0, step=0.5, key=f"qi_{selected_lesson_id}_rate")
-
-                r = (rate / 100.0) / 12.0
-                n = years * 12
-                fv = monthly * (n if r == 0 else ((1 + r) ** n - 1) / r)
-                st.metric("Estimated value (contributions + growth)", f"${fv:,.0f}")
-                st.caption("Educational estimate only — returns are not guaranteed.")
-
-            elif selected_lesson_id == "B3":
-                st.markdown("**Quick choice:**")
-                pick = st.selectbox(
-                    "Which is usually the safer default for a beginner?",
-                    ["— Select —", "One single stock", "A broad index ETF"],
-                    index=0,
-                    key=f"qi_{selected_lesson_id}_1",
-                )
-                if pick != "— Select —":
-                    if pick == "A broad index ETF":
-                        st.success("Correct — broad ETFs diversify across many companies.")
-                    else:
-                        st.info("Single stocks can work, but they carry much more company-specific risk.")
-
-            else:
-                st.caption("Tip: Finish the lesson, then take the 3-question quiz to lock in the concepts.")
-
-            st.markdown("---")
-
+            # Create 2-column layout: content on left, video on right
+            left_col, right_col = st.columns([2.2, 1.0], gap="large")
             
-            # Summary
-            st.markdown("### 📋 Summary")
-            for point in lesson['summary']:
-                st.markdown(f"• {point}")
+            with left_col:
+                # Why it matters
+                st.markdown("### 💡 Why It Matters")
+                st.info(lesson['why_it_matters'])
+
+                # Quick interactive (keep it light — no walls of text)
+                st.markdown("### 🎮 Quick Interactive")
+
+                if selected_lesson_id == "B1":
+                    st.markdown("**Price move simulator (1 question):**")
+                    pick = st.selectbox(
+                        "If more buyers show up than sellers at the current price, what usually happens?",
+                        ["— Select —", "Price falls", "Price stays about the same", "Price rises"],
+                        index=0,
+                        key=f"qi_{selected_lesson_id}_1",
+                    )
+                    if pick != "— Select —":
+                        if pick == "Price rises":
+                            st.success("Correct — more demand than supply typically pushes the price up.")
+                        else:
+                            st.info("Not quite — when demand > supply at a given price, buyers usually bid the price higher.")
+
+                elif selected_lesson_id == "B2":
+                    st.markdown("**Compounding demo (move the sliders):**")
+                    years = st.slider("Years", 1, 40, 20, key=f"qi_{selected_lesson_id}_years")
+                    monthly = st.slider("Monthly contribution ($)", 25, 2000, 300, step=25, key=f"qi_{selected_lesson_id}_monthly")
+                    rate = st.slider("Assumed annual return (%)", 0.0, 15.0, 7.0, step=0.5, key=f"qi_{selected_lesson_id}_rate")
+
+                    r = (rate / 100.0) / 12.0
+                    n = years * 12
+                    fv = monthly * (n if r == 0 else ((1 + r) ** n - 1) / r)
+                    st.metric("Estimated value (contributions + growth)", f"${fv:,.0f}")
+                    st.caption("Educational estimate only — returns are not guaranteed.")
+
+                elif selected_lesson_id == "B3":
+                    st.markdown("**Quick choice:**")
+                    pick = st.selectbox(
+                        "Which is usually the safer default for a beginner?",
+                        ["— Select —", "One single stock", "A broad index ETF"],
+                        index=0,
+                        key=f"qi_{selected_lesson_id}_1",
+                    )
+                    if pick != "— Select —":
+                        if pick == "A broad index ETF":
+                            st.success("Correct — broad ETFs diversify across many companies.")
+                        else:
+                            st.info("Single stocks can work, but they carry much more company-specific risk.")
+
+                else:
+                    st.caption("Tip: Finish the lesson, then take the 3-question quiz to lock in the concepts.")
+
+                st.markdown("---")
+
+                # Summary
+                st.markdown("### 📋 Summary")
+                for point in lesson['summary']:
+                    st.markdown(f"• {point}")
+                
+                # Key ideas
+                with st.expander("🔑 Key Ideas", expanded=True):
+                    for idea in lesson['key_ideas']:
+                        st.markdown(f"• {idea}")
+                
+                # Common mistakes
+                with st.expander("⚠️ Common Mistakes"):
+                    for mistake in lesson['common_mistakes']:
+                        st.markdown(f"• {mistake}")
+                
+                # Checklist
+                with st.expander("✅ Checklist"):
+                    for item in lesson['checklist']:
+                        st.checkbox(item, key=f"check_{selected_lesson_id}_{lesson['checklist'].index(item)}")
             
-            # Key ideas
-            with st.expander("🔑 Key Ideas", expanded=True):
-                for idea in lesson['key_ideas']:
-                    st.markdown(f"• {idea}")
-            
-            # Common mistakes
-            with st.expander("⚠️ Common Mistakes"):
-                for mistake in lesson['common_mistakes']:
-                    st.markdown(f"• {mistake}")
-            
-            # Checklist
-            with st.expander("✅ Checklist"):
-                for item in lesson['checklist']:
-                    st.checkbox(item, key=f"check_{selected_lesson_id}_{lesson['checklist'].index(item)}")
+            with right_col:
+                # Video panel
+                is_founder = st.session_state.get("is_founder", False)
+                render_video_panel(selected_lesson_id, is_founder)
             
             st.markdown("---")
             
