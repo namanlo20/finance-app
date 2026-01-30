@@ -7331,13 +7331,29 @@ with st.sidebar:
         }
         
         /* NUCLEAR - Force ALL text elements black */
+        *,
+        *::before,
+        *::after,
         .stApp *,
         .stApp,
         [data-testid="stAppViewContainer"] *,
         .main *,
         body *,
         h1, h2, h3, h4, h5, h6,
-        p, span, div, label, a, li,
+        p, span, div, label, a, li, td, th, caption, strong, em, b, i, code,
+        .stMarkdown, .stMarkdown *,
+        [data-testid="stMarkdown"] *,
+        [data-testid="stSidebar"] *,
+        [data-testid="stText"],
+        [data-testid="stCaption"],
+        [data-testid="stMarkdownContainer"] *,
+        [data-testid="stVerticalBlock"] *,
+        [data-testid="stHorizontalBlock"] *,
+        .element-container *,
+        .row-widget *,
+        .st-emotion-cache-* {
+            color: #121212 !important;
+        }
         .stMarkdown, .stMarkdown *,
         [data-testid="stMarkdown"] *,
         [data-testid="stSidebar"] *,
@@ -7470,15 +7486,30 @@ with st.sidebar:
                     container.style.setProperty('background-color', '#FFFFFF', 'important');
                 }
                 
-                // NUCLEAR: Remove ALL inline color styles and force black
+                // NUCLEAR: Force EVERY element black - multiple methods
                 document.querySelectorAll('*').forEach(el => {
-                    // Remove inline color if it exists
+                    // Method 1: Remove inline color
                     if (el.style.color) {
                         el.style.removeProperty('color');
                     }
                     
-                    // Now force black
+                    // Method 2: Force with setProperty
                     el.style.setProperty('color', '#121212', 'important');
+                    
+                    // Method 3: Force with cssText if still not black
+                    const currentColor = window.getComputedStyle(el).color;
+                    if (currentColor && (currentColor.includes('255, 255, 255') || 
+                        currentColor.includes('rgb(255') ||
+                        currentColor.includes('224, 224') ||
+                        currentColor.includes('136, 136'))) {
+                        el.style.cssText += '; color: #121212 !important;';
+                    }
+                    
+                    // Method 4: Set attribute directly
+                    if (el.getAttribute('style') && el.getAttribute('style').includes('color')) {
+                        const style = el.getAttribute('style').replace(/color:[^;]+;?/gi, '');
+                        el.setAttribute('style', style + '; color: #121212 !important;');
+                    }
                 });
                 
                 // Check computed colors and force again if needed
@@ -7530,17 +7561,25 @@ with st.sidebar:
                 }
             }
             
-            // Run VERY aggressively
+            // Run VERY aggressively - immediately and repeatedly
             forceTheme();
+            setTimeout(forceTheme, 1);
             setTimeout(forceTheme, 10);
             setTimeout(forceTheme, 50);
             setTimeout(forceTheme, 100);
             setTimeout(forceTheme, 200);
             setTimeout(forceTheme, 300);
             setTimeout(forceTheme, 500);
+            setTimeout(forceTheme, 750);
             setTimeout(forceTheme, 1000);
+            setTimeout(forceTheme, 1500);
             setTimeout(forceTheme, 2000);
             setTimeout(forceTheme, 3000);
+            
+            // Keep forcing every 500ms for first 10 seconds
+            for (let i = 1; i <= 20; i++) {
+                setTimeout(forceTheme, i * 500);
+            }
             
             // Watch for changes
             const observer = new MutationObserver(() => {
@@ -7554,9 +7593,11 @@ with st.sidebar:
                 attributeFilter: ['style', 'class']
             });
             
-            // Force on scroll and clicks
+            // Force on ANY user interaction
             window.addEventListener('scroll', forceTheme);
             document.addEventListener('click', forceTheme);
+            document.addEventListener('mousemove', forceTheme);
+            document.addEventListener('keydown', forceTheme);
         })();
         </script>
         """, unsafe_allow_html=True)
