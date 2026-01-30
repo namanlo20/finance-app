@@ -8,15 +8,6 @@ from datetime import datetime, timedelta
 import random
 from difflib import get_close_matches
 import numpy as np
-# Theme color helper
-def get_text_color():
-    """Returns text color based on current theme"""
-    return "#121212" if st.session_state.get('light_mode', False) else "#FFFFFF"
-
-def get_subtitle_color():
-    """Returns subtitle color based on current theme"""  
-    return "#6B7280" if st.session_state.get('light_mode', False) else "#888888"
-
 
 
 # ============= CONFIGURATION =============
@@ -1153,38 +1144,25 @@ else:
     st.markdown("""
     <style>
     /* LIGHT MODE - White Background with Black Text */
-
-    /* GLOBAL light-mode text fix */
-    [data-testid="stAppViewContainer"] {
-        color: #000000 !important;
-    }
-    
-    [data-testid="stAppViewContainer"] p,
-    [data-testid="stAppViewContainer"] span,
-    [data-testid="stAppViewContainer"] li,
-    [data-testid="stAppViewContainer"] label,
-    [data-testid="stAppViewContainer"] h1,
-    [data-testid="stAppViewContainer"] h2,
-    [data-testid="stAppViewContainer"] h3,
-    [data-testid="stAppViewContainer"] h4,
-    [data-testid="stAppViewContainer"] h5 {
-        color: #000000 !important;
-    }
-
-    /* FINAL OVERRIDE: force black text inside light-blue cards */
-    div[style*="background: rgb(219, 234, 254)"] *,
-    div[style*="background: #DBEAFF"] *,
-    div[style*="background: #E0F2FE"] * {
-        color: #000000 !important;
-    }
-
-    
     .main { background: #FFFFFF !important; padding-top: 80px !important; }
     .stApp { background: #FFFFFF !important; }
     [data-testid="stAppViewContainer"] { background: #FFFFFF !important; padding-top: 80px !important; }
     [data-testid="stHeader"] { background: #FFFFFF !important; }
     [data-testid="stSidebar"] { background: #F5F5F5 !important; padding-top: 80px !important; }
     
+    /* CRITICAL: Force black text on white background - EVERYWHERE */
+    html, body, .stApp, [data-testid="stAppViewContainer"], 
+    [data-testid="stSidebar"], p, span, div, label, li, td, th,
+    .stMarkdown, .stText, [data-testid="stMarkdownContainer"],
+    .element-container, .stRadio label, .stSelectbox label,
+    .stTextInput label, .stSlider label, .stCheckbox label {
+        color: #000000 !important;
+    }
+    
+    /* Sidebar text MUST be dark */
+    [data-testid="stSidebar"] * {
+        color: #000000 !important;
+    }
     [data-testid="stSidebar"] .stMarkdown,
     [data-testid="stSidebar"] p,
     [data-testid="stSidebar"] span,
@@ -1476,25 +1454,24 @@ else:
         font-weight: bold !important;
     }
     
-    /* Fix text visibility ONLY for actual dark cards in light mode */
-    div[style*="background: #1a1a1a"],
-    div[style*="background: linear-gradient(135deg, #1a1a2e)"] {
+    /* Fix text visibility on dark backgrounds in light mode - VIP pricing cards */
+    div[style*="background: #1a1a1a"] {
+        color: #FFFFFF !important;
+    }
+    div[style*="background: #1a1a1a"] h3,
+    div[style*="background: #1a1a1a"] p,
+    div[style*="background: #1a1a1a"] strong {
+        color: #FFFFFF !important;
+    }
+    div[style*="background: linear-gradient(135deg, #1a1a2e"] {
+        color: #FFFFFF !important;
+    }
+    div[style*="background: linear-gradient(135deg, #1a1a2e"] h2,
+    div[style*="background: linear-gradient(135deg, #1a1a2e"] p {
         color: #FFFFFF !important;
     }
     
-    /* Explicitly force black text for light welcome cards */
-    div[style*="background: rgb(219, 234, 254)"],
-    div[style*="background: #DBEAFF"],
-    div[style*="background: #E0F2FE"] {
-        color: #000000 !important;
-    }
-    
-    div[style*="background: rgb(219, 234, 254)"] h1,
-    div[style*="background: rgb(219, 234, 254)"] h2,
-    div[style*="background: rgb(219, 234, 254)"] p {
-        color: #000000 !important;
-    }
-
+    p, div, span, li { color: #000000 !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -2527,14 +2504,9 @@ def show_first_time_welcome():
     if st.session_state.get('has_seen_welcome'):
         return False
     
-    # Dynamic colors based on theme
-    text_color = "#121212" if st.session_state.get('light_mode', False) else "#FFF"
-    subtitle_color = "#6B7280" if st.session_state.get('light_mode', False) else "#888"
-    box_bg = "linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(168, 85, 247, 0.1) 100%)" if st.session_state.get('light_mode', False) else "linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)"
-    
-    st.markdown(f"""
+    st.markdown("""
     <div style="
-        background: {box_bg};
+        background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(168, 85, 247, 0.1) 100%);
         border: 2px solid #ff4b4b;
         border-radius: 20px;
         padding: 30px;
@@ -2542,11 +2514,11 @@ def show_first_time_welcome():
         margin: 20px 0;
     ">
         <div style="font-size: 48px; margin-bottom: 15px;">👋</div>
-        <h2 style="color: {text_color}; margin-bottom: 10px;">Welcome to Finance Made Simple!</h2>
-        <p style="color: {subtitle_color}; font-size: 16px; margin-bottom: 20px;">
+        <h2 style="margin-bottom: 10px;">Welcome to Finance Made Simple!</h2>
+        <p style="font-size: 16px; margin-bottom: 20px;">
             Your personal stock research assistant. No jargon, just clarity.
         </p>
-        <div style="text-align: left; max-width: 400px; margin: 0 auto; color: {text_color};">
+        <div style="text-align: left; max-width: 400px; margin: 0 auto;">
             <p>✅ <strong>Dashboard</strong> - Pin stocks to track</p>
             <p>✅ <strong>Company Analysis</strong> - Deep dive into any stock</p>
             <p>✅ <strong>Risk Quiz</strong> - Find your investor profile</p>
@@ -7260,362 +7232,6 @@ with st.sidebar:
     
     st.markdown("---")
 
-    # ============= THEME TOGGLE =============
-    st.markdown("### 🎨 Theme")
-    
-    # Initialize theme
-    if 'light_mode' not in st.session_state:
-        st.session_state.light_mode = False  # Default dark
-    
-    # Toggle
-    light_mode = st.toggle(
-        "☀️ Light Mode",
-        value=st.session_state.light_mode,
-        key="light_mode_toggle",
-        help="Switch between light and dark themes"
-    )
-    st.session_state.light_mode = light_mode
-    
-    # Apply theme CSS + JavaScript auto-fix
-    if st.session_state.light_mode:
-        st.markdown("""
-        <style>
-        /* Override Streamlit's root theme variables */
-        :root {
-            --background-color: #FFFFFF;
-            --secondary-background-color: #F9F9F9;
-            --text-color: #121212;
-            --font: sans-serif;
-        }
-        
-        /* Force Streamlit app containers */
-        .stApp {
-            background-color: #FFFFFF !important;
-        }
-        
-        [data-testid="stAppViewContainer"] {
-            background-color: #FFFFFF !important;
-        }
-        
-        [data-testid="stHeader"] {
-            background-color: #FFFFFF !important;
-        }
-        
-        .main {
-            background-color: #FFFFFF !important;
-        }
-        
-        .block-container {
-            background-color: #FFFFFF !important;
-        }
-        
-        /* Sidebar */
-        [data-testid="stSidebar"] {
-            background-color: #F9F9F9 !important;
-        }
-        
-        [data-testid="stSidebar"] > div:first-child {
-            background-color: #F9F9F9 !important;
-        }
-        
-        /* NUCLEAR SIDEBAR TEXT - EVERY POSSIBLE SELECTOR */
-        [data-testid="stSidebar"],
-        [data-testid="stSidebar"] *,
-        [data-testid="stSidebar"] h1,
-        [data-testid="stSidebar"] h2,
-        [data-testid="stSidebar"] h3,
-        [data-testid="stSidebar"] h4,
-        [data-testid="stSidebar"] h5,
-        [data-testid="stSidebar"] h6,
-        [data-testid="stSidebar"] p,
-        [data-testid="stSidebar"] span,
-        [data-testid="stSidebar"] div,
-        [data-testid="stSidebar"] label,
-        [data-testid="stSidebar"] a,
-        [data-testid="stSidebar"] li,
-        [data-testid="stSidebar"] [data-testid="stMarkdown"],
-        [data-testid="stSidebar"] [data-testid="stMarkdown"] *,
-        section[data-testid="stSidebar"],
-        section[data-testid="stSidebar"] *,
-        .sidebar,
-        .sidebar *,
-        [data-testid="stSidebar"] .element-container,
-        [data-testid="stSidebar"] .element-container * {
-            color: #121212 !important;
-        }
-        
-        /* NUCLEAR - Force ALL text elements black */
-        *,
-        *::before,
-        *::after,
-        .stApp *,
-        .stApp,
-        [data-testid="stAppViewContainer"] *,
-        .main *,
-        body *,
-        h1, h2, h3, h4, h5, h6,
-        p, span, div, label, a, li, td, th, caption, strong, em, b, i, code,
-        .stMarkdown, .stMarkdown *,
-        [data-testid="stMarkdown"] *,
-        [data-testid="stSidebar"] *,
-        [data-testid="stText"],
-        [data-testid="stCaption"],
-        [data-testid="stMarkdownContainer"] *,
-        [data-testid="stVerticalBlock"] *,
-        [data-testid="stHorizontalBlock"] *,
-        .element-container *,
-        .row-widget *,
-        .st-emotion-cache-* {
-            color: #121212 !important;
-        }
-        .stMarkdown, .stMarkdown *,
-        [data-testid="stMarkdown"] *,
-        [data-testid="stSidebar"] *,
-        [data-testid="stText"],
-        [data-testid="stCaption"],
-        .st-emotion-cache-* {
-            color: #121212 !important;
-        }
-        
-        /* Override ANY inline styles with attribute selector */
-        *[style*="color: #FFF"],
-        *[style*="color:#FFF"],
-        *[style*="color: #fff"],
-        *[style*="color:#fff"],
-        *[style*="color: white"],
-        *[style*="color:white"],
-        *[style*="color: #FFFFFF"],
-        *[style*="color:#FFFFFF"] {
-            color: #121212 !important;
-        }
-        
-        /* Streamlit title component */
-        .stTitle, .stTitle *, h1.stTitle {
-            color: #121212 !important;
-        }
-        
-        /* Streamlit caption component */
-        .stCaption, .stCaption * {
-            color: #6B7280 !important;
-        }
-        
-        /* RADIO BUTTONS - super specific */
-        [data-testid="stRadio"],
-        [data-testid="stRadio"] *,
-        [data-testid="stRadio"] label,
-        [data-testid="stRadio"] p,
-        [data-testid="stRadio"] span,
-        [data-testid="stRadio"] div,
-        [role="radiogroup"],
-        [role="radiogroup"] *,
-        [role="radiogroup"] label,
-        .stRadio,
-        .stRadio *,
-        .stRadio label {
-            color: #121212 !important;
-        }
-        
-        /* Buttons keep red */
-        .stButton > button {
-            background-color: #EF4444 !important;
-            color: #FFFFFF !important;
-            border: none !important;
-        }
-        
-        /* Dropdowns */
-        [data-baseweb="select"] {
-            background-color: #FFFFFF !important;
-        }
-        
-        [data-baseweb="select"] * {
-            color: #121212 !important;
-        }
-        
-        /* Inputs */
-        input, textarea {
-            background-color: #FFFFFF !important;
-            color: #121212 !important;
-            border: 1px solid #D1D5DB !important;
-        }
-        
-        /* Metrics */
-        [data-testid="stMetricValue"],
-        [data-testid="stMetricLabel"] {
-            color: #121212 !important;
-        }
-        
-        /* Expanders */
-        details {
-            background-color: #F3F4F6 !important;
-        }
-        
-        summary {
-            color: #121212 !important;
-        }
-        
-        /* Custom boxes */
-        div[style*="background: linear-gradient"] {
-            background: #DBEAFE !important;
-            color: #1E3A8A !important;
-        }
-        
-        div[style*="background: linear-gradient"] * {
-            color: #1E3A8A !important;
-        }
-        
-        /* Streamlit info/alert boxes - FORCE BLACK TEXT */
-        [data-testid="stAlert"],
-        [data-testid="stAlert"] *,
-        .stAlert,
-        .stAlert *,
-        [data-testid="stNotification"],
-        [data-testid="stNotification"] *,
-        .element-container [data-testid="stMarkdownContainer"] {
-            color: #121212 !important;
-        }
-        
-        /* Info box specifically */
-        [data-testid="stAlert"][data-baseweb="notification"],
-        [data-testid="stAlert"][data-baseweb="notification"] * {
-            color: #121212 !important;
-        }
-        </style>
-        
-        <script>
-        (function() {
-            function forceTheme() {
-                // Force white background on main containers
-                const app = document.querySelector('.stApp');
-                if (app) {
-                    app.style.setProperty('background-color', '#FFFFFF', 'important');
-                }
-                
-                const main = document.querySelector('.main');
-                if (main) {
-                    main.style.setProperty('background-color', '#FFFFFF', 'important');
-                }
-                
-                const container = document.querySelector('[data-testid="stAppViewContainer"]');
-                if (container) {
-                    container.style.setProperty('background-color', '#FFFFFF', 'important');
-                }
-                
-                // NUCLEAR: Force EVERY element black - multiple methods
-                document.querySelectorAll('*').forEach(el => {
-                    // Method 1: Remove inline color
-                    if (el.style.color) {
-                        el.style.removeProperty('color');
-                    }
-                    
-                    // Method 2: Force with setProperty
-                    el.style.setProperty('color', '#121212', 'important');
-                    
-                    // Method 3: Force with cssText if still not black
-                    const currentColor = window.getComputedStyle(el).color;
-                    if (currentColor && (currentColor.includes('255, 255, 255') || 
-                        currentColor.includes('rgb(255') ||
-                        currentColor.includes('224, 224') ||
-                        currentColor.includes('136, 136'))) {
-                        el.style.cssText += '; color: #121212 !important;';
-                    }
-                    
-                    // Method 4: Set attribute directly
-                    if (el.getAttribute('style') && el.getAttribute('style').includes('color')) {
-                        const style = el.getAttribute('style').replace(/color:[^;]+;?/gi, '');
-                        el.setAttribute('style', style + '; color: #121212 !important;');
-                    }
-                });
-                
-                // Check computed colors and force again if needed
-                document.querySelectorAll('*').forEach(el => {
-                    const computed = window.getComputedStyle(el);
-                    const color = computed.color;
-                    const bg = computed.backgroundColor;
-                    
-                    // If text is STILL white/light after forcing, try even harder
-                    if (color.includes('255, 255, 255') || 
-                        color.includes('rgb(255') ||
-                        color.includes('224, 224, 224') ||
-                        color.includes('136, 136, 136')) {
-                        el.style.cssText = el.style.cssText.replace(/color:[^;]+;?/g, '') + '; color: #121212 !important;';
-                    }
-                    
-                    // If background is dark, make it light
-                    if (bg.includes('0, 0, 0') || 
-                        bg.includes('26, 26, 46') ||
-                        bg.includes('10, 10, 30')) {
-                        if (!el.closest('.stButton') &&
-                            !bg.includes('239, 68, 68') && 
-                            !bg.includes('251, 191, 36')) {
-                            el.style.setProperty('background-color', '#F3F4F6', 'important');
-                        }
-                    }
-                });
-                
-                // FORCE RADIO BUTTON LABELS BLACK
-                document.querySelectorAll('[data-testid="stRadio"] label').forEach(label => {
-                    label.style.setProperty('color', '#121212', 'important');
-                });
-                
-                document.querySelectorAll('.stRadio label').forEach(label => {
-                    label.style.setProperty('color', '#121212', 'important');
-                });
-                
-                // FORCE ALERT/INFO BOX TEXT BLACK
-                document.querySelectorAll('[data-testid="stAlert"], [data-testid="stAlert"] *, [data-baseweb="notification"], [data-baseweb="notification"] *').forEach(el => {
-                    el.style.setProperty('color', '#121212', 'important');
-                });
-                
-                // NUCLEAR SIDEBAR FIX - FORCE EVERY ELEMENT BLACK
-                const sidebar = document.querySelector('[data-testid="stSidebar"]');
-                if (sidebar) {
-                    sidebar.querySelectorAll('*').forEach(el => {
-                        el.style.setProperty('color', '#121212', 'important');
-                    });
-                }
-            }
-            
-            // Run VERY aggressively - immediately and repeatedly
-            forceTheme();
-            setTimeout(forceTheme, 1);
-            setTimeout(forceTheme, 10);
-            setTimeout(forceTheme, 50);
-            setTimeout(forceTheme, 100);
-            setTimeout(forceTheme, 200);
-            setTimeout(forceTheme, 300);
-            setTimeout(forceTheme, 500);
-            setTimeout(forceTheme, 750);
-            setTimeout(forceTheme, 1000);
-            setTimeout(forceTheme, 1500);
-            setTimeout(forceTheme, 2000);
-            setTimeout(forceTheme, 3000);
-            
-            // Keep forcing every 500ms for first 10 seconds
-            for (let i = 1; i <= 20; i++) {
-                setTimeout(forceTheme, i * 500);
-            }
-            
-            // Watch for changes
-            const observer = new MutationObserver(() => {
-                forceTheme();
-            });
-            
-            observer.observe(document.body, {
-                childList: true,
-                subtree: true,
-                attributes: true,
-                attributeFilter: ['style', 'class']
-            });
-            
-            // Force on ANY user interaction
-            window.addEventListener('scroll', forceTheme);
-            document.addEventListener('click', forceTheme);
-            document.addEventListener('mousemove', forceTheme);
-            document.addEventListener('keydown', forceTheme);
-        })();
-        </script>
-        """, unsafe_allow_html=True)
-    
     st.markdown("---")
     
 
