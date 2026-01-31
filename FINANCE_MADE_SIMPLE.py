@@ -1712,6 +1712,58 @@ FINANCIAL_METRICS_EXPLAINED = {
         "simple": "Earnings Per Share - profit divided by shares",
         "why": "Shows profit per share you own. Growing EPS usually means growing stock price."
     },
+    "researchAndDevelopmentExpenses": {
+        "simple": "Money spent on R&D and innovation",
+        "why": "Shows investment in future products. High R&D can mean competitive advantage or drain on profits."
+    },
+    "sellingGeneralAndAdministrativeExpenses": {
+        "simple": "Overhead costs (sales, admin, general)",
+        "why": "Fixed costs the company pays regardless of sales. Lower SG&A = more efficient operations."
+    },
+    "generalAndAdministrativeExpenses": {
+        "simple": "Admin costs (salaries, rent, utilities)",
+        "why": "Overhead that doesn't directly produce revenue. Watch for this growing faster than revenue."
+    },
+    "sellingAndMarketingExpenses": {
+        "simple": "Marketing and sales team costs",
+        "why": "Cost to acquire customers. Should generate more revenue than it costs."
+    },
+    "operatingExpenses": {
+        "simple": "Total costs to run the business",
+        "why": "All non-production costs combined. Lower operating expenses = higher profits."
+    },
+    "costOfRevenue": {
+        "simple": "Direct cost to make products/services",
+        "why": "Materials, labor, manufacturing. Lower cost = better margins."
+    },
+    "costAndExpenses": {
+        "simple": "All costs and expenses combined",
+        "why": "Total spending. Should be less than revenue for profitability."
+    },
+    "interestExpense": {
+        "simple": "Cost of borrowing money",
+        "why": "High interest expense means heavy debt burden. Can crush profits in high-rate environment."
+    },
+    "incomeTaxExpense": {
+        "simple": "Taxes paid on profits",
+        "why": "Reduces net income. Some companies use legal strategies to minimize this."
+    },
+    "otherExpenses": {
+        "simple": "Miscellaneous business expenses",
+        "why": "One-time or unusual costs. Watch if consistently high."
+    },
+    "incomeBeforeTax": {
+        "simple": "Profit before paying taxes",
+        "why": "Shows profitability before government takes its share."
+    },
+    "netInterestIncome": {
+        "simple": "Interest earned minus interest paid",
+        "why": "Important for banks. Positive = earning more on loans than paying on deposits."
+    },
+    "interestIncome": {
+        "simple": "Money earned from investments and loans",
+        "why": "Extra income from cash holdings. Nice bonus but not core business."
+    },
     
     # Cash Flow Metrics
     "operatingCashFlow": {
@@ -1729,6 +1781,58 @@ FINANCIAL_METRICS_EXPLAINED = {
     "dividendsPaid": {
         "simple": "Cash paid to shareholders",
         "why": "Direct return to investors. Consistent dividends = stable, mature company."
+    },
+    "stockBasedCompensation": {
+        "simple": "Value of stock given to employees as pay",
+        "why": "Dilutes existing shareholders. High SBC means your ownership % shrinks over time."
+    },
+    "fcfAfterSBC": {
+        "simple": "Free cash flow minus stock compensation",
+        "why": "The truest measure of cash generation. Accounts for shareholder dilution."
+    },
+    "investingCashFlow": {
+        "simple": "Cash spent on investments and assets",
+        "why": "Usually negative (spending). Very negative = aggressive expansion."
+    },
+    "financingCashFlow": {
+        "simple": "Cash from/to debt and equity activities",
+        "why": "Positive = raising money. Negative = paying down debt or buybacks."
+    },
+    "depreciationAndAmortization": {
+        "simple": "Spreading cost of assets over time",
+        "why": "Non-cash expense that reduces taxes. Add back to get true cash flow."
+    },
+    "changeInWorkingCapital": {
+        "simple": "Change in day-to-day operating cash needs",
+        "why": "Negative = cash tied up in inventory/receivables. Watch for consistent drain."
+    },
+    "commonStockRepurchased": {
+        "simple": "Money spent buying back company shares",
+        "why": "Reduces shares outstanding, increases your ownership %. Shareholder-friendly."
+    },
+    "debtRepayment": {
+        "simple": "Money used to pay down debt",
+        "why": "Reduces interest expense and risk. Good sign of financial health."
+    },
+    "commonStockIssued": {
+        "simple": "Money raised by selling new shares",
+        "why": "Dilutes existing shareholders but provides growth capital."
+    },
+    "acquisitionsNet": {
+        "simple": "Money spent buying other companies",
+        "why": "Can accelerate growth but integration risk. Watch for overpaying."
+    },
+    "purchasesOfInvestments": {
+        "simple": "Money spent on securities/investments",
+        "why": "Parking cash in investments. Usually short-term securities."
+    },
+    "salesMaturitiesOfInvestments": {
+        "simple": "Cash from selling investments",
+        "why": "Converting investments back to cash. May fund operations or acquisitions."
+    },
+    "netChangeInCash": {
+        "simple": "Total change in cash during period",
+        "why": "Shows if company is building or burning cash reserves."
     },
     
     # Balance Sheet Metrics
@@ -1751,6 +1855,54 @@ FINANCIAL_METRICS_EXPLAINED = {
     "totalDebt": {
         "simple": "All money borrowed",
         "why": "Debt must be repaid with interest. Too much debt = risky during recessions."
+    },
+    "longTermDebt": {
+        "simple": "Debt due in more than 1 year",
+        "why": "Less immediate pressure but still a future obligation."
+    },
+    "shortTermDebt": {
+        "simple": "Debt due within 1 year",
+        "why": "Must be paid soon. High short-term debt = liquidity risk."
+    },
+    "inventory": {
+        "simple": "Products waiting to be sold",
+        "why": "Too much = products not selling. Too little = may miss sales."
+    },
+    "netReceivables": {
+        "simple": "Money owed to company by customers",
+        "why": "Sales made but not yet collected. Watch for growing faster than revenue."
+    },
+    "accountsPayable": {
+        "simple": "Money company owes to suppliers",
+        "why": "Bills not yet paid. Using supplier credit is free financing."
+    },
+    "totalCurrentAssets": {
+        "simple": "Assets convertible to cash within 1 year",
+        "why": "Liquidity buffer. Should exceed current liabilities."
+    },
+    "totalCurrentLiabilities": {
+        "simple": "Debts due within 1 year",
+        "why": "Short-term obligations. Compare to current assets for safety."
+    },
+    "retainedEarnings": {
+        "simple": "Accumulated profits kept in business",
+        "why": "Profits reinvested over time. Growing = company profitable and reinvesting."
+    },
+    "goodwill": {
+        "simple": "Premium paid for acquired companies",
+        "why": "Intangible value from acquisitions. Can be written down if acquisition fails."
+    },
+    "intangibleAssets": {
+        "simple": "Non-physical assets (patents, brands)",
+        "why": "Value of intellectual property. Important for tech and pharma."
+    },
+    "propertyPlantEquipmentNet": {
+        "simple": "Physical assets (buildings, equipment)",
+        "why": "Capital invested in operations. High for manufacturing, low for software."
+    },
+    "netDebt": {
+        "simple": "Total debt minus cash",
+        "why": "True debt burden. Negative = more cash than debt (great position)."
     },
     
     # Financial Ratios
@@ -1789,6 +1941,26 @@ FINANCIAL_METRICS_EXPLAINED = {
     "debtToEquity": {
         "simple": "Total Debt ÷ Shareholder Equity",
         "why": "Debt risk level. Below 1.0 = safe. Above 2.0 = risky. Banks naturally higher."
+    },
+    "freeCashFlowPerShare": {
+        "simple": "Free Cash Flow ÷ Shares Outstanding",
+        "why": "Cash generated per share you own. Growing FCF/share = shareholder value creation."
+    },
+    "priceEarningsRatio": {
+        "simple": "Stock Price ÷ Earnings Per Share",
+        "why": "How much you pay for $1 of earnings. Lower = cheaper. 15-25 is typical."
+    },
+    "priceToSalesRatio": {
+        "simple": "Market Cap ÷ Revenue",
+        "why": "Useful for unprofitable companies. Lower = better value."
+    },
+    "priceToBookRatio": {
+        "simple": "Stock Price ÷ Book Value Per Share",
+        "why": "Price vs. net assets. Below 1.0 might be undervalued."
+    },
+    "debtEquityRatio": {
+        "simple": "Total Debt ÷ Total Equity",
+        "why": "Financial leverage. Lower = safer. Higher = more risk but potential reward."
     }
 }
 
@@ -2100,13 +2272,68 @@ def _render_robinhood_header():
 # ============= END GAMIFICATION HELPERS =============
 
 def get_metric_explanation(metric_key):
-    """Get simple explanation for any metric"""
-    # Normalize the key
-    key = metric_key.lower().replace(' ', '').replace('_', '')
+    """Get simple explanation for any metric - smart matching"""
+    if not metric_key:
+        return None
     
-    # Try to find match
+    # Normalize the key - remove spaces, underscores, lowercase
+    key = metric_key.lower().replace(' ', '').replace('_', '').replace('-', '')
+    
+    # Direct match first
     for metric, details in FINANCIAL_METRICS_EXPLAINED.items():
-        if metric.lower().replace(' ', '') == key:
+        if metric.lower().replace(' ', '').replace('_', '') == key:
+            return details
+    
+    # Try partial/fuzzy match for common variations
+    # Map display names to API column names
+    display_to_api = {
+        'fcfafterstockcompensation': 'fcfAfterSBC',
+        'r&dexpenses': 'researchAndDevelopmentExpenses',
+        'rdexpenses': 'researchAndDevelopmentExpenses',
+        'sg&aexpenses': 'sellingGeneralAndAdministrativeExpenses',
+        'sgaexpenses': 'sellingGeneralAndAdministrativeExpenses',
+        'general&adminexpenses': 'generalAndAdministrativeExpenses',
+        'generaladminexpenses': 'generalAndAdministrativeExpenses',
+        'selling&marketingexpenses': 'sellingAndMarketingExpenses',
+        'costofrevenue(cogs)': 'costOfRevenue',
+        'capitalexpenditures(capex)': 'capitalExpenditure',
+        'capex': 'capitalExpenditure',
+        'depreciation&amortization': 'depreciationAndAmortization',
+        'cash&cashequivalents': 'cashAndCashEquivalents',
+        'shareholdersequity': 'totalStockholdersEquity',
+        'stockholdersequity': 'totalStockholdersEquity',
+        'earningspershare(eps)': 'eps',
+        'dilutedeps': 'epsdiluted',
+        'stockbuybacks': 'commonStockRepurchased',
+        'fcfpershare': 'freeCashFlowPerShare',
+        'fcfpershare(truthmeter)': 'freeCashFlowPerShare',
+        'p/eratio': 'priceEarningsRatio',
+        'peratio': 'priceEarningsRatio',
+        'p/sratio': 'priceToSalesRatio',
+        'psratio': 'priceToSalesRatio',
+        'p/bratio': 'priceToBookRatio',
+        'pbratio': 'priceToBookRatio',
+        'debt-to-equity': 'debtToEquity',
+        'debttoequity': 'debtToEquity',
+        'roe': 'returnOnEquity',
+        'roa': 'returnOnAssets',
+        'roce': 'returnOnCapitalEmployed',
+        'grossmargin': 'grossProfitMargin',
+        'operatingmargin': 'operatingProfitMargin',
+        'netincomemargin': 'netProfitMargin',
+        'netmargin': 'netProfitMargin',
+    }
+    
+    # Check if it's a mapped display name
+    if key in display_to_api:
+        api_key = display_to_api[key]
+        if api_key in FINANCIAL_METRICS_EXPLAINED:
+            return FINANCIAL_METRICS_EXPLAINED[api_key]
+    
+    # Try substring match as last resort
+    for metric, details in FINANCIAL_METRICS_EXPLAINED.items():
+        metric_normalized = metric.lower().replace(' ', '').replace('_', '')
+        if key in metric_normalized or metric_normalized in key:
             return details
     
     return None
@@ -2324,7 +2551,38 @@ METRIC_DISPLAY_NAMES = {
     'inventory': 'Inventory',
     'netReceivables': 'Accounts Receivable',
     'totalCurrentLiabilities': 'Current Liabilities',
-    'fcfAfterSBC': 'FCF After Stock Compensation'
+    'fcfAfterSBC': 'FCF After Stock Compensation',
+    # Additional metrics for professional display
+    'generalAndAdministrativeExpenses': 'General & Admin Expenses',
+    'sellingAndMarketingExpenses': 'Selling & Marketing Expenses',
+    'otherExpenses': 'Other Expenses',
+    'costAndExpenses': 'Cost & Expenses',
+    'netInterestIncome': 'Net Interest Income',
+    'interestIncome': 'Interest Income',
+    'incomeBeforeTax': 'Income Before Tax',
+    'incomeBeforeTaxRatio': 'Income Before Tax Ratio',
+    'grossProfitRatio': 'Gross Profit Ratio',
+    'operatingIncomeRatio': 'Operating Income Ratio',
+    'netIncomeRatio': 'Net Income Ratio',
+    'weightedAverageShsOut': 'Weighted Avg Shares Outstanding',
+    'weightedAverageShsOutDil': 'Weighted Avg Shares (Diluted)',
+    'accountsPayable': 'Accounts Payable',
+    'deferredRevenue': 'Deferred Revenue',
+    'otherCurrentLiabilities': 'Other Current Liabilities',
+    'otherNonCurrentLiabilities': 'Other Non-Current Liabilities',
+    'goodwill': 'Goodwill',
+    'intangibleAssets': 'Intangible Assets',
+    'propertyPlantEquipmentNet': 'Property Plant & Equipment',
+    'netDebt': 'Net Debt',
+    'cashAtEndOfPeriod': 'Cash at End of Period',
+    'cashAtBeginningOfPeriod': 'Cash at Beginning of Period',
+    'netChangeInCash': 'Net Change in Cash',
+    'effectOfForexChangesOnCash': 'Forex Effect on Cash',
+    'acquisitionsNet': 'Acquisitions (Net)',
+    'purchasesOfInvestments': 'Purchases of Investments',
+    'salesMaturitiesOfInvestments': 'Sales of Investments',
+    'otherInvestingActivites': 'Other Investing Activities',
+    'otherFinancingActivites': 'Other Financing Activities'
 }
 
 # ============= INDUSTRY BENCHMARKS =============
@@ -2834,6 +3092,21 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
     if df.empty:
         return None, {}
     
+    def format_value_label(val):
+        """Format large numbers as B, M, or T for chart labels"""
+        abs_val = abs(val)
+        sign = "-" if val < 0 else ""
+        if abs_val >= 1e12:
+            return f"{sign}${abs_val/1e12:.1f}T"
+        elif abs_val >= 1e9:
+            return f"{sign}${abs_val/1e9:.1f}B"
+        elif abs_val >= 1e6:
+            return f"{sign}${abs_val/1e6:.1f}M"
+        elif abs_val >= 1e3:
+            return f"{sign}${abs_val/1e3:.1f}K"
+        else:
+            return f"{sign}${abs_val:.0f}"
+    
     df_reversed = df.iloc[::-1].reset_index(drop=True)
     fig = go.Figure()
     colors = ['#00D9FF', '#FFD700', '#9D4EDD']
@@ -2851,7 +3124,7 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
                 y=values,
                 name=metric.replace('_', ' ').title(),
                 marker_color=colors[idx % len(colors)],
-                text=[f'${val/1e9:.1f}B' if abs(val) >= 1e9 else f'${val/1e6:.1f}M' for val in values],
+                text=[format_value_label(val) for val in values],
                 textposition='outside',
                 textfont=dict(size=10)
             ))
@@ -2864,9 +3137,9 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
     if all_values:
         max_val = max(all_values)
         min_val = min(all_values)
-        # Tighter Y-axis padding (5-7% above max) so bars nearly reach top
-        y_range_max = max_val * 1.07 if max_val > 0 else max_val * 0.93
-        y_range_min = min_val * 1.05 if min_val < 0 else 0
+        # Add 15% padding above max so text labels and bars never exceed y-axis
+        y_range_max = max_val * 1.15 if max_val > 0 else max_val * 0.85
+        y_range_min = min_val * 1.15 if min_val < 0 else 0
         fig.update_layout(yaxis=dict(range=[y_range_min, y_range_max]))
     
     fig.update_layout(
@@ -3035,10 +3308,23 @@ def get_available_metrics(df, exclude_cols=['date', 'symbol', 'reportedCurrency'
     if df.empty:
         return []
     
+    def format_metric_name(col):
+        """Convert camelCase to properly spaced title case"""
+        if col in METRIC_DISPLAY_NAMES:
+            return METRIC_DISPLAY_NAMES[col]
+        # Convert camelCase to spaces
+        import re
+        # Insert space before capital letters
+        spaced = re.sub(r'([a-z])([A-Z])', r'\1 \2', col)
+        # Handle consecutive capitals (like FCF, SBC)
+        spaced = re.sub(r'([A-Z]+)([A-Z][a-z])', r'\1 \2', spaced)
+        # Title case
+        return spaced.title()
+    
     numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
     available = [col for col in numeric_cols if col not in exclude_cols]
     
-    return [(METRIC_DISPLAY_NAMES.get(col, col.replace('_', ' ').title()), col) for col in available]
+    return [(format_metric_name(col), col) for col in available]
 
 def show_why_it_matters(metric_key):
     """Show explanation for a metric"""
@@ -5658,21 +5944,21 @@ def render_coffee_calculator(ticker, stock_name):
         gain_pct = (gain / total_invested) * 100
         
         st.markdown(f'''
-        <div class="fade-in lift-card" style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
-                    border: 2px solid #00D9FF; border-radius: 15px; padding: 25px; margin: 20px 0;">
-            <h4 style="color: #00D9FF; margin-bottom: 15px;">If you invested ${weekly_amount} (the cost of a coffee) into {stock_name} every week for the last 5 years...</h4>
+        <div class="fade-in lift-card" style="background: linear-gradient(135deg, #F0F9FF 0%, #E0F2FE 100%); 
+                    border: 2px solid #0EA5E9; border-radius: 15px; padding: 25px; margin: 20px 0; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            <h4 style="color: #0369A1; margin-bottom: 15px;">If you invested ${weekly_amount} (the cost of a coffee) into {stock_name} every week for the last 5 years...</h4>
             <div style="display: flex; justify-content: space-around; text-align: center;">
                 <div>
-                    <p style="color: #888; font-size: 14px;">Total Invested</p>
-                    <p style="color: #FFFFFF; font-size: 28px; font-weight: bold;">${total_invested:,.0f}</p>
+                    <p style="color: #64748B; font-size: 14px;">Total Invested</p>
+                    <p style="color: #1E293B; font-size: 28px; font-weight: bold;">${total_invested:,.0f}</p>
                 </div>
                 <div>
-                    <p style="color: #888; font-size: 14px;">You Would Have</p>
-                    <p style="color: #00FF00; font-size: 28px; font-weight: bold;">${future_value:,.0f}</p>
+                    <p style="color: #64748B; font-size: 14px;">You Would Have</p>
+                    <p style="color: #16A34A; font-size: 28px; font-weight: bold;">${future_value:,.0f}</p>
                 </div>
                 <div>
-                    <p style="color: #888; font-size: 14px;">Gain</p>
-                    <p style="color: {"#00FF00" if gain > 0 else "#FF4444"}; font-size: 28px; font-weight: bold;">
+                    <p style="color: #64748B; font-size: 14px;">Gain</p>
+                    <p style="color: {"#16A34A" if gain > 0 else "#DC2626"}; font-size: 28px; font-weight: bold;">
                         {"+" if gain > 0 else ""}{gain_pct:.1f}%
                     </p>
                 </div>
@@ -14561,15 +14847,23 @@ elif selected_page == "📊 Company Analysis":
                 
                 metrics_to_plot = [metric1, metric2, metric3]
                 
-                # Show what these metrics mean
+                # Show what these metrics mean - try both display name and API column name
                 with st.expander("📚 What do these metrics mean?", expanded=False):
-                    for metric_display in [metric1_display, metric2_display, metric3_display]:
-                        metric_key = metric_display.lower().replace(" ", "").replace("_", "")
-                        explanation = get_metric_explanation(metric_key)
+                    for metric_display, metric_col in zip([metric1_display, metric2_display, metric3_display], metrics_to_plot):
+                        # Try display name first, then API column name
+                        explanation = get_metric_explanation(metric_display)
+                        if not explanation:
+                            explanation = get_metric_explanation(metric_col)
                         if explanation:
                             st.markdown(f"""**{metric_display}**  
                 📊 *What it is:* {explanation["simple"]}  
                 💡 *Why it matters:* {explanation["why"]}""")
+                            st.markdown("---")
+                        else:
+                            # Provide a generic explanation if none found
+                            st.markdown(f"""**{metric_display}**  
+                📊 *What it is:* Financial metric from company reports  
+                💡 *Why it matters:* Track this over time to spot trends""")
                             st.markdown("---")
                 
                 metric_names = [metric1_display, metric2_display, metric3_display]
@@ -14648,15 +14942,23 @@ elif selected_page == "📊 Company Analysis":
                 
                 metrics_to_plot = [metric1, metric2, metric3]
                 
-                # Show what these metrics mean
+                # Show what these metrics mean - try both display name and API column name
                 with st.expander("📚 What do these metrics mean?", expanded=False):
-                    for metric_display in [metric1_display, metric2_display, metric3_display]:
-                        metric_key = metric_display.lower().replace(" ", "").replace("_", "")
-                        explanation = get_metric_explanation(metric_key)
+                    for metric_display, metric_col in zip([metric1_display, metric2_display, metric3_display], metrics_to_plot):
+                        # Try display name first, then API column name
+                        explanation = get_metric_explanation(metric_display)
+                        if not explanation:
+                            explanation = get_metric_explanation(metric_col)
                         if explanation:
                             st.markdown(f"""**{metric_display}**  
                 📊 *What it is:* {explanation["simple"]}  
                 💡 *Why it matters:* {explanation["why"]}""")
+                            st.markdown("---")
+                        else:
+                            # Provide a generic explanation if none found
+                            st.markdown(f"""**{metric_display}**  
+                📊 *What it is:* Financial metric from company reports  
+                💡 *Why it matters:* Track this over time to spot trends""")
                             st.markdown("---")
                 
                 metric_names = [metric1_display, metric2_display, metric3_display]
@@ -14732,15 +15034,23 @@ elif selected_page == "📊 Company Analysis":
                 
                 metrics_to_plot = [metric1, metric2, metric3]
                 
-                # Show what these metrics mean
+                # Show what these metrics mean - try both display name and API column name
                 with st.expander("📚 What do these metrics mean?", expanded=False):
-                    for metric_display in [metric1_display, metric2_display, metric3_display]:
-                        metric_key = metric_display.lower().replace(" ", "").replace("_", "")
-                        explanation = get_metric_explanation(metric_key)
+                    for metric_display, metric_col in zip([metric1_display, metric2_display, metric3_display], metrics_to_plot):
+                        # Try display name first, then API column name
+                        explanation = get_metric_explanation(metric_display)
+                        if not explanation:
+                            explanation = get_metric_explanation(metric_col)
                         if explanation:
                             st.markdown(f"""**{metric_display}**  
                 📊 *What it is:* {explanation["simple"]}  
                 💡 *Why it matters:* {explanation["why"]}""")
+                            st.markdown("---")
+                        else:
+                            # Provide a generic explanation if none found
+                            st.markdown(f"""**{metric_display}**  
+                📊 *What it is:* Financial metric from company reports  
+                💡 *Why it matters:* Track this over time to spot trends""")
                             st.markdown("---")
                 
                 metric_names = [metric1_display, metric2_display, metric3_display]
@@ -16369,7 +16679,7 @@ elif selected_page == "📈 Financial Health":
                     line=dict(color='#00C853', width=2, dash='dash')
                 ))
                 
-                # Y-axis with 5% padding
+                # Y-axis with 15% padding to ensure data never exceeds axis
                 all_y = list(ratio_data[ratio_col]) + [benchmark_val]
                 y_min, y_max = min(all_y), max(all_y)
                 y_range = y_max - y_min if y_max != y_min else abs(y_max) * 0.1 or 1
@@ -16378,7 +16688,7 @@ elif selected_page == "📈 Financial Health":
                     title=f"{ratio_name} Over Time",
                     xaxis_title="Date",
                     yaxis_title=ratio_name,
-                    yaxis=dict(range=[y_min - y_range * 0.05, y_max + y_range * 0.05]),
+                    yaxis=dict(range=[y_min - y_range * 0.15, y_max + y_range * 0.15]),
                     height=300,
                     margin=dict(l=0, r=0, t=40, b=0),
                     hovermode='x unified',
@@ -16442,10 +16752,10 @@ elif selected_page == "📈 Financial Health":
         for ratio_tuple in all_ratios:
             ratio_col, ratio_name, benchmark_val, comparison_type, description, tooltip_def, tooltip_example = ratio_tuple
             if ratio_col in ratios_df.columns:
-                # Render ratio name with hover tooltip (question mark icon)
+                # Render ratio name with hover tooltip (question mark icon) - black text for light mode
                 st.markdown(f"""
-                <h3 style="color: #FFFFFF;">{ratio_name} 
-                    <span class="ratio-tooltip">&#x3F;
+                <h3 style="color: #121212;">{ratio_name} 
+                    <span class="ratio-tooltip" style="color: #0EA5E9; font-size: 18px; cursor: help;">ⓘ
                         <span class="tooltip-text">
                             <strong>Definition:</strong> {tooltip_def}<br><br>
                             <strong>Example:</strong> {tooltip_example}
