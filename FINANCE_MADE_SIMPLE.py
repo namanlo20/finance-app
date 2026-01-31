@@ -9144,8 +9144,8 @@ if selected_page == "🏠 Dashboard":
     st.markdown("""
     <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
                 padding: 25px; border-radius: 15px; margin-bottom: 25px;">
-        <h1 style="color: #FFFFFF; margin: 0; font-size: 28px;">🏠 Dashboard</h1>
-        <p style="color: #B0B0B0; margin: 5px 0 0 0;">Your personalized investing command center</p>
+        <h1 style="color: #FFFFFF !important; margin: 0; font-size: 28px;">🏠 Dashboard</h1>
+        <p style="color: #B0B0B0 !important; margin: 5px 0 0 0;">Your personalized investing command center</p>
     </div>
     """, unsafe_allow_html=True)
     
