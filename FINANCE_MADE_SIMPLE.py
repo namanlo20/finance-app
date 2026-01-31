@@ -3119,10 +3119,13 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
                 growth_rate = ((values[0] - values[-1]) / abs(values[-1])) * 100
                 growth_rates[metric] = growth_rate
             
+            # Use proper display name from METRIC_DISPLAY_NAMES
+            display_name = METRIC_DISPLAY_NAMES.get(metric, metric.replace('_', ' ').title())
+            
             fig.add_trace(go.Bar(
                 x=df_reversed['date'],
                 y=values,
-                name=metric.replace('_', ' ').title(),
+                name=display_name,
                 marker_color=colors[idx % len(colors)],
                 text=[format_value_label(val) for val in values],
                 textposition='outside',
@@ -3143,18 +3146,42 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
         fig.update_layout(yaxis=dict(range=[y_range_min, y_range_max]))
     
     fig.update_layout(
-        title=title,
+        title=dict(
+            text=title,
+            font=dict(size=18, color='#1a1a2e', family='Arial Black'),
+            x=0.5,
+            xanchor='center'
+        ),
         xaxis_title=period_label,
         yaxis_title=yaxis_title,
         barmode='group',
         hovermode='x unified',
-        height=400,
+        height=450,
         showlegend=True,
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        legend=dict(
+            orientation="h", 
+            yanchor="bottom", 
+            y=1.02, 
+            xanchor="center", 
+            x=0.5,
+            bgcolor='rgba(255,255,255,0.8)',
+            bordercolor='rgba(0,0,0,0.1)',
+            borderwidth=1
+        ),
         yaxis_showgrid=True,
         yaxis_gridwidth=1,
-        yaxis_gridcolor='rgba(128,128,128,0.3)'
+        yaxis_gridcolor='rgba(200,200,200,0.5)',
+        xaxis_showgrid=False,
+        plot_bgcolor='rgba(250,250,250,0.5)',
+        paper_bgcolor='white',
+        margin=dict(t=80, b=60, l=60, r=40),
+        bargap=0.15,
+        bargroupgap=0.1
     )
+    
+    # Add subtle border effect
+    fig.update_xaxes(showline=True, linewidth=1, linecolor='rgba(0,0,0,0.1)')
+    fig.update_yaxes(showline=True, linewidth=1, linecolor='rgba(0,0,0,0.1)')
     
     return fig, growth_rates
 
@@ -3286,25 +3313,9 @@ MY_TOP_5_METRICS = {
 }
 
 def show_why_these_metrics(metric_type="financial_statements"):
-    """Display why I focus on these specific metrics"""
-    if metric_type == "financial_statements":
-        st.sidebar.markdown("### 💡 Why These Metrics?")
-        st.sidebar.info("""
-**I focus on cash flow metrics because:**
-- Cash can't be manipulated like earnings
-- FCF after SBC shows TRUE shareholder value
-- Operating income reveals business quality
-- Revenue growth shows market demand
-- Quick ratio = safety cushion
-
-These tell the real story!
-        """)
-        
-        with st.sidebar.expander("🏆 My Top 5 Favorites"):
-            for key, info in sorted(MY_TOP_5_METRICS.items(), key=lambda x: x[1]['rank']):
-                st.markdown(f"**#{info['rank']}: {info['name']}**")
-                st.caption(info['why'])
-                st.markdown("---")
+    """Display why I focus on these specific metrics - MOVED TO FINANCE 101 TAB"""
+    # This content is now in Finance 101 tab, not sidebar
+    pass
 
 def get_available_metrics(df, exclude_cols=['date', 'symbol', 'reportedCurrency', 'cik', 'fillingDate', 'acceptedDate', 'calendarYear', 'period', 'link', 'finalLink']):
     """Get all numeric columns from dataframe for dropdown"""
@@ -5643,8 +5654,8 @@ def show_welcome_popup():
         }
         .welcome-close-btn {
             background: transparent;
-            border: 2px solid #FF4444;
-            color: #FF4444;
+            border: 2px solid #FFFFFF;
+            color: #FFFFFF !important;
             font-size: 20px;
             width: 35px;
             height: 35px;
@@ -5659,7 +5670,7 @@ def show_welcome_popup():
         }
         .welcome-close-btn:hover {
             background: #FF4444;
-            color: #FFFFFF;
+            color: #FFFFFF !important;
         }
         .welcome-start-form {
             margin-top: 20px;
@@ -8791,7 +8802,7 @@ def clean_citation_tags(text: str) -> str:
     return text
 
 
-def format_number(value, number_type="number"):
+def format_number_detailed(value, number_type="number"):
     """
     Format numbers consistently with 2 decimals, $, %, and commas.
     
@@ -14354,19 +14365,7 @@ elif selected_page == "📊 Company Analysis":
         # Use global settings - no duplicate controls needed
         years = st.session_state.get('years_of_history', 5)
         period = st.session_state.get('global_period', 'annual')
-        
-        if has_company:
-            st.markdown("### 🔍 Explore This Company")
-            view = st.radio(
-                "Choose what to analyze:",
-                ["🌟 The Big Picture", "💪 Financial Health", "💰 Price & Future Value", "⚠️ Risk Report"],
-                key="analysis_view_radio",
-                help="Pick a category to explore different aspects of this company"
-            )
-            st.session_state.analysis_view = view
-        else:
-            st.info("🔍 Search for a company above to unlock analysis options!")
-            view = "🌟 The Big Picture"
+        view = "🌟 The Big Picture"  # Default view
 
 
     quote = get_quote(ticker)
@@ -16722,14 +16721,16 @@ elif selected_page == "📈 Financial Health":
         for ratio_tuple in all_ratios:
             ratio_col, ratio_name, benchmark_val, comparison_type, description, tooltip_def, tooltip_example = ratio_tuple
             if ratio_col in ratios_df.columns:
-                # Use columns to put title and help icon side by side
-                title_col, help_col = st.columns([10, 1])
-                with title_col:
+                # Title with clickable info button
+                col1, col2 = st.columns([12, 1])
+                with col1:
                     st.markdown(f"### {ratio_name}")
-                with help_col:
-                    with st.popover("ⓘ"):
-                        st.markdown(f"**Definition:** {tooltip_def}")
-                        st.markdown(f"**Example:** {tooltip_example}")
+                with col2:
+                    with st.popover("❓", use_container_width=True):
+                        st.markdown(f"**📖 Definition:**")
+                        st.info(tooltip_def)
+                        st.markdown(f"**💡 Example:**")
+                        st.success(tooltip_example)
                 
                 if create_ratio_chart_with_table(ratio_col, ratio_name, benchmark_val, comparison_type, ratios_df, description):
                     charts_displayed += 1
