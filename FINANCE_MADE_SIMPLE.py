@@ -3119,13 +3119,10 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
                 growth_rate = ((values[0] - values[-1]) / abs(values[-1])) * 100
                 growth_rates[metric] = growth_rate
             
-            # Use proper display name from METRIC_DISPLAY_NAMES
-            display_name = METRIC_DISPLAY_NAMES.get(metric, metric.replace('_', ' ').title())
-            
             fig.add_trace(go.Bar(
                 x=df_reversed['date'],
                 y=values,
-                name=display_name,
+                name=metric.replace('_', ' ').title(),
                 marker_color=colors[idx % len(colors)],
                 text=[format_value_label(val) for val in values],
                 textposition='outside',
@@ -3140,7 +3137,7 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
     if all_values:
         max_val = max(all_values)
         min_val = min(all_values)
-        # Add 20% padding above max so text labels and bars NEVER exceed y-axis
+        # Add 20% padding above max so text labels and bars never exceed y-axis
         y_range_max = max_val * 1.20 if max_val > 0 else max_val * 0.80
         y_range_min = min_val * 1.20 if min_val < 0 else 0
         fig.update_layout(yaxis=dict(range=[y_range_min, y_range_max]))
@@ -3154,7 +3151,9 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
         height=400,
         showlegend=True,
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        yaxis=dict(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.3)')
+        yaxis_showgrid=True,
+        yaxis_gridwidth=1,
+        yaxis_gridcolor='rgba(128,128,128,0.3)'
     )
     
     return fig, growth_rates
@@ -5628,6 +5627,13 @@ def show_welcome_popup():
             text-align: center;
             position: relative;
         }
+        .welcome-popup h1,
+        .welcome-popup p,
+        .welcome-popup li,
+        .welcome-popup ul,
+        .welcome-popup strong {
+            color: #FFFFFF !important;
+        }
         .welcome-close-form {
             position: absolute;
             top: 15px;
@@ -5682,9 +5688,9 @@ def show_welcome_popup():
                 <form class="welcome-close-form" method="get">
                     <button class="welcome-close-btn" type="submit" name="dismiss_welcome" value="1">×</button>
                 </form>
-                <h1 style="color: #FFFFFF !important; margin-bottom: 20px;">Welcome to Investing Made Simple!</h1>
-                <p style="color: #FFFFFF; font-size: 16px; margin-bottom: 20px;">We've upgraded your experience:</p>
-                <ul style="color: #FFFFFF; font-size: 14px; line-height: 2.2; text-align: left; padding-left: 20px;">
+                <h1>Welcome to Investing Made Simple!</h1>
+                <p>We've upgraded your experience:</p>
+                <ul>
                     <li><strong>Market Mood:</strong> Check the speedometer to see if the market is fearful or greedy.</li>
                     <li><strong>Easy Search:</strong> Type 'Apple' or 'Tesla'—no need to memorize tickers!</li>
                     <li><strong>Simpler Metrics:</strong> Hover over any number for a 'Sweet & Simple' explanation.</li>
@@ -7747,41 +7753,14 @@ try:
 except:
     pass  # Logo handled by deployment
 
-# ============= STICKY HEADER =============
-st.markdown("""
-<style>
-.sticky-header {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    background: linear-gradient(90deg, #FFFFFF 0%, #F8F9FA 100%);
-    z-index: 9999;
-    padding: 10px 0;
-    text-align: center;
-    border-bottom: 2px solid #FF4444;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-}
-.sticky-header h1 {
-    margin: 0 !important;
-    font-size: 24px !important;
-    color: #121212 !important;
-}
-.sticky-header p {
-    margin: 0 !important;
-    font-size: 12px !important;
-    color: #666 !important;
-}
-/* Add padding to main content so it doesn't hide behind sticky header */
-.main .block-container {
-    padding-top: 80px !important;
-}
-</style>
-<div class="sticky-header">
-    <h1>💰 Investing Made Simple</h1>
-    <p>AI-Powered Stock Analysis for Everyone</p>
-</div>
-""", unsafe_allow_html=True)
+# Header
+col1, col2 = st.columns([3, 1])
+with col1:
+    st.title("💰 Investing Made Simple")
+    st.caption("AI-Powered Stock Analysis for Everyone")
+with col2:
+    st.markdown("### 🤖 AI-Ready")
+    st.caption("FMP Premium")
 
 
 # ============= SESSION STATE INITIALIZATION =============
@@ -7815,6 +7794,10 @@ with st.sidebar:
         help="CAGR is the 'smoothed' average return. It shows what you earned every year, ignoring the scary zigs and zags."
     )
     st.session_state.years_of_history = selected_timeline
+    
+    # Period type selector (Annual/Quarterly)
+    period_type = st.radio("Time Period:", ["Annual", "Quarterly"], key="global_period_type", horizontal=True)
+    st.session_state.global_period = 'annual' if period_type == "Annual" else 'quarter'
     
     # ============= UNHINGED MODE (Right below Timeline) =============
     st.markdown("### 🔥 Settings")
@@ -8808,7 +8791,7 @@ def clean_citation_tags(text: str) -> str:
     return text
 
 
-def format_number_simple(value, number_type="number"):
+def format_number(value, number_type="number"):
     """
     Format numbers consistently with 2 decimals, $, %, and commas.
     
@@ -9650,6 +9633,17 @@ if selected_page == "🏠 Dashboard":
                 """)
                 
                 show_data_source(source="FMP API", updated_at=datetime.now())
+                
+                # Debug info (collapsible)
+                with st.expander("🔧 Debug: Raw Data", expanded=False):
+                    st.json({
+                        "pe_ratio": pe_ratio,
+                        "ps_ratio": ps_ratio,
+                        "ev_ebitda": ev_ebitda,
+                        "peg_ratio": peg_ratio,
+                        "is_profitable": is_profitable,
+                        "eps_growth": val_metrics.get('eps_growth')
+                    })
                 
                 # AI Scenario
                 st.markdown("##### 🤖 AI Valuation Scenario")
@@ -14357,12 +14351,9 @@ elif selected_page == "📊 Company Analysis":
                     fcf_cagr = calculate_cagr(start_fcf, end_fcf, years_count)
     
     with st.sidebar:
-        st.header("⚙️ Settings")
-        period_type = st.radio("Time Period:", ["Annual", "Quarterly"])
-        period = 'annual' if period_type == "Annual" else 'quarter'
-        years = st.slider("Years of History:", 1, 30, 5)
-        
-        st.markdown("---")
+        # Use global settings - no duplicate controls needed
+        years = st.session_state.get('years_of_history', 5)
+        period = st.session_state.get('global_period', 'annual')
         
         if has_company:
             st.markdown("### 🔍 Explore This Company")
@@ -14373,49 +14364,9 @@ elif selected_page == "📊 Company Analysis":
                 help="Pick a category to explore different aspects of this company"
             )
             st.session_state.analysis_view = view
-            st.markdown("---")
         else:
             st.info("🔍 Search for a company above to unlock analysis options!")
             view = "🌟 The Big Picture"
-        
-        st.markdown("### 📊 Quick Stats")
-        
-        if fcf_cagr:
-            st.metric("FCF Growth", f"{fcf_cagr:+.1f}%",
-                     help="How fast is the company's free cash flow growing?")
-        
-        price_data = get_historical_price(ticker, years)
-        if not price_data.empty and len(price_data) > 1 and 'price' in price_data.columns:
-            start_price = price_data['price'].iloc[0]
-            end_price = price_data['price'].iloc[-1]
-            price_growth = ((end_price - start_price) / start_price) * 100
-            st.metric(f"Stock Growth ({years}Y)", f"{price_growth:+.1f}%",
-                     help=f"How much has the stock price changed over {years} years?")
-        
-        st.markdown("---")
-        
-        st.markdown("### ⚠️ Health Check")
-        
-        de_ratio = calculate_debt_to_equity(balance_df)
-        if de_ratio > 0:
-            if de_ratio > 2.0:
-                st.error(f"Debt Level: {de_ratio:.2f} 🔴")
-                st.caption("High debt - be careful!")
-            elif de_ratio > 1.0:
-                st.warning(f"Debt Level: {de_ratio:.2f} 🟡")
-                st.caption("Moderate debt")
-            else:
-                st.success(f"Debt Level: {de_ratio:.2f} 🟢")
-                st.caption("Low debt - good!")
-        
-        qr = calculate_quick_ratio(balance_df)
-        if qr > 0:
-            if qr < 1.0:
-                st.warning(f"Cash on Hand: {qr:.2f} 🟡")
-                st.caption("Might struggle to pay bills")
-            else:
-                st.success(f"Cash on Hand: {qr:.2f} 🟢")
-                st.caption("Can pay bills easily")
 
 
     quote = get_quote(ticker)
@@ -14842,7 +14793,7 @@ elif selected_page == "📊 Company Analysis":
                     metric1_display = st.selectbox(
                         "Metric 1:",
                         options=[display for display, _ in available_metrics],
-                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Operating Cash Flow'), 0),
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'FCF After Stock Compensation'), 0),
                         key="cf_metric1"
                     )
                     metric1 = next(col for display, col in available_metrics if display == metric1_display)
@@ -14851,7 +14802,7 @@ elif selected_page == "📊 Company Analysis":
                     metric2_display = st.selectbox(
                         "Metric 2:",
                         options=[display for display, _ in available_metrics],
-                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Capital Expenditures (CapEx)'), min(1, len(available_metrics)-1)),
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Free Cash Flow'), min(1, len(available_metrics)-1)),
                         key="cf_metric2"
                     )
                     metric2 = next(col for display, col in available_metrics if display == metric2_display)
@@ -14860,7 +14811,7 @@ elif selected_page == "📊 Company Analysis":
                     metric3_display = st.selectbox(
                         "Metric 3:",
                         options=[display for display, _ in available_metrics],
-                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Free Cash Flow'), min(2, len(available_metrics)-1)),
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Operating Cash Flow'), min(2, len(available_metrics)-1)),
                         key="cf_metric3"
                     )
                     metric3 = next(col for display, col in available_metrics if display == metric3_display)
@@ -16520,10 +16471,9 @@ elif selected_page == "📈 Financial Health":
     
     # Sidebar settings
     with st.sidebar:
-        st.markdown("### Ratio Settings")
-        years = st.slider("Years of History:", 1, 10, 5, key="ratio_years")
-        period = st.radio("Period:", ["Annual", "Quarterly"], key="ratio_period")
-        period_type = 'annual' if period == "Annual" else 'quarter'
+        # Use global settings
+        years = st.session_state.get('years_of_history', 5)
+        period_type = st.session_state.get('global_period', 'annual')
     
     # Fetch ratio data
     ratios_df = get_financial_ratios(ticker, period_type, years * 4 if period_type == 'quarter' else years)
@@ -16772,12 +16722,15 @@ elif selected_page == "📈 Financial Health":
         for ratio_tuple in all_ratios:
             ratio_col, ratio_name, benchmark_val, comparison_type, description, tooltip_def, tooltip_example = ratio_tuple
             if ratio_col in ratios_df.columns:
-                # Render ratio name with info icon - definition ONLY appears on hover via title attribute
-                full_tooltip = f"Definition: {tooltip_def} | Example: {tooltip_example}"
-                st.markdown(f"""
-                <h3 style="color: #121212; display: inline;">{ratio_name}</h3>
-                <span title="{full_tooltip}" style="color: #0EA5E9; font-size: 18px; cursor: help; margin-left: 8px;">ⓘ</span>
-                """, unsafe_allow_html=True)
+                # Use columns to put title and help icon side by side
+                title_col, help_col = st.columns([10, 1])
+                with title_col:
+                    st.markdown(f"### {ratio_name}")
+                with help_col:
+                    with st.popover("ⓘ"):
+                        st.markdown(f"**Definition:** {tooltip_def}")
+                        st.markdown(f"**Example:** {tooltip_example}")
+                
                 if create_ratio_chart_with_table(ratio_col, ratio_name, benchmark_val, comparison_type, ratios_df, description):
                     charts_displayed += 1
                 st.markdown("---")
