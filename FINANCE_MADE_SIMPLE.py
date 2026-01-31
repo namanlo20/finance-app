@@ -3137,9 +3137,9 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
     if all_values:
         max_val = max(all_values)
         min_val = min(all_values)
-        # Add 15% padding above max so text labels and bars never exceed y-axis
-        y_range_max = max_val * 1.15 if max_val > 0 else max_val * 0.85
-        y_range_min = min_val * 1.15 if min_val < 0 else 0
+        # Add 20% padding above max so text labels and bars NEVER exceed y-axis
+        y_range_max = max_val * 1.20 if max_val > 0 else max_val * 0.80
+        y_range_min = min_val * 1.20 if min_val < 0 else 0
         fig.update_layout(yaxis=dict(range=[y_range_min, y_range_max]))
     
     fig.update_layout(
@@ -5624,6 +5624,12 @@ def show_welcome_popup():
             text-align: center;
             position: relative;
         }
+        .welcome-popup h1, .welcome-popup p, .welcome-popup li, .welcome-popup ul, .welcome-popup strong {
+            color: #FFFFFF !important;
+        }
+        .welcome-popup h1 {
+            color: #00D9FF !important;
+        }
         .welcome-close-form {
             position: absolute;
             top: 15px;
@@ -7743,14 +7749,41 @@ try:
 except:
     pass  # Logo handled by deployment
 
-# Header
-col1, col2 = st.columns([3, 1])
-with col1:
-    st.title("💰 Investing Made Simple")
-    st.caption("AI-Powered Stock Analysis for Everyone")
-with col2:
-    st.markdown("### 🤖 AI-Ready")
-    st.caption("FMP Premium")
+# ============= STICKY HEADER =============
+st.markdown("""
+<style>
+.sticky-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(90deg, #FFFFFF 0%, #F8F9FA 100%);
+    z-index: 9999;
+    padding: 10px 0;
+    text-align: center;
+    border-bottom: 2px solid #FF4444;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+.sticky-header h1 {
+    margin: 0 !important;
+    font-size: 24px !important;
+    color: #121212 !important;
+}
+.sticky-header p {
+    margin: 0 !important;
+    font-size: 12px !important;
+    color: #666 !important;
+}
+/* Add padding to main content so it doesn't hide behind sticky header */
+.main .block-container {
+    padding-top: 80px !important;
+}
+</style>
+<div class="sticky-header">
+    <h1>💰 Investing Made Simple</h1>
+    <p>AI-Powered Stock Analysis for Everyone</p>
+</div>
+""", unsafe_allow_html=True)
 
 
 # ============= SESSION STATE INITIALIZATION =============
@@ -8777,7 +8810,7 @@ def clean_citation_tags(text: str) -> str:
     return text
 
 
-def format_number(value, number_type="number"):
+def format_number_simple(value, number_type="number"):
     """
     Format numbers consistently with 2 decimals, $, %, and commas.
     
@@ -9619,17 +9652,6 @@ if selected_page == "🏠 Dashboard":
                 """)
                 
                 show_data_source(source="FMP API", updated_at=datetime.now())
-                
-                # Debug info (collapsible)
-                with st.expander("🔧 Debug: Raw Data", expanded=False):
-                    st.json({
-                        "pe_ratio": pe_ratio,
-                        "ps_ratio": ps_ratio,
-                        "ev_ebitda": ev_ebitda,
-                        "peg_ratio": peg_ratio,
-                        "is_profitable": is_profitable,
-                        "eps_growth": val_metrics.get('eps_growth')
-                    })
                 
                 # AI Scenario
                 st.markdown("##### 🤖 AI Valuation Scenario")
@@ -16752,16 +16774,11 @@ elif selected_page == "📈 Financial Health":
         for ratio_tuple in all_ratios:
             ratio_col, ratio_name, benchmark_val, comparison_type, description, tooltip_def, tooltip_example = ratio_tuple
             if ratio_col in ratios_df.columns:
-                # Render ratio name with hover tooltip (question mark icon) - black text for light mode
+                # Render ratio name with info icon - definition ONLY appears on hover via title attribute
+                full_tooltip = f"Definition: {tooltip_def} | Example: {tooltip_example}"
                 st.markdown(f"""
-                <h3 style="color: #121212;">{ratio_name} 
-                    <span class="ratio-tooltip" style="color: #0EA5E9; font-size: 18px; cursor: help;">ⓘ
-                        <span class="tooltip-text">
-                            <strong>Definition:</strong> {tooltip_def}<br><br>
-                            <strong>Example:</strong> {tooltip_example}
-                        </span>
-                    </span>
-                </h3>
+                <h3 style="color: #121212; display: inline;">{ratio_name}</h3>
+                <span title="{full_tooltip}" style="color: #0EA5E9; font-size: 18px; cursor: help; margin-left: 8px;">ⓘ</span>
                 """, unsafe_allow_html=True)
                 if create_ratio_chart_with_table(ratio_col, ratio_name, benchmark_val, comparison_type, ratios_df, description):
                     charts_displayed += 1
