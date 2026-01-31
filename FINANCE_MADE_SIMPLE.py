@@ -104,6 +104,24 @@ input, textarea, select {
 }
 
 /* Navigation dropdowns MUST be RED - highest priority */
+/* Style POPOVER buttons in navigation (NEW approach - no typing allowed) */
+[data-testid="stHorizontalBlock"] button[kind="secondary"],
+[data-testid="stHorizontalBlock"] [data-testid="baseButton-secondary"] {
+    background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%) !important;
+    border: none !important;
+    border-radius: 8px !important;
+    min-height: 42px !important;
+    color: #FFFFFF !important;
+    font-weight: 600 !important;
+}
+
+[data-testid="stHorizontalBlock"] button[kind="secondary"] *,
+[data-testid="stHorizontalBlock"] button[kind="secondary"] p,
+[data-testid="stHorizontalBlock"] button[kind="secondary"] span {
+    color: #FFFFFF !important;
+}
+
+/* OLD selectbox approach (keeping for fallback) */
 [data-testid="stHorizontalBlock"] [data-baseweb="select"],
 [data-testid="stHorizontalBlock"] [data-baseweb="select"] > div {
     background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%) !important;
@@ -115,6 +133,23 @@ input, textarea, select {
 [data-testid="stHorizontalBlock"] [data-baseweb="select"] div:not([data-baseweb="select"]) {
     color: #FFFFFF !important;
 }
+
+/* DISABLE TYPING IN NAVIGATION DROPDOWNS */
+[data-testid="stHorizontalBlock"] [data-baseweb="select"] input {
+    pointer-events: none !important;
+    cursor: pointer !important;
+    caret-color: transparent !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+}
+
+/* Hide the input caret/cursor */
+[data-testid="stHorizontalBlock"] [data-baseweb="select"] input:focus {
+    outline: none !important;
+    border: none !important;
+}
+
 
 </style>
 """, unsafe_allow_html=True)
@@ -7190,31 +7225,49 @@ with header_cols[0]:
         st.rerun()
 
 with header_cols[1]:
-    st.selectbox(
-        "Learn",
-        ["🏠 Start Here", "🧠 Risk Quiz", "📚 Learn Hub", "📘 Glossary"],
-        key="nav_learn_select",
-        label_visibility="collapsed",
-        on_change=nav_learn_changed
-    )
+    with st.popover("🏠 Start Here", use_container_width=True):
+        if st.button("🏠 Start Here", key="nav_start_here", use_container_width=True):
+            st.session_state.selected_page = "🏠 Start Here"
+            st.rerun()
+        if st.button("🧠 Risk Quiz", key="nav_risk_quiz", use_container_width=True):
+            st.session_state.selected_page = "🧠 Risk Quiz"
+            st.rerun()
+        if st.button("📚 Learn Hub", key="nav_learn_hub", use_container_width=True):
+            st.session_state.selected_page = "📚 Learn Hub"
+            st.rerun()
+        if st.button("📘 Glossary", key="nav_glossary", use_container_width=True):
+            st.session_state.selected_page = "📘 Glossary"
+            st.rerun()
 
 with header_cols[2]:
-    st.selectbox(
-        "Analyze", 
-        ["📊 Company Analysis", "📈 Financial Health", "📰 Market Intelligence", "📊 Market Overview", "🔍 AI Stock Screener"],
-        key="nav_analyze_select",
-        label_visibility="collapsed",
-        on_change=nav_analyze_changed
-    )
+    with st.popover("📊 Company Analysis", use_container_width=True):
+        if st.button("📊 Company Analysis", key="nav_company_analysis", use_container_width=True):
+            st.session_state.selected_page = "📊 Company Analysis"
+            st.rerun()
+        if st.button("📈 Financial Health", key="nav_financial_health", use_container_width=True):
+            st.session_state.selected_page = "📈 Financial Health"
+            st.rerun()
+        if st.button("📰 Market Intelligence", key="nav_market_intel", use_container_width=True):
+            st.session_state.selected_page = "📰 Market Intelligence"
+            st.rerun()
+        if st.button("📊 Market Overview", key="nav_market_overview", use_container_width=True):
+            st.session_state.selected_page = "📊 Market Overview"
+            st.rerun()
+        if st.button("🔍 AI Stock Screener", key="nav_ai_screener", use_container_width=True):
+            st.session_state.selected_page = "🔍 AI Stock Screener"
+            st.rerun()
 
 with header_cols[3]:
-    st.selectbox(
-        "Action",
-        ["📊 Pro Checklist", "💼 Paper Portfolio", "👤 Naman's Portfolio"],
-        key="nav_action_select", 
-        label_visibility="collapsed",
-        on_change=nav_action_changed
-    )
+    with st.popover("📊 Pro Checklist", use_container_width=True):
+        if st.button("📊 Pro Checklist", key="nav_pro_checklist", use_container_width=True):
+            st.session_state.selected_page = "📊 Pro Checklist"
+            st.rerun()
+        if st.button("💼 Paper Portfolio", key="nav_paper_portfolio", use_container_width=True):
+            st.session_state.selected_page = "💼 Paper Portfolio"
+            st.rerun()
+        if st.button("👤 Naman's Portfolio", key="nav_naman_portfolio", use_container_width=True):
+            st.session_state.selected_page = "👤 Naman's Portfolio"
+            st.rerun()
 
 # Spacer column (header_cols[4]) - empty
 
@@ -7371,6 +7424,22 @@ section[data-testid="stSidebar"] .stMarkdown * {
 [data-testid="stHorizontalBlock"] [data-baseweb="select"] svg {
     color: #FFFFFF !important;
     fill: #FFFFFF !important;
+}
+
+/* DISABLE TYPING IN NAVIGATION DROPDOWNS - NO USER INPUT ALLOWED */
+[data-testid="stHorizontalBlock"] [data-baseweb="select"] input {
+    pointer-events: none !important;
+    cursor: pointer !important;
+    caret-color: transparent !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    background: transparent !important;
+}
+
+[data-testid="stHorizontalBlock"] [data-baseweb="select"] input:focus {
+    outline: none !important;
+    border: none !important;
 }
 
 /* Keep button text white */
