@@ -274,34 +274,41 @@ def show_page_popup(page_id, title, summary, cool_feature):
     if page_id in st.session_state.dismissed_popups:
         return
     
-    # Inject global CSS to style ALL dialogs with dark background
+    # Check if we need to dismiss (set by button click inside dialog)
+    if st.session_state.get(f'dismiss_popup_{page_id}', False):
+        st.session_state.dismissed_popups.add(page_id)
+        st.session_state[f'dismiss_popup_{page_id}'] = False
+        save_to_localstorage('dismissed_popups', list(st.session_state.dismissed_popups))
+        return
+    
+    # Inject global CSS to style ALL dialogs with light background for light mode
     st.markdown("""
     <style>
-    /* Force dark background on dialog */
+    /* Light background for dialogs */
     [data-testid="stDialog"] [data-testid="stVerticalBlock"] {
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%) !important;
+        background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%) !important;
     }
     [data-testid="stDialog"] > div > div {
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%) !important;
-        border: 2px solid #ff4b4b !important;
+        background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%) !important;
+        border: 2px solid #2196F3 !important;
         border-radius: 15px !important;
     }
-    /* Make all text white */
+    /* Make all text dark */
     [data-testid="stDialog"] p, 
     [data-testid="stDialog"] span,
     [data-testid="stDialog"] h1, 
     [data-testid="stDialog"] h2,
     [data-testid="stDialog"] h3,
     [data-testid="stDialog"] label {
-        color: #FFFFFF !important;
+        color: #1a1a2e !important;
     }
     /* Style the close X button */
     [data-testid="stDialog"] button[kind="header"] {
-        color: #FFFFFF !important;
+        color: #1a1a2e !important;
     }
     [data-testid="stDialog"] svg {
-        fill: #FFFFFF !important;
-        stroke: #FFFFFF !important;
+        fill: #1a1a2e !important;
+        stroke: #1a1a2e !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -311,25 +318,23 @@ def show_page_popup(page_id, title, summary, cool_feature):
     def page_intro_dialog():
         # Content with description and cool feature
         st.markdown(f"""
-        <p style="font-size: 16px; line-height: 1.7; margin-bottom: 20px; color: #FFFFFF;">{summary}</p>
+        <p style="font-size: 16px; line-height: 1.7; margin-bottom: 20px; color: #1a1a2e;">{summary}</p>
         <div style="
-            background: linear-gradient(135deg, rgba(255, 75, 75, 0.3), rgba(255, 100, 100, 0.2)); 
+            background: linear-gradient(135deg, rgba(33, 150, 243, 0.2), rgba(33, 150, 243, 0.1)); 
             padding: 15px; 
             border-radius: 10px; 
-            border-left: 4px solid #ff4b4b;
+            border-left: 4px solid #2196F3;
         ">
-            <p style="margin: 0; font-size: 15px; color: #FFFFFF;">
-                🌟 <strong style="color: #FFD700;">Cool Feature:</strong> {cool_feature}
+            <p style="margin: 0; font-size: 15px; color: #1a1a2e;">
+                🌟 <strong style="color: #1565C0;">Cool Feature:</strong> {cool_feature}
             </p>
         </div>
         """, unsafe_allow_html=True)
         
         st.write("")  # Spacer
         
-        if st.button("✓ Got it!", type="primary", use_container_width=True):
-            st.session_state.dismissed_popups.add(page_id)
-            # Persist to localStorage
-            save_to_localstorage('dismissed_popups', list(st.session_state.dismissed_popups))
+        if st.button("✓ Got it!", type="primary", use_container_width=True, key=f"gotit_{page_id}"):
+            st.session_state[f'dismiss_popup_{page_id}'] = True
             st.rerun()
     
     # Show the dialog
@@ -2869,9 +2874,10 @@ def show_onboarding_tooltip(step_id, title, message, position="bottom"):
     </div>
     """, unsafe_allow_html=True)
     
-    if st.button("Got it!", key=f"onboarding_{step_id}"):
+    if st.button("Got it!", key=f"onboarding_{step_id}", type="primary"):
         st.session_state.onboarding_complete.add(step_id)
         st.rerun()
+        return False
     
     return True
 
@@ -7127,9 +7133,9 @@ def render_setup_nudge():
     """Render non-blocking setup nudge card"""
     if not st.session_state.get('onboarding_completed', False) and not st.session_state.get('setup_prompt_dismissed', False):
         st.markdown("""
-        <div style="background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%); padding: 20px; border-radius: 10px; margin-bottom: 20px; border-left: 4px solid #2196F3;">
-            <h3 style="color: #1a1a2e; margin: 0 0 5px 0;">Quick setup (60 seconds)</h3>
-            <p style="color: #444444; margin: 0;">Personalize the site (not a test).</p>
+        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 20px; border-radius: 10px; margin-bottom: 20px; border-left: 4px solid #00D9FF;">
+            <h3 style="color: #FFFFFF; margin: 0 0 5px 0;">Quick setup (60 seconds)</h3>
+            <p style="color: #B0B0B0; margin: 0;">Personalize the site (not a test).</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -9142,10 +9148,10 @@ if selected_page == "🏠 Dashboard":
         st.stop()
     
     st.markdown("""
-    <div style="background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%); 
-                padding: 25px; border-radius: 15px; margin-bottom: 25px; border: 1px solid #B8D4E8;">
-        <h1 style="color: #1a1a2e; margin: 0; font-size: 28px;">🏠 Dashboard</h1>
-        <p style="color: #444444; margin: 5px 0 0 0;">Your personalized investing command center</p>
+    <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
+                padding: 25px; border-radius: 15px; margin-bottom: 25px;">
+        <h1 style="color: #FFFFFF; margin: 0; font-size: 28px;">🏠 Dashboard</h1>
+        <p style="color: #B0B0B0; margin: 5px 0 0 0;">Your personalized investing command center</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -9644,6 +9650,17 @@ if selected_page == "🏠 Dashboard":
                 """)
                 
                 show_data_source(source="FMP API", updated_at=datetime.now())
+                
+                # Debug info (collapsible)
+                with st.expander("🔧 Debug: Raw Data", expanded=False):
+                    st.json({
+                        "pe_ratio": pe_ratio,
+                        "ps_ratio": ps_ratio,
+                        "ev_ebitda": ev_ebitda,
+                        "peg_ratio": peg_ratio,
+                        "is_profitable": is_profitable,
+                        "eps_growth": val_metrics.get('eps_growth')
+                    })
                 
                 # AI Scenario
                 st.markdown("##### 🤖 AI Valuation Scenario")
@@ -10159,6 +10176,9 @@ if selected_page == "🏠 Dashboard":
 
 # ============= HOMEPAGE: START HERE =============
 elif selected_page == "🏠 Start Here":
+    # Debug status line (temporary)
+    st.caption(f"🔍 Debug: onboarding_completed={st.session_state.get('onboarding_completed', False)} | setup_prompt_dismissed={st.session_state.get('setup_prompt_dismissed', False)} | logged_in={st.session_state.get('is_logged_in', False)}")
+    
     # Non-blocking setup nudge card
     render_setup_nudge()
     
@@ -10172,10 +10192,10 @@ elif selected_page == "🏠 Start Here":
     
     # Hero Visual (H3) - Bull vs Bear theme
     st.markdown("""
-    <div style="background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%); padding: 30px; border-radius: 15px; margin-bottom: 20px; text-align: center; border: 1px solid #B8D4E8;">
+    <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 30px; border-radius: 15px; margin-bottom: 20px; text-align: center;">
         <div style="font-size: 60px; margin-bottom: 10px;">🐂 vs 🐻</div>
-        <h2 style="color: #1a1a2e; margin: 0;">Learn to Invest Like a Pro</h2>
-        <p style="color: #444444; margin-top: 10px;">Understand the market. Build wealth. Avoid the traps.</p>
+        <h2 style="color: #FFFFFF; margin: 0;">Learn to Invest Like a Pro</h2>
+        <p style="color: #B0B0B0; margin-top: 10px;">Understand the market. Build wealth. Avoid the traps.</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -14524,22 +14544,6 @@ elif selected_page == "📊 Company Analysis":
                 if len(price_history) < 2:
                     price_history = price_history_full.tail(3)  # Fallback to last 3 points
                 
-                # Calculate and display return for selected timeframe
-                price_col = 'close' if 'close' in price_history.columns else 'price'
-                if len(price_history) >= 2:
-                    start_price = price_history[price_col].iloc[0]
-                    end_price = price_history[price_col].iloc[-1]
-                    if start_price > 0:
-                        period_return = ((end_price - start_price) / start_price) * 100
-                        return_color = "#28a745" if period_return >= 0 else "#dc3545"
-                        return_sign = "+" if period_return >= 0 else ""
-                        st.markdown(f"""
-                        <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 12px 20px; border-radius: 10px; margin: 10px 0; display: inline-block; border-left: 4px solid {return_color};">
-                            <span style="color: #666; font-size: 14px;">{selected_timeframe} Return:</span>
-                            <span style="color: {return_color}; font-size: 20px; font-weight: bold; margin-left: 10px;">{return_sign}{period_return:.1f}%</span>
-                        </div>
-                        """, unsafe_allow_html=True)
-                
                 # S&P 500 overlay toggle
                 show_sp500 = st.checkbox("📊 Compare to S&P 500 (% Growth)", key="show_sp500_overlay")
                 
@@ -15700,9 +15704,9 @@ elif selected_page == "📊 Company Analysis":
         
         # DCA Narrative (F) - Time in market beats timing
         st.markdown("""
-        <div style="background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%); padding: 15px; border-radius: 10px; margin-bottom: 15px; border-left: 4px solid #2196F3;">
-            <p style="color: #1565C0; font-weight: bold; margin: 0 0 5px 0;">💡 The Golden Rule of Investing</p>
-            <p style="color: #333333; margin: 0; font-size: 14px;"><strong>Time in the market beats timing the market.</strong> Lump sum investing can look better historically, but it's rare to have a large sum available, emotionally hard to invest all at once, and not repeatable. DCA (Dollar Cost Averaging) lets you build wealth steadily with each paycheck.</p>
+        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 15px; border-radius: 10px; margin-bottom: 15px; border-left: 4px solid #00D9FF;">
+            <p style="color: #00D9FF; font-weight: bold; margin: 0 0 5px 0;">💡 The Golden Rule of Investing</p>
+            <p style="color: #E0E0E0; margin: 0; font-size: 14px;"><strong>Time in the market beats timing the market.</strong> Lump sum investing can look better historically, but it's rare to have a large sum available, emotionally hard to invest all at once, and not repeatable. DCA (Dollar Cost Averaging) lets you build wealth steadily with each paycheck.</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -15890,6 +15894,11 @@ elif selected_page == "📊 Market Overview":
             
             companies = get_companies_from_screener(sector=None, limit=100)
             
+            # Debug: Show first few tickers
+            if companies:
+                debug_tickers = [c.get('symbol', 'N/A') for c in companies[:10]]
+                st.caption(f"🔍 Debug: First tickers from API: {', '.join(debug_tickers)}")
+            
             for company in companies:
                 ticker_sym = company.get('symbol')
                 if not ticker_sym:
@@ -16056,7 +16065,10 @@ elif selected_page == "📊 Market Overview":
                     st.session_state.selected_page = "📊 Company Analysis"
                     st.rerun()
         else:
-            st.warning("No stocks found. Please try different filters.")
+            st.error("❌ No rows created. This shouldn't happen!")
+            st.write(f"Debug: tickers_to_load had {len(tickers_to_load)} items")
+            st.write(f"Debug: selected_sectors = {selected_sectors}")
+            st.write(f"Debug: rows list was empty after processing")
 
     # AI Coach integration
     render_ai_coach("Market Overview", ticker=None, facts=None)
@@ -16783,14 +16795,14 @@ elif selected_page == "📰 Market Intelligence":
         # Display the score prominently
         st.markdown(f'''
         <div style="padding: 20px; text-align: center;">
-            <div style="font-size: 48px; font-weight: bold; color: #1a1a2e; margin-bottom: 10px;">{sentiment_score}</div>
-            <h3 style="color: #1a1a2e; margin-bottom: 20px;">{sentiment_label}</h3>
-            <div style="text-align: left; color: #333333; font-size: 14px; line-height: 2;">
+            <div style="font-size: 48px; font-weight: bold; color: {sentiment_color}; margin-bottom: 10px;">{sentiment_score}</div>
+            <h3 style="color: {sentiment_color}; margin-bottom: 20px;">{sentiment_label}</h3>
+            <div style="text-align: left; color: #FFFFFF; font-size: 14px; line-height: 2;">
                 <p><span style="color: #FF4444;">0-25:</span> Extreme Fear (Market on Sale)</p>
                 <p><span style="color: #FF8844;">25-45:</span> Fear</p>
-                <p><span style="color: #CCCC00;">45-55:</span> Neutral (Steady)</p>
-                <p><span style="color: #66CC00;">55-75:</span> Greed</p>
-                <p><span style="color: #00AA00;">75-100:</span> Extreme Greed (Over-hyped)</p>
+                <p><span style="color: #FFFF44;">45-55:</span> Neutral (Steady)</p>
+                <p><span style="color: #88FF44;">55-75:</span> Greed</p>
+                <p><span style="color: #44FF44;">75-100:</span> Extreme Greed (Over-hyped)</p>
             </div>
         </div>
         ''', unsafe_allow_html=True)
@@ -16902,13 +16914,25 @@ Keep each bullet to ONE line. Be concise."""
         top_news, error = get_top_market_news()
     
     if top_news:
-        # Display in a card with light accent
+        # Convert bullet points to proper HTML list format
+        # Replace • or - with proper list items
+        news_lines = top_news.split('\n')
+        formatted_news = ""
+        for line in news_lines:
+            line = line.strip()
+            if line:
+                # Remove leading bullet characters and format as proper list item
+                if line.startswith('•') or line.startswith('-') or line.startswith('*'):
+                    line = line[1:].strip()
+                formatted_news += f"<li style='margin-bottom: 12px;'>{line}</li>"
+        
+        # Display in a card with light background
         st.markdown(f"""
         <div style="background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%); 
                     border: 2px solid #2196F3; border-radius: 15px; padding: 30px; margin: 20px 0;">
-            <div style="color: #1a1a2e; font-size: 16px; line-height: 1.8;">
-                {top_news}
-            </div>
+            <ul style="color: #1a1a2e; font-size: 15px; line-height: 1.6; margin: 0; padding-left: 20px;">
+                {formatted_news}
+            </ul>
         </div>
         """, unsafe_allow_html=True)
         
@@ -17013,104 +17037,71 @@ Keep each bullet to ONE line. Be concise."""
         
         st.markdown("---")
     
-    # ============= EARNINGS CALENDAR (NEW!) =============
+    # ============= EARNINGS CALENDAR (FMP API - REAL TIME!) =============
     st.markdown("### 📅 Earnings Calendar - This Week")
-    st.caption("Biggest earnings releases this week")
+    st.caption("Biggest earnings releases this week (Real-time from FMP)")
     
-    # Function to get this week's earnings
-    def get_weekly_earnings():
-        """Fetch this week's earnings using Perplexity API with fallback models"""
-        if not PERPLEXITY_API_KEY:
-            return None, "Perplexity API key not configured"
-        
-        # Try multiple models
-        models_to_try = [
-            "sonar-small-online",
-            "sonar",
-            "llama-3.1-sonar-small-128k-online"
-        ]
-        
-        query = """List the 3-5 most important companies reporting earnings each day this week (January 13-17, 2026).
-
-SIMPLE FORMAT - Just company names:
-
-**Monday, January 13:**
-• JPMorgan Chase (JPM)
-• Bank of America (BAC)
-
-**Tuesday, January 14:**
-• Wells Fargo (WFC)
-• Citigroup (C)
-
-Focus on well-known companies. NO EPS estimates, NO revenue, NO extra details.
-Just: Company Name (TICKER)
-If a day has no major earnings, say "No major earnings."
-"""
-        
-        headers = {
-            "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
-            "Content-Type": "application/json"
-        }
-        
-        last_error = None
-        
-        # Try each model
-        for model_name in models_to_try:
-            try:
-                payload = {
-                    "model": model_name,
-                    "messages": [
-                        {"role": "user", "content": query}
-                    ],
-                    "temperature": 0.2,
-                    "max_tokens": 1000
-                }
-                
-                response = requests.post(
-                    "https://api.perplexity.ai/chat/completions",
-                    headers=headers,
-                    json=payload,
-                    timeout=30
-                )
-                
-                print(f"[DEBUG] Perplexity earnings ({model_name}): status={response.status_code}")
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-                    if content and len(content) > 50:
-                        print(f"[DEBUG] Earnings success with model: {model_name}")
-                        return content, None
+    # Function to get this week's earnings from FMP API
+    def get_fmp_earnings_calendar():
+        """Fetch this week's earnings using FMP API"""
+        try:
+            # Get current date and calculate week range
+            today = datetime.now()
+            # Find Monday of this week
+            monday = today - timedelta(days=today.weekday())
+            # Friday of this week
+            friday = monday + timedelta(days=4)
+            
+            from_date = monday.strftime("%Y-%m-%d")
+            to_date = friday.strftime("%Y-%m-%d")
+            
+            url = f"https://financialmodelingprep.com/api/v3/earning_calendar?from={from_date}&to={to_date}&apikey={FMP_API_KEY}"
+            response = requests.get(url, timeout=15)
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data:
+                    # Group by date
+                    earnings_by_date = {}
+                    for item in data:
+                        date_str = item.get('date', '')
+                        symbol = item.get('symbol', '')
+                        if date_str and symbol:
+                            if date_str not in earnings_by_date:
+                                earnings_by_date[date_str] = []
+                            # Only add major companies (filter by market cap if available, or just take top ones)
+                            earnings_by_date[date_str].append({
+                                'symbol': symbol,
+                                'eps_estimated': item.get('epsEstimated'),
+                                'revenue_estimated': item.get('revenueEstimated')
+                            })
+                    
+                    # Sort dates and format output
+                    result = []
+                    for date_str in sorted(earnings_by_date.keys()):
+                        date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+                        day_name = date_obj.strftime("%A, %B %d")
+                        companies = earnings_by_date[date_str][:8]  # Top 8 per day
+                        
+                        company_list = "<br>".join([f"• <strong>{c['symbol']}</strong>" for c in companies])
+                        result.append(f"<strong>{day_name}:</strong><br>{company_list}")
+                    
+                    if result:
+                        return "<br><br>".join(result), None
                     else:
-                        last_error = f"Empty response from {model_name}"
-                        continue
+                        return None, "No earnings data found for this week"
                 else:
-                    try:
-                        error_data = response.json()
-                        last_error = f"{model_name}: {response.status_code} - {error_data}"
-                    except:
-                        last_error = f"{model_name}: HTTP {response.status_code}"
-                    
-                    print(f"[DEBUG] {last_error}")
-                    continue
-                    
-            except requests.exceptions.Timeout:
-                last_error = f"{model_name}: Request timeout"
-                print(f"[DEBUG] {last_error}")
-                continue
-            except Exception as e:
-                last_error = f"{model_name}: {str(e)}"
-                print(f"[DEBUG] {last_error}")
-                continue
-        
-        # All models failed
-        return None, f"All models failed. Last error: {last_error}"
+                    return None, "Empty response from FMP"
+            else:
+                return None, f"FMP API error: {response.status_code}"
+        except Exception as e:
+            return None, f"Error fetching earnings: {str(e)}"
     
     with st.spinner("📊 Loading earnings calendar..."):
-        weekly_earnings, earnings_error = get_weekly_earnings()
+        weekly_earnings, earnings_error = get_fmp_earnings_calendar()
     
     if weekly_earnings:
-        # Display formatted earnings from Perplexity
+        # Display formatted earnings 
         st.markdown(f"""
         <div style="background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%); 
                     border: 2px solid #2196F3; border-radius: 15px; padding: 30px; margin: 20px 0;">
@@ -17121,8 +17112,7 @@ If a day has no major earnings, say "No major earnings."
         """, unsafe_allow_html=True)
     elif earnings_error:
         st.warning(f"Could not fetch earnings: {earnings_error}")
-        st.info("📊 **Major banks typically report mid-January** (JPM, WFC, C)")
-        st.caption("Try refreshing or check if Perplexity API key is configured correctly.")
+        st.info("📊 **Check FMP API for latest earnings calendar**")
     else:
         st.info("No major earnings scheduled for this week.")
     
@@ -17211,9 +17201,9 @@ If a day has no major earnings, say "No major earnings."
             st.markdown(f"### 📊 {intel_ticker.upper()} - Latest News & Analysis")
             
             st.markdown(f"""
-            <div style="background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%); 
-                        border: 2px solid #2196F3; border-radius: 15px; padding: 30px; margin: 20px 0;">
-                <div style="color: #1a1a2e; font-size: 16px; line-height: 1.8;">
+            <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
+                        border: 2px solid #00D9FF; border-radius: 15px; padding: 30px; margin: 20px 0;">
+                <div style="color: #FFFFFF; font-size: 16px; line-height: 1.8;">
                     {stock_news}
                 </div>
             </div>
@@ -17266,11 +17256,11 @@ elif selected_page == "👤 Naman's Portfolio":
     if access_tier != "Free":
         st.markdown("---")
         st.markdown("""
-        <div style="background: linear-gradient(135deg, #F3E5F5 0%, #E1BEE7 100%); 
+        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
                     border: 2px solid #9D4EDD; border-radius: 15px; padding: 40px; 
                     text-align: center; margin: 20px 0;">
-            <h2 style="color: #7B1FA2; margin-bottom: 20px;">🔒 Naman's Pro/Ultimate Portfolio is Locked for Exclusivity</h2>
-            <p style="color: #333333; font-size: 18px; margin-bottom: 30px;">
+            <h2 style="color: #9D4EDD; margin-bottom: 20px;">🔒 Naman's Pro/Ultimate Portfolio is Locked for Exclusivity</h2>
+            <p style="color: #ffffff; font-size: 18px; margin-bottom: 30px;">
                 Join the waitlist for the next <strong>50 spots</strong>. Get instant trade alerts and full portfolio access.
             </p>
         </div>
@@ -17612,11 +17602,11 @@ elif selected_page == "👑 Become a VIP":
     if access_tier != "Free":
         st.markdown("---")
         st.markdown("""
-        <div style="background: linear-gradient(135deg, #FFF8E1 0%, #FFECB3 100%); 
-                    border: 2px solid #FFA000; border-radius: 15px; padding: 40px; 
+        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
+                    border: 2px solid #9D4EDD; border-radius: 15px; padding: 40px; 
                     text-align: center; margin: 20px 0;">
-            <h2 style="color: #E65100; margin-bottom: 20px;">🎉 Join the Waitlist</h2>
-            <p style="color: #333333; font-size: 18px; margin-bottom: 30px;">
+            <h2 style="color: #FFD700; margin-bottom: 20px;">🎉 Join the Waitlist</h2>
+            <p style="color: #FFFFFF; font-size: 18px; margin-bottom: 30px;">
                 Be among the first to access premium features when they launch!
             </p>
         </div>
