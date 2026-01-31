@@ -5594,112 +5594,88 @@ def render_ai_chatbot():
 
 # ============= WELCOME POPUP =============
 def show_welcome_popup():
-    """Show welcome popup for first-time users - dismisses on X click or after 10 seconds, never returns until refresh"""
+    """Show welcome popup for first-time users using Streamlit dialog - blocks page until dismissed"""
     # Initialize session state
     if 'welcome_seen' not in st.session_state:
         st.session_state.welcome_seen = False
     
-    # Check if popup was dismissed via query param (auto-dismiss via meta refresh)
-    # Note: st.query_params.get() may return a list in some Streamlit versions
+    # Check if popup was dismissed via query param
     dismiss_param = st.query_params.get("dismiss_welcome")
     if isinstance(dismiss_param, (list, tuple)):
         dismiss_param = dismiss_param[0] if dismiss_param else None
     
     if dismiss_param == "1":
         st.session_state.welcome_seen = True
-        # Remove the query param (guard against KeyError)
         if "dismiss_welcome" in st.query_params:
             del st.query_params["dismiss_welcome"]
         st.rerun()
     
-    # Only show popup if not seen
+    # Only show popup if not seen - use st.stop() to block page
     if not st.session_state.welcome_seen:
-        # CSS for popup overlay and styling + HTML with form-based X button
+        # Dark overlay covering everything
         st.markdown('''
         <style>
-        .welcome-overlay {
+        .block-container { display: none !important; }
+        [data-testid="stSidebar"] { display: none !important; }
+        [data-testid="stHeader"] { display: none !important; }
+        .welcome-fullscreen {
             position: fixed;
             top: 0;
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(0, 0, 0, 0.9);
-            z-index: 10000;
+            background: #000000;
+            z-index: 999999;
             display: flex;
             justify-content: center;
             align-items: center;
         }
-        .welcome-popup {
+        .welcome-box {
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            border: 2px solid #00D9FF;
+            border: 3px solid #00D9FF;
             border-radius: 20px;
-            padding: 40px;
-            max-width: 500px;
+            padding: 50px;
+            max-width: 550px;
             text-align: center;
-            position: relative;
+            box-shadow: 0 0 50px rgba(0, 217, 255, 0.3);
         }
-        .welcome-popup h1,
-        .welcome-popup p,
-        .welcome-popup li,
-        .welcome-popup ul,
-        .welcome-popup strong {
+        .welcome-box h1 {
             color: #FFFFFF !important;
+            font-size: 32px;
+            margin-bottom: 20px;
         }
-        .welcome-close-form {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            margin: 0;
-            padding: 0;
-        }
-        .welcome-close-btn {
-            background: transparent;
-            border: 2px solid #FFFFFF;
+        .welcome-box p, .welcome-box li, .welcome-box strong {
             color: #FFFFFF !important;
-            font-size: 20px;
-            width: 35px;
-            height: 35px;
-            border-radius: 50%;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.3s ease;
-            padding: 0;
-            line-height: 1;
+            font-size: 16px;
+            line-height: 1.8;
         }
-        .welcome-close-btn:hover {
-            background: #FF4444;
-            color: #FFFFFF !important;
-        }
-        .welcome-start-form {
-            margin-top: 20px;
+        .welcome-box ul {
+            text-align: left;
+            padding-left: 30px;
+            margin: 25px 0;
         }
         .welcome-start-btn {
             background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%);
             border: none;
-            color: #FFFFFF;
-            font-size: 18px;
+            color: #FFFFFF !important;
+            font-size: 20px;
             font-weight: bold;
-            padding: 15px 40px;
+            padding: 18px 50px;
             border-radius: 30px;
             cursor: pointer;
+            margin-top: 20px;
+            text-decoration: none;
+            display: inline-block;
             transition: all 0.3s ease;
         }
         .welcome-start-btn:hover {
             transform: scale(1.05);
-            box-shadow: 0 0 20px rgba(255, 68, 68, 0.5);
+            box-shadow: 0 0 30px rgba(255, 68, 68, 0.5);
         }
         </style>
-        <!-- Auto-dismiss after 10 seconds using meta refresh (no JS needed, works in same tab) -->
-        <meta http-equiv="refresh" content="10;url=?dismiss_welcome=1">
-        <div class="welcome-overlay">
-            <div class="welcome-popup">
-                <!-- X button using HTML form GET submit (works in same tab, no JS needed) -->
-                <form class="welcome-close-form" method="get">
-                    <button class="welcome-close-btn" type="submit" name="dismiss_welcome" value="1">×</button>
-                </form>
-                <h1>Welcome to Investing Made Simple!</h1>
+        <div class="welcome-fullscreen">
+            <div class="welcome-box">
+                <h1>🎉 Welcome to Investing Made Simple!</h1>
                 <p>We've upgraded your experience:</p>
                 <ul>
                     <li><strong>Market Mood:</strong> Check the speedometer to see if the market is fearful or greedy.</li>
@@ -5707,13 +5683,11 @@ def show_welcome_popup():
                     <li><strong>Simpler Metrics:</strong> Hover over any number for a 'Sweet & Simple' explanation.</li>
                     <li><strong>Live Updates:</strong> Watch the top ticker for real-time prices.</li>
                 </ul>
-                <!-- Let's Get Started button using HTML form GET submit -->
-                <form class="welcome-start-form" method="get">
-                    <button class="welcome-start-btn" type="submit" name="dismiss_welcome" value="1">Let's Get Started</button>
-                </form>
+                <a href="?dismiss_welcome=1" class="welcome-start-btn">🚀 Let's Get Started</a>
             </div>
         </div>
         ''', unsafe_allow_html=True)
+        st.stop()  # Block the rest of the page from rendering
 
 # ============= LOGOUT HELPER =============
 def do_logout():
@@ -9142,10 +9116,15 @@ if selected_page == "🏠 Dashboard":
         st.stop()
     
     st.markdown("""
-    <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
+    <style>
+    .dashboard-header h1, .dashboard-header p {
+        color: #FFFFFF !important;
+    }
+    </style>
+    <div class="dashboard-header" style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
                 padding: 25px; border-radius: 15px; margin-bottom: 25px;">
         <h1 style="color: #FFFFFF !important; margin: 0; font-size: 28px;">🏠 Dashboard</h1>
-        <p style="color: #B0B0B0 !important; margin: 5px 0 0 0;">Your personalized investing command center</p>
+        <p style="color: #E0E0E0 !important; margin: 5px 0 0 0; font-size: 14px;">Your personalized investing command center</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -14792,7 +14771,7 @@ elif selected_page == "📊 Company Analysis":
                     metric1_display = st.selectbox(
                         "Metric 1:",
                         options=[display for display, _ in available_metrics],
-                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'FCF After Stock Compensation'), 0),
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Operating Cash Flow'), 0),
                         key="cf_metric1"
                     )
                     metric1 = next(col for display, col in available_metrics if display == metric1_display)
@@ -14801,7 +14780,7 @@ elif selected_page == "📊 Company Analysis":
                     metric2_display = st.selectbox(
                         "Metric 2:",
                         options=[display for display, _ in available_metrics],
-                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Free Cash Flow'), min(1, len(available_metrics)-1)),
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Capital Expenditures (CapEx)'), min(1, len(available_metrics)-1)),
                         key="cf_metric2"
                     )
                     metric2 = next(col for display, col in available_metrics if display == metric2_display)
@@ -14810,7 +14789,7 @@ elif selected_page == "📊 Company Analysis":
                     metric3_display = st.selectbox(
                         "Metric 3:",
                         options=[display for display, _ in available_metrics],
-                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Operating Cash Flow'), min(2, len(available_metrics)-1)),
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Free Cash Flow'), min(2, len(available_metrics)-1)),
                         key="cf_metric3"
                     )
                     metric3 = next(col for display, col in available_metrics if display == metric3_display)
