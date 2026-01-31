@@ -3119,10 +3119,13 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
                 growth_rate = ((values[0] - values[-1]) / abs(values[-1])) * 100
                 growth_rates[metric] = growth_rate
             
+            # Use proper display name from METRIC_DISPLAY_NAMES
+            display_name = METRIC_DISPLAY_NAMES.get(metric, metric.replace('_', ' ').title())
+            
             fig.add_trace(go.Bar(
                 x=df_reversed['date'],
                 y=values,
-                name=metric.replace('_', ' ').title(),
+                name=display_name,
                 marker_color=colors[idx % len(colors)],
                 text=[format_value_label(val) for val in values],
                 textposition='outside',
@@ -3150,7 +3153,8 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
         hovermode='x unified',
         height=400,
         showlegend=True,
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        yaxis=dict(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.3)')
     )
     
     return fig, growth_rates
@@ -5624,12 +5628,6 @@ def show_welcome_popup():
             text-align: center;
             position: relative;
         }
-        .welcome-popup h1, .welcome-popup p, .welcome-popup li, .welcome-popup ul, .welcome-popup strong {
-            color: #FFFFFF !important;
-        }
-        .welcome-popup h1 {
-            color: #00D9FF !important;
-        }
         .welcome-close-form {
             position: absolute;
             top: 15px;
@@ -5684,7 +5682,7 @@ def show_welcome_popup():
                 <form class="welcome-close-form" method="get">
                     <button class="welcome-close-btn" type="submit" name="dismiss_welcome" value="1">×</button>
                 </form>
-                <h1 style="color: #00D9FF; margin-bottom: 20px;">Welcome to Investing Made Simple!</h1>
+                <h1 style="color: #FFFFFF !important; margin-bottom: 20px;">Welcome to Investing Made Simple!</h1>
                 <p style="color: #FFFFFF; font-size: 16px; margin-bottom: 20px;">We've upgraded your experience:</p>
                 <ul style="color: #FFFFFF; font-size: 14px; line-height: 2.2; text-align: left; padding-left: 20px;">
                     <li><strong>Market Mood:</strong> Check the speedometer to see if the market is fearful or greedy.</li>
@@ -14844,7 +14842,7 @@ elif selected_page == "📊 Company Analysis":
                     metric1_display = st.selectbox(
                         "Metric 1:",
                         options=[display for display, _ in available_metrics],
-                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'FCF After Stock Compensation'), 0),
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Operating Cash Flow'), 0),
                         key="cf_metric1"
                     )
                     metric1 = next(col for display, col in available_metrics if display == metric1_display)
@@ -14853,7 +14851,7 @@ elif selected_page == "📊 Company Analysis":
                     metric2_display = st.selectbox(
                         "Metric 2:",
                         options=[display for display, _ in available_metrics],
-                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Free Cash Flow'), min(1, len(available_metrics)-1)),
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Capital Expenditures (CapEx)'), min(1, len(available_metrics)-1)),
                         key="cf_metric2"
                     )
                     metric2 = next(col for display, col in available_metrics if display == metric2_display)
@@ -14862,7 +14860,7 @@ elif selected_page == "📊 Company Analysis":
                     metric3_display = st.selectbox(
                         "Metric 3:",
                         options=[display for display, _ in available_metrics],
-                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Operating Cash Flow'), min(2, len(available_metrics)-1)),
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Free Cash Flow'), min(2, len(available_metrics)-1)),
                         key="cf_metric3"
                     )
                     metric3 = next(col for display, col in available_metrics if display == metric3_display)
