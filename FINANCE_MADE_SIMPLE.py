@@ -9645,17 +9645,6 @@ if selected_page == "🏠 Dashboard":
                 
                 show_data_source(source="FMP API", updated_at=datetime.now())
                 
-                # Debug info (collapsible)
-                with st.expander("🔧 Debug: Raw Data", expanded=False):
-                    st.json({
-                        "pe_ratio": pe_ratio,
-                        "ps_ratio": ps_ratio,
-                        "ev_ebitda": ev_ebitda,
-                        "peg_ratio": peg_ratio,
-                        "is_profitable": is_profitable,
-                        "eps_growth": val_metrics.get('eps_growth')
-                    })
-                
                 # AI Scenario
                 st.markdown("##### 🤖 AI Valuation Scenario")
                 with st.expander("What Would Justify Current Valuation?", expanded=False):
@@ -10170,9 +10159,6 @@ if selected_page == "🏠 Dashboard":
 
 # ============= HOMEPAGE: START HERE =============
 elif selected_page == "🏠 Start Here":
-    # Debug status line (temporary)
-    st.caption(f"🔍 Debug: onboarding_completed={st.session_state.get('onboarding_completed', False)} | setup_prompt_dismissed={st.session_state.get('setup_prompt_dismissed', False)} | logged_in={st.session_state.get('is_logged_in', False)}")
-    
     # Non-blocking setup nudge card
     render_setup_nudge()
     
@@ -14538,6 +14524,22 @@ elif selected_page == "📊 Company Analysis":
                 if len(price_history) < 2:
                     price_history = price_history_full.tail(3)  # Fallback to last 3 points
                 
+                # Calculate and display return for selected timeframe
+                price_col = 'close' if 'close' in price_history.columns else 'price'
+                if len(price_history) >= 2:
+                    start_price = price_history[price_col].iloc[0]
+                    end_price = price_history[price_col].iloc[-1]
+                    if start_price > 0:
+                        period_return = ((end_price - start_price) / start_price) * 100
+                        return_color = "#28a745" if period_return >= 0 else "#dc3545"
+                        return_sign = "+" if period_return >= 0 else ""
+                        st.markdown(f"""
+                        <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 12px 20px; border-radius: 10px; margin: 10px 0; display: inline-block; border-left: 4px solid {return_color};">
+                            <span style="color: #666; font-size: 14px;">{selected_timeframe} Return:</span>
+                            <span style="color: {return_color}; font-size: 20px; font-weight: bold; margin-left: 10px;">{return_sign}{period_return:.1f}%</span>
+                        </div>
+                        """, unsafe_allow_html=True)
+                
                 # S&P 500 overlay toggle
                 show_sp500 = st.checkbox("📊 Compare to S&P 500 (% Growth)", key="show_sp500_overlay")
                 
@@ -15698,9 +15700,9 @@ elif selected_page == "📊 Company Analysis":
         
         # DCA Narrative (F) - Time in market beats timing
         st.markdown("""
-        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 15px; border-radius: 10px; margin-bottom: 15px; border-left: 4px solid #00D9FF;">
-            <p style="color: #00D9FF; font-weight: bold; margin: 0 0 5px 0;">💡 The Golden Rule of Investing</p>
-            <p style="color: #E0E0E0; margin: 0; font-size: 14px;"><strong>Time in the market beats timing the market.</strong> Lump sum investing can look better historically, but it's rare to have a large sum available, emotionally hard to invest all at once, and not repeatable. DCA (Dollar Cost Averaging) lets you build wealth steadily with each paycheck.</p>
+        <div style="background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%); padding: 15px; border-radius: 10px; margin-bottom: 15px; border-left: 4px solid #2196F3;">
+            <p style="color: #1565C0; font-weight: bold; margin: 0 0 5px 0;">💡 The Golden Rule of Investing</p>
+            <p style="color: #333333; margin: 0; font-size: 14px;"><strong>Time in the market beats timing the market.</strong> Lump sum investing can look better historically, but it's rare to have a large sum available, emotionally hard to invest all at once, and not repeatable. DCA (Dollar Cost Averaging) lets you build wealth steadily with each paycheck.</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -15888,11 +15890,6 @@ elif selected_page == "📊 Market Overview":
             
             companies = get_companies_from_screener(sector=None, limit=100)
             
-            # Debug: Show first few tickers
-            if companies:
-                debug_tickers = [c.get('symbol', 'N/A') for c in companies[:10]]
-                st.caption(f"🔍 Debug: First tickers from API: {', '.join(debug_tickers)}")
-            
             for company in companies:
                 ticker_sym = company.get('symbol')
                 if not ticker_sym:
@@ -16059,10 +16056,7 @@ elif selected_page == "📊 Market Overview":
                     st.session_state.selected_page = "📊 Company Analysis"
                     st.rerun()
         else:
-            st.error("❌ No rows created. This shouldn't happen!")
-            st.write(f"Debug: tickers_to_load had {len(tickers_to_load)} items")
-            st.write(f"Debug: selected_sectors = {selected_sectors}")
-            st.write(f"Debug: rows list was empty after processing")
+            st.warning("No stocks found. Please try different filters.")
 
     # AI Coach integration
     render_ai_coach("Market Overview", ticker=None, facts=None)
@@ -16789,14 +16783,14 @@ elif selected_page == "📰 Market Intelligence":
         # Display the score prominently
         st.markdown(f'''
         <div style="padding: 20px; text-align: center;">
-            <div style="font-size: 48px; font-weight: bold; color: {sentiment_color}; margin-bottom: 10px;">{sentiment_score}</div>
-            <h3 style="color: {sentiment_color}; margin-bottom: 20px;">{sentiment_label}</h3>
-            <div style="text-align: left; color: #FFFFFF; font-size: 14px; line-height: 2;">
+            <div style="font-size: 48px; font-weight: bold; color: #1a1a2e; margin-bottom: 10px;">{sentiment_score}</div>
+            <h3 style="color: #1a1a2e; margin-bottom: 20px;">{sentiment_label}</h3>
+            <div style="text-align: left; color: #333333; font-size: 14px; line-height: 2;">
                 <p><span style="color: #FF4444;">0-25:</span> Extreme Fear (Market on Sale)</p>
                 <p><span style="color: #FF8844;">25-45:</span> Fear</p>
-                <p><span style="color: #FFFF44;">45-55:</span> Neutral (Steady)</p>
-                <p><span style="color: #88FF44;">55-75:</span> Greed</p>
-                <p><span style="color: #44FF44;">75-100:</span> Extreme Greed (Over-hyped)</p>
+                <p><span style="color: #CCCC00;">45-55:</span> Neutral (Steady)</p>
+                <p><span style="color: #66CC00;">55-75:</span> Greed</p>
+                <p><span style="color: #00AA00;">75-100:</span> Extreme Greed (Over-hyped)</p>
             </div>
         </div>
         ''', unsafe_allow_html=True)
@@ -16908,11 +16902,11 @@ Keep each bullet to ONE line. Be concise."""
         top_news, error = get_top_market_news()
     
     if top_news:
-        # Display in a card with RED accent (matches app theme)
+        # Display in a card with light accent
         st.markdown(f"""
-        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
-                    border: 2px solid #ff3333; border-radius: 15px; padding: 30px; margin: 20px 0;">
-            <div style="color: #FFFFFF; font-size: 16px; line-height: 1.8;">
+        <div style="background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%); 
+                    border: 2px solid #2196F3; border-radius: 15px; padding: 30px; margin: 20px 0;">
+            <div style="color: #1a1a2e; font-size: 16px; line-height: 1.8;">
                 {top_news}
             </div>
         </div>
@@ -17118,9 +17112,9 @@ If a day has no major earnings, say "No major earnings."
     if weekly_earnings:
         # Display formatted earnings from Perplexity
         st.markdown(f"""
-        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
-                    border: 2px solid #ff3333; border-radius: 15px; padding: 30px; margin: 20px 0;">
-            <div style="color: #FFFFFF; font-size: 16px; line-height: 1.8;">
+        <div style="background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%); 
+                    border: 2px solid #2196F3; border-radius: 15px; padding: 30px; margin: 20px 0;">
+            <div style="color: #1a1a2e; font-size: 16px; line-height: 1.8;">
                 {weekly_earnings}
             </div>
         </div>
@@ -17217,9 +17211,9 @@ If a day has no major earnings, say "No major earnings."
             st.markdown(f"### 📊 {intel_ticker.upper()} - Latest News & Analysis")
             
             st.markdown(f"""
-            <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
-                        border: 2px solid #00D9FF; border-radius: 15px; padding: 30px; margin: 20px 0;">
-                <div style="color: #FFFFFF; font-size: 16px; line-height: 1.8;">
+            <div style="background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%); 
+                        border: 2px solid #2196F3; border-radius: 15px; padding: 30px; margin: 20px 0;">
+                <div style="color: #1a1a2e; font-size: 16px; line-height: 1.8;">
                     {stock_news}
                 </div>
             </div>
@@ -17272,11 +17266,11 @@ elif selected_page == "👤 Naman's Portfolio":
     if access_tier != "Free":
         st.markdown("---")
         st.markdown("""
-        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
+        <div style="background: linear-gradient(135deg, #F3E5F5 0%, #E1BEE7 100%); 
                     border: 2px solid #9D4EDD; border-radius: 15px; padding: 40px; 
                     text-align: center; margin: 20px 0;">
-            <h2 style="color: #9D4EDD; margin-bottom: 20px;">🔒 Naman's Pro/Ultimate Portfolio is Locked for Exclusivity</h2>
-            <p style="color: #ffffff; font-size: 18px; margin-bottom: 30px;">
+            <h2 style="color: #7B1FA2; margin-bottom: 20px;">🔒 Naman's Pro/Ultimate Portfolio is Locked for Exclusivity</h2>
+            <p style="color: #333333; font-size: 18px; margin-bottom: 30px;">
                 Join the waitlist for the next <strong>50 spots</strong>. Get instant trade alerts and full portfolio access.
             </p>
         </div>
@@ -17618,11 +17612,11 @@ elif selected_page == "👑 Become a VIP":
     if access_tier != "Free":
         st.markdown("---")
         st.markdown("""
-        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
-                    border: 2px solid #9D4EDD; border-radius: 15px; padding: 40px; 
+        <div style="background: linear-gradient(135deg, #FFF8E1 0%, #FFECB3 100%); 
+                    border: 2px solid #FFA000; border-radius: 15px; padding: 40px; 
                     text-align: center; margin: 20px 0;">
-            <h2 style="color: #FFD700; margin-bottom: 20px;">🎉 Join the Waitlist</h2>
-            <p style="color: #FFFFFF; font-size: 18px; margin-bottom: 30px;">
+            <h2 style="color: #E65100; margin-bottom: 20px;">🎉 Join the Waitlist</h2>
+            <p style="color: #333333; font-size: 18px; margin-bottom: 30px;">
                 Be among the first to access premium features when they launch!
             </p>
         </div>
