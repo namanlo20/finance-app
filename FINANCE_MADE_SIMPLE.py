@@ -7128,8 +7128,8 @@ def render_setup_nudge():
     if not st.session_state.get('onboarding_completed', False) and not st.session_state.get('setup_prompt_dismissed', False):
         st.markdown("""
         <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 20px; border-radius: 10px; margin-bottom: 20px; border-left: 4px solid #00D9FF;">
-            <h3 style="color: #FFFFFF; margin: 0 0 5px 0;">Quick setup (60 seconds)</h3>
-            <p style="color: #B0B0B0; margin: 0;">Personalize the site (not a test).</p>
+            <h3 style="color: #FFFFFF !important; margin: 0 0 5px 0;">Quick setup (60 seconds)</h3>
+            <p style="color: #FFFFFF !important; margin: 0;">Personalize the site (not a test).</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -9645,17 +9645,6 @@ if selected_page == "🏠 Dashboard":
                 
                 show_data_source(source="FMP API", updated_at=datetime.now())
                 
-                # Debug info (collapsible)
-                with st.expander("🔧 Debug: Raw Data", expanded=False):
-                    st.json({
-                        "pe_ratio": pe_ratio,
-                        "ps_ratio": ps_ratio,
-                        "ev_ebitda": ev_ebitda,
-                        "peg_ratio": peg_ratio,
-                        "is_profitable": is_profitable,
-                        "eps_growth": val_metrics.get('eps_growth')
-                    })
-                
                 # AI Scenario
                 st.markdown("##### 🤖 AI Valuation Scenario")
                 with st.expander("What Would Justify Current Valuation?", expanded=False):
@@ -10170,9 +10159,6 @@ if selected_page == "🏠 Dashboard":
 
 # ============= HOMEPAGE: START HERE =============
 elif selected_page == "🏠 Start Here":
-    # Debug status line (temporary)
-    st.caption(f"🔍 Debug: onboarding_completed={st.session_state.get('onboarding_completed', False)} | setup_prompt_dismissed={st.session_state.get('setup_prompt_dismissed', False)} | logged_in={st.session_state.get('is_logged_in', False)}")
-    
     # Non-blocking setup nudge card
     render_setup_nudge()
     
@@ -10188,8 +10174,8 @@ elif selected_page == "🏠 Start Here":
     st.markdown("""
     <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 30px; border-radius: 15px; margin-bottom: 20px; text-align: center;">
         <div style="font-size: 60px; margin-bottom: 10px;">🐂 vs 🐻</div>
-        <h2 style="color: #FFFFFF; margin: 0;">Learn to Invest Like a Pro</h2>
-        <p style="color: #B0B0B0; margin-top: 10px;">Understand the market. Build wealth. Avoid the traps.</p>
+        <h2 style="color: #FFFFFF !important; margin: 0;">Learn to Invest Like a Pro</h2>
+        <p style="color: #FFFFFF !important; margin-top: 10px;">Understand the market. Build wealth. Avoid the traps.</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -15888,11 +15874,6 @@ elif selected_page == "📊 Market Overview":
             
             companies = get_companies_from_screener(sector=None, limit=100)
             
-            # Debug: Show first few tickers
-            if companies:
-                debug_tickers = [c.get('symbol', 'N/A') for c in companies[:10]]
-                st.caption(f"🔍 Debug: First tickers from API: {', '.join(debug_tickers)}")
-            
             for company in companies:
                 ticker_sym = company.get('symbol')
                 if not ticker_sym:
@@ -16059,10 +16040,7 @@ elif selected_page == "📊 Market Overview":
                     st.session_state.selected_page = "📊 Company Analysis"
                     st.rerun()
         else:
-            st.error("❌ No rows created. This shouldn't happen!")
-            st.write(f"Debug: tickers_to_load had {len(tickers_to_load)} items")
-            st.write(f"Debug: selected_sectors = {selected_sectors}")
-            st.write(f"Debug: rows list was empty after processing")
+            st.error("❌ No stocks found. Please try different filters.")
 
     # AI Coach integration
     render_ai_coach("Market Overview", ticker=None, facts=None)
@@ -16721,16 +16699,11 @@ elif selected_page == "📈 Financial Health":
         for ratio_tuple in all_ratios:
             ratio_col, ratio_name, benchmark_val, comparison_type, description, tooltip_def, tooltip_example = ratio_tuple
             if ratio_col in ratios_df.columns:
-                # Title with clickable info button
-                col1, col2 = st.columns([12, 1])
-                with col1:
-                    st.markdown(f"### {ratio_name}")
-                with col2:
-                    with st.popover("❓", use_container_width=True):
-                        st.markdown(f"**📖 Definition:**")
-                        st.info(tooltip_def)
-                        st.markdown(f"**💡 Example:**")
-                        st.success(tooltip_example)
+                # Title with small question mark that shows tooltip on hover (like FCF Per Share)
+                st.markdown(f"""
+                <h3 style="display: inline;">{ratio_name}</h3>
+                <span title="{tooltip_def}" style="cursor: help; color: #888; font-size: 14px; margin-left: 5px;">ⓘ</span>
+                """, unsafe_allow_html=True)
                 
                 if create_ratio_chart_with_table(ratio_col, ratio_name, benchmark_val, comparison_type, ratios_df, description):
                     charts_displayed += 1
