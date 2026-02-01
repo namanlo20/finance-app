@@ -5445,65 +5445,96 @@ def render_right_side_ticker():
     st.markdown(ticker_html, unsafe_allow_html=True)
 
 def get_chatbot_response(user_message, context=None):
-    """Get AI response from Perplexity API for chatbot"""
-    if not PERPLEXITY_API_KEY:
-        return "I'm sorry, but the AI service is currently unavailable. Please try again later."
+    """Get AI response - tries Perplexity first, then OpenAI as fallback"""
     
     # Build context-aware system prompt
     system_prompt = """You are a friendly, knowledgeable AI investment assistant for "Investing Made Simple". 
-Your role is to help beginners understand investing concepts in simple terms.
+Your role is to help users understand investing concepts and answer questions about stocks and markets.
 
 Guidelines:
-- Be concise and helpful (2-3 sentences max unless asked for detail)
+- Be concise and helpful (2-4 sentences unless asked for detail)
 - Use simple language that beginners can understand
-- Never give specific financial advice or price predictions
-- Always remind users to do their own research
-- Be encouraging and supportive of their learning journey
+- You CAN provide factual data like P/E ratios, market caps, stock prices, news
+- Use your web search capability to get current, accurate information
+- Never give specific "buy" or "sell" recommendations
+- Be encouraging and supportive
 """
     
     # Add context if available
     if context:
         if context.get('current_page'):
-            system_prompt += f"\nThe user is currently on the '{context['current_page']}' page."
+            system_prompt += f"\nUser is on the '{context['current_page']}' page."
         if context.get('selected_ticker'):
-            system_prompt += f"\nThey are looking at {context['selected_ticker']} stock."
-        if context.get('user_name'):
-            system_prompt += f"\nThe user's name is {context['user_name']}."
-        if context.get('risk_profile'):
-            system_prompt += f"\nTheir risk profile is: {context['risk_profile']}."
+            system_prompt += f"\nUser is viewing {context['selected_ticker']} stock."
         if context.get('unhinged_mode'):
-            system_prompt += "\nUNHINGED MODE IS ON: Add some playful roast commentary to your responses. Be witty and sarcastic but still helpful. Make fun of common investing mistakes."
+            system_prompt += "\nUNHINGED MODE: Be witty and add playful roast commentary while still being helpful."
     
-    try:
-        headers = {
-            "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
-            "Content-Type": "application/json"
-        }
-        
-        payload = {
-            "model": "sonar",
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_message}
-            ],
-            "max_tokens": 500,
-            "temperature": 0.7
-        }
-        
-        response = requests.post(
-            "https://api.perplexity.ai/chat/completions",
-            headers=headers,
-            json=payload,
-            timeout=30
-        )
-        
-        if response.status_code == 200:
-            data = response.json()
-            return data.get("choices", [{}])[0].get("message", {}).get("content", "I couldn't generate a response. Please try again.")
-        else:
-            return f"I'm having trouble connecting right now. Please try again in a moment."
-    except Exception as e:
-        return "I'm experiencing technical difficulties. Please try again later."
+    # Try Perplexity FIRST (has web search)
+    if PERPLEXITY_API_KEY:
+        try:
+            response = requests.post(
+                "https://api.perplexity.ai/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": "sonar",
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_message}
+                    ],
+                    "max_tokens": 800,
+                    "temperature": 0.5
+                },
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                if content:
+                    return content
+            # Log error for debugging
+            print(f"[CHATBOT] Perplexity failed: {response.status_code} - {response.text[:200]}")
+        except Exception as e:
+            print(f"[CHATBOT] Perplexity error: {e}")
+    
+    # Try OpenAI as FALLBACK
+    if OPENAI_API_KEY:
+        try:
+            response = requests.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {OPENAI_API_KEY}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": "gpt-3.5-turbo",
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_message}
+                    ],
+                    "max_tokens": 800,
+                    "temperature": 0.5
+                },
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                if content:
+                    return content
+            print(f"[CHATBOT] OpenAI failed: {response.status_code} - {response.text[:200]}")
+        except Exception as e:
+            print(f"[CHATBOT] OpenAI error: {e}")
+    
+    # Both failed
+    if not PERPLEXITY_API_KEY and not OPENAI_API_KEY:
+        return "❌ No API keys configured. Please add PERPLEXITY_API_KEY or OPENAI_API_KEY to your environment variables."
+    
+    return "I'm having trouble connecting to the AI service. Please try again in a moment."
 
 def render_ai_chatbot():
     """Render the AI chatbot as a fixed panel on the RIGHT side of the page"""
