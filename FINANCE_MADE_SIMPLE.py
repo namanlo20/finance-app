@@ -3087,7 +3087,79 @@ def calculate_growth_rate(df, column, years=None):
     return calculate_cagr(start_val, end_val, years)
 
 
-def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_title="Amount ($)"):
+def calculate_avg_growth_per_period(df, metric_col, period_type='annual'):
+    """Calculate average growth per period (annual or quarterly) for a metric"""
+    if df.empty or metric_col not in df.columns:
+        return None
+    
+    df_sorted = df.sort_values('date').copy()
+    values = df_sorted[metric_col].dropna().values
+    
+    if len(values) < 2:
+        return None
+    
+    # Calculate period-over-period growth rates
+    growth_rates = []
+    for i in range(1, len(values)):
+        if values[i-1] != 0:
+            growth = ((values[i] - values[i-1]) / abs(values[i-1])) * 100
+            growth_rates.append(growth)
+    
+    if not growth_rates:
+        return None
+    
+    # Return average growth per period
+    return sum(growth_rates) / len(growth_rates)
+
+
+def display_growth_badges(df, metrics, metric_names, period_type='annual', years=1):
+    """Display Qualtrim-style growth badges below chart"""
+    
+    period_label = "yr" if period_type == 'annual' else "qtr"
+    
+    # Calculate average growth for each metric
+    badge_html = '<div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; margin: 15px 0;">'
+    
+    colors = ['#00D9FF', '#FFD700', '#9D4EDD']  # Match chart colors
+    
+    for idx, (metric, name) in enumerate(zip(metrics, metric_names)):
+        avg_growth = calculate_avg_growth_per_period(df, metric, period_type)
+        
+        if avg_growth is not None:
+            # Determine color based on positive/negative
+            bg_color = "#d4edda" if avg_growth >= 0 else "#f8d7da"
+            text_color = "#155724" if avg_growth >= 0 else "#721c24"
+            border_color = colors[idx % len(colors)]
+            sign = "+" if avg_growth >= 0 else ""
+            
+            badge_html += f'''
+            <div style="
+                background: {bg_color};
+                border: 2px solid {border_color};
+                border-radius: 20px;
+                padding: 8px 16px;
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+            ">
+                <span style="
+                    width: 12px;
+                    height: 12px;
+                    background: {border_color};
+                    border-radius: 50%;
+                    display: inline-block;
+                "></span>
+                <span style="color: #333; font-size: 13px; font-weight: 500;">{name}:</span>
+                <span style="color: {text_color}; font-size: 15px; font-weight: bold;">{sign}{avg_growth:.1f}%/{period_label}</span>
+            </div>
+            '''
+    
+    badge_html += '</div>'
+    
+    # Add subtitle
+    subtitle = f'<p style="text-align: center; color: #666; font-size: 12px; margin-top: 5px;">Average growth per {period_type} period over {years} {"year" if years == 1 else "years"}</p>'
+    
+    st.markdown(badge_html + subtitle, unsafe_allow_html=True)
     """Create financial chart with y-axis padding and return growth rates"""
     if df.empty:
         return None, {}
@@ -7568,9 +7640,6 @@ with header_cols[3]:
     with st.popover("📊 Pro Checklist", use_container_width=True):
         if st.button("📊 Pro Checklist", key="nav_pro_checklist", use_container_width=True):
             st.session_state.selected_page = "📊 Pro Checklist"
-            st.rerun()
-        if st.button("👑 Ultimate", key="nav_ultimate", use_container_width=True):
-            st.session_state.selected_page = "👑 Ultimate"
             st.rerun()
         if st.button("💼 Paper Portfolio", key="nav_paper_portfolio", use_container_width=True):
             st.session_state.selected_page = "💼 Paper Portfolio"
@@ -14795,7 +14864,7 @@ elif selected_page == "📊 Company Analysis":
                     metric1_display = st.selectbox(
                         "Metric 1:",
                         options=[display for display, _ in available_metrics],
-                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Operating Cash Flow'), 0),
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'FCF After Stock Compensation'), 0),
                         key="cf_metric1"
                     )
                     metric1 = next(col for display, col in available_metrics if display == metric1_display)
@@ -14804,7 +14873,7 @@ elif selected_page == "📊 Company Analysis":
                     metric2_display = st.selectbox(
                         "Metric 2:",
                         options=[display for display, _ in available_metrics],
-                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Capital Expenditures (CapEx)'), min(1, len(available_metrics)-1)),
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Free Cash Flow'), min(1, len(available_metrics)-1)),
                         key="cf_metric2"
                     )
                     metric2 = next(col for display, col in available_metrics if display == metric2_display)
@@ -14813,7 +14882,7 @@ elif selected_page == "📊 Company Analysis":
                     metric3_display = st.selectbox(
                         "Metric 3:",
                         options=[display for display, _ in available_metrics],
-                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Free Cash Flow'), min(2, len(available_metrics)-1)),
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Operating Cash Flow'), min(2, len(available_metrics)-1)),
                         key="cf_metric3"
                     )
                     metric3 = next(col for display, col in available_metrics if display == metric3_display)
@@ -14840,7 +14909,6 @@ elif selected_page == "📊 Company Analysis":
                             st.markdown("---")
                 
                 metric_names = [metric1_display, metric2_display, metric3_display]
-                metric_names = [metric1_display, metric2_display, metric3_display]
                 
                 # Prepare data for chart
                 plot_df = cash_df[["date"] + metrics_to_plot].copy()
@@ -14857,16 +14925,8 @@ elif selected_page == "📊 Company Analysis":
                 if fig:
                     st.plotly_chart(fig, use_container_width=True)
                     
-                    # Display growth rates
-                    if growth_rates:
-                        period_label = period_type.lower()
-                        growth_text = f"**Growth over {years} {period_label} periods:**\n\n"
-                        for idx, (metric_col, growth_rate) in enumerate(growth_rates.items()):
-                            metric_name = metric_names[metrics_to_plot.index(metric_col)]
-                            emoji = "🚀" if growth_rate > 10 else "📈" if growth_rate > 0 else "📉"
-                            growth_text += f"{emoji} **{metric_name}:** {growth_rate:+.1f}%\n\n"
-                        
-                        st.markdown(f'<div class="growth-note">{growth_text}</div>', unsafe_allow_html=True)
+                    # Display Qualtrim-style growth badges
+                    display_growth_badges(plot_df, metrics_to_plot, metric_names, period, years)
                 
                 cols = st.columns(len(metrics_to_plot))
                 for i, (metric, name) in enumerate(zip(metrics_to_plot, metric_names)):
@@ -14935,7 +14995,6 @@ elif selected_page == "📊 Company Analysis":
                             st.markdown("---")
                 
                 metric_names = [metric1_display, metric2_display, metric3_display]
-                metric_names = [metric1_display, metric2_display, metric3_display]
                 
                 plot_df = income_df[["date"] + metrics_to_plot].copy()
                 
@@ -14950,15 +15009,8 @@ elif selected_page == "📊 Company Analysis":
                 if fig:
                     st.plotly_chart(fig, use_container_width=True)
                     
-                    if growth_rates:
-                        period_label = period_type.lower()
-                        growth_text = f"**Growth over {years} {period_label} periods:**\n\n"
-                        for idx, (metric_col, growth_rate) in enumerate(growth_rates.items()):
-                            metric_name = metric_names[metrics_to_plot.index(metric_col)]
-                            emoji = "🚀" if growth_rate > 10 else "📈" if growth_rate > 0 else "📉"
-                            growth_text += f"{emoji} **{metric_name}:** {growth_rate:+.1f}%\n\n"
-                        
-                        st.markdown(f'<div class="growth-note">{growth_text}</div>', unsafe_allow_html=True)
+                    # Display Qualtrim-style growth badges
+                    display_growth_badges(plot_df, metrics_to_plot, metric_names, period, years)
                 
                 col1, col2, col3 = st.columns(3)
                 cols = [col1, col2, col3]
@@ -15027,7 +15079,6 @@ elif selected_page == "📊 Company Analysis":
                             st.markdown("---")
                 
                 metric_names = [metric1_display, metric2_display, metric3_display]
-                metric_names = [metric1_display, metric2_display, metric3_display]
                 
                 plot_df = balance_df[["date"] + metrics_to_plot].copy()
                 
@@ -15042,15 +15093,8 @@ elif selected_page == "📊 Company Analysis":
                 if fig:
                     st.plotly_chart(fig, use_container_width=True)
                     
-                    if growth_rates:
-                        period_label = period_type.lower()
-                        growth_text = f"**Growth over {years} {period_label} periods:**\n\n"
-                        for idx, (metric_col, growth_rate) in enumerate(growth_rates.items()):
-                            metric_name = metric_names[metrics_to_plot.index(metric_col)]
-                            emoji = "🚀" if growth_rate > 10 else "📈" if growth_rate > 0 else "📉"
-                            growth_text += f"{emoji} **{metric_name}:** {growth_rate:+.1f}%\n\n"
-                        
-                        st.markdown(f'<div class="growth-note">{growth_text}</div>', unsafe_allow_html=True)
+                    # Display Qualtrim-style growth badges
+                    display_growth_badges(plot_df, metrics_to_plot, metric_names, period, years)
                 
                 cols = st.columns(len(metrics_to_plot))
                 for i, (metric, name) in enumerate(zip(metrics_to_plot, metric_names)):
@@ -17475,14 +17519,14 @@ elif selected_page == "👑 Become a VIP":
     
     with col_free:
         # Highlight if selected
-        border_color = "#00C853" if st.session_state.selected_tier == "Free" else "#B8D4E8"
+        border_color = "#00C853" if st.session_state.selected_tier == "Free" else "#333"
         shadow = "0 0 20px rgba(0,200,83,0.5)" if st.session_state.selected_tier == "Free" else "none"
         st.markdown(f"""
-        <div style="background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%); border: 3px solid {border_color}; border-radius: 15px; 
+        <div style="background: #1a1a1a; border: 3px solid {border_color}; border-radius: 15px; 
                     padding: 20px; text-align: center; box-shadow: {shadow};">
             <h3 style="color: #00C853; margin-bottom: 10px;">Free</h3>
-            <p style="color: #333; font-size: 24px; margin: 10px 0;"><strong>$0</strong>/mo</p>
-            <p style="color: #555; font-size: 14px;">Preview Access</p>
+            <p style="color: #888; font-size: 24px; margin: 10px 0;"><strong>$0</strong>/mo</p>
+            <p style="color: #FFFFFF; font-size: 14px;">Preview Access</p>
         </div>
         """, unsafe_allow_html=True)
         if st.button("Select Free", key="select_free_vip", use_container_width=True):
@@ -17490,14 +17534,14 @@ elif selected_page == "👑 Become a VIP":
             st.rerun()
     
     with col_pro:
-        border_color = "#9D4EDD" if st.session_state.selected_tier == "Pro" else "#B8D4E8"
+        border_color = "#9D4EDD" if st.session_state.selected_tier == "Pro" else "#333"
         shadow = "0 0 20px rgba(157,78,221,0.5)" if st.session_state.selected_tier == "Pro" else "none"
         st.markdown(f"""
-        <div style="background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%); border: 3px solid {border_color}; border-radius: 15px; 
+        <div style="background: #1a1a1a; border: 3px solid {border_color}; border-radius: 15px; 
                     padding: 20px; text-align: center; box-shadow: {shadow};">
             <h3 style="color: #9D4EDD; margin-bottom: 10px;">Pro</h3>
-            <p style="color: #333; font-size: 24px; margin: 10px 0;"><strong>$5</strong>/mo</p>
-            <p style="color: #555; font-size: 14px;">Full Portfolio Access</p>
+            <p style="color: #888; font-size: 24px; margin: 10px 0;"><strong>$5</strong>/mo</p>
+            <p style="color: #FFFFFF; font-size: 14px;">Full Portfolio Access</p>
         </div>
         """, unsafe_allow_html=True)
         if st.button("Select Pro", key="select_pro_vip", use_container_width=True):
@@ -17512,14 +17556,14 @@ elif selected_page == "👑 Become a VIP":
             st.rerun()
     
     with col_ultimate:
-        border_color = "#FFD700" if st.session_state.selected_tier == "Ultimate" else "#B8D4E8"
+        border_color = "#FFD700" if st.session_state.selected_tier == "Ultimate" else "#333"
         shadow = "0 0 20px rgba(255,215,0,0.5)" if st.session_state.selected_tier == "Ultimate" else "none"
         st.markdown(f"""
-        <div style="background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%); border: 3px solid {border_color}; border-radius: 15px; 
+        <div style="background: #1a1a1a; border: 3px solid {border_color}; border-radius: 15px; 
                     padding: 20px; text-align: center; box-shadow: {shadow};">
-            <h3 style="color: #E65100; margin-bottom: 10px;">Ultimate</h3>
-            <p style="color: #333; font-size: 24px; margin: 10px 0;"><strong>$10</strong>/mo</p>
-            <p style="color: #555; font-size: 14px;">VIP Access + Support</p>
+            <h3 style="color: #FFD700; margin-bottom: 10px;">Ultimate</h3>
+            <p style="color: #888; font-size: 24px; margin: 10px 0;"><strong>$10</strong>/mo</p>
+            <p style="color: #FFFFFF; font-size: 14px;">VIP Access + Support</p>
         </div>
         """, unsafe_allow_html=True)
         if st.button("Select Ultimate", key="select_ultimate_vip", use_container_width=True):
@@ -17543,15 +17587,15 @@ elif selected_page == "👑 Become a VIP":
     with col_free2:
         st.markdown(
             """
-            <div style="background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%);border:1px solid #B8D4E8;border-radius:14px;padding:16px;min-height:420px;">
+            <div style="background:#141414;border:1px solid #2a2a2a;border-radius:14px;padding:16px;min-height:420px;">
               <h3 style="color:#00C853;margin:0 0 6px 0;">Free</h3>
-              <div style="color:#555;font-size:14px;margin-bottom:10px;">Great for getting started</div>
-              <ul style="color:#1a1a2e;line-height:1.6;">
+              <div style="color:#BBBBBB;font-size:14px;margin-bottom:10px;">Great for getting started</div>
+              <ul style="color:#FFFFFF;line-height:1.6;">
                 <li>Market Overview + Sector Explorer basics</li>
                 <li>Company Analysis essentials</li>
                 <li>Educational content + Risk Quiz</li>
               </ul>
-              <div style="color:#666;font-size:12px;margin-top:12px;">
+              <div style="color:#888;font-size:12px;margin-top:12px;">
                 Tip: Free stays useful — paid tiers add speed + deeper tooling.
               </div>
             </div>
@@ -17562,10 +17606,10 @@ elif selected_page == "👑 Become a VIP":
     with col_pro2:
         st.markdown(
             """
-            <div style="background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%);border:2px solid #9D4EDD;border-radius:14px;padding:16px;min-height:420px;box-shadow:0 0 18px rgba(157,78,221,0.25);">
+            <div style="background:#141414;border:2px solid #9D4EDD;border-radius:14px;padding:16px;min-height:420px;box-shadow:0 0 18px rgba(157,78,221,0.25);">
               <h3 style="color:#9D4EDD;margin:0 0 6px 0;">Pro</h3>
-              <div style="color:#555;font-size:14px;margin-bottom:10px;">For technical learners + faster decisions</div>
-              <ul style="color:#1a1a2e;line-height:1.6;">
+              <div style="color:#BBBBBB;font-size:14px;margin-bottom:10px;">For technical learners + faster decisions</div>
+              <ul style="color:#FFFFFF;line-height:1.6;">
                 <li><b>Pro Chart Lab</b>: candlesticks + SMA50/SMA200/RSI/Volume toggles</li>
                 <li><b>Technical Facts</b>: trend regime, momentum, volume/volatility context</li>
                 <li><b>Chart Callouts</b>: 3–5 grounded takeaways under every chart</li>
@@ -17583,10 +17627,10 @@ elif selected_page == "👑 Become a VIP":
     with col_ult2:
         st.markdown(
             """
-            <div style="background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%);border:2px solid #FFD700;border-radius:14px;padding:16px;min-height:420px;box-shadow:0 0 18px rgba(255,215,0,0.20);">
+            <div style="background:#141414;border:2px solid #FFD700;border-radius:14px;padding:16px;min-height:420px;box-shadow:0 0 18px rgba(255,215,0,0.20);">
               <h3 style="color:#FFD700;margin:0 0 6px 0;">Ultimate</h3>
-              <div style="color:#555;font-size:14px;margin-bottom:10px;">For “show me the receipts” users</div>
-              <ul style="color:#1a1a2e;line-height:1.6;">
+              <div style="color:#BBBBBB;font-size:14px;margin-bottom:10px;">For “show me the receipts” users</div>
+              <ul style="color:#FFFFFF;line-height:1.6;">
                 <li>Everything in <b>Pro</b></li>
                 <li><b>🔍 AI Stock Screener</b>: Ask in plain English, get matching stocks!</li>
                 <li><b>Historical Similar Setups</b>: find past charts that looked like today</li>
