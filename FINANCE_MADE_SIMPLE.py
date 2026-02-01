@@ -1212,8 +1212,8 @@ if st.session_state.theme == 'dark':
         align-items: center;
     }
     .welcome-popup {
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-        border: 2px solid #00D9FF;
+        background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%);
+        border: 2px solid #2196F3;
         border-radius: 20px;
         padding: 40px;
         max-width: 500px;
@@ -1221,12 +1221,12 @@ if st.session_state.theme == 'dark':
         animation: fadeInUp 0.5s ease-out;
     }
     .welcome-popup h1 {
-        color: #FFFFFF;
+        color: #1a1a2e;
         margin-bottom: 20px;
     }
     .welcome-popup ul {
         text-align: left;
-        color: #FFFFFF;
+        color: #1a1a2e;
         line-height: 2;
     }
     .welcome-btn {
@@ -5445,25 +5445,20 @@ def render_right_side_ticker():
     st.markdown(ticker_html, unsafe_allow_html=True)
 
 def get_chatbot_response(user_message, context=None):
-    """Get AI response from Perplexity API for chatbot - with real-time search capability"""
+    """Get AI response from Perplexity API for chatbot"""
+    if not PERPLEXITY_API_KEY:
+        return "I'm sorry, but the AI service is currently unavailable. Please try again later."
     
     # Build context-aware system prompt
     system_prompt = """You are a friendly, knowledgeable AI investment assistant for "Investing Made Simple". 
-Your role is to help users understand investing concepts, answer questions about stocks, and provide factual market information.
+Your role is to help beginners understand investing concepts in simple terms.
 
 Guidelines:
-- Be concise and helpful (2-4 sentences unless asked for detail)
+- Be concise and helpful (2-3 sentences max unless asked for detail)
 - Use simple language that beginners can understand
-- You CAN provide factual information like P/E ratios, market caps, recent news, etc.
-- Always use your search capability to get current, accurate data
-- Never give specific "buy" or "sell" recommendations
+- Never give specific financial advice or price predictions
+- Always remind users to do their own research
 - Be encouraging and supportive of their learning journey
-
-You have access to real-time search - USE IT to answer questions about:
-- Stock metrics (P/E, market cap, revenue, etc.)
-- Recent news and earnings
-- Market trends
-- Company information
 """
     
     # Add context if available
@@ -5477,188 +5472,197 @@ You have access to real-time search - USE IT to answer questions about:
         if context.get('risk_profile'):
             system_prompt += f"\nTheir risk profile is: {context['risk_profile']}."
         if context.get('unhinged_mode'):
-            system_prompt += "\nUNHINGED MODE IS ON: Add some playful roast commentary to your responses. Be witty and sarcastic but still helpful."
+            system_prompt += "\nUNHINGED MODE IS ON: Add some playful roast commentary to your responses. Be witty and sarcastic but still helpful. Make fun of common investing mistakes."
     
-    # Try Perplexity first (has real-time search)
-    if PERPLEXITY_API_KEY:
-        try:
-            headers = {
-                "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
-                "Content-Type": "application/json"
-            }
-            
-            payload = {
-                "model": "sonar",
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_message}
-                ],
-                "max_tokens": 800,
-                "temperature": 0.5
-            }
-            
-            response = requests.post(
-                "https://api.perplexity.ai/chat/completions",
-                headers=headers,
-                json=payload,
-                timeout=30
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
-                return data.get("choices", [{}])[0].get("message", {}).get("content", "I couldn't generate a response. Please try again.")
-        except Exception as e:
-            print(f"Perplexity error: {e}")
-    
-    # Fallback to OpenAI
-    if OPENAI_API_KEY:
-        try:
-            headers = {
-                "Authorization": f"Bearer {OPENAI_API_KEY}",
-                "Content-Type": "application/json"
-            }
-            
-            payload = {
-                "model": "gpt-3.5-turbo",
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_message}
-                ],
-                "max_tokens": 800,
-                "temperature": 0.5
-            }
-            
-            response = requests.post(
-                "https://api.openai.com/v1/chat/completions",
-                headers=headers,
-                json=payload,
-                timeout=30
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
-                return data.get("choices", [{}])[0].get("message", {}).get("content", "I couldn't generate a response. Please try again.")
-        except Exception as e:
-            print(f"OpenAI error: {e}")
-    
-    return "I'm sorry, but the AI service is currently unavailable. Please check that your API keys are configured."
-
+    try:
+        headers = {
+            "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "model": "sonar",
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_message}
+            ],
+            "max_tokens": 500,
+            "temperature": 0.7
+        }
+        
+        response = requests.post(
+            "https://api.perplexity.ai/chat/completions",
+            headers=headers,
+            json=payload,
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
+            return data.get("choices", [{}])[0].get("message", {}).get("content", "I couldn't generate a response. Please try again.")
+        else:
+            return f"I'm having trouble connecting right now. Please try again in a moment."
+    except Exception as e:
+        return "I'm experiencing technical difficulties. Please try again later."
 
 def render_ai_chatbot():
-    """Render the AI chatbot as a slide-out panel on the right side"""
+    """Render the AI chatbot as a fixed panel on the RIGHT side of the page"""
     if 'chatbot_open' not in st.session_state:
         st.session_state.chatbot_open = False
     if 'chat_messages' not in st.session_state:
         st.session_state.chat_messages = [
-            {"role": "assistant", "content": "👋 Hi! I'm your AI investment assistant. Ask me anything about stocks, investing, or financial analysis!"}
+            {"role": "assistant", "content": "👋 Hi! Ask me anything about stocks, investing, or the markets!"}
         ]
     
-    # Check if chat should be opened via query param
+    # Check if chat button was clicked (query param)
     open_chat_param = st.query_params.get("open_chat")
     if open_chat_param == "1":
         st.session_state.chatbot_open = True
-        del st.query_params["open_chat"]
+        st.session_state.welcome_seen = True  # Don't show welcome again
+        if "open_chat" in st.query_params:
+            del st.query_params["open_chat"]
     
-    # CSS for floating button and chat panel
-    chat_panel_style = "right: 0;" if st.session_state.chatbot_open else "right: -400px;"
-    
-    st.markdown(f"""
-    <style>
-    /* Floating chatbot button */
-    .chatbot-float-btn {{
-        position: fixed !important;
-        bottom: 30px !important;
-        right: 30px !important;
-        width: 65px !important;
-        height: 65px !important;
-        background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%) !important;
-        border-radius: 50% !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        z-index: 999998 !important;
-        box-shadow: 0 4px 25px rgba(255, 68, 68, 0.6) !important;
-        border: 3px solid #FFFFFF !important;
-        font-size: 32px !important;
-        cursor: pointer !important;
-        transition: all 0.3s ease !important;
-        animation: pulse 2s infinite !important;
-    }}
-    .chatbot-float-btn:hover {{
-        transform: scale(1.15) rotate(10deg) !important;
-        box-shadow: 0 8px 35px rgba(255, 68, 68, 0.9) !important;
-        animation: none !important;
-    }}
-    @keyframes pulse {{
-        0% {{ box-shadow: 0 4px 25px rgba(255, 68, 68, 0.6); }}
-        50% {{ box-shadow: 0 4px 35px rgba(255, 68, 68, 0.9); }}
-        100% {{ box-shadow: 0 4px 25px rgba(255, 68, 68, 0.6); }}
-    }}
-    .chatbot-form {{
-        position: fixed !important;
-        bottom: 30px !important;
-        right: 30px !important;
-        z-index: 999998 !important;
-        margin: 0 !important;
-        padding: 0 !important;
-    }}
-    </style>
-    """, unsafe_allow_html=True)
-    
-    # Only show floating button if chat is closed
+    # Always show the floating button when chat is closed
     if not st.session_state.chatbot_open:
         st.markdown("""
+        <style>
+        .chatbot-float-btn {
+            position: fixed !important;
+            bottom: 30px !important;
+            right: 30px !important;
+            width: 65px !important;
+            height: 65px !important;
+            background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%) !important;
+            border-radius: 50% !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            z-index: 999999 !important;
+            box-shadow: 0 4px 25px rgba(255, 68, 68, 0.6) !important;
+            border: 3px solid #FFFFFF !important;
+            font-size: 32px !important;
+            cursor: pointer !important;
+            transition: all 0.3s ease !important;
+            animation: pulse 2s infinite !important;
+        }
+        .chatbot-float-btn:hover {
+            transform: scale(1.15) rotate(10deg) !important;
+            box-shadow: 0 8px 35px rgba(255, 68, 68, 0.9) !important;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 4px 25px rgba(255, 68, 68, 0.6); }
+            50% { box-shadow: 0 4px 35px rgba(255, 68, 68, 0.9); }
+            100% { box-shadow: 0 4px 25px rgba(255, 68, 68, 0.6); }
+        }
+        .chatbot-form {
+            position: fixed !important;
+            bottom: 30px !important;
+            right: 30px !important;
+            z-index: 999999 !important;
+        }
+        </style>
         <form method="get" class="chatbot-form">
-            <button type="submit" name="open_chat" value="1" class="chatbot-float-btn" title="Ask AI Assistant">🤖</button>
+            <button type="submit" name="open_chat" value="1" class="chatbot-float-btn">🤖</button>
         </form>
         """, unsafe_allow_html=True)
     
-    # Render chat panel in sidebar-like container if open
+    # Show chat panel on RIGHT side when open
     if st.session_state.chatbot_open:
-        # Use a container at the bottom of the page
+        # CSS for fixed right panel
+        st.markdown("""
+        <style>
+        .chat-panel {
+            position: fixed !important;
+            top: 80px !important;
+            right: 20px !important;
+            width: 350px !important;
+            max-height: 500px !important;
+            background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%) !important;
+            border: 2px solid #2196F3 !important;
+            border-radius: 15px !important;
+            z-index: 999999 !important;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3) !important;
+            padding: 15px !important;
+            overflow: hidden !important;
+        }
+        .chat-header {
+            background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        .chat-messages {
+            max-height: 280px;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            padding: 5px;
+        }
+        .chat-msg-user {
+            background: rgba(255, 68, 68, 0.2);
+            padding: 8px 12px;
+            border-radius: 10px;
+            margin: 5px 0;
+            text-align: right;
+            font-size: 14px;
+            color: #1a1a2e;
+        }
+        .chat-msg-ai {
+            background: rgba(0, 150, 255, 0.15);
+            padding: 8px 12px;
+            border-radius: 10px;
+            margin: 5px 0;
+            font-size: 14px;
+            color: #1a1a2e;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        # Build chat HTML
+        messages_html = ""
+        for msg in st.session_state.chat_messages[-10:]:  # Last 10 messages
+            if msg["role"] == "user":
+                messages_html += f'<div class="chat-msg-user">🧑 {msg["content"]}</div>'
+            else:
+                messages_html += f'<div class="chat-msg-ai">🤖 {msg["content"]}</div>'
+        
+        st.markdown(f"""
+        <div class="chat-panel">
+            <div class="chat-header">🤖 AI Assistant</div>
+            <div class="chat-messages">{messages_html}</div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Streamlit input at bottom of page (will control the chat)
         st.markdown("---")
-        st.markdown("### 🤖 AI Investment Assistant")
+        st.markdown("### 🤖 AI Chat")
+        chat_col1, chat_col2, chat_col3 = st.columns([5, 1, 1])
+        with chat_col1:
+            user_input = st.text_input("Ask anything...", key="chat_input_main", placeholder="e.g., What's Apple's P/E ratio?", label_visibility="collapsed")
+        with chat_col2:
+            send_btn = st.button("📤", key="send_chat", use_container_width=True)
+        with chat_col3:
+            close_btn = st.button("✖", key="close_chat", use_container_width=True)
         
-        # Chat container
-        chat_container = st.container(height=300)
-        with chat_container:
-            for msg in st.session_state.chat_messages:
-                if msg["role"] == "user":
-                    st.markdown(f"""<div style="background: rgba(255, 68, 68, 0.15); padding: 10px 15px; border-radius: 10px; margin: 5px 0; text-align: right; border: 1px solid rgba(255, 68, 68, 0.3);">🧑 {msg["content"]}</div>""", unsafe_allow_html=True)
-                else:
-                    st.markdown(f"""<div style="background: rgba(0, 217, 255, 0.1); padding: 10px 15px; border-radius: 10px; margin: 5px 0; border: 1px solid rgba(0, 217, 255, 0.3);">🤖 {msg["content"]}</div>""", unsafe_allow_html=True)
-        
-        # Input area
-        col1, col2, col3 = st.columns([5, 1, 1])
-        with col1:
-            user_input = st.text_input("Ask me anything...", key="chatbot_input", label_visibility="collapsed", placeholder="e.g., What's Meta's P/E ratio?")
-        with col2:
-            send_clicked = st.button("Send", use_container_width=True, type="primary", key="chat_send")
-        with col3:
-            close_clicked = st.button("✖", use_container_width=True, key="chat_close")
-        
-        if close_clicked:
+        if close_btn:
             st.session_state.chatbot_open = False
             st.rerun()
         
-        if send_clicked and user_input:
-            # Add user message
+        if send_btn and user_input:
             st.session_state.chat_messages.append({"role": "user", "content": user_input})
             
-            # Build context
             context = {
                 "current_page": st.session_state.get("selected_page", "Home"),
                 "selected_ticker": st.session_state.get("selected_ticker", None),
-                "user_name": st.session_state.get("user_name", None),
-                "risk_profile": st.session_state.get("risk_profile", None),
                 "unhinged_mode": st.session_state.get("unhinged_mode", False)
             }
             
-            # Get AI response
             with st.spinner("🤔 Thinking..."):
                 response = get_chatbot_response(user_input, context)
             
-            # Add AI response
             st.session_state.chat_messages.append({"role": "assistant", "content": response})
             st.rerun()
 
@@ -5700,8 +5704,8 @@ def show_welcome_popup():
             align-items: center;
         }
         .welcome-popup {
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            border: 2px solid #00D9FF;
+            background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%);
+            border: 2px solid #2196F3;
             border-radius: 20px;
             padding: 40px;
             max-width: 500px;
@@ -5713,7 +5717,7 @@ def show_welcome_popup():
         .welcome-popup li,
         .welcome-popup ul,
         .welcome-popup strong {
-            color: #FFFFFF !important;
+            color: #1a1a2e !important;
         }
         .welcome-close-form {
             position: absolute;
@@ -5723,8 +5727,8 @@ def show_welcome_popup():
             padding: 0;
         }
         .welcome-close-btn {
-            background: transparent;
-            border: 2px solid #FFFFFF;
+            background: #FF4444;
+            border: 2px solid #FF4444;
             color: #FFFFFF !important;
             font-size: 20px;
             width: 35px;
@@ -5739,7 +5743,7 @@ def show_welcome_popup():
             line-height: 1;
         }
         .welcome-close-btn:hover {
-            background: #FF4444;
+            background: #CC0000;
             color: #FFFFFF !important;
         }
         .welcome-start-form {
@@ -14887,7 +14891,7 @@ elif selected_page == "📊 Company Analysis":
                     metric2_display = st.selectbox(
                         "Metric 2:",
                         options=[display for display, _ in available_metrics],
-                        index=next((i for i, (d, _) in enumerate(available_metrics) if 'Capital Expenditure' in d or 'CapEx' in d), min(1, len(available_metrics)-1)),
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Capital Expenditures'), min(1, len(available_metrics)-1)),
                         key="cf_metric2"
                     )
                     metric2 = next(col for display, col in available_metrics if display == metric2_display)
