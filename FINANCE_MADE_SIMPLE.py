@@ -3127,20 +3127,22 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
         except:
             return str(date_val)
     
-    df_reversed = df.iloc[::-1].reset_index(drop=True)
+    # Sort by date ASCENDING (oldest first: 2023 -> 2024 -> 2025)
+    df_sorted = df.sort_values('date', ascending=True).reset_index(drop=True)
     
     # Format x-axis labels
-    x_labels = [format_period_label(d, period_type) for d in df_reversed['date']]
+    x_labels = [format_period_label(d, period_type) for d in df_sorted['date']]
     
     fig = go.Figure()
     colors = ['#00D9FF', '#FFD700', '#9D4EDD']
     growth_rates = {}
     
     for idx, metric in enumerate(metrics):
-        if metric in df_reversed.columns:
-            values = df_reversed[metric].values
+        if metric in df_sorted.columns:
+            values = df_sorted[metric].values
+            # Growth rate: compare newest (last) to oldest (first)
             if len(values) >= 2 and values[0] != 0:
-                growth_rate = ((values[0] - values[-1]) / abs(values[-1])) * 100
+                growth_rate = ((values[-1] - values[0]) / abs(values[0])) * 100
                 growth_rates[metric] = growth_rate
             
             # Use proper display name from METRIC_DISPLAY_NAMES
@@ -3158,8 +3160,8 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
     
     all_values = []
     for metric in metrics:
-        if metric in df_reversed.columns:
-            all_values.extend(df_reversed[metric].values)
+        if metric in df_sorted.columns:
+            all_values.extend(df_sorted[metric].values)
     
     if all_values:
         max_val = max(all_values)
@@ -14710,6 +14712,17 @@ elif selected_page == "📊 Company Analysis":
                     )
                 
                 st.plotly_chart(fig_price, use_container_width=True)
+                
+                # Show % change for the selected timeframe
+                price_col = 'close' if 'close' in price_history.columns else 'price'
+                if len(price_history) >= 2:
+                    start_price = price_history[price_col].iloc[0]
+                    end_price = price_history[price_col].iloc[-1]
+                    if start_price > 0:
+                        pct_change = ((end_price - start_price) / start_price) * 100
+                        change_color = "#00C853" if pct_change >= 0 else "#FF5252"
+                        change_sign = "+" if pct_change >= 0 else ""
+                        st.markdown(f'<p style="text-align: center; font-size: 18px;"><span style="color: {change_color}; font-weight: bold;">{change_sign}{pct_change:.2f}%</span> over {selected_timeframe}</p>', unsafe_allow_html=True)
 
             # --------- Fact-based chart callouts (deterministic) ---------
             try:
