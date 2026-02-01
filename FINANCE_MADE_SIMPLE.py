@@ -1212,8 +1212,8 @@ if st.session_state.theme == 'dark':
         align-items: center;
     }
     .welcome-popup {
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-        border: 2px solid #00D9FF;
+        background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%);
+        border: 2px solid #2196F3;
         border-radius: 20px;
         padding: 40px;
         max-width: 500px;
@@ -1221,12 +1221,12 @@ if st.session_state.theme == 'dark':
         animation: fadeInUp 0.5s ease-out;
     }
     .welcome-popup h1 {
-        color: #FFFFFF;
+        color: #1a1a2e;
         margin-bottom: 20px;
     }
     .welcome-popup ul {
         text-align: left;
-        color: #FFFFFF;
+        color: #1a1a2e;
         line-height: 2;
     }
     .welcome-btn {
