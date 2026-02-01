@@ -274,41 +274,34 @@ def show_page_popup(page_id, title, summary, cool_feature):
     if page_id in st.session_state.dismissed_popups:
         return
     
-    # Check if we need to dismiss (set by button click inside dialog)
-    if st.session_state.get(f'dismiss_popup_{page_id}', False):
-        st.session_state.dismissed_popups.add(page_id)
-        st.session_state[f'dismiss_popup_{page_id}'] = False
-        save_to_localstorage('dismissed_popups', list(st.session_state.dismissed_popups))
-        return
-    
-    # Inject global CSS to style ALL dialogs with light background for light mode
+    # Inject global CSS to style ALL dialogs with dark background
     st.markdown("""
     <style>
-    /* Light background for dialogs */
+    /* Force dark background on dialog */
     [data-testid="stDialog"] [data-testid="stVerticalBlock"] {
-        background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%) !important;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%) !important;
     }
     [data-testid="stDialog"] > div > div {
-        background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%) !important;
-        border: 2px solid #2196F3 !important;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%) !important;
+        border: 2px solid #ff4b4b !important;
         border-radius: 15px !important;
     }
-    /* Make all text dark */
+    /* Make all text white */
     [data-testid="stDialog"] p, 
     [data-testid="stDialog"] span,
     [data-testid="stDialog"] h1, 
     [data-testid="stDialog"] h2,
     [data-testid="stDialog"] h3,
     [data-testid="stDialog"] label {
-        color: #1a1a2e !important;
+        color: #FFFFFF !important;
     }
     /* Style the close X button */
     [data-testid="stDialog"] button[kind="header"] {
-        color: #1a1a2e !important;
+        color: #FFFFFF !important;
     }
     [data-testid="stDialog"] svg {
-        fill: #1a1a2e !important;
-        stroke: #1a1a2e !important;
+        fill: #FFFFFF !important;
+        stroke: #FFFFFF !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -318,23 +311,25 @@ def show_page_popup(page_id, title, summary, cool_feature):
     def page_intro_dialog():
         # Content with description and cool feature
         st.markdown(f"""
-        <p style="font-size: 16px; line-height: 1.7; margin-bottom: 20px; color: #1a1a2e;">{summary}</p>
+        <p style="font-size: 16px; line-height: 1.7; margin-bottom: 20px; color: #FFFFFF;">{summary}</p>
         <div style="
-            background: linear-gradient(135deg, rgba(33, 150, 243, 0.2), rgba(33, 150, 243, 0.1)); 
+            background: linear-gradient(135deg, rgba(255, 75, 75, 0.3), rgba(255, 100, 100, 0.2)); 
             padding: 15px; 
             border-radius: 10px; 
-            border-left: 4px solid #2196F3;
+            border-left: 4px solid #ff4b4b;
         ">
-            <p style="margin: 0; font-size: 15px; color: #1a1a2e;">
-                🌟 <strong style="color: #1565C0;">Cool Feature:</strong> {cool_feature}
+            <p style="margin: 0; font-size: 15px; color: #FFFFFF;">
+                🌟 <strong style="color: #FFD700;">Cool Feature:</strong> {cool_feature}
             </p>
         </div>
         """, unsafe_allow_html=True)
         
         st.write("")  # Spacer
         
-        if st.button("✓ Got it!", type="primary", use_container_width=True, key=f"gotit_{page_id}"):
-            st.session_state[f'dismiss_popup_{page_id}'] = True
+        if st.button("✓ Got it!", type="primary", use_container_width=True):
+            st.session_state.dismissed_popups.add(page_id)
+            # Persist to localStorage
+            save_to_localstorage('dismissed_popups', list(st.session_state.dismissed_popups))
             st.rerun()
     
     # Show the dialog
@@ -2860,24 +2855,25 @@ def show_onboarding_tooltip(step_id, title, message, position="bottom"):
     if step_id in st.session_state.onboarding_complete:
         return False
     
-    # Show tooltip
-    st.markdown(f"""
-    <div style="
-        background: linear-gradient(135deg, #9D4EDD 0%, #7B2CBF 100%);
-        padding: 15px 20px;
-        border-radius: 10px;
-        margin: 10px 0;
-        position: relative;
-    ">
-        <div style="font-weight: bold; color: #FFF; margin-bottom: 5px;">💡 {title}</div>
-        <div style="color: rgba(255,255,255,0.9); font-size: 14px;">{message}</div>
-    </div>
-    """, unsafe_allow_html=True)
+    # Show tooltip with dismiss button
+    col1, col2 = st.columns([6, 1])
+    with col1:
+        st.markdown(f"""
+        <div style="
+            background: linear-gradient(135deg, #9D4EDD 0%, #7B2CBF 100%);
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin: 10px 0;
+        ">
+            <div style="font-weight: bold; color: #FFF; margin-bottom: 5px;">💡 {title}</div>
+            <div style="color: rgba(255,255,255,0.9); font-size: 14px;">{message}</div>
+        </div>
+        """, unsafe_allow_html=True)
     
-    if st.button("Got it!", key=f"onboarding_{step_id}", type="primary"):
+    # Put button outside the HTML for proper Streamlit handling
+    if st.button("Got it!", key=f"dismiss_onboarding_{step_id}", type="primary"):
         st.session_state.onboarding_complete.add(step_id)
         st.rerun()
-        return False
     
     return True
 
@@ -3093,7 +3089,7 @@ def calculate_growth_rate(df, column, years=None):
     return calculate_cagr(start_val, end_val, years)
 
 
-def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_title="Amount ($)"):
+def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_title="Amount ($)", period_type='annual'):
     """Create financial chart with y-axis padding and return growth rates"""
     if df.empty:
         return None, {}
@@ -3114,6 +3110,21 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
             return f"{sign}${abs_val:.0f}"
     
     df_reversed = df.iloc[::-1].reset_index(drop=True)
+    
+    # Format x-axis labels based on period type
+    if 'date' in df_reversed.columns:
+        if period_type == 'annual':
+            # For annual data, show just the year (FY 2024, FY 2025)
+            df_reversed['x_label'] = pd.to_datetime(df_reversed['date']).dt.strftime('FY %Y')
+        else:
+            # For quarterly data, show Q1 2024 format
+            df_reversed['x_label'] = pd.to_datetime(df_reversed['date']).apply(
+                lambda x: f"Q{(x.month-1)//3 + 1} {x.year}"
+            )
+        x_values = df_reversed['x_label']
+    else:
+        x_values = df_reversed.index
+    
     fig = go.Figure()
     colors = ['#00D9FF', '#FFD700', '#9D4EDD']
     growth_rates = {}
@@ -3129,7 +3140,7 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
             display_name = METRIC_DISPLAY_NAMES.get(metric, metric.replace('_', ' ').title())
             
             fig.add_trace(go.Bar(
-                x=df_reversed['date'],
+                x=x_values,
                 y=values,
                 name=display_name,
                 marker_color=colors[idx % len(colors)],
@@ -14544,6 +14555,23 @@ elif selected_page == "📊 Company Analysis":
                 if len(price_history) < 2:
                     price_history = price_history_full.tail(3)  # Fallback to last 3 points
                 
+                # Calculate and display return % for selected timeframe
+                price_col = 'close' if 'close' in price_history.columns else 'price'
+                if len(price_history) >= 2:
+                    start_price = price_history[price_col].iloc[0]
+                    end_price = price_history[price_col].iloc[-1]
+                    if start_price > 0:
+                        period_return = ((end_price - start_price) / start_price) * 100
+                        return_color = "#28a745" if period_return >= 0 else "#dc3545"
+                        return_sign = "+" if period_return >= 0 else ""
+                        return_emoji = "📈" if period_return >= 0 else "📉"
+                        st.markdown(f"""
+                        <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 15px 25px; border-radius: 12px; margin: 15px 0; display: inline-block; border-left: 5px solid {return_color};">
+                            <span style="color: #555; font-size: 14px; font-weight: 500;">{selected_timeframe} Return:</span>
+                            <span style="color: {return_color}; font-size: 24px; font-weight: bold; margin-left: 12px;">{return_emoji} {return_sign}{period_return:.2f}%</span>
+                        </div>
+                        """, unsafe_allow_html=True)
+                
                 # S&P 500 overlay toggle
                 show_sp500 = st.checkbox("📊 Compare to S&P 500 (% Growth)", key="show_sp500_overlay")
                 
@@ -14854,7 +14882,8 @@ elif selected_page == "📊 Company Analysis":
                     metrics_to_plot,
                     f"{company_name} - Cash Flow",
                     "Period",
-                    "Amount ($)"
+                    "Amount ($)",
+                    period_type=period
                 )
                 
                 if fig:
@@ -14947,7 +14976,8 @@ elif selected_page == "📊 Company Analysis":
                     metrics_to_plot,
                     f"{company_name} - Income Statement",
                     "Period",
-                    "Amount ($)"
+                    "Amount ($)",
+                    period_type=period
                 )
                 
                 if fig:
@@ -15039,7 +15069,8 @@ elif selected_page == "📊 Company Analysis":
                     metrics_to_plot,
                     f"{company_name} - Balance Sheet",
                     "Period",
-                    "Amount ($)"
+                    "Amount ($)",
+                    period_type=period
                 )
                 
                 if fig:
@@ -16914,25 +16945,13 @@ Keep each bullet to ONE line. Be concise."""
         top_news, error = get_top_market_news()
     
     if top_news:
-        # Convert bullet points to proper HTML list format
-        # Replace • or - with proper list items
-        news_lines = top_news.split('\n')
-        formatted_news = ""
-        for line in news_lines:
-            line = line.strip()
-            if line:
-                # Remove leading bullet characters and format as proper list item
-                if line.startswith('•') or line.startswith('-') or line.startswith('*'):
-                    line = line[1:].strip()
-                formatted_news += f"<li style='margin-bottom: 12px;'>{line}</li>"
-        
-        # Display in a card with light background
+        # Display in a card with RED accent (matches app theme)
         st.markdown(f"""
-        <div style="background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%); 
-                    border: 2px solid #2196F3; border-radius: 15px; padding: 30px; margin: 20px 0;">
-            <ul style="color: #1a1a2e; font-size: 15px; line-height: 1.6; margin: 0; padding-left: 20px;">
-                {formatted_news}
-            </ul>
+        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
+                    border: 2px solid #ff3333; border-radius: 15px; padding: 30px; margin: 20px 0;">
+            <div style="color: #FFFFFF; font-size: 16px; line-height: 1.8;">
+                {top_news}
+            </div>
         </div>
         """, unsafe_allow_html=True)
         
@@ -17037,82 +17056,95 @@ Keep each bullet to ONE line. Be concise."""
         
         st.markdown("---")
     
-    # ============= EARNINGS CALENDAR (FMP API - REAL TIME!) =============
+    # ============= EARNINGS CALENDAR (REAL-TIME!) =============
     st.markdown("### 📅 Earnings Calendar - This Week")
-    st.caption("Biggest earnings releases this week (Real-time from FMP)")
+    st.caption("Biggest earnings releases this week")
     
-    # Function to get this week's earnings from FMP API
-    def get_fmp_earnings_calendar():
-        """Fetch this week's earnings using FMP API"""
-        try:
-            # Get current date and calculate week range
-            today = datetime.now()
-            # Find Monday of this week
-            monday = today - timedelta(days=today.weekday())
-            # Friday of this week
-            friday = monday + timedelta(days=4)
-            
-            from_date = monday.strftime("%Y-%m-%d")
-            to_date = friday.strftime("%Y-%m-%d")
-            
-            url = f"https://financialmodelingprep.com/api/v3/earning_calendar?from={from_date}&to={to_date}&apikey={FMP_API_KEY}"
-            response = requests.get(url, timeout=15)
-            
-            if response.status_code == 200:
-                data = response.json()
-                if data:
-                    # Group by date
-                    earnings_by_date = {}
-                    for item in data:
-                        date_str = item.get('date', '')
-                        symbol = item.get('symbol', '')
-                        if date_str and symbol:
-                            if date_str not in earnings_by_date:
-                                earnings_by_date[date_str] = []
-                            # Only add major companies (filter by market cap if available, or just take top ones)
-                            earnings_by_date[date_str].append({
-                                'symbol': symbol,
-                                'eps_estimated': item.get('epsEstimated'),
-                                'revenue_estimated': item.get('revenueEstimated')
-                            })
-                    
-                    # Sort dates and format output
-                    result = []
-                    for date_str in sorted(earnings_by_date.keys()):
-                        date_obj = datetime.strptime(date_str, "%Y-%m-%d")
-                        day_name = date_obj.strftime("%A, %B %d")
-                        companies = earnings_by_date[date_str][:8]  # Top 8 per day
-                        
-                        company_list = "<br>".join([f"• <strong>{c['symbol']}</strong>" for c in companies])
-                        result.append(f"<strong>{day_name}:</strong><br>{company_list}")
-                    
-                    if result:
-                        return "<br><br>".join(result), None
-                    else:
-                        return None, "No earnings data found for this week"
-                else:
-                    return None, "Empty response from FMP"
-            else:
-                return None, f"FMP API error: {response.status_code}"
-        except Exception as e:
-            return None, f"Error fetching earnings: {str(e)}"
+    # Function to get this week's earnings using Perplexity with CURRENT date
+    def get_weekly_earnings():
+        """Fetch this week's earnings using Perplexity API"""
+        if not PERPLEXITY_API_KEY:
+            return None, "Perplexity API key not configured"
+        
+        # Get current date for the query
+        today = datetime.now()
+        monday = today - timedelta(days=today.weekday())
+        friday = monday + timedelta(days=4)
+        
+        # Format dates for the query
+        date_range = f"{monday.strftime('%B %d')} - {friday.strftime('%B %d, %Y')}"
+        
+        query = f"""What are the most important earnings reports THIS WEEK ({date_range})?
+
+List the top 3-5 companies reporting earnings EACH DAY this week.
+
+FORMAT EXACTLY LIKE THIS:
+• **Monday:** Company1 (TICKER), Company2 (TICKER)
+• **Tuesday:** Company1 (TICKER), Company2 (TICKER)
+• **Wednesday:** Company1 (TICKER), Company2 (TICKER)
+• **Thursday:** Company1 (TICKER), Company2 (TICKER)
+• **Friday:** Company1 (TICKER), Company2 (TICKER)
+
+Focus on well-known US companies. If no major earnings on a day, say "No major earnings."
+This week includes major tech and bank earnings - be accurate with the current schedule."""
+        
+        headers = {
+            "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        
+        models_to_try = ["sonar", "sonar-small-online", "llama-3.1-sonar-small-128k-online"]
+        
+        for model_name in models_to_try:
+            try:
+                payload = {
+                    "model": model_name,
+                    "messages": [{"role": "user", "content": query}],
+                    "temperature": 0.1,
+                    "max_tokens": 800
+                }
+                
+                response = requests.post(
+                    "https://api.perplexity.ai/chat/completions",
+                    headers=headers,
+                    json=payload,
+                    timeout=30
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                    if content and len(content) > 50:
+                        return content, None
+            except:
+                continue
+        
+        return None, "Could not fetch earnings data"
     
     with st.spinner("📊 Loading earnings calendar..."):
-        weekly_earnings, earnings_error = get_fmp_earnings_calendar()
+        weekly_earnings, earnings_error = get_weekly_earnings()
     
     if weekly_earnings:
-        # Display formatted earnings 
+        # Convert to HTML bullet list
+        lines = weekly_earnings.split('\n')
+        formatted = ""
+        for line in lines:
+            line = line.strip()
+            if line:
+                if line.startswith('•') or line.startswith('-') or line.startswith('*'):
+                    line = line[1:].strip()
+                formatted += f"<li style='margin-bottom: 10px;'>{line}</li>"
+        
         st.markdown(f"""
         <div style="background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%); 
-                    border: 2px solid #2196F3; border-radius: 15px; padding: 30px; margin: 20px 0;">
-            <div style="color: #1a1a2e; font-size: 16px; line-height: 1.8;">
-                {weekly_earnings}
-            </div>
+                    border: 2px solid #2196F3; border-radius: 15px; padding: 25px; margin: 20px 0;">
+            <ul style="color: #1a1a2e; font-size: 15px; line-height: 1.6; margin: 0; padding-left: 20px; list-style-type: none;">
+                {formatted}
+            </ul>
         </div>
         """, unsafe_allow_html=True)
     elif earnings_error:
         st.warning(f"Could not fetch earnings: {earnings_error}")
-        st.info("📊 **Check FMP API for latest earnings calendar**")
     else:
         st.info("No major earnings scheduled for this week.")
     
