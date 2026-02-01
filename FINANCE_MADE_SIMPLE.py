@@ -2008,42 +2008,82 @@ def build_ai_context(tab, ticker=None, facts=None):
     return ctx
 
 def call_ai(message, mode, context):
-    """Call OpenAI for AI Coach response"""
-    if not OPENAI_API_KEY:
-        return {"answer": ["AI Coach unavailable (no API key)"], "lessons": [], "receipts": []}
+    """Call AI for Coach response - Perplexity FIRST (web search), OpenAI fallback"""
     
-    try:
-        system = f"""You're an educational investing coach in {mode} mode.
+    system = f"""You're an educational investing coach in {mode} mode.
+
+CRITICAL: You have WEB SEARCH capability. USE IT to provide REAL, CURRENT data.
+When asked about stock prices, P/E ratios, market data - SEARCH and give actual numbers.
+
 Rules:
+- SEARCH for current data when asked about specific stocks, prices, ratios, news
+- Provide ACTUAL numbers and facts, not generic advice
 - NEVER give buy/sell advice
-- Use ONLY provided context facts
-- Be beginner-friendly
+- Be beginner-friendly with explanations
 - Respond in JSON: {{"answer":["bullet1","bullet2"],"lessons":[{{"id":"B1","label":"Title"}}],"receipts":["fact1"]}}
-- Max 4 bullets"""
-        
-        resp = requests.post(
-            "https://api.openai.com/v1/chat/completions",
-            headers={"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"},
-            json={
-                "model": "gpt-4o-mini",
-                "messages": [
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": f"Q: {message}\n\nContext: {json.dumps(context)}"}
-                ],
-                "temperature": 0.7,
-                "max_tokens": 400
-            },
-            timeout=25
-        )
-        
-        if resp.status_code == 200:
-            content = resp.json()["choices"][0]["message"]["content"].strip()
-            content = content.replace("```json", "").replace("```", "").strip()
-            return json.loads(content)
-    except:
-        pass
+- Max 4 bullets, include specific data points"""
+
+    # TRY PERPLEXITY FIRST - has web search for real data!
+    if PERPLEXITY_API_KEY:
+        try:
+            resp = requests.post(
+                "https://api.perplexity.ai/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": "sonar",
+                    "messages": [
+                        {"role": "system", "content": system},
+                        {"role": "user", "content": f"Q: {message}\n\nContext: {json.dumps(context)}"}
+                    ],
+                    "max_tokens": 600,
+                    "temperature": 0.3
+                },
+                timeout=30
+            )
+            
+            if resp.status_code == 200:
+                content = resp.json()["choices"][0]["message"]["content"].strip()
+                content = content.replace("```json", "").replace("```", "").strip()
+                try:
+                    return json.loads(content)
+                except:
+                    # If not valid JSON, wrap in answer format
+                    return {"answer": [content[:500]], "lessons": [], "receipts": []}
+        except Exception as e:
+            print(f"[AI Coach] Perplexity error: {e}")
     
-    return {"answer": ["I had trouble with that. Try rephrasing?"], "lessons": [], "receipts": []}
+    # FALLBACK to OpenAI if Perplexity fails
+    if OPENAI_API_KEY:
+        try:
+            resp = requests.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers={"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"},
+                json={
+                    "model": "gpt-4o-mini",
+                    "messages": [
+                        {"role": "system", "content": system},
+                        {"role": "user", "content": f"Q: {message}\n\nContext: {json.dumps(context)}"}
+                    ],
+                    "temperature": 0.5,
+                    "max_tokens": 500
+                },
+                timeout=25
+            )
+            
+            if resp.status_code == 200:
+                content = resp.json()["choices"][0]["message"]["content"].strip()
+                content = content.replace("```json", "").replace("```", "").strip()
+                try:
+                    return json.loads(content)
+                except:
+                    return {"answer": [content[:500]], "lessons": [], "receipts": []}
+        except Exception as e:
+            print(f"[AI Coach] OpenAI error: {e}")
+    
+    return {"answer": ["I had trouble connecting to AI. Please try again."], "lessons": [], "receipts": []}
 
 def render_ai_coach(tab, ticker=None, facts=None):
     """Render AI Coach as a slide-out panel on the right side"""
@@ -7862,6 +7902,28 @@ section[data-testid="stSidebar"] .stMarkdown * {
 .stButton button, .stButton button *, button[kind="primary"], button[kind="primary"] * {
     color: #FFFFFF !important;
 }
+
+/* SIDEBAR SECTION HEADERS - LIGHT BLUE FOR VISIBILITY */
+[data-testid="stSidebar"] h2,
+[data-testid="stSidebar"] h3,
+[data-testid="stSidebar"] .stMarkdown h2,
+[data-testid="stSidebar"] .stMarkdown h3 {
+    background: linear-gradient(135deg, #4FC3F7 0%, #29B6F6 100%) !important;
+    color: #000000 !important;
+    padding: 10px 15px !important;
+    border-radius: 8px !important;
+    margin: 10px 0 !important;
+    font-weight: bold !important;
+}
+
+/* Sidebar labels and text stay dark for readability */
+[data-testid="stSidebar"] label,
+[data-testid="stSidebar"] .stSlider label,
+[data-testid="stSidebar"] .stRadio label,
+[data-testid="stSidebar"] p,
+[data-testid="stSidebar"] span {
+    color: #121212 !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -10280,9 +10342,6 @@ if selected_page == "🏠 Dashboard":
 
 # ============= HOMEPAGE: START HERE =============
 elif selected_page == "🏠 Start Here":
-    # Debug status line (temporary)
-    st.caption(f"🔍 Debug: onboarding_completed={st.session_state.get('onboarding_completed', False)} | setup_prompt_dismissed={st.session_state.get('setup_prompt_dismissed', False)} | logged_in={st.session_state.get('is_logged_in', False)}")
-    
     # Non-blocking setup nudge card
     render_setup_nudge()
     
@@ -14922,7 +14981,7 @@ elif selected_page == "📊 Company Analysis":
                     metric2_display = st.selectbox(
                         "Metric 2:",
                         options=[display for display, _ in available_metrics],
-                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Capital Expenditures'), min(1, len(available_metrics)-1)),
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if 'Capital Expenditure' in d or 'CapEx' in d), min(1, len(available_metrics)-1)),
                         key="cf_metric2"
                     )
                     metric2 = next(col for display, col in available_metrics if display == metric2_display)
