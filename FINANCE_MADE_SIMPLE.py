@@ -2855,23 +2855,21 @@ def show_onboarding_tooltip(step_id, title, message, position="bottom"):
     if step_id in st.session_state.onboarding_complete:
         return False
     
-    # Show tooltip with dismiss button
-    col1, col2 = st.columns([6, 1])
-    with col1:
-        st.markdown(f"""
-        <div style="
-            background: linear-gradient(135deg, #9D4EDD 0%, #7B2CBF 100%);
-            padding: 15px 20px;
-            border-radius: 10px;
-            margin: 10px 0;
-        ">
-            <div style="font-weight: bold; color: #FFF; margin-bottom: 5px;">💡 {title}</div>
-            <div style="color: rgba(255,255,255,0.9); font-size: 14px;">{message}</div>
-        </div>
-        """, unsafe_allow_html=True)
+    # Show tooltip
+    st.markdown(f"""
+    <div style="
+        background: linear-gradient(135deg, #9D4EDD 0%, #7B2CBF 100%);
+        padding: 15px 20px;
+        border-radius: 10px;
+        margin: 10px 0;
+        position: relative;
+    ">
+        <div style="font-weight: bold; color: #FFF; margin-bottom: 5px;">💡 {title}</div>
+        <div style="color: rgba(255,255,255,0.9); font-size: 14px;">{message}</div>
+    </div>
+    """, unsafe_allow_html=True)
     
-    # Put button outside the HTML for proper Streamlit handling
-    if st.button("Got it!", key=f"dismiss_onboarding_{step_id}", type="primary"):
+    if st.button("Got it!", key=f"onboarding_{step_id}"):
         st.session_state.onboarding_complete.add(step_id)
         st.rerun()
     
@@ -3089,7 +3087,7 @@ def calculate_growth_rate(df, column, years=None):
     return calculate_cagr(start_val, end_val, years)
 
 
-def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_title="Amount ($)", period_type='annual'):
+def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_title="Amount ($)"):
     """Create financial chart with y-axis padding and return growth rates"""
     if df.empty:
         return None, {}
@@ -3110,21 +3108,6 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
             return f"{sign}${abs_val:.0f}"
     
     df_reversed = df.iloc[::-1].reset_index(drop=True)
-    
-    # Format x-axis labels based on period type
-    if 'date' in df_reversed.columns:
-        if period_type == 'annual':
-            # For annual data, show just the year (FY 2024, FY 2025)
-            df_reversed['x_label'] = pd.to_datetime(df_reversed['date']).dt.strftime('FY %Y')
-        else:
-            # For quarterly data, show Q1 2024 format
-            df_reversed['x_label'] = pd.to_datetime(df_reversed['date']).apply(
-                lambda x: f"Q{(x.month-1)//3 + 1} {x.year}"
-            )
-        x_values = df_reversed['x_label']
-    else:
-        x_values = df_reversed.index
-    
     fig = go.Figure()
     colors = ['#00D9FF', '#FFD700', '#9D4EDD']
     growth_rates = {}
@@ -3140,7 +3123,7 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
             display_name = METRIC_DISPLAY_NAMES.get(metric, metric.replace('_', ' ').title())
             
             fig.add_trace(go.Bar(
-                x=x_values,
+                x=df_reversed['date'],
                 y=values,
                 name=display_name,
                 marker_color=colors[idx % len(colors)],
@@ -7585,6 +7568,9 @@ with header_cols[3]:
     with st.popover("📊 Pro Checklist", use_container_width=True):
         if st.button("📊 Pro Checklist", key="nav_pro_checklist", use_container_width=True):
             st.session_state.selected_page = "📊 Pro Checklist"
+            st.rerun()
+        if st.button("👑 Ultimate", key="nav_ultimate", use_container_width=True):
+            st.session_state.selected_page = "👑 Ultimate"
             st.rerun()
         if st.button("💼 Paper Portfolio", key="nav_paper_portfolio", use_container_width=True):
             st.session_state.selected_page = "💼 Paper Portfolio"
@@ -14555,23 +14541,6 @@ elif selected_page == "📊 Company Analysis":
                 if len(price_history) < 2:
                     price_history = price_history_full.tail(3)  # Fallback to last 3 points
                 
-                # Calculate and display return % for selected timeframe
-                price_col = 'close' if 'close' in price_history.columns else 'price'
-                if len(price_history) >= 2:
-                    start_price = price_history[price_col].iloc[0]
-                    end_price = price_history[price_col].iloc[-1]
-                    if start_price > 0:
-                        period_return = ((end_price - start_price) / start_price) * 100
-                        return_color = "#28a745" if period_return >= 0 else "#dc3545"
-                        return_sign = "+" if period_return >= 0 else ""
-                        return_emoji = "📈" if period_return >= 0 else "📉"
-                        st.markdown(f"""
-                        <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 15px 25px; border-radius: 12px; margin: 15px 0; display: inline-block; border-left: 5px solid {return_color};">
-                            <span style="color: #555; font-size: 14px; font-weight: 500;">{selected_timeframe} Return:</span>
-                            <span style="color: {return_color}; font-size: 24px; font-weight: bold; margin-left: 12px;">{return_emoji} {return_sign}{period_return:.2f}%</span>
-                        </div>
-                        """, unsafe_allow_html=True)
-                
                 # S&P 500 overlay toggle
                 show_sp500 = st.checkbox("📊 Compare to S&P 500 (% Growth)", key="show_sp500_overlay")
                 
@@ -14826,7 +14795,7 @@ elif selected_page == "📊 Company Analysis":
                     metric1_display = st.selectbox(
                         "Metric 1:",
                         options=[display for display, _ in available_metrics],
-                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'FCF After Stock Compensation'), 0),
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Operating Cash Flow'), 0),
                         key="cf_metric1"
                     )
                     metric1 = next(col for display, col in available_metrics if display == metric1_display)
@@ -14835,7 +14804,7 @@ elif selected_page == "📊 Company Analysis":
                     metric2_display = st.selectbox(
                         "Metric 2:",
                         options=[display for display, _ in available_metrics],
-                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Free Cash Flow'), min(1, len(available_metrics)-1)),
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Capital Expenditures (CapEx)'), min(1, len(available_metrics)-1)),
                         key="cf_metric2"
                     )
                     metric2 = next(col for display, col in available_metrics if display == metric2_display)
@@ -14844,7 +14813,7 @@ elif selected_page == "📊 Company Analysis":
                     metric3_display = st.selectbox(
                         "Metric 3:",
                         options=[display for display, _ in available_metrics],
-                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Operating Cash Flow'), min(2, len(available_metrics)-1)),
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Free Cash Flow'), min(2, len(available_metrics)-1)),
                         key="cf_metric3"
                     )
                     metric3 = next(col for display, col in available_metrics if display == metric3_display)
@@ -14882,8 +14851,7 @@ elif selected_page == "📊 Company Analysis":
                     metrics_to_plot,
                     f"{company_name} - Cash Flow",
                     "Period",
-                    "Amount ($)",
-                    period_type=period
+                    "Amount ($)"
                 )
                 
                 if fig:
@@ -14976,8 +14944,7 @@ elif selected_page == "📊 Company Analysis":
                     metrics_to_plot,
                     f"{company_name} - Income Statement",
                     "Period",
-                    "Amount ($)",
-                    period_type=period
+                    "Amount ($)"
                 )
                 
                 if fig:
@@ -15069,8 +15036,7 @@ elif selected_page == "📊 Company Analysis":
                     metrics_to_plot,
                     f"{company_name} - Balance Sheet",
                     "Period",
-                    "Amount ($)",
-                    period_type=period
+                    "Amount ($)"
                 )
                 
                 if fig:
@@ -17056,52 +17022,57 @@ Keep each bullet to ONE line. Be concise."""
         
         st.markdown("---")
     
-    # ============= EARNINGS CALENDAR (REAL-TIME!) =============
+    # ============= EARNINGS CALENDAR (NEW!) =============
     st.markdown("### 📅 Earnings Calendar - This Week")
     st.caption("Biggest earnings releases this week")
     
-    # Function to get this week's earnings using Perplexity with CURRENT date
+    # Function to get this week's earnings
     def get_weekly_earnings():
-        """Fetch this week's earnings using Perplexity API"""
+        """Fetch this week's earnings using Perplexity API with fallback models"""
         if not PERPLEXITY_API_KEY:
             return None, "Perplexity API key not configured"
         
-        # Get current date for the query
-        today = datetime.now()
-        monday = today - timedelta(days=today.weekday())
-        friday = monday + timedelta(days=4)
+        # Try multiple models
+        models_to_try = [
+            "sonar-small-online",
+            "sonar",
+            "llama-3.1-sonar-small-128k-online"
+        ]
         
-        # Format dates for the query
-        date_range = f"{monday.strftime('%B %d')} - {friday.strftime('%B %d, %Y')}"
-        
-        query = f"""What are the most important earnings reports THIS WEEK ({date_range})?
+        query = """List the 3-5 most important companies reporting earnings each day this week (January 13-17, 2026).
 
-List the top 3-5 companies reporting earnings EACH DAY this week.
+SIMPLE FORMAT - Just company names:
 
-FORMAT EXACTLY LIKE THIS:
-• **Monday:** Company1 (TICKER), Company2 (TICKER)
-• **Tuesday:** Company1 (TICKER), Company2 (TICKER)
-• **Wednesday:** Company1 (TICKER), Company2 (TICKER)
-• **Thursday:** Company1 (TICKER), Company2 (TICKER)
-• **Friday:** Company1 (TICKER), Company2 (TICKER)
+**Monday, January 13:**
+• JPMorgan Chase (JPM)
+• Bank of America (BAC)
 
-Focus on well-known US companies. If no major earnings on a day, say "No major earnings."
-This week includes major tech and bank earnings - be accurate with the current schedule."""
+**Tuesday, January 14:**
+• Wells Fargo (WFC)
+• Citigroup (C)
+
+Focus on well-known companies. NO EPS estimates, NO revenue, NO extra details.
+Just: Company Name (TICKER)
+If a day has no major earnings, say "No major earnings."
+"""
         
         headers = {
             "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
             "Content-Type": "application/json"
         }
         
-        models_to_try = ["sonar", "sonar-small-online", "llama-3.1-sonar-small-128k-online"]
+        last_error = None
         
+        # Try each model
         for model_name in models_to_try:
             try:
                 payload = {
                     "model": model_name,
-                    "messages": [{"role": "user", "content": query}],
-                    "temperature": 0.1,
-                    "max_tokens": 800
+                    "messages": [
+                        {"role": "user", "content": query}
+                    ],
+                    "temperature": 0.2,
+                    "max_tokens": 1000
                 }
                 
                 response = requests.post(
@@ -17111,40 +17082,56 @@ This week includes major tech and bank earnings - be accurate with the current s
                     timeout=30
                 )
                 
+                print(f"[DEBUG] Perplexity earnings ({model_name}): status={response.status_code}")
+                
                 if response.status_code == 200:
                     data = response.json()
                     content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
                     if content and len(content) > 50:
+                        print(f"[DEBUG] Earnings success with model: {model_name}")
                         return content, None
-            except:
+                    else:
+                        last_error = f"Empty response from {model_name}"
+                        continue
+                else:
+                    try:
+                        error_data = response.json()
+                        last_error = f"{model_name}: {response.status_code} - {error_data}"
+                    except:
+                        last_error = f"{model_name}: HTTP {response.status_code}"
+                    
+                    print(f"[DEBUG] {last_error}")
+                    continue
+                    
+            except requests.exceptions.Timeout:
+                last_error = f"{model_name}: Request timeout"
+                print(f"[DEBUG] {last_error}")
+                continue
+            except Exception as e:
+                last_error = f"{model_name}: {str(e)}"
+                print(f"[DEBUG] {last_error}")
                 continue
         
-        return None, "Could not fetch earnings data"
+        # All models failed
+        return None, f"All models failed. Last error: {last_error}"
     
     with st.spinner("📊 Loading earnings calendar..."):
         weekly_earnings, earnings_error = get_weekly_earnings()
     
     if weekly_earnings:
-        # Convert to HTML bullet list
-        lines = weekly_earnings.split('\n')
-        formatted = ""
-        for line in lines:
-            line = line.strip()
-            if line:
-                if line.startswith('•') or line.startswith('-') or line.startswith('*'):
-                    line = line[1:].strip()
-                formatted += f"<li style='margin-bottom: 10px;'>{line}</li>"
-        
+        # Display formatted earnings from Perplexity
         st.markdown(f"""
-        <div style="background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%); 
-                    border: 2px solid #2196F3; border-radius: 15px; padding: 25px; margin: 20px 0;">
-            <ul style="color: #1a1a2e; font-size: 15px; line-height: 1.6; margin: 0; padding-left: 20px; list-style-type: none;">
-                {formatted}
-            </ul>
+        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
+                    border: 2px solid #ff3333; border-radius: 15px; padding: 30px; margin: 20px 0;">
+            <div style="color: #FFFFFF; font-size: 16px; line-height: 1.8;">
+                {weekly_earnings}
+            </div>
         </div>
         """, unsafe_allow_html=True)
     elif earnings_error:
         st.warning(f"Could not fetch earnings: {earnings_error}")
+        st.info("📊 **Major banks typically report mid-January** (JPM, WFC, C)")
+        st.caption("Try refreshing or check if Perplexity API key is configured correctly.")
     else:
         st.info("No major earnings scheduled for this week.")
     
@@ -17488,14 +17475,14 @@ elif selected_page == "👑 Become a VIP":
     
     with col_free:
         # Highlight if selected
-        border_color = "#00C853" if st.session_state.selected_tier == "Free" else "#333"
+        border_color = "#00C853" if st.session_state.selected_tier == "Free" else "#B8D4E8"
         shadow = "0 0 20px rgba(0,200,83,0.5)" if st.session_state.selected_tier == "Free" else "none"
         st.markdown(f"""
-        <div style="background: #1a1a1a; border: 3px solid {border_color}; border-radius: 15px; 
+        <div style="background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%); border: 3px solid {border_color}; border-radius: 15px; 
                     padding: 20px; text-align: center; box-shadow: {shadow};">
             <h3 style="color: #00C853; margin-bottom: 10px;">Free</h3>
-            <p style="color: #888; font-size: 24px; margin: 10px 0;"><strong>$0</strong>/mo</p>
-            <p style="color: #FFFFFF; font-size: 14px;">Preview Access</p>
+            <p style="color: #333; font-size: 24px; margin: 10px 0;"><strong>$0</strong>/mo</p>
+            <p style="color: #555; font-size: 14px;">Preview Access</p>
         </div>
         """, unsafe_allow_html=True)
         if st.button("Select Free", key="select_free_vip", use_container_width=True):
@@ -17503,14 +17490,14 @@ elif selected_page == "👑 Become a VIP":
             st.rerun()
     
     with col_pro:
-        border_color = "#9D4EDD" if st.session_state.selected_tier == "Pro" else "#333"
+        border_color = "#9D4EDD" if st.session_state.selected_tier == "Pro" else "#B8D4E8"
         shadow = "0 0 20px rgba(157,78,221,0.5)" if st.session_state.selected_tier == "Pro" else "none"
         st.markdown(f"""
-        <div style="background: #1a1a1a; border: 3px solid {border_color}; border-radius: 15px; 
+        <div style="background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%); border: 3px solid {border_color}; border-radius: 15px; 
                     padding: 20px; text-align: center; box-shadow: {shadow};">
             <h3 style="color: #9D4EDD; margin-bottom: 10px;">Pro</h3>
-            <p style="color: #888; font-size: 24px; margin: 10px 0;"><strong>$5</strong>/mo</p>
-            <p style="color: #FFFFFF; font-size: 14px;">Full Portfolio Access</p>
+            <p style="color: #333; font-size: 24px; margin: 10px 0;"><strong>$5</strong>/mo</p>
+            <p style="color: #555; font-size: 14px;">Full Portfolio Access</p>
         </div>
         """, unsafe_allow_html=True)
         if st.button("Select Pro", key="select_pro_vip", use_container_width=True):
@@ -17525,14 +17512,14 @@ elif selected_page == "👑 Become a VIP":
             st.rerun()
     
     with col_ultimate:
-        border_color = "#FFD700" if st.session_state.selected_tier == "Ultimate" else "#333"
+        border_color = "#FFD700" if st.session_state.selected_tier == "Ultimate" else "#B8D4E8"
         shadow = "0 0 20px rgba(255,215,0,0.5)" if st.session_state.selected_tier == "Ultimate" else "none"
         st.markdown(f"""
-        <div style="background: #1a1a1a; border: 3px solid {border_color}; border-radius: 15px; 
+        <div style="background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%); border: 3px solid {border_color}; border-radius: 15px; 
                     padding: 20px; text-align: center; box-shadow: {shadow};">
-            <h3 style="color: #FFD700; margin-bottom: 10px;">Ultimate</h3>
-            <p style="color: #888; font-size: 24px; margin: 10px 0;"><strong>$10</strong>/mo</p>
-            <p style="color: #FFFFFF; font-size: 14px;">VIP Access + Support</p>
+            <h3 style="color: #E65100; margin-bottom: 10px;">Ultimate</h3>
+            <p style="color: #333; font-size: 24px; margin: 10px 0;"><strong>$10</strong>/mo</p>
+            <p style="color: #555; font-size: 14px;">VIP Access + Support</p>
         </div>
         """, unsafe_allow_html=True)
         if st.button("Select Ultimate", key="select_ultimate_vip", use_container_width=True):
@@ -17556,15 +17543,15 @@ elif selected_page == "👑 Become a VIP":
     with col_free2:
         st.markdown(
             """
-            <div style="background:#141414;border:1px solid #2a2a2a;border-radius:14px;padding:16px;min-height:420px;">
+            <div style="background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%);border:1px solid #B8D4E8;border-radius:14px;padding:16px;min-height:420px;">
               <h3 style="color:#00C853;margin:0 0 6px 0;">Free</h3>
-              <div style="color:#BBBBBB;font-size:14px;margin-bottom:10px;">Great for getting started</div>
-              <ul style="color:#FFFFFF;line-height:1.6;">
+              <div style="color:#555;font-size:14px;margin-bottom:10px;">Great for getting started</div>
+              <ul style="color:#1a1a2e;line-height:1.6;">
                 <li>Market Overview + Sector Explorer basics</li>
                 <li>Company Analysis essentials</li>
                 <li>Educational content + Risk Quiz</li>
               </ul>
-              <div style="color:#888;font-size:12px;margin-top:12px;">
+              <div style="color:#666;font-size:12px;margin-top:12px;">
                 Tip: Free stays useful — paid tiers add speed + deeper tooling.
               </div>
             </div>
@@ -17575,10 +17562,10 @@ elif selected_page == "👑 Become a VIP":
     with col_pro2:
         st.markdown(
             """
-            <div style="background:#141414;border:2px solid #9D4EDD;border-radius:14px;padding:16px;min-height:420px;box-shadow:0 0 18px rgba(157,78,221,0.25);">
+            <div style="background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%);border:2px solid #9D4EDD;border-radius:14px;padding:16px;min-height:420px;box-shadow:0 0 18px rgba(157,78,221,0.25);">
               <h3 style="color:#9D4EDD;margin:0 0 6px 0;">Pro</h3>
-              <div style="color:#BBBBBB;font-size:14px;margin-bottom:10px;">For technical learners + faster decisions</div>
-              <ul style="color:#FFFFFF;line-height:1.6;">
+              <div style="color:#555;font-size:14px;margin-bottom:10px;">For technical learners + faster decisions</div>
+              <ul style="color:#1a1a2e;line-height:1.6;">
                 <li><b>Pro Chart Lab</b>: candlesticks + SMA50/SMA200/RSI/Volume toggles</li>
                 <li><b>Technical Facts</b>: trend regime, momentum, volume/volatility context</li>
                 <li><b>Chart Callouts</b>: 3–5 grounded takeaways under every chart</li>
@@ -17596,10 +17583,10 @@ elif selected_page == "👑 Become a VIP":
     with col_ult2:
         st.markdown(
             """
-            <div style="background:#141414;border:2px solid #FFD700;border-radius:14px;padding:16px;min-height:420px;box-shadow:0 0 18px rgba(255,215,0,0.20);">
+            <div style="background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%);border:2px solid #FFD700;border-radius:14px;padding:16px;min-height:420px;box-shadow:0 0 18px rgba(255,215,0,0.20);">
               <h3 style="color:#FFD700;margin:0 0 6px 0;">Ultimate</h3>
-              <div style="color:#BBBBBB;font-size:14px;margin-bottom:10px;">For “show me the receipts” users</div>
-              <ul style="color:#FFFFFF;line-height:1.6;">
+              <div style="color:#555;font-size:14px;margin-bottom:10px;">For “show me the receipts” users</div>
+              <ul style="color:#1a1a2e;line-height:1.6;">
                 <li>Everything in <b>Pro</b></li>
                 <li><b>🔍 AI Stock Screener</b>: Ask in plain English, get matching stocks!</li>
                 <li><b>Historical Similar Setups</b>: find past charts that looked like today</li>
