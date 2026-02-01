@@ -3118,8 +3118,7 @@ def display_growth_badges(df, metrics, metric_names, period_type='annual', years
     period_label = "yr" if period_type == 'annual' else "qtr"
     
     # Calculate average growth for each metric
-    badge_html = '<div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; margin: 15px 0;">'
-    
+    badges = []
     colors = ['#00D9FF', '#FFD700', '#9D4EDD']  # Match chart colors
     
     for idx, (metric, name) in enumerate(zip(metrics, metric_names)):
@@ -3132,34 +3131,13 @@ def display_growth_badges(df, metrics, metric_names, period_type='annual', years
             border_color = colors[idx % len(colors)]
             sign = "+" if avg_growth >= 0 else ""
             
-            badge_html += f'''
-            <div style="
-                background: {bg_color};
-                border: 2px solid {border_color};
-                border-radius: 20px;
-                padding: 8px 16px;
-                display: inline-flex;
-                align-items: center;
-                gap: 8px;
-            ">
-                <span style="
-                    width: 12px;
-                    height: 12px;
-                    background: {border_color};
-                    border-radius: 50%;
-                    display: inline-block;
-                "></span>
-                <span style="color: #333; font-size: 13px; font-weight: 500;">{name}:</span>
-                <span style="color: {text_color}; font-size: 15px; font-weight: bold;">{sign}{avg_growth:.1f}%/{period_label}</span>
-            </div>
-            '''
+            badge = f'<div style="background: {bg_color}; border: 2px solid {border_color}; border-radius: 20px; padding: 8px 16px; display: inline-flex; align-items: center; gap: 8px;"><span style="width: 12px; height: 12px; background: {border_color}; border-radius: 50%; display: inline-block;"></span><span style="color: #333; font-size: 13px; font-weight: 500;">{name}:</span><span style="color: {text_color}; font-size: 15px; font-weight: bold;">{sign}{avg_growth:.1f}%/{period_label}</span></div>'
+            badges.append(badge)
     
-    badge_html += '</div>'
-    
-    # Add subtitle
-    subtitle = f'<p style="text-align: center; color: #666; font-size: 12px; margin-top: 5px;">Average growth per {period_type} period over {years} {"year" if years == 1 else "years"}</p>'
-    
-    st.markdown(badge_html + subtitle, unsafe_allow_html=True)
+    if badges:
+        badge_html = '<div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; margin: 15px 0;">' + ''.join(badges) + '</div>'
+        subtitle = f'<p style="text-align: center; color: #666; font-size: 12px; margin-top: 5px;">Average growth per {period_type} period over {years} {"year" if years == 1 else "years"}</p>'
+        st.markdown(badge_html + subtitle, unsafe_allow_html=True)
 
 
 def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_title="Amount ($)", period_type='annual'):
@@ -5705,8 +5683,8 @@ def show_welcome_popup():
             align-items: center;
         }
         .welcome-popup {
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            border: 2px solid #00D9FF;
+            background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%);
+            border: 2px solid #2196F3;
             border-radius: 20px;
             padding: 40px;
             max-width: 500px;
@@ -5718,7 +5696,7 @@ def show_welcome_popup():
         .welcome-popup li,
         .welcome-popup ul,
         .welcome-popup strong {
-            color: #FFFFFF !important;
+            color: #1a1a2e !important;
         }
         .welcome-close-form {
             position: absolute;
@@ -5728,8 +5706,8 @@ def show_welcome_popup():
             padding: 0;
         }
         .welcome-close-btn {
-            background: transparent;
-            border: 2px solid #FFFFFF;
+            background: #FF4444;
+            border: 2px solid #FF4444;
             color: #FFFFFF !important;
             font-size: 20px;
             width: 35px;
@@ -5744,7 +5722,7 @@ def show_welcome_popup():
             line-height: 1;
         }
         .welcome-close-btn:hover {
-            background: #FF4444;
+            background: #CC0000;
             color: #FFFFFF !important;
         }
         .welcome-start-form {
