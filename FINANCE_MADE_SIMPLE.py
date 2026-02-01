@@ -1212,8 +1212,8 @@ if st.session_state.theme == 'dark':
         align-items: center;
     }
     .welcome-popup {
-        background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%);
-        border: 2px solid #2196F3;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        border: 2px solid #00D9FF;
         border-radius: 20px;
         padding: 40px;
         max-width: 500px;
@@ -1221,12 +1221,12 @@ if st.session_state.theme == 'dark':
         animation: fadeInUp 0.5s ease-out;
     }
     .welcome-popup h1 {
-        color: #1a1a2e;
+        color: #FFFFFF;
         margin-bottom: 20px;
     }
     .welcome-popup ul {
         text-align: left;
-        color: #1a1a2e;
+        color: #FFFFFF;
         line-height: 2;
     }
     .welcome-btn {
@@ -3087,59 +3087,6 @@ def calculate_growth_rate(df, column, years=None):
     return calculate_cagr(start_val, end_val, years)
 
 
-def calculate_avg_growth_per_period(df, metric_col, period_type='annual'):
-    """Calculate average growth per period (annual or quarterly) for a metric"""
-    if df.empty or metric_col not in df.columns:
-        return None
-    
-    df_sorted = df.sort_values('date').copy()
-    values = df_sorted[metric_col].dropna().values
-    
-    if len(values) < 2:
-        return None
-    
-    # Calculate period-over-period growth rates
-    growth_rates = []
-    for i in range(1, len(values)):
-        if values[i-1] != 0:
-            growth = ((values[i] - values[i-1]) / abs(values[i-1])) * 100
-            growth_rates.append(growth)
-    
-    if not growth_rates:
-        return None
-    
-    # Return average growth per period
-    return sum(growth_rates) / len(growth_rates)
-
-
-def display_growth_badges(df, metrics, metric_names, period_type='annual', years=1):
-    """Display Qualtrim-style growth badges below chart"""
-    
-    period_label = "yr" if period_type == 'annual' else "qtr"
-    
-    # Calculate average growth for each metric
-    badges = []
-    colors = ['#00D9FF', '#FFD700', '#9D4EDD']  # Match chart colors
-    
-    for idx, (metric, name) in enumerate(zip(metrics, metric_names)):
-        avg_growth = calculate_avg_growth_per_period(df, metric, period_type)
-        
-        if avg_growth is not None:
-            # Determine color based on positive/negative
-            bg_color = "#d4edda" if avg_growth >= 0 else "#f8d7da"
-            text_color = "#155724" if avg_growth >= 0 else "#721c24"
-            border_color = colors[idx % len(colors)]
-            sign = "+" if avg_growth >= 0 else ""
-            
-            badge = f'<div style="background: {bg_color}; border: 2px solid {border_color}; border-radius: 20px; padding: 8px 16px; display: inline-flex; align-items: center; gap: 8px;"><span style="width: 12px; height: 12px; background: {border_color}; border-radius: 50%; display: inline-block;"></span><span style="color: #333; font-size: 13px; font-weight: 500;">{name}:</span><span style="color: {text_color}; font-size: 15px; font-weight: bold;">{sign}{avg_growth:.1f}%/{period_label}</span></div>'
-            badges.append(badge)
-    
-    if badges:
-        badge_html = '<div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; margin: 15px 0;">' + ''.join(badges) + '</div>'
-        subtitle = f'<p style="text-align: center; color: #666; font-size: 12px; margin-top: 5px;">Average growth per {period_type} period over {years} {"year" if years == 1 else "years"}</p>'
-        st.markdown(badge_html + subtitle, unsafe_allow_html=True)
-
-
 def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_title="Amount ($)", period_type='annual'):
     """Create financial chart with y-axis padding and return growth rates"""
     if df.empty:
@@ -3160,7 +3107,31 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
         else:
             return f"{sign}${abs_val:.0f}"
     
+    def format_period_label(date_val, period_type):
+        """Format date as FY 2024 for annual or Q1 2024 for quarterly"""
+        try:
+            if isinstance(date_val, str):
+                date_obj = pd.to_datetime(date_val)
+            else:
+                date_obj = date_val
+            
+            year = date_obj.year
+            month = date_obj.month
+            
+            if period_type == 'annual':
+                return f"FY {year}"
+            else:
+                # Determine quarter from month
+                quarter = (month - 1) // 3 + 1
+                return f"Q{quarter} {year}"
+        except:
+            return str(date_val)
+    
     df_reversed = df.iloc[::-1].reset_index(drop=True)
+    
+    # Format x-axis labels
+    x_labels = [format_period_label(d, period_type) for d in df_reversed['date']]
+    
     fig = go.Figure()
     colors = ['#00D9FF', '#FFD700', '#9D4EDD']
     growth_rates = {}
@@ -3176,7 +3147,7 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
             display_name = METRIC_DISPLAY_NAMES.get(metric, metric.replace('_', ' ').title())
             
             fig.add_trace(go.Bar(
-                x=df_reversed['date'],
+                x=x_labels,
                 y=values,
                 name=display_name,
                 marker_color=colors[idx % len(colors)],
@@ -4113,6 +4084,50 @@ def get_earnings_calendar(ticker):
     except Exception as e:
         print(f"Earnings calendar error: {e}")
     return None
+
+
+@st.cache_data(ttl=1800)
+def get_weekly_earnings_fmp():
+    """Get this week's major earnings from FMP API"""
+    # Get Monday of current week and Sunday
+    today = datetime.now()
+    monday = today - timedelta(days=today.weekday())
+    sunday = monday + timedelta(days=6)
+    
+    from_date = monday.strftime('%Y-%m-%d')
+    to_date = sunday.strftime('%Y-%m-%d')
+    
+    url = f"{BASE_URL}/earnings-calendar?from={from_date}&to={to_date}&apikey={FMP_API_KEY}"
+    try:
+        response = requests.get(url, timeout=15)
+        if response.status_code == 200:
+            data = response.json()
+            if data and len(data) > 0:
+                # Group by date and filter for major companies (those with revenue estimates)
+                earnings_by_day = {}
+                major_tickers = set()
+                
+                for earning in data:
+                    date_str = earning.get('date', '')
+                    symbol = earning.get('symbol', '')
+                    revenue_est = earning.get('revenueEstimated')
+                    
+                    # Filter for US stocks with revenue estimates (major companies)
+                    if revenue_est and revenue_est > 1000000000:  # > $1B revenue
+                        if date_str not in earnings_by_day:
+                            earnings_by_day[date_str] = []
+                        if symbol not in major_tickers and len(earnings_by_day[date_str]) < 5:
+                            earnings_by_day[date_str].append({
+                                'symbol': symbol,
+                                'eps_est': earning.get('epsEstimated'),
+                                'revenue_est': revenue_est
+                            })
+                            major_tickers.add(symbol)
+                
+                return earnings_by_day, None
+        return None, f"API returned status {response.status_code}"
+    except Exception as e:
+        return None, str(e)
 
 @st.cache_data(ttl=3600)
 def get_analyst_estimates(ticker):
@@ -5683,8 +5698,8 @@ def show_welcome_popup():
             align-items: center;
         }
         .welcome-popup {
-            background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%);
-            border: 2px solid #2196F3;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border: 2px solid #00D9FF;
             border-radius: 20px;
             padding: 40px;
             max-width: 500px;
@@ -5696,7 +5711,7 @@ def show_welcome_popup():
         .welcome-popup li,
         .welcome-popup ul,
         .welcome-popup strong {
-            color: #1a1a2e !important;
+            color: #FFFFFF !important;
         }
         .welcome-close-form {
             position: absolute;
@@ -5706,8 +5721,8 @@ def show_welcome_popup():
             padding: 0;
         }
         .welcome-close-btn {
-            background: #FF4444;
-            border: 2px solid #FF4444;
+            background: transparent;
+            border: 2px solid #FFFFFF;
             color: #FFFFFF !important;
             font-size: 20px;
             width: 35px;
@@ -5722,7 +5737,7 @@ def show_welcome_popup():
             line-height: 1;
         }
         .welcome-close-btn:hover {
-            background: #CC0000;
+            background: #FF4444;
             color: #FFFFFF !important;
         }
         .welcome-start-form {
@@ -7151,8 +7166,9 @@ def render_fit_check_panel(ticker=None):
             st.error(f"🚨 **Does not fit your profile**")
             st.caption(message)
     
-    # Display technical details (small text)
-    st.caption(f"Risk tier: **{risk_tier}** | Volatility: **{vol_tier}** (method: {vol_method})")
+    # Only display technical details if not unknown
+    if risk_tier != "unknown" and vol_tier != "unknown":
+        st.caption(f"Risk tier: **{risk_tier}** | Volatility: **{vol_tier}** (method: {vol_method})")
 
     """Render the site logo at top of page - centered, smaller size"""
     import base64
@@ -7621,6 +7637,9 @@ with header_cols[3]:
     with st.popover("📊 Pro Checklist", use_container_width=True):
         if st.button("📊 Pro Checklist", key="nav_pro_checklist", use_container_width=True):
             st.session_state.selected_page = "📊 Pro Checklist"
+            st.rerun()
+        if st.button("👑 Ultimate", key="nav_ultimate", use_container_width=True):
+            st.session_state.selected_page = "👑 Ultimate"
             st.rerun()
         if st.button("💼 Paper Portfolio", key="nav_paper_portfolio", use_container_width=True):
             st.session_state.selected_page = "💼 Paper Portfolio"
@@ -9195,10 +9214,10 @@ if selected_page == "🏠 Dashboard":
         st.stop()
     
     st.markdown("""
-    <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
-                padding: 25px; border-radius: 15px; margin-bottom: 25px;">
-        <h1 style="color: #FFFFFF; margin: 0; font-size: 28px;">🏠 Dashboard</h1>
-        <p style="color: #B0B0B0; margin: 5px 0 0 0;">Your personalized investing command center</p>
+    <div style="background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%); 
+                padding: 25px; border-radius: 15px; margin-bottom: 25px; border: 1px solid #B8D4E8;">
+        <h1 style="color: #1a1a2e; margin: 0; font-size: 28px;">🏠 Dashboard</h1>
+        <p style="color: #555; margin: 5px 0 0 0;">Your personalized investing command center</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -9452,6 +9471,7 @@ if selected_page == "🏠 Dashboard":
     with qa_col2:
         if st.button("⚖️ Compare Tickers", key="qa_compare", use_container_width=True):
             st.session_state.selected_page = "📊 Company Analysis"
+            st.session_state.company_view = "💪 Financial Health"
             st.rerun()
         if st.button("🏭 Sector Explorer", key="qa_sectors", use_container_width=True):
             st.session_state.selected_page = "📊 Market Overview"
@@ -14845,7 +14865,7 @@ elif selected_page == "📊 Company Analysis":
                     metric1_display = st.selectbox(
                         "Metric 1:",
                         options=[display for display, _ in available_metrics],
-                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'FCF After Stock Compensation'), 0),
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Operating Cash Flow'), 0),
                         key="cf_metric1"
                     )
                     metric1 = next(col for display, col in available_metrics if display == metric1_display)
@@ -14854,7 +14874,7 @@ elif selected_page == "📊 Company Analysis":
                     metric2_display = st.selectbox(
                         "Metric 2:",
                         options=[display for display, _ in available_metrics],
-                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Free Cash Flow'), min(1, len(available_metrics)-1)),
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Capital Expenditures'), min(1, len(available_metrics)-1)),
                         key="cf_metric2"
                     )
                     metric2 = next(col for display, col in available_metrics if display == metric2_display)
@@ -14863,7 +14883,7 @@ elif selected_page == "📊 Company Analysis":
                     metric3_display = st.selectbox(
                         "Metric 3:",
                         options=[display for display, _ in available_metrics],
-                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Operating Cash Flow'), min(2, len(available_metrics)-1)),
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Free Cash Flow'), min(2, len(available_metrics)-1)),
                         key="cf_metric3"
                     )
                     metric3 = next(col for display, col in available_metrics if display == metric3_display)
@@ -14890,6 +14910,7 @@ elif selected_page == "📊 Company Analysis":
                             st.markdown("---")
                 
                 metric_names = [metric1_display, metric2_display, metric3_display]
+                metric_names = [metric1_display, metric2_display, metric3_display]
                 
                 # Prepare data for chart
                 plot_df = cash_df[["date"] + metrics_to_plot].copy()
@@ -14900,14 +14921,23 @@ elif selected_page == "📊 Company Analysis":
                     metrics_to_plot,
                     f"{company_name} - Cash Flow",
                     "Period",
-                    "Amount ($)"
+                    "Amount ($)",
+                    period_type=period
                 )
                 
                 if fig:
                     st.plotly_chart(fig, use_container_width=True)
                     
-                    # Display Qualtrim-style growth badges
-                    display_growth_badges(plot_df, metrics_to_plot, metric_names, period, years)
+                    # Display growth rates
+                    if growth_rates:
+                        period_label = period_type.lower()
+                        growth_text = f"**Growth over {years} {period_label} periods:**\n\n"
+                        for idx, (metric_col, growth_rate) in enumerate(growth_rates.items()):
+                            metric_name = metric_names[metrics_to_plot.index(metric_col)]
+                            emoji = "🚀" if growth_rate > 10 else "📈" if growth_rate > 0 else "📉"
+                            growth_text += f"{emoji} **{metric_name}:** {growth_rate:+.1f}%\n\n"
+                        
+                        st.markdown(f'<div class="growth-note">{growth_text}</div>', unsafe_allow_html=True)
                 
                 cols = st.columns(len(metrics_to_plot))
                 for i, (metric, name) in enumerate(zip(metrics_to_plot, metric_names)):
@@ -14984,14 +15014,22 @@ elif selected_page == "📊 Company Analysis":
                     metrics_to_plot,
                     f"{company_name} - Income Statement",
                     "Period",
-                    "Amount ($)"
+                    "Amount ($)",
+                    period_type=period
                 )
                 
                 if fig:
                     st.plotly_chart(fig, use_container_width=True)
                     
-                    # Display Qualtrim-style growth badges
-                    display_growth_badges(plot_df, metrics_to_plot, metric_names, period, years)
+                    if growth_rates:
+                        period_label = period_type.lower()
+                        growth_text = f"**Growth over {years} {period_label} periods:**\n\n"
+                        for idx, (metric_col, growth_rate) in enumerate(growth_rates.items()):
+                            metric_name = metric_names[metrics_to_plot.index(metric_col)]
+                            emoji = "🚀" if growth_rate > 10 else "📈" if growth_rate > 0 else "📉"
+                            growth_text += f"{emoji} **{metric_name}:** {growth_rate:+.1f}%\n\n"
+                        
+                        st.markdown(f'<div class="growth-note">{growth_text}</div>', unsafe_allow_html=True)
                 
                 col1, col2, col3 = st.columns(3)
                 cols = [col1, col2, col3]
@@ -15068,14 +15106,22 @@ elif selected_page == "📊 Company Analysis":
                     metrics_to_plot,
                     f"{company_name} - Balance Sheet",
                     "Period",
-                    "Amount ($)"
+                    "Amount ($)",
+                    period_type=period
                 )
                 
                 if fig:
                     st.plotly_chart(fig, use_container_width=True)
                     
-                    # Display Qualtrim-style growth badges
-                    display_growth_badges(plot_df, metrics_to_plot, metric_names, period, years)
+                    if growth_rates:
+                        period_label = period_type.lower()
+                        growth_text = f"**Growth over {years} {period_label} periods:**\n\n"
+                        for idx, (metric_col, growth_rate) in enumerate(growth_rates.items()):
+                            metric_name = metric_names[metrics_to_plot.index(metric_col)]
+                            emoji = "🚀" if growth_rate > 10 else "📈" if growth_rate > 0 else "📉"
+                            growth_text += f"{emoji} **{metric_name}:** {growth_rate:+.1f}%\n\n"
+                        
+                        st.markdown(f'<div class="growth-note">{growth_text}</div>', unsafe_allow_html=True)
                 
                 cols = st.columns(len(metrics_to_plot))
                 for i, (metric, name) in enumerate(zip(metrics_to_plot, metric_names)):
@@ -15916,11 +15962,6 @@ elif selected_page == "📊 Market Overview":
             
             companies = get_companies_from_screener(sector=None, limit=100)
             
-            # Debug: Show first few tickers
-            if companies:
-                debug_tickers = [c.get('symbol', 'N/A') for c in companies[:10]]
-                st.caption(f"🔍 Debug: First tickers from API: {', '.join(debug_tickers)}")
-            
             for company in companies:
                 ticker_sym = company.get('symbol')
                 if not ticker_sym:
@@ -15993,15 +16034,6 @@ elif selected_page == "📊 Market Overview":
                         pass  # Keep None values
                 
                 rows.append(row)
-        
-        # Display market cap validation for known big companies
-        if market_cap_debug:
-            with st.expander("🔍 Market Cap Validation (Debug)"):
-                st.caption("Verifying market cap accuracy for major companies:")
-                for item in market_cap_debug:
-                    st.write(f"**{item['ticker']}** ({item['name']}): Raw value = ${item['raw_market_cap']:,.0f} → Displays as {item['formatted']}")
-                st.caption("✅ Values should match public consensus within normal vendor differences")
-
         
         if rows:
             df = pd.DataFrame(rows)
@@ -16936,11 +16968,11 @@ Keep each bullet to ONE line. Be concise."""
         top_news, error = get_top_market_news()
     
     if top_news:
-        # Display in a card with RED accent (matches app theme)
+        # Display in a card with light blue background
         st.markdown(f"""
-        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
+        <div style="background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%); 
                     border: 2px solid #ff3333; border-radius: 15px; padding: 30px; margin: 20px 0;">
-            <div style="color: #FFFFFF; font-size: 16px; line-height: 1.8;">
+            <div style="color: #1a1a2e; font-size: 16px; line-height: 1.8;">
                 {top_news}
             </div>
         </div>
@@ -17047,116 +17079,48 @@ Keep each bullet to ONE line. Be concise."""
         
         st.markdown("---")
     
-    # ============= EARNINGS CALENDAR (NEW!) =============
+    # ============= EARNINGS CALENDAR (Using FMP API) =============
     st.markdown("### 📅 Earnings Calendar - This Week")
-    st.caption("Biggest earnings releases this week")
-    
-    # Function to get this week's earnings
-    def get_weekly_earnings():
-        """Fetch this week's earnings using Perplexity API with fallback models"""
-        if not PERPLEXITY_API_KEY:
-            return None, "Perplexity API key not configured"
-        
-        # Try multiple models
-        models_to_try = [
-            "sonar-small-online",
-            "sonar",
-            "llama-3.1-sonar-small-128k-online"
-        ]
-        
-        query = """List the 3-5 most important companies reporting earnings each day this week (January 13-17, 2026).
-
-SIMPLE FORMAT - Just company names:
-
-**Monday, January 13:**
-• JPMorgan Chase (JPM)
-• Bank of America (BAC)
-
-**Tuesday, January 14:**
-• Wells Fargo (WFC)
-• Citigroup (C)
-
-Focus on well-known companies. NO EPS estimates, NO revenue, NO extra details.
-Just: Company Name (TICKER)
-If a day has no major earnings, say "No major earnings."
-"""
-        
-        headers = {
-            "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
-            "Content-Type": "application/json"
-        }
-        
-        last_error = None
-        
-        # Try each model
-        for model_name in models_to_try:
-            try:
-                payload = {
-                    "model": model_name,
-                    "messages": [
-                        {"role": "user", "content": query}
-                    ],
-                    "temperature": 0.2,
-                    "max_tokens": 1000
-                }
-                
-                response = requests.post(
-                    "https://api.perplexity.ai/chat/completions",
-                    headers=headers,
-                    json=payload,
-                    timeout=30
-                )
-                
-                print(f"[DEBUG] Perplexity earnings ({model_name}): status={response.status_code}")
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-                    if content and len(content) > 50:
-                        print(f"[DEBUG] Earnings success with model: {model_name}")
-                        return content, None
-                    else:
-                        last_error = f"Empty response from {model_name}"
-                        continue
-                else:
-                    try:
-                        error_data = response.json()
-                        last_error = f"{model_name}: {response.status_code} - {error_data}"
-                    except:
-                        last_error = f"{model_name}: HTTP {response.status_code}"
-                    
-                    print(f"[DEBUG] {last_error}")
-                    continue
-                    
-            except requests.exceptions.Timeout:
-                last_error = f"{model_name}: Request timeout"
-                print(f"[DEBUG] {last_error}")
-                continue
-            except Exception as e:
-                last_error = f"{model_name}: {str(e)}"
-                print(f"[DEBUG] {last_error}")
-                continue
-        
-        # All models failed
-        return None, f"All models failed. Last error: {last_error}"
+    st.caption("Biggest earnings releases this week • Source: FMP API")
     
     with st.spinner("📊 Loading earnings calendar..."):
-        weekly_earnings, earnings_error = get_weekly_earnings()
+        earnings_by_day, earnings_error = get_weekly_earnings_fmp()
     
-    if weekly_earnings:
-        # Display formatted earnings from Perplexity
-        st.markdown(f"""
-        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
-                    border: 2px solid #ff3333; border-radius: 15px; padding: 30px; margin: 20px 0;">
-            <div style="color: #FFFFFF; font-size: 16px; line-height: 1.8;">
-                {weekly_earnings}
+    if earnings_by_day and len(earnings_by_day) > 0:
+        # Build formatted earnings display
+        earnings_html = ""
+        day_names = {0: 'Monday', 1: 'Tuesday', 2: 'Wednesday', 3: 'Thursday', 4: 'Friday', 5: 'Saturday', 6: 'Sunday'}
+        
+        # Sort dates
+        sorted_dates = sorted(earnings_by_day.keys())
+        
+        for date_str in sorted_dates:
+            try:
+                date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+                day_name = day_names.get(date_obj.weekday(), '')
+                formatted_date = date_obj.strftime('%B %d')
+                earnings_html += f"<p><strong>{day_name}, {formatted_date}:</strong></p>"
+                
+                for earning in earnings_by_day[date_str]:
+                    symbol = earning['symbol']
+                    earnings_html += f"<p>• {symbol}</p>"
+            except:
+                continue
+        
+        if earnings_html:
+            st.markdown(f"""
+            <div style="background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%); 
+                        border: 2px solid #ff3333; border-radius: 15px; padding: 30px; margin: 20px 0;">
+                <div style="color: #1a1a2e; font-size: 16px; line-height: 1.8;">
+                    {earnings_html}
+                </div>
             </div>
-        </div>
-        """, unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
+        else:
+            st.info("No major earnings scheduled for this week.")
     elif earnings_error:
         st.warning(f"Could not fetch earnings: {earnings_error}")
-        st.info("📊 **Major banks typically report mid-January** (JPM, WFC, C)")
-        st.caption("Try refreshing or check if Perplexity API key is configured correctly.")
+        st.info("📊 Check FMP API connection")
     else:
         st.info("No major earnings scheduled for this week.")
     
