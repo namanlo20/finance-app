@@ -3160,6 +3160,9 @@ def display_growth_badges(df, metrics, metric_names, period_type='annual', years
     subtitle = f'<p style="text-align: center; color: #666; font-size: 12px; margin-top: 5px;">Average growth per {period_type} period over {years} {"year" if years == 1 else "years"}</p>'
     
     st.markdown(badge_html + subtitle, unsafe_allow_html=True)
+
+
+def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_title="Amount ($)", period_type='annual'):
     """Create financial chart with y-axis padding and return growth rates"""
     if df.empty:
         return None, {}
