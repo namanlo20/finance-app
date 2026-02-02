@@ -5628,23 +5628,36 @@ def render_ai_chatbot():
     # Add prominent button in sidebar
     with st.sidebar:
         st.markdown("---")
-        # AI Assistant button - SOLID DARK RED
+        # AI Assistant button - BOLD, GLOWING, ATTENTION-GRABBING
         st.markdown("""
         <style>
-        div[data-testid="stSidebar"] button[kind="primary"] {
-            background: #CC0000 !important;
-            border: none !important;
-            border-radius: 8px !important;
+        /* AI Assistant button - STANDS OUT */
+        section[data-testid="stSidebar"] .stButton > button {
+            background: linear-gradient(135deg, #FF0000 0%, #CC0000 100%) !important;
+            background-color: #CC0000 !important;
+            border: 2px solid #FF4444 !important;
+            border-radius: 12px !important;
             color: #FFFFFF !important;
-            font-weight: 600 !important;
-            min-height: 42px !important;
+            font-weight: 700 !important;
+            font-size: 16px !important;
+            min-height: 50px !important;
+            box-shadow: 0 4px 15px rgba(255, 0, 0, 0.4) !important;
+            animation: pulse-glow 2s infinite !important;
         }
-        div[data-testid="stSidebar"] button[kind="primary"]:hover {
-            background: #990000 !important;
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 4px 15px rgba(255, 0, 0, 0.4); }
+            50% { box-shadow: 0 4px 25px rgba(255, 0, 0, 0.7); }
         }
-        div[data-testid="stSidebar"] button[kind="primary"] p,
-        div[data-testid="stSidebar"] button[kind="primary"] span {
+        section[data-testid="stSidebar"] .stButton > button:hover {
+            background: linear-gradient(135deg, #FF2222 0%, #EE0000 100%) !important;
+            background-color: #EE0000 !important;
+            transform: scale(1.02) !important;
+            box-shadow: 0 6px 20px rgba(255, 0, 0, 0.6) !important;
+        }
+        section[data-testid="stSidebar"] .stButton > button p,
+        section[data-testid="stSidebar"] .stButton > button span {
             color: #FFFFFF !important;
+            font-weight: 700 !important;
         }
         </style>
         """, unsafe_allow_html=True)
@@ -7878,9 +7891,7 @@ if 'last_tab' not in st.session_state:
 
 # ============= VERTICAL SIDEBAR (Simplified) =============
 with st.sidebar:
-    st.markdown("## ⚙️ Settings")
-    
-    # Global Timeline Picker
+    # Global Timeline Picker - NO Settings header above it
     st.markdown("### ⏱️ Timeline")
     selected_timeline = st.slider(
         "Years of History:",
@@ -7897,7 +7908,7 @@ with st.sidebar:
     period_type = st.radio("Time Period:", ["Annual", "Quarterly"], key="global_period_type", horizontal=True)
     st.session_state.global_period = 'annual' if period_type == "Annual" else 'quarter'
     
-    # ============= UNHINGED MODE (Right below Timeline) =============
+    # ============= UNHINGED MODE =============
     st.markdown("### 🔥 Settings")
     
     # Initialize unhinged_mode if not exists
@@ -10405,7 +10416,7 @@ elif selected_page == "🏠 Start Here":
         if not price1.empty and 'price' in price1.columns:
             fig1 = px.area(price1, x='date', y='price', title=f'{stock1} Stock Price ({years}Y)')
             max_price1 = price1['price'].max()
-            fig1.update_layout(height=250, margin=dict(l=0, r=0, t=40, b=0), yaxis=dict(range=[0, max_price1 * 1.1]))
+            fig1.update_layout(height=250, margin=dict(l=0, r=0, t=40, b=0), yaxis=dict(range=[0, max_price1 * 1.1]), xaxis_title="")
             fig1.update_traces(fillcolor='rgba(0, 200, 83, 0.3)', line_color='#00C853')
             st.plotly_chart(fig1, use_container_width=True)
         else:
@@ -10421,7 +10432,7 @@ elif selected_page == "🏠 Start Here":
         if not price2.empty and 'price' in price2.columns:
             fig2 = px.area(price2, x='date', y='price', title=f'{stock2} Stock Price ({years}Y)')
             max_price2 = price2['price'].max()
-            fig2.update_layout(height=250, margin=dict(l=0, r=0, t=40, b=0), yaxis=dict(range=[0, max_price2 * 1.1]))
+            fig2.update_layout(height=250, margin=dict(l=0, r=0, t=40, b=0), yaxis=dict(range=[0, max_price2 * 1.1]), xaxis_title="")
             fig2.update_traces(fillcolor='rgba(255, 82, 82, 0.3)', line_color='#FF5252')
             st.plotly_chart(fig2, use_container_width=True)
         else:
