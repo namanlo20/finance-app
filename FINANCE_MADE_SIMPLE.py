@@ -3686,31 +3686,58 @@ def resolve_company_to_ticker(query):
     return query_upper.replace('-', '.')
 
 def smart_search_ticker(search_term):
-    """Smart search with company name support"""
-    search_term = search_term.upper().strip()
+    """Smart search with company name support - handles misspellings using FMP search API"""
+    if not search_term:
+        return None, None
+    
+    search_term_clean = search_term.strip()
+    search_upper = search_term_clean.upper()
+    search_lower = search_term_clean.lower()
+    
+    # 1. Check our dictionary first (fastest)
+    if search_lower in COMPANY_NAME_TO_TICKER:
+        ticker = COMPANY_NAME_TO_TICKER[search_lower]
+        profile = get_profile(ticker)
+        return ticker, profile.get('companyName', ticker) if profile else ticker
+    
+    # 2. Check if it's already a valid ticker (1-5 chars)
+    if len(search_upper) <= 5 and search_upper.isalpha():
+        profile = get_profile(search_upper)
+        if profile and profile.get('symbol'):
+            return search_upper, profile.get('companyName', search_upper)
+    
+    # 3. Use FMP search API - handles misspellings!
+    try:
+        url = f"{BASE_URL}/search?query={search_term_clean}&limit=10&apikey={FMP_API_KEY}"
+        response = requests.get(url, timeout=10)
+        if response.status_code == 200:
+            results = response.json()
+            if results and len(results) > 0:
+                # Prefer US exchanges
+                us_results = [r for r in results if r.get('exchangeShortName') in ['NYSE', 'NASDAQ', 'AMEX']]
+                if us_results:
+                    best = us_results[0]
+                    return best.get('symbol'), best.get('name', best.get('symbol'))
+                # Fallback to first result
+                best = results[0]
+                return best.get('symbol'), best.get('name', best.get('symbol'))
+    except:
+        pass
+    
+    # 4. Fuzzy match with all_stocks
     all_stocks = get_all_stocks()
-    
-    if search_term in all_stocks and len(search_term) <= 5:
-        return search_term, all_stocks[search_term]
-    
-    if search_term in all_stocks:
-        return all_stocks[search_term], search_term
-    
     tickers = [k for k in all_stocks.keys() if len(k) <= 5]
-    close_tickers = get_close_matches(search_term, tickers, n=1, cutoff=0.6)
+    close_tickers = get_close_matches(search_upper, tickers, n=1, cutoff=0.6)
     if close_tickers:
-        return close_tickers[0], all_stocks[close_tickers[0]]
+        return close_tickers[0], all_stocks.get(close_tickers[0], close_tickers[0])
     
     names = [k for k in all_stocks.keys() if len(k) > 5]
-    close_names = get_close_matches(search_term, names, n=1, cutoff=0.4)
+    close_names = get_close_matches(search_upper, names, n=1, cutoff=0.4)
     if close_names:
-        return all_stocks[close_names[0]], close_names[0]
+        return all_stocks.get(close_names[0], close_names[0]), close_names[0]
     
-    for key, value in all_stocks.items():
-        if len(key) > 5 and search_term in key:
-            return value, key
-    
-    return search_term, search_term
+    # 5. Return as-is
+    return search_upper, search_upper
 
 @st.cache_data(ttl=300)
 def get_quote(ticker):
@@ -3767,29 +3794,10 @@ def get_dividend_yield(ticker, price):
 
 
 def get_company_logo(ticker):
-    """Get company logo URL from FMP profile - tries multiple sources"""
-    # Method 1: From profile endpoint
+    """Get company logo URL from FMP profile"""
     profile = get_profile(ticker)
     if profile and 'image' in profile and profile['image']:
         return profile['image']
-    
-    # Method 2: Try direct logo endpoint from FMP
-    try:
-        # FMP has an image endpoint
-        logo_url = f"https://financialmodelingprep.com/image-stock/{ticker}.png"
-        # We'll return this URL - browser will try to load it
-        return logo_url
-    except:
-        pass
-    
-    # Method 3: Try Clearbit logo API as fallback (free, works for most companies)
-    if profile and profile.get('website'):
-        website = profile['website']
-        # Extract domain from website
-        domain = website.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0]
-        if domain:
-            return f"https://logo.clearbit.com/{domain}"
-    
     return None
 
 def display_stock_with_logo(ticker, size=30):
@@ -4160,8 +4168,9 @@ def get_earnings_calendar(ticker):
 
 
 @st.cache_data(ttl=1800)
+@st.cache_data(ttl=1800)  # Cache for 30 minutes
 def get_weekly_earnings_fmp():
-    """Get this week's major earnings from FMP API - TOP 5 by market cap per day with company names"""
+    """Get this week's major earnings from FMP API - TOP 5 by market cap per day (OPTIMIZED)"""
     today = datetime.now()
     monday = today - timedelta(days=today.weekday())
     sunday = monday + timedelta(days=6)
@@ -4175,8 +4184,8 @@ def get_weekly_earnings_fmp():
         if response.status_code == 200:
             data = response.json()
             if data and len(data) > 0:
-                # Collect all earnings with market cap info
-                all_earnings = []
+                # Group by date first, only keep companies with > $500M revenue estimate
+                earnings_by_day = {}
                 
                 for earning in data:
                     symbol = earning.get('symbol', '')
@@ -4186,41 +4195,40 @@ def get_weekly_earnings_fmp():
                     if not symbol or not date_str:
                         continue
                     
-                    # Get company name and market cap
-                    try:
-                        profile = get_profile(symbol)
-                        company_name = profile.get('companyName', symbol) if profile else symbol
-                        market_cap = profile.get('mktCap', revenue_est * 5) if profile else revenue_est * 5
-                    except:
-                        company_name = symbol
-                        market_cap = revenue_est * 5
-                    
-                    # Only include significant companies
-                    if revenue_est > 500000000:  # > $500M revenue
-                        all_earnings.append({
+                    # Only include significant companies (> $500M revenue)
+                    if revenue_est > 500000000:
+                        if date_str not in earnings_by_day:
+                            earnings_by_day[date_str] = []
+                        
+                        earnings_by_day[date_str].append({
                             'symbol': symbol,
-                            'company_name': company_name,
+                            'company_name': symbol,  # Will fetch names only for top 5
                             'date': date_str,
-                            'market_cap': market_cap,
+                            'market_cap': revenue_est * 5,  # Rough estimate
                             'eps_est': earning.get('epsEstimated'),
                             'revenue_est': revenue_est
                         })
                 
-                # Group by date and keep top 5 by market cap per day
-                earnings_by_day = {}
-                for earning in all_earnings:
-                    date_str = earning['date']
-                    if date_str not in earnings_by_day:
-                        earnings_by_day[date_str] = []
-                    earnings_by_day[date_str].append(earning)
-                
-                # Sort each day by market cap and keep top 5
+                # Sort each day by revenue estimate (proxy for market cap) and keep top 5
                 for date_str in earnings_by_day:
-                    earnings_by_day[date_str] = sorted(
+                    # Sort by revenue estimate descending
+                    sorted_earnings = sorted(
                         earnings_by_day[date_str],
-                        key=lambda x: x.get('market_cap', 0),
+                        key=lambda x: x.get('revenue_est', 0),
                         reverse=True
-                    )[:5]
+                    )[:5]  # Keep only top 5
+                    
+                    # NOW fetch company names only for top 5 (much fewer API calls)
+                    for earning in sorted_earnings:
+                        try:
+                            profile = get_profile(earning['symbol'])
+                            if profile:
+                                earning['company_name'] = profile.get('companyName', earning['symbol'])
+                                earning['market_cap'] = profile.get('mktCap', earning['revenue_est'] * 5)
+                        except:
+                            pass
+                    
+                    earnings_by_day[date_str] = sorted_earnings
                 
                 return earnings_by_day, None
         return None, f"API returned status {response.status_code}"
@@ -4836,8 +4844,7 @@ def calculate_fcf_per_share(ticker, cash_df, quote):
         return 0
 
 def get_pe_ratio(ticker, quote, ratios_ttm, income_df):
-    """Calculate P/E ratio - tries multiple FMP endpoints for best coverage"""
-    # Method 1: Calculate from price / EPS TTM
+    """Calculate P/E ratio"""
     if quote:
         price = quote.get('price', 0)
         if price and price > 0:
@@ -4845,41 +4852,15 @@ def get_pe_ratio(ticker, quote, ratios_ttm, income_df):
             if eps_ttm and eps_ttm > 0:
                 return price / eps_ttm
     
-    # Method 2: From ratios TTM endpoint
     if ratios_ttm and isinstance(ratios_ttm, dict):
         pe = ratios_ttm.get('peRatioTTM', 0)
         if pe and pe > 0:
             return pe
     
-    # Method 3: From quote endpoint
     if quote:
         pe = quote.get('pe', 0)
         if pe and pe > 0:
             return pe
-    
-    # Method 4: Try key-metrics endpoint as fallback
-    try:
-        url = f"{BASE_URL}/key-metrics-ttm/{ticker}?apikey={FMP_API_KEY}"
-        response = requests.get(url, timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            if data and len(data) > 0:
-                pe = data[0].get('peRatioTTM', 0)
-                if pe and pe > 0:
-                    return pe
-    except:
-        pass
-    
-    # Method 5: Try profile endpoint (sometimes has PE)
-    try:
-        profile = get_profile(ticker)
-        if profile:
-            # Some profiles have 'pe' directly
-            pe = profile.get('pe', 0) or profile.get('peRatio', 0)
-            if pe and pe > 0:
-                return pe
-    except:
-        pass
     
     return 0
 
@@ -5712,26 +5693,54 @@ def render_ai_chatbot():
             st.session_state.chat_messages.append({"role": "assistant", "content": response})
             st.rerun()
     
-    # Add simple AI button in sidebar with dark red styling
+    # Add prominent button in sidebar
     with st.sidebar:
         st.markdown("---")
-        # Dark red styled button area
-        st.markdown("""
-        <style>
-        /* Style the Ask AI button to be dark red */
-        [data-testid="stSidebar"] [data-testid="stButton"] button[kind="primary"] {
-            background: linear-gradient(135deg, #8B0000 0%, #CC0000 100%) !important;
-            border: 2px solid #FF4444 !important;
-            color: white !important;
-            font-weight: bold !important;
-        }
-        [data-testid="stSidebar"] [data-testid="stButton"] button[kind="primary"]:hover {
-            background: linear-gradient(135deg, #AA0000 0%, #EE0000 100%) !important;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-        if st.button("🤖 Ask AI a Question", key="sidebar_ai_chat_button", use_container_width=True, type="primary"):
+        st.markdown("### 🤖 AI Assistant")
+        st.caption("Ask about stocks, prices, investing concepts")
+        if st.button("💬 Ask AI a Question", key="sidebar_ai_chat_button", use_container_width=True, type="primary"):
             show_chatbot_dialog()
+    
+    # Also show a visual indicator (non-clickable) at bottom right
+    st.markdown("""
+    <style>
+    .chatbot-indicator {
+        position: fixed !important;
+        bottom: 30px !important;
+        right: 30px !important;
+        width: 60px !important;
+        height: 60px !important;
+        background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%) !important;
+        border-radius: 50% !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        z-index: 999998 !important;
+        box-shadow: 0 4px 20px rgba(255, 68, 68, 0.5) !important;
+        border: 3px solid #FFFFFF !important;
+        font-size: 28px !important;
+        animation: pulse-indicator 2s infinite !important;
+    }
+    @keyframes pulse-indicator {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+    }
+    .chatbot-tooltip {
+        position: fixed !important;
+        bottom: 100px !important;
+        right: 20px !important;
+        background: #333 !important;
+        color: white !important;
+        padding: 8px 12px !important;
+        border-radius: 8px !important;
+        font-size: 12px !important;
+        z-index: 999997 !important;
+        white-space: nowrap !important;
+    }
+    </style>
+    <div class="chatbot-indicator">💬</div>
+    <div class="chatbot-tooltip">Use sidebar button to chat →</div>
+    """, unsafe_allow_html=True)
 
 # ============= WELCOME POPUP =============
 def show_welcome_popup():
@@ -7260,28 +7269,6 @@ def render_fit_check_panel(ticker=None):
     if risk_tier != "unknown" and vol_tier != "unknown":
         st.caption(f"Risk tier: **{risk_tier}** | Volatility: **{vol_tier}** (method: {vol_method})")
 
-    """Render the site logo at top of page - centered, smaller size"""
-    import base64
-    
-    # For deployment: User should add logo.png to their repo root
-    logo_path = "logo.png"
-    
-    try:
-        col1, col2, col3 = st.columns([1, 1, 1])
-        with col2:
-            st.image(logo_path, width=300)  # Fixed width for smaller size
-    except:
-        # Fallback if image not found - show text logo
-        st.markdown("""
-        <div style="text-align: center; padding: 10px 0; margin-bottom: 10px;">
-            <h3 style="color: #FF4444; margin: 0;">STOCKINVESTING.AI</h3>
-            <p style="color: #888; margin: 5px 0; font-size: 0.9em;">
-                <span style="color: #00D9FF;">LEARN</span> • 
-                <span style="color: #FFD700;">INVEST</span>
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-
 def render_setup_nudge():
     """Render non-blocking setup nudge card"""
     if not st.session_state.get('onboarding_completed', False) and not st.session_state.get('setup_prompt_dismissed', False):
@@ -7679,25 +7666,6 @@ def nav_action_changed():
 
 # Create columns for header with navigation tabs + auth buttons
 # Layout: [Dashboard] [Learn▼] [Analyze▼] [Action▼] [---spacer---] [Sign Up] [Sign In] [VIP]
-
-# Get current page for highlighting
-current_page = st.session_state.selected_page
-
-# Define page groups for dropdown highlighting
-start_here_pages = ["🏠 Start Here", "🧠 Risk Quiz", "📚 Learn Hub", "📘 Glossary"]
-company_pages = ["📊 Company Analysis", "📈 Financial Health", "📰 Market Intelligence", "📊 Market Overview", "🔍 AI Stock Screener"]
-pro_pages = ["📊 Pro Checklist", "👑 Ultimate", "💼 Paper Portfolio", "👤 Naman's Portfolio"]
-
-# Add CSS for active dropdowns and to help close popovers
-st.markdown(f"""
-<style>
-/* Hide popover on page change by forcing position:fixed to disappear after rerun */
-[data-testid="stPopover"] {{
-    z-index: 1000;
-}}
-</style>
-""", unsafe_allow_html=True)
-
 if st.session_state.get("is_logged_in"):
     header_cols = st.columns([1.3, 1.5, 1.8, 1.5, 1.5, 1.5, 1.3])
 else:
@@ -7705,48 +7673,57 @@ else:
 
 # Navigation tabs on the LEFT
 with header_cols[0]:
-    dash_type = "primary" if current_page == "🏠 Dashboard" else "secondary"
-    if st.button("🏠 Dashboard", key="nav_dashboard_btn", use_container_width=True, type=dash_type):
+    if st.button("🏠 Dashboard", key="nav_dashboard_btn", use_container_width=True):
         st.session_state.selected_page = "🏠 Dashboard"
         st.rerun()
 
 with header_cols[1]:
-    # Show checkmark if on a page in this group
-    start_label = "🏠 Start Here ✓" if current_page in start_here_pages else "🏠 Start Here ▼"
-    with st.popover(start_label, use_container_width=True):
-        for page, icon, key in [("🏠 Start Here", "🏠", "nav_start_here"), 
-                                 ("🧠 Risk Quiz", "🧠", "nav_risk_quiz"),
-                                 ("📚 Learn Hub", "📚", "nav_learn_hub"),
-                                 ("📘 Glossary", "📘", "nav_glossary")]:
-            btn_type = "primary" if current_page == page else "secondary"
-            if st.button(page, key=key, use_container_width=True, type=btn_type):
-                st.session_state.selected_page = page
-                st.rerun()
+    with st.popover("🏠 Start Here", use_container_width=True):
+        if st.button("🏠 Start Here", key="nav_start_here", use_container_width=True):
+            st.session_state.selected_page = "🏠 Start Here"
+            st.rerun()
+        if st.button("🧠 Risk Quiz", key="nav_risk_quiz", use_container_width=True):
+            st.session_state.selected_page = "🧠 Risk Quiz"
+            st.rerun()
+        if st.button("📚 Learn Hub", key="nav_learn_hub", use_container_width=True):
+            st.session_state.selected_page = "📚 Learn Hub"
+            st.rerun()
+        if st.button("📘 Glossary", key="nav_glossary", use_container_width=True):
+            st.session_state.selected_page = "📘 Glossary"
+            st.rerun()
 
 with header_cols[2]:
-    company_label = "📊 Company Analysis ✓" if current_page in company_pages else "📊 Company Analysis ▼"
-    with st.popover(company_label, use_container_width=True):
-        for page, key in [("📊 Company Analysis", "nav_company_analysis"),
-                          ("📈 Financial Health", "nav_financial_health"),
-                          ("📰 Market Intelligence", "nav_market_intel"),
-                          ("📊 Market Overview", "nav_market_overview"),
-                          ("🔍 AI Stock Screener", "nav_ai_screener")]:
-            btn_type = "primary" if current_page == page else "secondary"
-            if st.button(page, key=key, use_container_width=True, type=btn_type):
-                st.session_state.selected_page = page
-                st.rerun()
+    with st.popover("📊 Company Analysis", use_container_width=True):
+        if st.button("📊 Company Analysis", key="nav_company_analysis", use_container_width=True):
+            st.session_state.selected_page = "📊 Company Analysis"
+            st.rerun()
+        if st.button("📈 Financial Health", key="nav_financial_health", use_container_width=True):
+            st.session_state.selected_page = "📈 Financial Health"
+            st.rerun()
+        if st.button("📰 Market Intelligence", key="nav_market_intel", use_container_width=True):
+            st.session_state.selected_page = "📰 Market Intelligence"
+            st.rerun()
+        if st.button("📊 Market Overview", key="nav_market_overview", use_container_width=True):
+            st.session_state.selected_page = "📊 Market Overview"
+            st.rerun()
+        if st.button("🔍 AI Stock Screener", key="nav_ai_screener", use_container_width=True):
+            st.session_state.selected_page = "🔍 AI Stock Screener"
+            st.rerun()
 
 with header_cols[3]:
-    pro_label = "📊 Pro Checklist ✓" if current_page in pro_pages else "📊 Pro Checklist ▼"
-    with st.popover(pro_label, use_container_width=True):
-        for page, key in [("📊 Pro Checklist", "nav_pro_checklist"),
-                          ("👑 Ultimate", "nav_ultimate"),
-                          ("💼 Paper Portfolio", "nav_paper_portfolio"),
-                          ("👤 Naman's Portfolio", "nav_naman_portfolio")]:
-            btn_type = "primary" if current_page == page else "secondary"
-            if st.button(page, key=key, use_container_width=True, type=btn_type):
-                st.session_state.selected_page = page
-                st.rerun()
+    with st.popover("📊 Pro Checklist", use_container_width=True):
+        if st.button("📊 Pro Checklist", key="nav_pro_checklist", use_container_width=True):
+            st.session_state.selected_page = "📊 Pro Checklist"
+            st.rerun()
+        if st.button("👑 Ultimate", key="nav_ultimate", use_container_width=True):
+            st.session_state.selected_page = "👑 Ultimate"
+            st.rerun()
+        if st.button("💼 Paper Portfolio", key="nav_paper_portfolio", use_container_width=True):
+            st.session_state.selected_page = "💼 Paper Portfolio"
+            st.rerun()
+        if st.button("👤 Naman's Portfolio", key="nav_naman_portfolio", use_container_width=True):
+            st.session_state.selected_page = "👤 Naman's Portfolio"
+            st.rerun()
 
 # Spacer column (header_cols[4]) - empty
 
@@ -7985,9 +7962,7 @@ if 'last_tab' not in st.session_state:
 
 # ============= VERTICAL SIDEBAR (Simplified) =============
 with st.sidebar:
-    st.markdown("## ⚙️ Settings")
-    
-    # Global Timeline Picker
+    # Global Timeline Picker (moved up, no Settings header above it)
     st.markdown("### ⏱️ Timeline")
     selected_timeline = st.slider(
         "Years of History:",
@@ -9620,67 +9595,46 @@ if selected_page == "🏠 Dashboard":
     # ============= BLOCK C: TODAY'S BRIEF =============
     st.markdown("### 📰 Today's Brief")
     
-    brief_col1, brief_col2 = st.columns([2, 1])
+    # Market Snapshot - Full width (removed Market Mood column)
+    st.markdown("#### 📊 Market Snapshot")
     
-    with brief_col1:
-        st.markdown("#### 📊 Market Snapshot")
-        
-        # Get SPY, QQQ, VIX quotes
-        market_tickers = ["SPY", "QQQ", "DIA"]
-        market_cols = st.columns(3)
-        
-        for i, mticker in enumerate(market_tickers):
-            with market_cols[i]:
-                mquote = get_quote(mticker)
-                if mquote:
-                    mprice = mquote.get('price', 0)
-                    mchange = mquote.get('changesPercentage', 0)
-                    mcolor = "#22c55e" if mchange > 0 else "#ef4444" if mchange < 0 else "#888"
-                    
-                    st.markdown(f"""
-                    <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
-                        <div style="font-size: 14px; color: #888;">{mticker}</div>
-                        <div style="font-size: 20px; font-weight: bold;">${mprice:.2f}</div>
-                        <div style="color: {mcolor}; font-size: 14px;">{mchange:+.2f}%</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                else:
-                    st.markdown(f"""
-                    <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
-                        <div style="font-size: 14px; color: #888;">{mticker}</div>
-                        <div style="font-size: 16px; color: #888;">Loading...</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-        
-        # VIX (Fear Index)
-        st.markdown("")
-        vix_quote = get_quote("^VIX")
-        if vix_quote:
-            vix_val = vix_quote.get('price', 0)
-            vix_status = "Low Fear" if vix_val < 15 else "Moderate" if vix_val < 25 else "High Fear" if vix_val < 35 else "Extreme Fear"
-            vix_color = "#22c55e" if vix_val < 15 else "#f59e0b" if vix_val < 25 else "#ef4444"
-            st.markdown(f"**VIX (Fear Index):** <span style='color: {vix_color};'>{vix_val:.1f}</span> — {vix_status}", unsafe_allow_html=True)
-        
-        show_data_source(source="FMP API", updated_at=datetime.now())
+    # Get SPY, QQQ, VIX quotes
+    market_tickers = ["SPY", "QQQ", "DIA"]
+    market_cols = st.columns(3)
     
-    with brief_col2:
-        st.markdown("#### 🎯 Market Mood")
-        
-        # Get market sentiment
-        sentiment_data = get_global_market_sentiment()
-        sentiment_score = sentiment_data["score"]
-        sentiment_label = sentiment_data["label"]
-        sentiment_color = sentiment_data["color"]
-        
-        st.markdown(f"""
-        <div style="background: rgba(128,128,128,0.1); padding: 20px; border-radius: 10px; text-align: center;">
-            <div style="font-size: 36px; font-weight: bold; color: {sentiment_color};">{sentiment_score}</div>
-            <div style="color: {sentiment_color}; font-size: 16px; font-weight: 500;">{sentiment_label}</div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Legend
-        st.caption("0-25: Extreme Fear | 75-100: Extreme Greed")
+    for i, mticker in enumerate(market_tickers):
+        with market_cols[i]:
+            mquote = get_quote(mticker)
+            if mquote:
+                mprice = mquote.get('price', 0)
+                mchange = mquote.get('changesPercentage', 0)
+                mcolor = "#22c55e" if mchange > 0 else "#ef4444" if mchange < 0 else "#888"
+                
+                st.markdown(f"""
+                <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
+                    <div style="font-size: 14px; color: #888;">{mticker}</div>
+                    <div style="font-size: 20px; font-weight: bold;">${mprice:.2f}</div>
+                    <div style="color: {mcolor}; font-size: 14px;">{mchange:+.2f}%</div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
+                    <div style="font-size: 14px; color: #888;">{mticker}</div>
+                    <div style="font-size: 16px; color: #888;">Loading...</div>
+                </div>
+                """, unsafe_allow_html=True)
+    
+    # VIX (Fear Index)
+    st.markdown("")
+    vix_quote = get_quote("^VIX")
+    if vix_quote:
+        vix_val = vix_quote.get('price', 0)
+        vix_status = "Low Fear" if vix_val < 15 else "Moderate" if vix_val < 25 else "High Fear" if vix_val < 35 else "Extreme Fear"
+        vix_color = "#22c55e" if vix_val < 15 else "#f59e0b" if vix_val < 25 else "#ef4444"
+        st.markdown(f"**VIX (Fear Index):** <span style='color: {vix_color};'>{vix_val:.1f}</span> — {vix_status}", unsafe_allow_html=True)
+    
+    show_data_source(source="FMP API", updated_at=datetime.now())
     
     st.markdown("---")
     
@@ -9688,15 +9642,22 @@ if selected_page == "🏠 Dashboard":
     st.markdown("### 🚀 Premium Workflows")
     st.caption("Deep-dive analysis modes for serious investors")
     
-    # Ticker selector for workflows
+    # Ticker selector for workflows - NOW ACCEPTS COMPANY NAMES
     default_ticker = st.session_state.get('last_ticker') or 'AAPL'
     workflow_ticker_raw = st.text_input(
         "Enter ticker for analysis:",
         value=default_ticker,
         key="workflow_ticker_input",
-        placeholder="e.g., AAPL, NVDA, MSFT"
+        placeholder="e.g., Apple, AAPL, Dolby, IMAX"
     )
-    workflow_ticker = workflow_ticker_raw.upper().strip() if workflow_ticker_raw else ""
+    
+    # Smart search - resolve company name to ticker
+    if workflow_ticker_raw:
+        workflow_ticker, resolved_name = smart_search_ticker(workflow_ticker_raw)
+        if workflow_ticker and workflow_ticker != workflow_ticker_raw.upper().strip():
+            st.caption(f"→ Resolved to: **{workflow_ticker}** ({resolved_name})")
+    else:
+        workflow_ticker = ""
     
     # Show ticker with logo header if valid ticker entered
     if workflow_ticker:
@@ -10502,21 +10463,15 @@ elif selected_page == "🏠 Start Here":
     # Side-by-side Stock Charts with Logos
     col_chart1, col_chart2 = st.columns(2)
     
-    # Get full company names for chart titles
-    profile1 = get_profile(stock1)
-    profile2 = get_profile(stock2)
-    company1_name = profile1.get('companyName', stock1) if profile1 else stock1
-    company2_name = profile2.get('companyName', stock2) if profile2 else stock2
-    
     with col_chart1:
         logo1 = get_company_logo(stock1)
         if logo1:
-            st.markdown(f'<img src="{logo1}" width="40" style="vertical-align: middle; margin-right: 10px;"> <strong style="font-size: 1.5em;">{company1_name}</strong>', unsafe_allow_html=True)
+            st.markdown(f'<img src="{logo1}" width="40" style="vertical-align: middle; margin-right: 10px;"> <strong style="font-size: 1.5em;">{stock1}</strong>', unsafe_allow_html=True)
         else:
-            st.markdown(f"### {company1_name}")
+            st.markdown(f"### {stock1}")
         price1 = get_historical_price(stock1, years)
         if not price1.empty and 'price' in price1.columns:
-            fig1 = px.area(price1, x='date', y='price', title=f'{company1_name} Stock Price ({years}Y)')
+            fig1 = px.area(price1, x='date', y='price', title=f'{stock1} Stock Price ({years}Y)')
             max_price1 = price1['price'].max()
             fig1.update_layout(height=250, margin=dict(l=0, r=0, t=40, b=0), yaxis=dict(range=[0, max_price1 * 1.1]))
             fig1.update_traces(fillcolor='rgba(0, 200, 83, 0.3)', line_color='#00C853')
@@ -10527,12 +10482,12 @@ elif selected_page == "🏠 Start Here":
     with col_chart2:
         logo2 = get_company_logo(stock2)
         if logo2:
-            st.markdown(f'<img src="{logo2}" width="40" style="vertical-align: middle; margin-right: 10px;"> <strong style="font-size: 1.5em;">{company2_name}</strong>', unsafe_allow_html=True)
+            st.markdown(f'<img src="{logo2}" width="40" style="vertical-align: middle; margin-right: 10px;"> <strong style="font-size: 1.5em;">{stock2}</strong>', unsafe_allow_html=True)
         else:
-            st.markdown(f"### {company2_name}")
+            st.markdown(f"### {stock2}")
         price2 = get_historical_price(stock2, years)
         if not price2.empty and 'price' in price2.columns:
-            fig2 = px.area(price2, x='date', y='price', title=f'{company2_name} Stock Price ({years}Y)')
+            fig2 = px.area(price2, x='date', y='price', title=f'{stock2} Stock Price ({years}Y)')
             max_price2 = price2['price'].max()
             fig2.update_layout(height=250, margin=dict(l=0, r=0, t=40, b=0), yaxis=dict(range=[0, max_price2 * 1.1]))
             fig2.update_traces(fillcolor='rgba(255, 82, 82, 0.3)', line_color='#FF5252')
@@ -16967,45 +16922,71 @@ elif selected_page == "📰 Market Intelligence":
     st.header("📰 Market Intelligence & News")
     st.markdown("**Stay informed with AI-powered market insights, news, and earnings**")
     
-    # ============= MARKET MOOD SPEEDOMETER =============
+    # ============= VIX FEAR INDEX (REPLACES MARKET MOOD) =============
     st.markdown("---")
-    st.markdown("### 📊 Market Mood Speedometer")
+    st.markdown("### 📊 VIX Fear Index (Real-Time)")
     
-    # USE SINGLE SOURCE OF TRUTH for market sentiment - ensures sync everywhere
-    sentiment_data = get_global_market_sentiment()
-    sentiment_score = sentiment_data["score"]
-    sentiment_label = sentiment_data["label"]
-    sentiment_color = sentiment_data["color"]
+    # Get VIX data from FMP
+    vix_quote = get_quote("^VIX")
     
-    # Display the speedometer gauge
-    col_gauge, col_labels = st.columns([2, 1])
-    
-    with col_gauge:
-        gauge_fig = create_fear_greed_gauge(sentiment_score)
-        st.plotly_chart(gauge_fig, use_container_width=True)
-    
-    with col_labels:
-        # Display the score prominently
-        st.markdown(f'''
-        <div style="padding: 20px; text-align: center;">
-            <div style="font-size: 48px; font-weight: bold; color: {sentiment_color}; margin-bottom: 10px;">{sentiment_score}</div>
-            <h3 style="color: {sentiment_color}; margin-bottom: 20px;">{sentiment_label}</h3>
-            <div style="text-align: left; color: #FFFFFF; font-size: 14px; line-height: 2;">
-                <p><span style="color: #FF4444;">0-25:</span> Extreme Fear (Market on Sale)</p>
-                <p><span style="color: #FF8844;">25-45:</span> Fear</p>
-                <p><span style="color: #FFFF44;">45-55:</span> Neutral (Steady)</p>
-                <p><span style="color: #88FF44;">55-75:</span> Greed</p>
-                <p><span style="color: #44FF44;">75-100:</span> Extreme Greed (Over-hyped)</p>
+    if vix_quote:
+        vix_val = vix_quote.get('price', 0)
+        vix_change = vix_quote.get('changesPercentage', 0)
+        
+        # Determine VIX status
+        if vix_val < 12:
+            vix_status = "Extreme Complacency"
+            vix_color = "#22c55e"
+            vix_desc = "Markets are very calm. Historically low volatility."
+        elif vix_val < 18:
+            vix_status = "Low Volatility"
+            vix_color = "#4ade80"
+            vix_desc = "Normal, stable market conditions."
+        elif vix_val < 25:
+            vix_status = "Moderate"
+            vix_color = "#f59e0b"
+            vix_desc = "Some market uncertainty. Normal fluctuations."
+        elif vix_val < 35:
+            vix_status = "High Fear"
+            vix_color = "#f97316"
+            vix_desc = "Elevated fear. Markets are nervous."
+        else:
+            vix_status = "Extreme Fear"
+            vix_color = "#ef4444"
+            vix_desc = "Panic levels. Major market stress."
+        
+        col1, col2 = st.columns([1, 2])
+        
+        with col1:
+            st.markdown(f"""
+            <div style="background: rgba(128,128,128,0.1); padding: 30px; border-radius: 15px; text-align: center;">
+                <div style="font-size: 60px; font-weight: bold; color: {vix_color};">{vix_val:.1f}</div>
+                <div style="color: {vix_color}; font-size: 20px; font-weight: bold; margin-top: 5px;">{vix_status}</div>
+                <div style="color: {'#22c55e' if vix_change < 0 else '#ef4444'}; font-size: 16px; margin-top: 10px;">
+                    {vix_change:+.2f}% today
+                </div>
             </div>
-        </div>
-        ''', unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown(f"**{vix_desc}**")
+            st.markdown("""
+**VIX Levels Guide:**
+- **< 12:** Extreme complacency - Markets very calm
+- **12-18:** Low volatility - Normal, stable conditions  
+- **18-25:** Moderate - Some uncertainty
+- **25-35:** High fear - Markets nervous
+- **> 35:** Extreme fear - Panic levels
+            """)
+            st.caption("The VIX measures expected 30-day volatility. When VIX is high, options are expensive and the market expects big moves.")
+    else:
+        st.warning("Unable to fetch VIX data")
     
-    # Show data source for sentiment
-    show_data_source(source="Market Sentiment Algorithm", updated_at=datetime.now())
+    show_data_source(source="FMP API (CBOE VIX)", updated_at=datetime.now())
     
     st.markdown("---")
     
-    # ============= TOP MARKET NEWS (NEW!) =============
+    # ============= TOP MARKET NEWS =============
     st.markdown("### 📰 Latest Market News")
     st.caption("AI-powered news summaries from Perplexity")
     
