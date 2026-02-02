@@ -3640,77 +3640,188 @@ COMPANY_NAME_TO_TICKER = {
     "amc": "AMC", "amc entertainment": "AMC",
     "spy": "SPY", "s&p 500": "SPY", "s&p": "SPY",
     "qqq": "QQQ", "nasdaq": "QQQ",
+    # Additional common searches that were failing
+    "micron": "MU", "micron technology": "MU", "mu": "MU",
+    "dolby": "DLB", "dolby laboratories": "DLB", "dlb": "DLB",
+    "qualcomm": "QCOM", "qcom": "QCOM",
+    "broadcom": "AVGO", "avgo": "AVGO",
+    "texas instruments": "TXN", "txn": "TXN",
+    "lam research": "LRCX", "lrcx": "LRCX",
+    "applied materials": "AMAT", "amat": "AMAT",
+    "asml": "ASML",
+    "tsmc": "TSM", "taiwan semiconductor": "TSM", "tsm": "TSM",
+    "arm": "ARM", "arm holdings": "ARM",
+    "crowdstrike": "CRWD", "crwd": "CRWD",
+    "datadog": "DDOG", "ddog": "DDOG",
+    "servicenow": "NOW", "now": "NOW",
+    "workday": "WDAY", "wday": "WDAY",
+    "atlassian": "TEAM", "team": "TEAM",
+    "twilio": "TWLO", "twlo": "TWLO",
+    "square": "SQ", "block": "SQ", "sq": "SQ",
+    "shopify": "SHOP", "shop": "SHOP",
+    "roku": "ROKU",
+    "draftkings": "DKNG", "dkng": "DKNG",
+    "roblox": "RBLX", "rblx": "RBLX",
+    "unity": "U", "unity software": "U",
+    "rivian": "RIVN", "rivn": "RIVN",
+    "lucid": "LCID", "lucid motors": "LCID", "lcid": "LCID",
+    "nio": "NIO",
+    "ford": "F", "f": "F",
+    "gm": "GM", "general motors": "GM",
+    "att": "T", "at&t": "T", "t": "T",
+    "verizon": "VZ", "vz": "VZ",
+    "t-mobile": "TMUS", "tmobile": "TMUS", "tmus": "TMUS",
+    "comcast": "CMCSA", "cmcsa": "CMCSA",
+    "target": "TGT", "tgt": "TGT",
+    "lowes": "LOW", "lowe's": "LOW", "low": "LOW",
+    "cvs": "CVS", "cvs health": "CVS",
+    "walgreens": "WBA", "wba": "WBA",
+    "moderna": "MRNA", "mrna": "MRNA",
+    "eli lilly": "LLY", "lilly": "LLY", "lly": "LLY",
+    "abbvie": "ABBV", "abbv": "ABBV",
+    "merck": "MRK", "mrk": "MRK",
+    "bristol myers": "BMY", "bristol-myers": "BMY", "bmy": "BMY",
+    "amgen": "AMGN", "amgn": "AMGN",
+    "gilead": "GILD", "gilead sciences": "GILD", "gild": "GILD",
+    "regeneron": "REGN", "regn": "REGN",
+    "biogen": "BIIB", "biib": "BIIB",
+    "bank of america": "BAC", "bofa": "BAC", "bac": "BAC",
+    "wells fargo": "WFC", "wfc": "WFC",
+    "citigroup": "C", "citi": "C", "c": "C",
+    "goldman sachs": "GS", "goldman": "GS", "gs": "GS",
+    "morgan stanley": "MS", "ms": "MS",
+    "american express": "AXP", "amex": "AXP", "axp": "AXP",
+    "blackrock": "BLK", "blk": "BLK",
+    "charles schwab": "SCHW", "schwab": "SCHW", "schw": "SCHW",
+    "caterpillar": "CAT", "cat": "CAT",
+    "deere": "DE", "john deere": "DE", "de": "DE",
+    "3m": "MMM", "mmm": "MMM",
+    "honeywell": "HON", "hon": "HON",
+    "ge": "GE", "general electric": "GE",
+    "lockheed": "LMT", "lockheed martin": "LMT", "lmt": "LMT",
+    "raytheon": "RTX", "rtx": "RTX",
+    "northrop": "NOC", "northrop grumman": "NOC", "noc": "NOC",
+    "ups": "UPS", "united parcel": "UPS",
+    "fedex": "FDX", "fdx": "FDX",
+    "delta": "DAL", "delta airlines": "DAL", "dal": "DAL",
+    "united airlines": "UAL", "ual": "UAL",
+    "american airlines": "AAL", "aal": "AAL",
+    "southwest": "LUV", "southwest airlines": "LUV", "luv": "LUV",
 }
 
 # Magnificent 7 tickers for default news
 MAG_7_TICKERS = ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA"]
 
+@st.cache_data(ttl=3600)  # Cache for 1 hour
+def search_fmp_ticker(query):
+    """
+    Search FMP API directly for company name/ticker.
+    THIS IS THE PRIMARY SEARCH METHOD - handles ANY company.
+    """
+    if not query or len(query.strip()) < 1:
+        return None, None
+    
+    query = query.strip()
+    
+    # Try the search endpoint
+    url = f"{BASE_URL}/search?query={query}&limit=15&apikey={FMP_API_KEY}"
+    
+    try:
+        response = requests.get(url, timeout=15)
+        if response.status_code == 200:
+            results = response.json()
+            if results and len(results) > 0:
+                # Filter for US stocks first (NYSE, NASDAQ, AMEX)
+                us_results = [r for r in results if r.get('exchangeShortName') in ['NYSE', 'NASDAQ', 'AMEX', 'NYSEArca', 'BATS']]
+                
+                if us_results:
+                    # Return the first US result
+                    best = us_results[0]
+                    return best.get('symbol'), best.get('name')
+                
+                # If no US stocks, try ETFs
+                etf_results = [r for r in results if r.get('exchangeShortName') == 'ETF']
+                if etf_results:
+                    best = etf_results[0]
+                    return best.get('symbol'), best.get('name')
+                
+                # Fallback to first result
+                best = results[0]
+                return best.get('symbol'), best.get('name')
+    except Exception as e:
+        print(f"[FMP Search] Error searching '{query}': {e}")
+    
+    return None, None
+
 def resolve_company_to_ticker(query):
-    """Convert company name or ticker to standardized ticker symbol"""
+    """
+    Convert company name or ticker to standardized ticker symbol.
+    USES FMP API TO FIND ANY COMPANY - not limited to dictionary!
+    """
     if not query:
         return None
     
-    query_lower = query.strip().lower()
+    query_clean = query.strip()
+    if not query_clean:
+        return None
     
-    # Check direct mapping first
+    query_lower = query_clean.lower()
+    query_upper = query_clean.upper()
+    
+    # 1. Quick dictionary lookup for common names (FAST PATH)
     if query_lower in COMPANY_NAME_TO_TICKER:
         return COMPANY_NAME_TO_TICKER[query_lower]
     
-    # Check if it's already a valid ticker (uppercase)
-    # Support tickers with dots (BRK.B) and dashes (BRK-B)
-    query_upper = query.strip().upper()
-    query_clean = query_upper.replace('.', '').replace('-', '')
+    # 2. If it looks like a ticker (short, all letters), verify it exists
+    if len(query_upper) <= 5 and query_upper.replace('.', '').replace('-', '').isalpha():
+        profile = get_profile(query_upper)
+        if profile and profile.get('symbol'):
+            return query_upper
     
-    # Valid ticker patterns: 1-5 letters, optionally followed by .X or -X (class shares)
-    # Examples: AAPL, MSFT, BRK.B, BRK-B, RDS.A
-    if len(query_clean) <= 6 and query_clean.isalpha():
-        normalized = query_upper.replace('-', '.')
-        try:
-            all_stocks = get_all_stocks()
-            # Only accept as ticker if it actually exists
-            if normalized in all_stocks:
-                return normalized
-            # Otherwise resolve as company name (Dolby -> DLB)
-            ticker, _ = smart_search_ticker(query)
-            return ticker
-        except Exception:
-            return normalized
-
+    # 3. USE FMP SEARCH API - This finds ANY company!
+    # This is the critical path for companies not in our dictionary
+    ticker, name = search_fmp_ticker(query_clean)
+    if ticker:
+        return ticker
     
-    # Fuzzy match - check if query is contained in any company name
-    for name, ticker in COMPANY_NAME_TO_TICKER.items():
-        if query_lower in name or name in query_lower:
-            return ticker
-    
-    # Default: return as-is (uppercase), normalize dashes to dots
-    return query_upper.replace('-', '.')
+    # 4. If still not found, return as uppercase (user might know the exact ticker)
+    return query_upper
 
 def smart_search_ticker(search_term):
-    """Smart search with company name support"""
-    search_term = search_term.upper().strip()
-    all_stocks = get_all_stocks()
+    """
+    Smart search with company name support - returns (ticker, company_name).
+    USES FMP API TO FIND ANY COMPANY!
+    """
+    if not search_term:
+        return None, None
     
-    if search_term in all_stocks and len(search_term) <= 5:
-        return search_term, all_stocks[search_term]
+    search_term_clean = search_term.strip()
+    if not search_term_clean:
+        return None, None
     
-    if search_term in all_stocks:
-        return all_stocks[search_term], search_term
+    search_lower = search_term_clean.lower()
+    search_upper = search_term_clean.upper()
     
-    tickers = [k for k in all_stocks.keys() if len(k) <= 5]
-    close_tickers = get_close_matches(search_term, tickers, n=1, cutoff=0.6)
-    if close_tickers:
-        return close_tickers[0], all_stocks[close_tickers[0]]
+    # 1. Quick dictionary lookup
+    if search_lower in COMPANY_NAME_TO_TICKER:
+        ticker = COMPANY_NAME_TO_TICKER[search_lower]
+        profile = get_profile(ticker)
+        company_name = profile.get('companyName', ticker) if profile else ticker
+        return ticker, company_name
     
-    names = [k for k in all_stocks.keys() if len(k) > 5]
-    close_names = get_close_matches(search_term, names, n=1, cutoff=0.4)
-    if close_names:
-        return all_stocks[close_names[0]], close_names[0]
+    # 2. Check if it's already a valid ticker
+    if len(search_upper) <= 5 and search_upper.replace('.', '').replace('-', '').isalpha():
+        profile = get_profile(search_upper)
+        if profile and profile.get('symbol'):
+            return search_upper, profile.get('companyName', search_upper)
     
-    for key, value in all_stocks.items():
-        if len(key) > 5 and search_term in key:
-            return value, key
+    # 3. USE FMP SEARCH API - This finds ANY company!
+    ticker, name = search_fmp_ticker(search_term_clean)
+    if ticker:
+        return ticker, name or ticker
     
-    return search_term, search_term
+    # 4. Return as-is (user might know exact ticker)
+    return search_upper, search_upper
 
 @st.cache_data(ttl=300)
 def get_quote(ticker):
