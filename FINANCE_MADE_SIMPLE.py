@@ -7856,22 +7856,119 @@ section[data-testid="stSidebar"] .stMarkdown * {
 </style>
 """, unsafe_allow_html=True)
 
-# Logo
+# ============= TOP LEFT LOGO (Like Apple/FB) =============
 try:
-    col1, col2, col3 = st.columns([1, 1, 1])
-    with col2:
-        st.image("logo.png", width=600)
+    st.image("logo.png", width=120)
 except:
-    pass  # Logo handled by deployment
+    st.markdown('<span style="font-weight:700; color:#FF4444;">📈 STOCKINVESTING.AI</span>', unsafe_allow_html=True)
 
-# Header
-col1, col2 = st.columns([3, 1])
-with col1:
-    st.title("💰 Investing Made Simple")
-    st.caption("AI-Powered Stock Analysis for Everyone")
-with col2:
-    st.markdown("### 🤖 AI-Ready")
-    st.caption("FMP Premium")
+# ============= STUNNING HERO SECTION =============
+st.markdown("""
+<style>
+@keyframes gradient-shift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+.hero-container {
+    background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 50%, #E8F5E9 100%);
+    background-size: 200% 200%;
+    animation: gradient-shift 15s ease infinite;
+    border-radius: 20px;
+    padding: 50px 40px;
+    margin: 10px 0 30px 0;
+    position: relative;
+    overflow: hidden;
+    border: 2px solid #FF4444;
+    text-align: center;
+}
+.hero-container::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,68,68,0.05) 0%, transparent 50%);
+    pointer-events: none;
+}
+.hero-title {
+    font-size: 3.2rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #CC0000 0%, #FF4444 50%, #CC0000 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin: 0 0 15px 0;
+    line-height: 1.2;
+}
+.hero-tagline {
+    font-size: 1.3rem;
+    color: #333;
+    margin-bottom: 25px;
+}
+.hero-features {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 20px;
+}
+.feature-pill {
+    background: #FFFFFF;
+    border: 2px solid #FF4444;
+    border-radius: 50px;
+    padding: 10px 20px;
+    color: #CC0000;
+    font-size: 0.9rem;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(255,68,68,0.2);
+}
+.stats-bar {
+    display: flex;
+    justify-content: center;
+    gap: 60px;
+    margin-top: 30px;
+    padding-top: 25px;
+    border-top: 2px solid rgba(255,68,68,0.2);
+}
+.stat-item { text-align: center; }
+.stat-number { font-size: 2rem; font-weight: 700; color: #CC0000; }
+.stat-label { font-size: 0.8rem; color: #555; text-transform: uppercase; letter-spacing: 1px; }
+</style>
+""", unsafe_allow_html=True)
+
+# Full width hero - centered
+st.markdown("""
+<div class="hero-container">
+    <h1 class="hero-title">💰 Investing Made Simple</h1>
+    <p class="hero-tagline">AI-Powered Stock Analysis for Everyone</p>
+    <div class="hero-features">
+        <span class="feature-pill">🤖 AI-Powered Insights</span>
+        <span class="feature-pill">📊 Real-Time Data</span>
+        <span class="feature-pill">🎯 Beginner Friendly</span>
+        <span class="feature-pill">📈 Pro Analytics</span>
+    </div>
+    <div class="stats-bar">
+        <div class="stat-item">
+            <div class="stat-number">10K+</div>
+            <div class="stat-label">Stocks</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number">30Y</div>
+            <div class="stat-label">History</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number">24/7</div>
+            <div class="stat-label">AI Help</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number">FREE</div>
+            <div class="stat-label">To Start</div>
+        </div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 
 # ============= SESSION STATE INITIALIZATION =============
