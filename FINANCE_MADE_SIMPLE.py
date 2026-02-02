@@ -270,21 +270,9 @@ def show_page_popup(page_id, title, summary, cool_feature):
     if 'dismissed_popups' not in st.session_state:
         st.session_state.dismissed_popups = set()
     
-    # Already dismissed this session? Skip completely - don't even define the dialog
+    # Already dismissed this session? Skip.
     if page_id in st.session_state.dismissed_popups:
         return
-    
-    # Check if popup dialog is currently open for THIS page
-    popup_key = f"popup_shown_{page_id}"
-    if popup_key not in st.session_state:
-        st.session_state[popup_key] = False
-    
-    # If we've shown it once but user hasn't clicked "Got it", don't show again on rerun
-    if st.session_state[popup_key]:
-        return
-    
-    # Mark that we're showing this popup
-    st.session_state[popup_key] = True
     
     # Inject global CSS to style ALL dialogs with dark background
     st.markdown("""
@@ -3698,49 +3686,31 @@ def resolve_company_to_ticker(query):
     return query_upper.replace('-', '.')
 
 def smart_search_ticker(search_term):
-    """Smart search with company name support - FIXED to prioritize exact matches"""
-    if not search_term:
-        return None, None
-    
-    search_upper = search_term.upper().strip()
-    search_lower = search_term.lower().strip()
-    
-    # 1. Check dictionary FIRST for exact matches
-    if search_lower in COMPANY_NAME_TO_TICKER:
-        ticker = COMPANY_NAME_TO_TICKER[search_lower]
-        return ticker, ticker
-    
-    # 2. If it looks like a ticker (1-5 chars), verify with FMP profile
-    if len(search_upper) <= 5 and search_upper.isalpha():
-        profile = get_profile(search_upper)
-        if profile and profile.get('symbol'):
-            return search_upper, profile.get('companyName', search_upper)
-    
-    # 3. Check all_stocks for exact match
+    """Smart search with company name support"""
+    search_term = search_term.upper().strip()
     all_stocks = get_all_stocks()
-    if search_upper in all_stocks and len(search_upper) <= 5:
-        return search_upper, all_stocks[search_upper]
     
-    # 4. Search FMP API for company names
-    try:
-        url = f"{BASE_URL}/search?query={search_term}&limit=10&apikey={FMP_API_KEY}"
-        response = requests.get(url, timeout=10)
-        if response.status_code == 200:
-            results = response.json()
-            if results:
-                # Prefer US exchanges
-                us_results = [r for r in results if r.get('exchangeShortName') in ['NYSE', 'NASDAQ', 'AMEX']]
-                if us_results:
-                    best = us_results[0]
-                    return best.get('symbol'), best.get('name', best.get('symbol'))
-                if results:
-                    best = results[0]
-                    return best.get('symbol'), best.get('name', best.get('symbol'))
-    except:
-        pass
+    if search_term in all_stocks and len(search_term) <= 5:
+        return search_term, all_stocks[search_term]
     
-    # 5. Return as-is (might be valid ticker we don't know)
-    return search_upper, search_upper
+    if search_term in all_stocks:
+        return all_stocks[search_term], search_term
+    
+    tickers = [k for k in all_stocks.keys() if len(k) <= 5]
+    close_tickers = get_close_matches(search_term, tickers, n=1, cutoff=0.6)
+    if close_tickers:
+        return close_tickers[0], all_stocks[close_tickers[0]]
+    
+    names = [k for k in all_stocks.keys() if len(k) > 5]
+    close_names = get_close_matches(search_term, names, n=1, cutoff=0.4)
+    if close_names:
+        return all_stocks[close_names[0]], close_names[0]
+    
+    for key, value in all_stocks.items():
+        if len(key) > 5 and search_term in key:
+            return value, key
+    
+    return search_term, search_term
 
 @st.cache_data(ttl=300)
 def get_quote(ticker):
@@ -3797,10 +3767,29 @@ def get_dividend_yield(ticker, price):
 
 
 def get_company_logo(ticker):
-    """Get company logo URL from FMP profile"""
+    """Get company logo URL from FMP profile - tries multiple sources"""
+    # Method 1: From profile endpoint
     profile = get_profile(ticker)
     if profile and 'image' in profile and profile['image']:
         return profile['image']
+    
+    # Method 2: Try direct logo endpoint from FMP
+    try:
+        # FMP has an image endpoint
+        logo_url = f"https://financialmodelingprep.com/image-stock/{ticker}.png"
+        # We'll return this URL - browser will try to load it
+        return logo_url
+    except:
+        pass
+    
+    # Method 3: Try Clearbit logo API as fallback (free, works for most companies)
+    if profile and profile.get('website'):
+        website = profile['website']
+        # Extract domain from website
+        domain = website.replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0]
+        if domain:
+            return f"https://logo.clearbit.com/{domain}"
+    
     return None
 
 def display_stock_with_logo(ticker, size=30):
@@ -4847,7 +4836,8 @@ def calculate_fcf_per_share(ticker, cash_df, quote):
         return 0
 
 def get_pe_ratio(ticker, quote, ratios_ttm, income_df):
-    """Calculate P/E ratio"""
+    """Calculate P/E ratio - tries multiple FMP endpoints for best coverage"""
+    # Method 1: Calculate from price / EPS TTM
     if quote:
         price = quote.get('price', 0)
         if price and price > 0:
@@ -4855,15 +4845,41 @@ def get_pe_ratio(ticker, quote, ratios_ttm, income_df):
             if eps_ttm and eps_ttm > 0:
                 return price / eps_ttm
     
+    # Method 2: From ratios TTM endpoint
     if ratios_ttm and isinstance(ratios_ttm, dict):
         pe = ratios_ttm.get('peRatioTTM', 0)
         if pe and pe > 0:
             return pe
     
+    # Method 3: From quote endpoint
     if quote:
         pe = quote.get('pe', 0)
         if pe and pe > 0:
             return pe
+    
+    # Method 4: Try key-metrics endpoint as fallback
+    try:
+        url = f"{BASE_URL}/key-metrics-ttm/{ticker}?apikey={FMP_API_KEY}"
+        response = requests.get(url, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            if data and len(data) > 0:
+                pe = data[0].get('peRatioTTM', 0)
+                if pe and pe > 0:
+                    return pe
+    except:
+        pass
+    
+    # Method 5: Try profile endpoint (sometimes has PE)
+    try:
+        profile = get_profile(ticker)
+        if profile:
+            # Some profiles have 'pe' directly
+            pe = profile.get('pe', 0) or profile.get('peRatio', 0)
+            if pe and pe > 0:
+                return pe
+    except:
+        pass
     
     return 0
 
@@ -5648,10 +5664,6 @@ def render_ai_chatbot():
     if 'chat_messages' not in st.session_state:
         st.session_state.chat_messages = []
     
-    # Track if dialog should stay open
-    if 'chatbot_dialog_open' not in st.session_state:
-        st.session_state.chatbot_dialog_open = False
-    
     # Define chatbot dialog
     @st.dialog("🤖 AI Investment Assistant", width="large")
     def show_chatbot_dialog():
@@ -5672,17 +5684,18 @@ def render_ai_chatbot():
         
         st.markdown("---")
         
-        # Input using form to prevent dialog close
-        with st.form(key="chatbot_form", clear_on_submit=True):
-            user_input = st.text_input("Your question:", placeholder="e.g., What's Tesla's market cap?", key="chatbot_form_input")
-            col1, col2 = st.columns([3, 1])
-            with col1:
-                send_btn = st.form_submit_button("📤 Send", type="primary", use_container_width=True)
-            with col2:
-                clear_btn = st.form_submit_button("🗑️ Clear")
+        # Input
+        user_input = st.text_input("Your question:", placeholder="e.g., What's Tesla's market cap?", key="chatbot_dialog_input")
         
-        if clear_btn:
-            st.session_state.chat_messages = []
+        col1, col2, col3 = st.columns([2, 1, 1])
+        with col1:
+            send_btn = st.button("📤 Send", type="primary", use_container_width=True, key="chatbot_send_btn")
+        with col2:
+            if st.button("🗑️ Clear", key="chatbot_clear_btn"):
+                st.session_state.chat_messages = []
+                st.rerun()
+        with col3:
+            pass  # Empty column for spacing
         
         if send_btn and user_input:
             st.session_state.chat_messages.append({"role": "user", "content": user_input})
@@ -5697,24 +5710,28 @@ def render_ai_chatbot():
                 response = get_chatbot_response(user_input, context)
             
             st.session_state.chat_messages.append({"role": "assistant", "content": response})
-            # Display response immediately without closing dialog
-            st.markdown(f'<div style="background: rgba(33,150,243,0.15); padding: 10px 15px; border-radius: 10px; margin: 8px 0; color: #333;"><strong>🤖 AI:</strong> {response}</div>', unsafe_allow_html=True)
+            st.rerun()
     
-    # Add prominent button in sidebar with DARK RED styling
+    # Add simple AI button in sidebar with dark red styling
     with st.sidebar:
         st.markdown("---")
-        # Dark red AI Assistant box
+        # Dark red styled button area
         st.markdown("""
-        <div style="background: linear-gradient(135deg, #8B0000 0%, #CC0000 100%); 
-                    padding: 15px; border-radius: 12px; margin-bottom: 10px;
-                    border: 2px solid #FF4444;">
-            <h3 style="color: #FFFFFF; margin: 0 0 5px 0; font-size: 18px;">🤖 AI Assistant</h3>
-            <p style="color: #FFCCCC; margin: 0; font-size: 13px;">Ask about stocks, prices, investing concepts</p>
-        </div>
+        <style>
+        /* Style the Ask AI button to be dark red */
+        [data-testid="stSidebar"] [data-testid="stButton"] button[kind="primary"] {
+            background: linear-gradient(135deg, #8B0000 0%, #CC0000 100%) !important;
+            border: 2px solid #FF4444 !important;
+            color: white !important;
+            font-weight: bold !important;
+        }
+        [data-testid="stSidebar"] [data-testid="stButton"] button[kind="primary"]:hover {
+            background: linear-gradient(135deg, #AA0000 0%, #EE0000 100%) !important;
+        }
+        </style>
         """, unsafe_allow_html=True)
-        if st.button("💬 Ask AI a Question", key="sidebar_ai_chat_button", use_container_width=True, type="primary"):
+        if st.button("🤖 Ask AI a Question", key="sidebar_ai_chat_button", use_container_width=True, type="primary"):
             show_chatbot_dialog()
-    
 
 # ============= WELCOME POPUP =============
 def show_welcome_popup():
@@ -7663,13 +7680,20 @@ def nav_action_changed():
 # Create columns for header with navigation tabs + auth buttons
 # Layout: [Dashboard] [Learn▼] [Analyze▼] [Action▼] [---spacer---] [Sign Up] [Sign In] [VIP]
 
-# Add CSS for active tab highlighting
+# Get current page for highlighting
 current_page = st.session_state.selected_page
+
+# Define page groups for dropdown highlighting
+start_here_pages = ["🏠 Start Here", "🧠 Risk Quiz", "📚 Learn Hub", "📘 Glossary"]
+company_pages = ["📊 Company Analysis", "📈 Financial Health", "📰 Market Intelligence", "📊 Market Overview", "🔍 AI Stock Screener"]
+pro_pages = ["📊 Pro Checklist", "👑 Ultimate", "💼 Paper Portfolio", "👤 Naman's Portfolio"]
+
+# Add CSS for active dropdowns and to help close popovers
 st.markdown(f"""
 <style>
-/* Style for active navigation button - make it stand out */
-[data-testid="stButton"] button {{
-    transition: all 0.2s ease;
+/* Hide popover on page change by forcing position:fixed to disappear after rerun */
+[data-testid="stPopover"] {{
+    z-index: 1000;
 }}
 </style>
 """, unsafe_allow_html=True)
@@ -7681,71 +7705,48 @@ else:
 
 # Navigation tabs on the LEFT
 with header_cols[0]:
-    # Highlight if on Dashboard
-    btn_type = "primary" if current_page == "🏠 Dashboard" else "secondary"
-    if st.button("🏠 Dashboard", key="nav_dashboard_btn", use_container_width=True, type=btn_type):
+    dash_type = "primary" if current_page == "🏠 Dashboard" else "secondary"
+    if st.button("🏠 Dashboard", key="nav_dashboard_btn", use_container_width=True, type=dash_type):
         st.session_state.selected_page = "🏠 Dashboard"
         st.rerun()
 
 with header_cols[1]:
-    # Check if any page in this group is active
-    start_here_pages = ["🏠 Start Here", "🧠 Risk Quiz", "📚 Learn Hub", "📘 Glossary"]
-    is_start_here_active = current_page in start_here_pages
-    popover_label = "🏠 Start Here ▼" if not is_start_here_active else "🏠 Start Here ✓"
-    with st.popover(popover_label, use_container_width=True):
-        if st.button("🏠 Start Here", key="nav_start_here", use_container_width=True, type="primary" if current_page == "🏠 Start Here" else "secondary"):
-            st.session_state.selected_page = "🏠 Start Here"
-            st.rerun()
-        if st.button("🧠 Risk Quiz", key="nav_risk_quiz", use_container_width=True, type="primary" if current_page == "🧠 Risk Quiz" else "secondary"):
-            st.session_state.selected_page = "🧠 Risk Quiz"
-            st.rerun()
-        if st.button("📚 Learn Hub", key="nav_learn_hub", use_container_width=True, type="primary" if current_page == "📚 Learn Hub" else "secondary"):
-            st.session_state.selected_page = "📚 Learn Hub"
-            st.rerun()
-        if st.button("📘 Glossary", key="nav_glossary", use_container_width=True, type="primary" if current_page == "📘 Glossary" else "secondary"):
-            st.session_state.selected_page = "📘 Glossary"
-            st.rerun()
+    # Show checkmark if on a page in this group
+    start_label = "🏠 Start Here ✓" if current_page in start_here_pages else "🏠 Start Here ▼"
+    with st.popover(start_label, use_container_width=True):
+        for page, icon, key in [("🏠 Start Here", "🏠", "nav_start_here"), 
+                                 ("🧠 Risk Quiz", "🧠", "nav_risk_quiz"),
+                                 ("📚 Learn Hub", "📚", "nav_learn_hub"),
+                                 ("📘 Glossary", "📘", "nav_glossary")]:
+            btn_type = "primary" if current_page == page else "secondary"
+            if st.button(page, key=key, use_container_width=True, type=btn_type):
+                st.session_state.selected_page = page
+                st.rerun()
 
 with header_cols[2]:
-    # Check if any page in this group is active
-    company_pages = ["📊 Company Analysis", "📈 Financial Health", "📰 Market Intelligence", "📊 Market Overview", "🔍 AI Stock Screener"]
-    is_company_active = current_page in company_pages
-    popover_label2 = "📊 Company Analysis ▼" if not is_company_active else "📊 Company Analysis ✓"
-    with st.popover(popover_label2, use_container_width=True):
-        if st.button("📊 Company Analysis", key="nav_company_analysis", use_container_width=True, type="primary" if current_page == "📊 Company Analysis" else "secondary"):
-            st.session_state.selected_page = "📊 Company Analysis"
-            st.rerun()
-        if st.button("📈 Financial Health", key="nav_financial_health", use_container_width=True, type="primary" if current_page == "📈 Financial Health" else "secondary"):
-            st.session_state.selected_page = "📈 Financial Health"
-            st.rerun()
-        if st.button("📰 Market Intelligence", key="nav_market_intel", use_container_width=True, type="primary" if current_page == "📰 Market Intelligence" else "secondary"):
-            st.session_state.selected_page = "📰 Market Intelligence"
-            st.rerun()
-        if st.button("📊 Market Overview", key="nav_market_overview", use_container_width=True, type="primary" if current_page == "📊 Market Overview" else "secondary"):
-            st.session_state.selected_page = "📊 Market Overview"
-            st.rerun()
-        if st.button("🔍 AI Stock Screener", key="nav_ai_screener", use_container_width=True, type="primary" if current_page == "🔍 AI Stock Screener" else "secondary"):
-            st.session_state.selected_page = "🔍 AI Stock Screener"
-            st.rerun()
+    company_label = "📊 Company Analysis ✓" if current_page in company_pages else "📊 Company Analysis ▼"
+    with st.popover(company_label, use_container_width=True):
+        for page, key in [("📊 Company Analysis", "nav_company_analysis"),
+                          ("📈 Financial Health", "nav_financial_health"),
+                          ("📰 Market Intelligence", "nav_market_intel"),
+                          ("📊 Market Overview", "nav_market_overview"),
+                          ("🔍 AI Stock Screener", "nav_ai_screener")]:
+            btn_type = "primary" if current_page == page else "secondary"
+            if st.button(page, key=key, use_container_width=True, type=btn_type):
+                st.session_state.selected_page = page
+                st.rerun()
 
 with header_cols[3]:
-    # Check if any page in this group is active
-    pro_pages = ["📊 Pro Checklist", "👑 Ultimate", "💼 Paper Portfolio", "👤 Naman's Portfolio"]
-    is_pro_active = current_page in pro_pages
-    popover_label3 = "📊 Pro Checklist ▼" if not is_pro_active else "📊 Pro Checklist ✓"
-    with st.popover(popover_label3, use_container_width=True):
-        if st.button("📊 Pro Checklist", key="nav_pro_checklist", use_container_width=True, type="primary" if current_page == "📊 Pro Checklist" else "secondary"):
-            st.session_state.selected_page = "📊 Pro Checklist"
-            st.rerun()
-        if st.button("👑 Ultimate", key="nav_ultimate", use_container_width=True, type="primary" if current_page == "👑 Ultimate" else "secondary"):
-            st.session_state.selected_page = "👑 Ultimate"
-            st.rerun()
-        if st.button("💼 Paper Portfolio", key="nav_paper_portfolio", use_container_width=True, type="primary" if current_page == "💼 Paper Portfolio" else "secondary"):
-            st.session_state.selected_page = "💼 Paper Portfolio"
-            st.rerun()
-        if st.button("👤 Naman's Portfolio", key="nav_naman_portfolio", use_container_width=True, type="primary" if current_page == "👤 Naman's Portfolio" else "secondary"):
-            st.session_state.selected_page = "👤 Naman's Portfolio"
-            st.rerun()
+    pro_label = "📊 Pro Checklist ✓" if current_page in pro_pages else "📊 Pro Checklist ▼"
+    with st.popover(pro_label, use_container_width=True):
+        for page, key in [("📊 Pro Checklist", "nav_pro_checklist"),
+                          ("👑 Ultimate", "nav_ultimate"),
+                          ("💼 Paper Portfolio", "nav_paper_portfolio"),
+                          ("👤 Naman's Portfolio", "nav_naman_portfolio")]:
+            btn_type = "primary" if current_page == page else "secondary"
+            if st.button(page, key=key, use_container_width=True, type=btn_type):
+                st.session_state.selected_page = page
+                st.rerun()
 
 # Spacer column (header_cols[4]) - empty
 
@@ -10501,15 +10502,21 @@ elif selected_page == "🏠 Start Here":
     # Side-by-side Stock Charts with Logos
     col_chart1, col_chart2 = st.columns(2)
     
+    # Get full company names for chart titles
+    profile1 = get_profile(stock1)
+    profile2 = get_profile(stock2)
+    company1_name = profile1.get('companyName', stock1) if profile1 else stock1
+    company2_name = profile2.get('companyName', stock2) if profile2 else stock2
+    
     with col_chart1:
         logo1 = get_company_logo(stock1)
         if logo1:
-            st.markdown(f'<img src="{logo1}" width="40" style="vertical-align: middle; margin-right: 10px;"> <strong style="font-size: 1.5em;">{stock1}</strong>', unsafe_allow_html=True)
+            st.markdown(f'<img src="{logo1}" width="40" style="vertical-align: middle; margin-right: 10px;"> <strong style="font-size: 1.5em;">{company1_name}</strong>', unsafe_allow_html=True)
         else:
-            st.markdown(f"### {stock1}")
+            st.markdown(f"### {company1_name}")
         price1 = get_historical_price(stock1, years)
         if not price1.empty and 'price' in price1.columns:
-            fig1 = px.area(price1, x='date', y='price', title=f'{stock1} Stock Price ({years}Y)')
+            fig1 = px.area(price1, x='date', y='price', title=f'{company1_name} Stock Price ({years}Y)')
             max_price1 = price1['price'].max()
             fig1.update_layout(height=250, margin=dict(l=0, r=0, t=40, b=0), yaxis=dict(range=[0, max_price1 * 1.1]))
             fig1.update_traces(fillcolor='rgba(0, 200, 83, 0.3)', line_color='#00C853')
@@ -10520,12 +10527,12 @@ elif selected_page == "🏠 Start Here":
     with col_chart2:
         logo2 = get_company_logo(stock2)
         if logo2:
-            st.markdown(f'<img src="{logo2}" width="40" style="vertical-align: middle; margin-right: 10px;"> <strong style="font-size: 1.5em;">{stock2}</strong>', unsafe_allow_html=True)
+            st.markdown(f'<img src="{logo2}" width="40" style="vertical-align: middle; margin-right: 10px;"> <strong style="font-size: 1.5em;">{company2_name}</strong>', unsafe_allow_html=True)
         else:
-            st.markdown(f"### {stock2}")
+            st.markdown(f"### {company2_name}")
         price2 = get_historical_price(stock2, years)
         if not price2.empty and 'price' in price2.columns:
-            fig2 = px.area(price2, x='date', y='price', title=f'{stock2} Stock Price ({years}Y)')
+            fig2 = px.area(price2, x='date', y='price', title=f'{company2_name} Stock Price ({years}Y)')
             max_price2 = price2['price'].max()
             fig2.update_layout(height=250, margin=dict(l=0, r=0, t=40, b=0), yaxis=dict(range=[0, max_price2 * 1.1]))
             fig2.update_traces(fillcolor='rgba(255, 82, 82, 0.3)', line_color='#FF5252')
