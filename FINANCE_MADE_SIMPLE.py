@@ -3640,31 +3640,45 @@ def resolve_company_to_ticker(query):
     return query_upper.replace('-', '.')
 
 def smart_search_ticker(search_term):
-    """Smart search with company name support"""
-    search_term = search_term.upper().strip()
+    """Smart search - ALWAYS verify ticker exists via FMP API first. No fuzzy matching for short inputs."""
+    if not search_term:
+        return None, None
+    
+    search_upper = search_term.upper().strip()
+    
+    # CRITICAL: If input is 1-5 chars (looks like a ticker), verify it exists via FMP API
+    # This prevents AMC from becoming AMZN
+    if len(search_upper) <= 5 and search_upper.isalpha():
+        # Check if this ticker exists in FMP
+        quote = get_quote(search_upper)
+        if quote and quote.get('symbol'):
+            # Valid ticker - return it as-is
+            return search_upper, quote.get('name', search_upper)
+    
+    # For longer inputs (company names), try our dictionary
     all_stocks = get_all_stocks()
     
-    if search_term in all_stocks and len(search_term) <= 5:
-        return search_term, all_stocks[search_term]
+    # Check if exact match in dictionary
+    if search_upper in all_stocks and len(search_upper) <= 5:
+        return search_upper, all_stocks[search_upper]
     
-    if search_term in all_stocks:
-        return all_stocks[search_term], search_term
+    if search_upper in all_stocks:
+        return all_stocks[search_upper], search_upper
     
-    tickers = [k for k in all_stocks.keys() if len(k) <= 5]
-    close_tickers = get_close_matches(search_term, tickers, n=1, cutoff=0.6)
-    if close_tickers:
-        return close_tickers[0], all_stocks[close_tickers[0]]
+    # Only fuzzy match for LONG company name searches (not tickers)
+    if len(search_upper) > 5:
+        names = [k for k in all_stocks.keys() if len(k) > 5]
+        close_names = get_close_matches(search_upper, names, n=1, cutoff=0.6)
+        if close_names:
+            return all_stocks[close_names[0]], close_names[0]
     
-    names = [k for k in all_stocks.keys() if len(k) > 5]
-    close_names = get_close_matches(search_term, names, n=1, cutoff=0.4)
-    if close_names:
-        return all_stocks[close_names[0]], close_names[0]
-    
+    # Search in company names for partial match
     for key, value in all_stocks.items():
-        if len(key) > 5 and search_term in key:
+        if len(key) > 5 and search_upper in key:
             return value, key
     
-    return search_term, search_term
+    # Return as-is - let FMP handle it
+    return search_upper, search_upper
 
 @st.cache_data(ttl=300)
 def get_quote(ticker):
@@ -4094,9 +4108,9 @@ def get_earnings_calendar(ticker):
     return None
 
 
-@st.cache_data(ttl=1800)
+@st.cache_data(ttl=3600)  # Cache for 1 hour - earnings don't change often
 def get_weekly_earnings_fmp():
-    """Get this week's major earnings from FMP API - TOP 5 by market cap per day with company names"""
+    """Get this week's major earnings from FMP API - FAST version, no profile calls"""
     today = datetime.now()
     monday = today - timedelta(days=today.weekday())
     sunday = monday + timedelta(days=6)
@@ -4106,11 +4120,11 @@ def get_weekly_earnings_fmp():
     
     url = f"{BASE_URL}/earnings-calendar?from={from_date}&to={to_date}&apikey={FMP_API_KEY}"
     try:
-        response = requests.get(url, timeout=15)
+        response = requests.get(url, timeout=10)
         if response.status_code == 200:
             data = response.json()
             if data and len(data) > 0:
-                # Collect all earnings with market cap info
+                # Collect all earnings - NO profile calls for speed
                 all_earnings = []
                 
                 for earning in data:
@@ -4121,27 +4135,18 @@ def get_weekly_earnings_fmp():
                     if not symbol or not date_str:
                         continue
                     
-                    # Get company name and market cap
-                    try:
-                        profile = get_profile(symbol)
-                        company_name = profile.get('companyName', symbol) if profile else symbol
-                        market_cap = profile.get('mktCap', revenue_est * 5) if profile else revenue_est * 5
-                    except:
-                        company_name = symbol
-                        market_cap = revenue_est * 5
-                    
-                    # Only include significant companies
-                    if revenue_est > 500000000:  # > $500M revenue
+                    # Only include significant companies (>$500M revenue estimate)
+                    if revenue_est > 500000000:
                         all_earnings.append({
                             'symbol': symbol,
-                            'company_name': company_name,
+                            'company_name': symbol,  # Just use symbol - fast
                             'date': date_str,
-                            'market_cap': market_cap,
+                            'market_cap': revenue_est * 5,  # Estimate
                             'eps_est': earning.get('epsEstimated'),
                             'revenue_est': revenue_est
                         })
                 
-                # Group by date and keep top 5 by market cap per day
+                # Group by date and keep top 5 by revenue per day
                 earnings_by_day = {}
                 for earning in all_earnings:
                     date_str = earning['date']
@@ -4149,11 +4154,11 @@ def get_weekly_earnings_fmp():
                         earnings_by_day[date_str] = []
                     earnings_by_day[date_str].append(earning)
                 
-                # Sort each day by market cap and keep top 5
+                # Sort each day by revenue and keep top 5
                 for date_str in earnings_by_day:
                     earnings_by_day[date_str] = sorted(
                         earnings_by_day[date_str],
-                        key=lambda x: x.get('market_cap', 0),
+                        key=lambda x: x.get('revenue_est', 0),
                         reverse=True
                     )[:5]
                 
@@ -5623,12 +5628,11 @@ def render_ai_chatbot():
     # Add prominent button in sidebar
     with st.sidebar:
         st.markdown("---")
-        # Use HTML button that matches nav tabs exactly
+        # AI Assistant button - SOLID DARK RED
         st.markdown("""
         <style>
-        /* AI Assistant button - SAME red as nav tabs */
         div[data-testid="stSidebar"] button[kind="primary"] {
-            background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%) !important;
+            background: #CC0000 !important;
             border: none !important;
             border-radius: 8px !important;
             color: #FFFFFF !important;
@@ -5636,8 +5640,7 @@ def render_ai_chatbot():
             min-height: 42px !important;
         }
         div[data-testid="stSidebar"] button[kind="primary"]:hover {
-            background: linear-gradient(135deg, #FF6666 0%, #DD0000 100%) !important;
-            box-shadow: 0 4px 12px rgba(255, 68, 68, 0.4) !important;
+            background: #990000 !important;
         }
         div[data-testid="stSidebar"] button[kind="primary"] p,
         div[data-testid="stSidebar"] button[kind="primary"] span {
@@ -16874,45 +16877,40 @@ elif selected_page == "📰 Market Intelligence":
     st.header("📰 Market Intelligence & News")
     st.markdown("**Stay informed with AI-powered market insights, news, and earnings**")
     
-    # ============= MARKET MOOD SPEEDOMETER =============
+    # ============= VIX FEAR INDEX (Real-Time) =============
     st.markdown("---")
-    st.markdown("### 📊 Market Mood Speedometer")
+    st.markdown("### 📊 VIX Fear Index")
     
-    # USE SINGLE SOURCE OF TRUTH for market sentiment - ensures sync everywhere
-    sentiment_data = get_global_market_sentiment()
-    sentiment_score = sentiment_data["score"]
-    sentiment_label = sentiment_data["label"]
-    sentiment_color = sentiment_data["color"]
+    vix_quote = get_quote("^VIX")
+    if vix_quote and vix_quote.get('price'):
+        vix_val = vix_quote.get('price', 0)
+        vix_change = vix_quote.get('changesPercentage', 0) or 0
+        
+        if vix_val < 15:
+            vix_status, vix_color = "Low Fear (Complacent)", "#22c55e"
+        elif vix_val < 20:
+            vix_status, vix_color = "Normal", "#84cc16"
+        elif vix_val < 25:
+            vix_status, vix_color = "Elevated", "#f59e0b"
+        elif vix_val < 35:
+            vix_status, vix_color = "High Fear", "#f97316"
+        else:
+            vix_status, vix_color = "Extreme Fear", "#ef4444"
+        
+        col1, col2 = st.columns([1, 2])
+        with col1:
+            st.metric("VIX Index", f"{vix_val:.2f}", f"{vix_change:+.2f}%")
+        with col2:
+            st.markdown(f"**Status:** <span style='color:{vix_color}; font-weight:bold; font-size:18px;'>{vix_status}</span>", unsafe_allow_html=True)
+            st.caption("VIX < 15: Complacent | 15-20: Normal | 20-25: Elevated | 25-35: High Fear | >35: Extreme Fear")
+    else:
+        st.info("VIX data unavailable - markets may be closed")
     
-    # Display the speedometer gauge
-    col_gauge, col_labels = st.columns([2, 1])
-    
-    with col_gauge:
-        gauge_fig = create_fear_greed_gauge(sentiment_score)
-        st.plotly_chart(gauge_fig, use_container_width=True)
-    
-    with col_labels:
-        # Display the score prominently
-        st.markdown(f'''
-        <div style="padding: 20px; text-align: center;">
-            <div style="font-size: 48px; font-weight: bold; color: {sentiment_color}; margin-bottom: 10px;">{sentiment_score}</div>
-            <h3 style="color: {sentiment_color}; margin-bottom: 20px;">{sentiment_label}</h3>
-            <div style="text-align: left; color: #FFFFFF; font-size: 14px; line-height: 2;">
-                <p><span style="color: #FF4444;">0-25:</span> Extreme Fear (Market on Sale)</p>
-                <p><span style="color: #FF8844;">25-45:</span> Fear</p>
-                <p><span style="color: #FFFF44;">45-55:</span> Neutral (Steady)</p>
-                <p><span style="color: #88FF44;">55-75:</span> Greed</p>
-                <p><span style="color: #44FF44;">75-100:</span> Extreme Greed (Over-hyped)</p>
-            </div>
-        </div>
-        ''', unsafe_allow_html=True)
-    
-    # Show data source for sentiment
-    show_data_source(source="Market Sentiment Algorithm", updated_at=datetime.now())
+    show_data_source(source="FMP API (CBOE VIX)", updated_at=datetime.now())
     
     st.markdown("---")
     
-    # ============= TOP MARKET NEWS (NEW!) =============
+    # ============= TOP MARKET NEWS =============
     st.markdown("### 📰 Latest Market News")
     st.caption("AI-powered news summaries from Perplexity")
     
@@ -20523,49 +20521,29 @@ elif selected_page == "💼 Paper Portfolio":
     # ============= SECTION C: BENCHMARK & WHO'S WINNING =============
     st.markdown("## 🏆 Section C — Benchmark & Who's Winning")
     
-    # SPY benchmark - REAL YTD DATA
+    # SPY benchmark - REAL YTD DATA using FMP stock price change endpoint
     st.markdown("### 📊 SPY Benchmark")
     
-    # Get real SPY YTD return by comparing current price to Jan 1 price
     spy_starting = STARTING_CASH  # $100k starting capital
-    spy_quote = get_quote("SPY")
+    spy_ytd_return = 0.0
+    spy_current = spy_starting
     
-    if spy_quote and spy_quote.get('price'):
-        current_spy_price = spy_quote.get('price', 0)
-        
-        # Get SPY price from start of year
-        try:
-            # Get historical price to calculate YTD
-            spy_history = get_historical_price("SPY", 1)  # 1 year of data
-            if not spy_history.empty:
-                # Find price from Jan 1 of current year
-                current_year = datetime.now().year
-                jan_1 = f"{current_year}-01-02"  # Use Jan 2 (Jan 1 markets closed)
-                
-                # Filter for this year
-                spy_history['date'] = pd.to_datetime(spy_history['date'])
-                this_year_data = spy_history[spy_history['date'].dt.year == current_year]
-                
-                if not this_year_data.empty:
-                    # Get the earliest price this year (closest to Jan 1)
-                    first_price = this_year_data.iloc[-1]['price']  # Oldest in filtered data
-                    
-                    # Calculate YTD return
-                    spy_ytd_pct = ((current_spy_price - first_price) / first_price) * 100
-                else:
-                    # Fallback: use daily change
-                    spy_ytd_pct = spy_quote.get('changesPercentage', 0) or 0
-            else:
-                spy_ytd_pct = spy_quote.get('changesPercentage', 0) or 0
-        except:
-            spy_ytd_pct = spy_quote.get('changesPercentage', 0) or 0
-        
-        # Calculate what $100k would be worth based on YTD return
-        spy_current = spy_starting * (1 + spy_ytd_pct / 100)
-        spy_ytd_return = spy_ytd_pct
-    else:
-        spy_current = spy_starting
-        spy_ytd_return = 0.0
+    # Get SPY YTD performance from FMP
+    try:
+        # Use stock price change endpoint for YTD
+        ytd_url = f"{BASE_URL}/stock-price-change/SPY?apikey={FMP_API_KEY}"
+        response = requests.get(ytd_url, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            if data and len(data) > 0:
+                spy_ytd_return = data[0].get('ytd', 0) or 0
+                spy_current = spy_starting * (1 + spy_ytd_return / 100)
+    except:
+        # Fallback to quote
+        spy_quote = get_quote("SPY")
+        if spy_quote:
+            spy_ytd_return = spy_quote.get('changesPercentage', 0) or 0
+            spy_current = spy_starting * (1 + spy_ytd_return / 100)
     
     col1, col2, col3 = st.columns(3)
     col1.metric("SPY Starting", f"${spy_starting:,.2f}")
