@@ -6358,15 +6358,12 @@ STARTING_CASH = 100000.0
 def calculate_cash_from_db(user_id, portfolio_type='user'):
     """
     Calculate available cash from database trades (SOURCE OF TRUTH).
-    Falls back to session state if table doesn't exist.
+    Falls back to STARTING_CASH if table doesn't exist or no trades.
     Returns: (cash_available, error_message)
     """
     if not SUPABASE_ENABLED:
-        # Use session state as fallback
-        if portfolio_type == 'founder':
-            return st.session_state.get('founder_cash', STARTING_CASH), None
-        else:
-            return st.session_state.get('user_cash', STARTING_CASH), None
+        # No DB - use STARTING_CASH (don't trust stale session state)
+        return STARTING_CASH, None
     
     try:
         # Fetch all trades for this user/portfolio from DB
@@ -6378,18 +6375,16 @@ def calculate_cash_from_db(user_id, portfolio_type='user'):
         else:
             # User trades require user_id
             if not user_id:
-                return st.session_state.get('user_cash', STARTING_CASH), None
+                return STARTING_CASH, None
             query = query.eq("user_id", user_id).eq("portfolio_type", "user")
         
         result = query.order("timestamp", desc=False).execute()
         
         if not result.data:
-            # No trades yet - return starting cash
-            if portfolio_type == 'founder':
-                return st.session_state.get('founder_cash', STARTING_CASH), None
+            # No trades yet - return STARTING_CASH (clean slate)
             return STARTING_CASH, None
         
-        # Calculate cash: Start with STARTING_CASH
+        # Calculate cash: Start with STARTING_CASH, subtract buys, add sells
         cash = STARTING_CASH
         for trade in result.data:
             if trade['trade_type'] == 'BUY':
@@ -6401,12 +6396,10 @@ def calculate_cash_from_db(user_id, portfolio_type='user'):
         
     except Exception as e:
         error_msg = str(e).lower()
-        # If table doesn't exist, fall back to session state (not an error)
+        # If table doesn't exist, return STARTING_CASH (clean slate)
         if "could not find" in error_msg or "does not exist" in error_msg or "relation" in error_msg:
-            if portfolio_type == 'founder':
-                return st.session_state.get('founder_cash', STARTING_CASH), None
-            return st.session_state.get('user_cash', STARTING_CASH), None
-        # Real error
+            return STARTING_CASH, None
+        # Real error - still return STARTING_CASH but with error message
         return STARTING_CASH, f"DB error: {str(e)}"
 
 
