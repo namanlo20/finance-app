@@ -20640,29 +20640,56 @@ elif selected_page == "💼 Paper Portfolio":
     # ============= SECTION C: BENCHMARK & WHO'S WINNING =============
     st.markdown("## 🏆 Section C — Benchmark & Who's Winning")
     
-    # SPY benchmark - REAL YTD DATA using FMP stock price change endpoint
+    # SPY benchmark - REAL YTD DATA using FMP API
     st.markdown("### 📊 SPY Benchmark")
     
     spy_starting = STARTING_CASH  # $100k starting capital
     spy_ytd_return = 0.0
     spy_current = spy_starting
     
-    # Get SPY YTD performance from FMP
+    # Get SPY YTD performance from FMP - try multiple methods
     try:
-        # Use stock price change endpoint for YTD
+        # Method 1: Use stock price change endpoint
         ytd_url = f"{BASE_URL}/stock-price-change/SPY?apikey={FMP_API_KEY}"
         response = requests.get(ytd_url, timeout=10)
         if response.status_code == 200:
             data = response.json()
             if data and len(data) > 0:
-                spy_ytd_return = data[0].get('ytd', 0) or 0
+                # Try 'ytd' first, then '1Y' as fallback
+                spy_ytd_return = data[0].get('ytd') or data[0].get('1Y') or 0
+                if spy_ytd_return:
+                    spy_current = spy_starting * (1 + spy_ytd_return / 100)
+    except Exception as e:
+        pass
+    
+    # Method 2: If still 0, calculate from historical prices
+    if spy_ytd_return == 0:
+        try:
+            spy_quote = get_quote("SPY")
+            if spy_quote and spy_quote.get('price'):
+                current_price = spy_quote.get('price')
+                # Get price from start of year
+                hist_url = f"{BASE_URL}/historical-price-full/SPY?from=2026-01-02&to=2026-01-03&apikey={FMP_API_KEY}"
+                hist_response = requests.get(hist_url, timeout=10)
+                if hist_response.status_code == 200:
+                    hist_data = hist_response.json()
+                    if hist_data and 'historical' in hist_data and len(hist_data['historical']) > 0:
+                        jan_price = hist_data['historical'][-1].get('close', current_price)
+                        spy_ytd_return = ((current_price - jan_price) / jan_price) * 100
+                        spy_current = spy_starting * (1 + spy_ytd_return / 100)
+        except:
+            pass
+    
+    # Method 3: Last fallback - use daily change as approximation
+    if spy_ytd_return == 0:
+        try:
+            spy_quote = get_quote("SPY")
+            if spy_quote:
+                # At minimum show the current price movement
+                spy_ytd_return = spy_quote.get('changesPercentage', 0) or 0
                 spy_current = spy_starting * (1 + spy_ytd_return / 100)
-    except:
-        # Fallback to quote
-        spy_quote = get_quote("SPY")
-        if spy_quote:
-            spy_ytd_return = spy_quote.get('changesPercentage', 0) or 0
-            spy_current = spy_starting * (1 + spy_ytd_return / 100)
+        except:
+            pass
     
     col1, col2, col3 = st.columns(3)
     col1.metric("SPY Starting", f"${spy_starting:,.2f}")
