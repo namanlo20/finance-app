@@ -10440,17 +10440,23 @@ elif selected_page == "🏠 Start Here":
     col_pick1, col_pick2 = st.columns(2)
     with col_pick1:
         stock1_input = st.text_input("📈 Good Business:", value=st.session_state.homepage_stock1, key="home_stock1", placeholder="e.g., Apple or AAPL")
-        # Resolve company name to ticker
-        stock1 = resolve_company_to_ticker(stock1_input) if stock1_input else st.session_state.homepage_stock1
-        if stock1 and stock1_input and stock1 != stock1_input.upper():
+        # Resolve company name to ticker using full stock list (fixes Dolby, etc.)
+        if stock1_input:
+            stock1, stock1_name = smart_search_ticker(stock1_input)
+        else:
+            stock1, stock1_name = st.session_state.homepage_stock1, None
+        if stock1 and stock1_input and stock1 != stock1_input.strip().upper():
             st.caption(f"→ Resolved to: **{stock1}**")
         if stock1:
             st.session_state.homepage_stock1 = stock1
     with col_pick2:
         stock2_input = st.text_input("📉 Risky Business:", value=st.session_state.homepage_stock2, key="home_stock2", placeholder="e.g., GameStop or GME")
-        # Resolve company name to ticker
-        stock2 = resolve_company_to_ticker(stock2_input) if stock2_input else st.session_state.homepage_stock2
-        if stock2 and stock2_input and stock2 != stock2_input.upper():
+        # Resolve company name to ticker using full stock list (fixes Dolby, etc.)
+        if stock2_input:
+            stock2, stock2_name = smart_search_ticker(stock2_input)
+        else:
+            stock2, stock2_name = st.session_state.homepage_stock2, None 
+        if stock2 and stock2_input and stock2 != stock2_input.strip().upper():
             st.caption(f"→ Resolved to: **{stock2}**")
         if stock2:
             st.session_state.homepage_stock2 = stock2
