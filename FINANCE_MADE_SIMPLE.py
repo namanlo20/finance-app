@@ -5625,8 +5625,14 @@ def render_ai_chatbot():
             st.session_state.chat_messages.append({"role": "assistant", "content": response})
             st.rerun()
     
-    # Add prominent button in sidebar
+    # Add logo and prominent button in sidebar
     with st.sidebar:
+        # LOGO at top of sidebar (like Apple)
+        try:
+            st.image("logo.png", width=150)
+        except:
+            st.markdown('<div style="font-weight:700; color:#FF4444; font-size:1.1rem; margin-bottom:10px;">📈 STOCKINVESTING.AI</div>', unsafe_allow_html=True)
+        
         st.markdown("---")
         # AI Assistant button - BOLD, GLOWING, ATTENTION-GRABBING
         st.markdown("""
@@ -7869,12 +7875,6 @@ section[data-testid="stSidebar"] .stMarkdown * {
 }
 </style>
 """, unsafe_allow_html=True)
-
-# ============= TOP LEFT LOGO (Like Apple/FB) =============
-try:
-    st.image("logo.png", width=120)
-except:
-    st.markdown('<span style="font-weight:700; color:#FF4444;">📈 STOCKINVESTING.AI</span>', unsafe_allow_html=True)
 
 # ============= STUNNING HERO SECTION =============
 st.markdown("""
@@ -20318,13 +20318,17 @@ elif selected_page == "💼 Paper Portfolio":
         is_founder_panel = (portfolio_type == 'founder')
         panel_title = "Trade Panel (Founder)" if is_founder_panel else "Trade Panel (User)"
         
-        # Get portfolio data
+        # Get portfolio data - ALWAYS get fresh cash from DB
         if is_founder_panel:
             portfolio = st.session_state.founder_portfolio
-            cash = st.session_state.founder_cash
+            # Get FRESH cash from DB (source of truth)
+            cash, _ = calculate_cash_from_db(None, portfolio_type='founder')
+            st.session_state.founder_cash = cash  # Sync session state
         else:
             portfolio = st.session_state.portfolio
-            cash = st.session_state.cash
+            user_id = st.session_state.get("user_id")
+            cash, _ = calculate_cash_from_db(user_id, portfolio_type='user')
+            st.session_state.cash = cash  # Sync session state
         
         st.markdown(f"### 🛒 {panel_title}")
         
