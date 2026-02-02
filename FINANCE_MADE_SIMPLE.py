@@ -3206,9 +3206,11 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
     if all_values:
         max_val = max(all_values)
         min_val = min(all_values)
-        # Add 20% padding above max so text labels and bars never exceed y-axis
-        y_range_max = max_val * 1.20 if max_val > 0 else max_val * 0.80
-        y_range_min = min_val * 1.20 if min_val < 0 else 0
+        # Add 25% padding above and below so negative values (like CapEx) are fully visible
+        value_range = max_val - min_val if max_val != min_val else abs(max_val) * 0.5 or 1
+        padding = value_range * 0.25
+        y_range_max = max_val + padding
+        y_range_min = min_val - padding if min_val < 0 else 0
         fig.update_layout(yaxis=dict(range=[y_range_min, y_range_max]))
     
     fig.update_layout(
@@ -4130,8 +4132,7 @@ def get_earnings_calendar(ticker):
 
 @st.cache_data(ttl=1800)
 def get_weekly_earnings_fmp():
-    """Get this week's major earnings from FMP API"""
-    # Get Monday of current week and Sunday
+    """Get this week's major earnings from FMP API - TOP 5 by market cap per day with company names"""
     today = datetime.now()
     monday = today - timedelta(days=today.weekday())
     sunday = monday + timedelta(days=6)
@@ -4145,26 +4146,52 @@ def get_weekly_earnings_fmp():
         if response.status_code == 200:
             data = response.json()
             if data and len(data) > 0:
-                # Group by date and filter for major companies (those with revenue estimates)
-                earnings_by_day = {}
-                major_tickers = set()
+                # Collect all earnings with market cap info
+                all_earnings = []
                 
                 for earning in data:
-                    date_str = earning.get('date', '')
                     symbol = earning.get('symbol', '')
-                    revenue_est = earning.get('revenueEstimated')
+                    date_str = earning.get('date', '')
+                    revenue_est = earning.get('revenueEstimated') or 0
                     
-                    # Filter for US stocks with revenue estimates (major companies)
-                    if revenue_est and revenue_est > 1000000000:  # > $1B revenue
-                        if date_str not in earnings_by_day:
-                            earnings_by_day[date_str] = []
-                        if symbol not in major_tickers and len(earnings_by_day[date_str]) < 5:
-                            earnings_by_day[date_str].append({
-                                'symbol': symbol,
-                                'eps_est': earning.get('epsEstimated'),
-                                'revenue_est': revenue_est
-                            })
-                            major_tickers.add(symbol)
+                    if not symbol or not date_str:
+                        continue
+                    
+                    # Get company name and market cap
+                    try:
+                        profile = get_profile(symbol)
+                        company_name = profile.get('companyName', symbol) if profile else symbol
+                        market_cap = profile.get('mktCap', revenue_est * 5) if profile else revenue_est * 5
+                    except:
+                        company_name = symbol
+                        market_cap = revenue_est * 5
+                    
+                    # Only include significant companies
+                    if revenue_est > 500000000:  # > $500M revenue
+                        all_earnings.append({
+                            'symbol': symbol,
+                            'company_name': company_name,
+                            'date': date_str,
+                            'market_cap': market_cap,
+                            'eps_est': earning.get('epsEstimated'),
+                            'revenue_est': revenue_est
+                        })
+                
+                # Group by date and keep top 5 by market cap per day
+                earnings_by_day = {}
+                for earning in all_earnings:
+                    date_str = earning['date']
+                    if date_str not in earnings_by_day:
+                        earnings_by_day[date_str] = []
+                    earnings_by_day[date_str].append(earning)
+                
+                # Sort each day by market cap and keep top 5
+                for date_str in earnings_by_day:
+                    earnings_by_day[date_str] = sorted(
+                        earnings_by_day[date_str],
+                        key=lambda x: x.get('market_cap', 0),
+                        reverse=True
+                    )[:5]
                 
                 return earnings_by_day, None
         return None, f"API returned status {response.status_code}"
@@ -5577,150 +5604,42 @@ Guidelines:
     return "I'm having trouble connecting to the AI service. Please try again in a moment."
 
 def render_ai_chatbot():
-    """Render the AI chatbot as a fixed panel on the RIGHT side of the page"""
-    if 'chatbot_open' not in st.session_state:
-        st.session_state.chatbot_open = False
+    """Render the AI chatbot using sidebar button + st.dialog - NO PAGE REFRESH"""
     if 'chat_messages' not in st.session_state:
-        st.session_state.chat_messages = [
-            {"role": "assistant", "content": "👋 Hi! Ask me anything about stocks, investing, or the markets!"}
-        ]
+        st.session_state.chat_messages = []
     
-    # Check if chat button was clicked (query param)
-    open_chat_param = st.query_params.get("open_chat")
-    if open_chat_param == "1":
-        st.session_state.chatbot_open = True
-        st.session_state.welcome_seen = True  # Don't show welcome again
-        if "open_chat" in st.query_params:
-            del st.query_params["open_chat"]
-    
-    # Always show the floating button when chat is closed
-    if not st.session_state.chatbot_open:
-        st.markdown("""
-        <style>
-        .chatbot-float-btn {
-            position: fixed !important;
-            bottom: 30px !important;
-            right: 30px !important;
-            width: 65px !important;
-            height: 65px !important;
-            background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%) !important;
-            border-radius: 50% !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            z-index: 999999 !important;
-            box-shadow: 0 4px 25px rgba(255, 68, 68, 0.6) !important;
-            border: 3px solid #FFFFFF !important;
-            font-size: 32px !important;
-            cursor: pointer !important;
-            transition: all 0.3s ease !important;
-            animation: pulse 2s infinite !important;
-        }
-        .chatbot-float-btn:hover {
-            transform: scale(1.15) rotate(10deg) !important;
-            box-shadow: 0 8px 35px rgba(255, 68, 68, 0.9) !important;
-        }
-        @keyframes pulse {
-            0% { box-shadow: 0 4px 25px rgba(255, 68, 68, 0.6); }
-            50% { box-shadow: 0 4px 35px rgba(255, 68, 68, 0.9); }
-            100% { box-shadow: 0 4px 25px rgba(255, 68, 68, 0.6); }
-        }
-        .chatbot-form {
-            position: fixed !important;
-            bottom: 30px !important;
-            right: 30px !important;
-            z-index: 999999 !important;
-        }
-        </style>
-        <form method="get" class="chatbot-form">
-            <button type="submit" name="open_chat" value="1" class="chatbot-float-btn">🤖</button>
-        </form>
-        """, unsafe_allow_html=True)
-    
-    # Show chat panel on RIGHT side when open
-    if st.session_state.chatbot_open:
-        # CSS for fixed right panel
-        st.markdown("""
-        <style>
-        .chat-panel {
-            position: fixed !important;
-            top: 80px !important;
-            right: 20px !important;
-            width: 350px !important;
-            max-height: 500px !important;
-            background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%) !important;
-            border: 2px solid #2196F3 !important;
-            border-radius: 15px !important;
-            z-index: 999999 !important;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.3) !important;
-            padding: 15px !important;
-            overflow: hidden !important;
-        }
-        .chat-header {
-            background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%);
-            color: white;
-            padding: 10px 15px;
-            border-radius: 10px;
-            margin-bottom: 10px;
-            text-align: center;
-            font-weight: bold;
-            font-size: 16px;
-        }
-        .chat-messages {
-            max-height: 280px;
-            overflow-y: auto;
-            margin-bottom: 10px;
-            padding: 5px;
-        }
-        .chat-msg-user {
-            background: rgba(255, 68, 68, 0.2);
-            padding: 8px 12px;
-            border-radius: 10px;
-            margin: 5px 0;
-            text-align: right;
-            font-size: 14px;
-            color: #1a1a2e;
-        }
-        .chat-msg-ai {
-            background: rgba(0, 150, 255, 0.15);
-            padding: 8px 12px;
-            border-radius: 10px;
-            margin: 5px 0;
-            font-size: 14px;
-            color: #1a1a2e;
-        }
-        </style>
-        """, unsafe_allow_html=True)
+    # Define chatbot dialog
+    @st.dialog("🤖 AI Investment Assistant", width="large")
+    def show_chatbot_dialog():
+        st.markdown("**Ask me anything about stocks, investing, or markets!**")
+        st.caption("🔍 Powered by Perplexity AI with real-time web search")
         
-        # Build chat HTML
-        messages_html = ""
-        for msg in st.session_state.chat_messages[-10:]:  # Last 10 messages
-            if msg["role"] == "user":
-                messages_html += f'<div class="chat-msg-user">🧑 {msg["content"]}</div>'
+        # Chat history container
+        chat_container = st.container(height=300)
+        with chat_container:
+            if st.session_state.chat_messages:
+                for msg in st.session_state.chat_messages[-10:]:
+                    if msg["role"] == "user":
+                        st.markdown(f'<div style="background: rgba(255,68,68,0.15); padding: 10px 15px; border-radius: 10px; margin: 8px 0; text-align: right; color: #333;"><strong>You:</strong> {msg["content"]}</div>', unsafe_allow_html=True)
+                    else:
+                        st.markdown(f'<div style="background: rgba(33,150,243,0.15); padding: 10px 15px; border-radius: 10px; margin: 8px 0; color: #333;"><strong>🤖 AI:</strong> {msg["content"]}</div>', unsafe_allow_html=True)
             else:
-                messages_html += f'<div class="chat-msg-ai">🤖 {msg["content"]}</div>'
+                st.info("💡 Try: 'What is Apple's P/E ratio?', 'How did markets do today?', 'Explain dollar-cost averaging'")
         
-        st.markdown(f"""
-        <div class="chat-panel">
-            <div class="chat-header">🤖 AI Assistant</div>
-            <div class="chat-messages">{messages_html}</div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Streamlit input at bottom of page (will control the chat)
         st.markdown("---")
-        st.markdown("### 🤖 AI Chat")
-        chat_col1, chat_col2, chat_col3 = st.columns([5, 1, 1])
-        with chat_col1:
-            user_input = st.text_input("Ask anything...", key="chat_input_main", placeholder="e.g., What's Apple's P/E ratio?", label_visibility="collapsed")
-        with chat_col2:
-            send_btn = st.button("📤", key="send_chat", use_container_width=True)
-        with chat_col3:
-            close_btn = st.button("✖", key="close_chat", use_container_width=True)
         
-        if close_btn:
-            st.session_state.chatbot_open = False
-            st.rerun()
+        # Input
+        user_input = st.text_input("Your question:", placeholder="e.g., What's Tesla's market cap?", key="chatbot_dialog_input")
+        
+        col1, col2, col3 = st.columns([2, 1, 1])
+        with col1:
+            send_btn = st.button("📤 Send", type="primary", use_container_width=True, key="chatbot_send_btn")
+        with col2:
+            if st.button("🗑️ Clear", key="chatbot_clear_btn"):
+                st.session_state.chat_messages = []
+                st.rerun()
+        with col3:
+            pass  # Empty column for spacing
         
         if send_btn and user_input:
             st.session_state.chat_messages.append({"role": "user", "content": user_input})
@@ -5731,11 +5650,60 @@ def render_ai_chatbot():
                 "unhinged_mode": st.session_state.get("unhinged_mode", False)
             }
             
-            with st.spinner("🤔 Thinking..."):
+            with st.spinner("🔍 Searching & thinking..."):
                 response = get_chatbot_response(user_input, context)
             
             st.session_state.chat_messages.append({"role": "assistant", "content": response})
             st.rerun()
+    
+    # Add prominent button in sidebar
+    with st.sidebar:
+        st.markdown("---")
+        st.markdown("### 🤖 AI Assistant")
+        st.caption("Ask about stocks, prices, investing concepts")
+        if st.button("💬 Ask AI a Question", key="sidebar_ai_chat_button", use_container_width=True, type="primary"):
+            show_chatbot_dialog()
+    
+    # Also show a visual indicator (non-clickable) at bottom right
+    st.markdown("""
+    <style>
+    .chatbot-indicator {
+        position: fixed !important;
+        bottom: 30px !important;
+        right: 30px !important;
+        width: 60px !important;
+        height: 60px !important;
+        background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%) !important;
+        border-radius: 50% !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        z-index: 999998 !important;
+        box-shadow: 0 4px 20px rgba(255, 68, 68, 0.5) !important;
+        border: 3px solid #FFFFFF !important;
+        font-size: 28px !important;
+        animation: pulse-indicator 2s infinite !important;
+    }
+    @keyframes pulse-indicator {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+    }
+    .chatbot-tooltip {
+        position: fixed !important;
+        bottom: 100px !important;
+        right: 20px !important;
+        background: #333 !important;
+        color: white !important;
+        padding: 8px 12px !important;
+        border-radius: 8px !important;
+        font-size: 12px !important;
+        z-index: 999997 !important;
+        white-space: nowrap !important;
+    }
+    </style>
+    <div class="chatbot-indicator">💬</div>
+    <div class="chatbot-tooltip">Use sidebar button to chat →</div>
+    """, unsafe_allow_html=True)
 
 # ============= WELCOME POPUP =============
 def show_welcome_popup():
@@ -6211,40 +6179,55 @@ def get_market_sentiment_label(score):
     else:
         return "Extreme Greed (Over-hyped)", "#44FF44"
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=60)  # 1 minute cache for real-time feel
 def get_global_market_sentiment():
     """
     SINGLE SOURCE OF TRUTH for market sentiment.
-    All components (sidebar, gauge, AI) must use this function.
-    Updates every time - shows real-time market mood based on SPY.
+    Uses real-time SPY quote + 20-day momentum for dynamic scoring.
     """
     try:
-        # Get SPY data for last 30 days to calculate 20-day momentum
-        spy_data = get_historical_price("SPY", years=0.1)  # ~36 days
+        # Get real-time SPY quote
+        spy_quote = get_quote("SPY")
         
-        if not spy_data.empty and 'price' in spy_data.columns and len(spy_data) >= 20:
-            spy_data = spy_data.sort_values('date')
-            current_price = spy_data['price'].iloc[-1]
-            price_20d_ago = spy_data['price'].iloc[-20]
+        if spy_quote and spy_quote.get('price'):
+            current_price = spy_quote.get('price', 0)
+            today_change = spy_quote.get('changesPercentage', 0) or 0
             
-            # Calculate 20-day momentum
-            momentum_20d = ((current_price - price_20d_ago) / price_20d_ago) * 100
+            # Get 20-day momentum
+            momentum_20d = 0
+            try:
+                spy_data = get_historical_price("SPY", years=0.1)
+                if not spy_data.empty and 'price' in spy_data.columns and len(spy_data) >= 20:
+                    spy_data = spy_data.sort_values('date')
+                    price_20d_ago = spy_data['price'].iloc[-20]
+                    momentum_20d = ((current_price - price_20d_ago) / price_20d_ago) * 100
+            except:
+                pass
             
-            # Map momentum to sentiment score (0-100)
+            # Combined score: 50% today's move, 50% momentum
+            # Today's change maps -3% to +3% into score component
+            daily_score = 50 + (today_change * 16.67)
+            daily_score = max(0, min(100, daily_score))
+            
+            # Momentum score
             if momentum_20d <= -10:
-                sentiment_score = 10
+                momentum_score = 10
             elif momentum_20d <= -5:
-                sentiment_score = 25
+                momentum_score = 25
             elif momentum_20d <= -2:
-                sentiment_score = 40
+                momentum_score = 40
             elif momentum_20d <= 2:
-                sentiment_score = 50
+                momentum_score = 50
             elif momentum_20d <= 5:
-                sentiment_score = 65
+                momentum_score = 65
             elif momentum_20d <= 10:
-                sentiment_score = 80
+                momentum_score = 80
             else:
-                sentiment_score = 90
+                momentum_score = 90
+            
+            # Weighted average
+            sentiment_score = int(daily_score * 0.5 + momentum_score * 0.5)
+            sentiment_score = max(5, min(95, sentiment_score))
             
             label, color = get_market_sentiment_label(sentiment_score)
             return {
@@ -6252,6 +6235,7 @@ def get_global_market_sentiment():
                 "label": label,
                 "color": color,
                 "momentum_20d": round(momentum_20d, 2),
+                "today_change": round(today_change, 2),
                 "spy_price": round(current_price, 2)
             }
     except Exception as e:
@@ -6263,6 +6247,7 @@ def get_global_market_sentiment():
         "label": "Neutral (Steady)",
         "color": "#FFFF44",
         "momentum_20d": 0,
+        "today_change": 0,
         "spy_price": None
     }
 
@@ -9817,17 +9802,6 @@ if selected_page == "🏠 Dashboard":
                 
                 show_data_source(source="FMP API", updated_at=datetime.now())
                 
-                # Debug info (collapsible)
-                with st.expander("🔧 Debug: Raw Data", expanded=False):
-                    st.json({
-                        "pe_ratio": pe_ratio,
-                        "ps_ratio": ps_ratio,
-                        "ev_ebitda": ev_ebitda,
-                        "peg_ratio": peg_ratio,
-                        "is_profitable": is_profitable,
-                        "eps_growth": val_metrics.get('eps_growth')
-                    })
-                
                 # AI Scenario
                 st.markdown("##### 🤖 AI Valuation Scenario")
                 with st.expander("What Would Justify Current Valuation?", expanded=False):
@@ -10355,10 +10329,10 @@ elif selected_page == "🏠 Start Here":
     
     # Hero Visual (H3) - Bull vs Bear theme
     st.markdown("""
-    <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 30px; border-radius: 15px; margin-bottom: 20px; text-align: center;">
+    <div style="background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%); padding: 30px; border-radius: 15px; margin-bottom: 20px; text-align: center; border: 2px solid #42A5F5;">
         <div style="font-size: 60px; margin-bottom: 10px;">🐂 vs 🐻</div>
-        <h2 style="color: #FFFFFF; margin: 0;">Learn to Invest Like a Pro</h2>
-        <p style="color: #B0B0B0; margin-top: 10px;">Understand the market. Build wealth. Avoid the traps.</p>
+        <h2 style="color: #1565C0; margin: 0;">Learn to Invest Like a Pro</h2>
+        <p style="color: #555; margin-top: 10px;">Understand the market. Build wealth. Avoid the traps.</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -10462,14 +10436,22 @@ elif selected_page == "🏠 Start Here":
     
     years = st.session_state.years_of_history
     
-    # Stock Picker Row
+    # Stock Picker Row - accepts company name OR ticker
     col_pick1, col_pick2 = st.columns(2)
     with col_pick1:
-        stock1 = st.text_input("📈 Good Business:", value=st.session_state.homepage_stock1, key="home_stock1").upper()
+        stock1_input = st.text_input("📈 Good Business:", value=st.session_state.homepage_stock1, key="home_stock1", placeholder="e.g., Apple or AAPL")
+        # Resolve company name to ticker
+        stock1 = resolve_company_to_ticker(stock1_input) if stock1_input else st.session_state.homepage_stock1
+        if stock1 and stock1_input and stock1 != stock1_input.upper():
+            st.caption(f"→ Resolved to: **{stock1}**")
         if stock1:
             st.session_state.homepage_stock1 = stock1
     with col_pick2:
-        stock2 = st.text_input("📉 Risky Business:", value=st.session_state.homepage_stock2, key="home_stock2").upper()
+        stock2_input = st.text_input("📉 Risky Business:", value=st.session_state.homepage_stock2, key="home_stock2", placeholder="e.g., GameStop or GME")
+        # Resolve company name to ticker
+        stock2 = resolve_company_to_ticker(stock2_input) if stock2_input else st.session_state.homepage_stock2
+        if stock2 and stock2_input and stock2 != stock2_input.upper():
+            st.caption(f"→ Resolved to: **{stock2}**")
         if stock2:
             st.session_state.homepage_stock2 = stock2
     
@@ -17210,7 +17192,12 @@ Keep each bullet to ONE line. Be concise."""
                 
                 for earning in earnings_by_day[date_str]:
                     symbol = earning['symbol']
-                    earnings_html += f"<p>• {symbol}</p>"
+                    company_name = earning.get('company_name', symbol)
+                    # Show company name followed by ticker
+                    if company_name and company_name != symbol:
+                        earnings_html += f"<p>• <strong>{company_name}</strong> ({symbol})</p>"
+                    else:
+                        earnings_html += f"<p>• {symbol}</p>"
             except:
                 continue
         
@@ -17574,11 +17561,11 @@ elif selected_page == "👑 Become a VIP":
         border_color = "#00C853" if st.session_state.selected_tier == "Free" else "#333"
         shadow = "0 0 20px rgba(0,200,83,0.5)" if st.session_state.selected_tier == "Free" else "none"
         st.markdown(f"""
-        <div style="background: #1a1a1a; border: 3px solid {border_color}; border-radius: 15px; 
+        <div style="background: #E3F2FD; border: 3px solid {border_color}; border-radius: 15px; 
                     padding: 20px; text-align: center; box-shadow: {shadow};">
             <h3 style="color: #00C853; margin-bottom: 10px;">Free</h3>
-            <p style="color: #888; font-size: 24px; margin: 10px 0;"><strong>$0</strong>/mo</p>
-            <p style="color: #FFFFFF; font-size: 14px;">Preview Access</p>
+            <p style="color: #333; font-size: 24px; margin: 10px 0;"><strong>$0</strong>/mo</p>
+            <p style="color: #555; font-size: 14px;">Preview Access</p>
         </div>
         """, unsafe_allow_html=True)
         if st.button("Select Free", key="select_free_vip", use_container_width=True):
@@ -17589,11 +17576,11 @@ elif selected_page == "👑 Become a VIP":
         border_color = "#9D4EDD" if st.session_state.selected_tier == "Pro" else "#333"
         shadow = "0 0 20px rgba(157,78,221,0.5)" if st.session_state.selected_tier == "Pro" else "none"
         st.markdown(f"""
-        <div style="background: #1a1a1a; border: 3px solid {border_color}; border-radius: 15px; 
+        <div style="background: #E3F2FD; border: 3px solid {border_color}; border-radius: 15px; 
                     padding: 20px; text-align: center; box-shadow: {shadow};">
             <h3 style="color: #9D4EDD; margin-bottom: 10px;">Pro</h3>
-            <p style="color: #888; font-size: 24px; margin: 10px 0;"><strong>$5</strong>/mo</p>
-            <p style="color: #FFFFFF; font-size: 14px;">Full Portfolio Access</p>
+            <p style="color: #333; font-size: 24px; margin: 10px 0;"><strong>$5</strong>/mo</p>
+            <p style="color: #555; font-size: 14px;">Full Portfolio Access</p>
         </div>
         """, unsafe_allow_html=True)
         if st.button("Select Pro", key="select_pro_vip", use_container_width=True):
@@ -17611,11 +17598,11 @@ elif selected_page == "👑 Become a VIP":
         border_color = "#FFD700" if st.session_state.selected_tier == "Ultimate" else "#333"
         shadow = "0 0 20px rgba(255,215,0,0.5)" if st.session_state.selected_tier == "Ultimate" else "none"
         st.markdown(f"""
-        <div style="background: #1a1a1a; border: 3px solid {border_color}; border-radius: 15px; 
+        <div style="background: #E3F2FD; border: 3px solid {border_color}; border-radius: 15px; 
                     padding: 20px; text-align: center; box-shadow: {shadow};">
             <h3 style="color: #FFD700; margin-bottom: 10px;">Ultimate</h3>
-            <p style="color: #888; font-size: 24px; margin: 10px 0;"><strong>$10</strong>/mo</p>
-            <p style="color: #FFFFFF; font-size: 14px;">VIP Access + Support</p>
+            <p style="color: #333; font-size: 24px; margin: 10px 0;"><strong>$10</strong>/mo</p>
+            <p style="color: #555; font-size: 14px;">VIP Access + Support</p>
         </div>
         """, unsafe_allow_html=True)
         if st.button("Select Ultimate", key="select_ultimate_vip", use_container_width=True):
@@ -17639,15 +17626,15 @@ elif selected_page == "👑 Become a VIP":
     with col_free2:
         st.markdown(
             """
-            <div style="background:#141414;border:1px solid #2a2a2a;border-radius:14px;padding:16px;min-height:420px;">
+            <div style="background:#E3F2FD;border:1px solid #4FC3F7;border-radius:14px;padding:16px;min-height:420px;">
               <h3 style="color:#00C853;margin:0 0 6px 0;">Free</h3>
-              <div style="color:#BBBBBB;font-size:14px;margin-bottom:10px;">Great for getting started</div>
-              <ul style="color:#FFFFFF;line-height:1.6;">
+              <div style="color:#555;font-size:14px;margin-bottom:10px;">Great for getting started</div>
+              <ul style="color:#333;line-height:1.6;">
                 <li>Market Overview + Sector Explorer basics</li>
                 <li>Company Analysis essentials</li>
                 <li>Educational content + Risk Quiz</li>
               </ul>
-              <div style="color:#888;font-size:12px;margin-top:12px;">
+              <div style="color:#666;font-size:12px;margin-top:12px;">
                 Tip: Free stays useful — paid tiers add speed + deeper tooling.
               </div>
             </div>
@@ -17658,17 +17645,17 @@ elif selected_page == "👑 Become a VIP":
     with col_pro2:
         st.markdown(
             """
-            <div style="background:#141414;border:2px solid #9D4EDD;border-radius:14px;padding:16px;min-height:420px;box-shadow:0 0 18px rgba(157,78,221,0.25);">
+            <div style="background:#E3F2FD;border:2px solid #9D4EDD;border-radius:14px;padding:16px;min-height:420px;box-shadow:0 0 18px rgba(157,78,221,0.25);">
               <h3 style="color:#9D4EDD;margin:0 0 6px 0;">Pro</h3>
-              <div style="color:#BBBBBB;font-size:14px;margin-bottom:10px;">For technical learners + faster decisions</div>
-              <ul style="color:#FFFFFF;line-height:1.6;">
+              <div style="color:#555;font-size:14px;margin-bottom:10px;">For technical learners + faster decisions</div>
+              <ul style="color:#333;line-height:1.6;">
                 <li><b>Pro Chart Lab</b>: candlesticks + SMA50/SMA200/RSI/Volume toggles</li>
                 <li><b>Technical Facts</b>: trend regime, momentum, volume/volatility context</li>
                 <li><b>Chart Callouts</b>: 3–5 grounded takeaways under every chart</li>
                 <li><b>Pattern Detection (AI + Rules)</b>: label + confidence + key levels</li>
                 <li><b>Next Steps Checklist</b>: “what traders generally do next” (educational)</li>
               </ul>
-              <div style="color:#888;font-size:12px;margin-top:12px;">
+              <div style="color:#666;font-size:12px;margin-top:12px;">
                 Designed to be <b>accurate per ticker</b> (AI is constrained to computed facts).
               </div>
             </div>
@@ -17679,10 +17666,10 @@ elif selected_page == "👑 Become a VIP":
     with col_ult2:
         st.markdown(
             """
-            <div style="background:#141414;border:2px solid #FFD700;border-radius:14px;padding:16px;min-height:420px;box-shadow:0 0 18px rgba(255,215,0,0.20);">
+            <div style="background:#E3F2FD;border:2px solid #FFD700;border-radius:14px;padding:16px;min-height:420px;box-shadow:0 0 18px rgba(255,215,0,0.20);">
               <h3 style="color:#FFD700;margin:0 0 6px 0;">Ultimate</h3>
-              <div style="color:#BBBBBB;font-size:14px;margin-bottom:10px;">For “show me the receipts” users</div>
-              <ul style="color:#FFFFFF;line-height:1.6;">
+              <div style="color:#555;font-size:14px;margin-bottom:10px;">For “show me the receipts” users</div>
+              <ul style="color:#333;line-height:1.6;">
                 <li>Everything in <b>Pro</b></li>
                 <li><b>🔍 AI Stock Screener</b>: Ask in plain English, get matching stocks!</li>
                 <li><b>Historical Similar Setups</b>: find past charts that looked like today</li>
@@ -17691,7 +17678,7 @@ elif selected_page == "👑 Become a VIP":
                 <li><b>Alerts & watchlists</b> (coming next)</li>
                 <li><b>Exportable reports</b> (coming next)</li>
               </ul>
-              <div style="color:#888;font-size:12px;margin-top:12px;">
+              <div style="color:#666;font-size:12px;margin-top:12px;">
                 Ultimate is where we add <b>history + outcomes</b>, not just interpretation.
               </div>
             </div>
@@ -20579,13 +20566,21 @@ elif selected_page == "💼 Paper Portfolio":
     # ============= SECTION C: BENCHMARK & WHO'S WINNING =============
     st.markdown("## 🏆 Section C — Benchmark & Who's Winning")
     
-    # SPY benchmark
+    # SPY benchmark - REAL-TIME DATA
     st.markdown("### 📊 SPY Benchmark")
     
-    # Calculate SPY return (placeholder - would need actual SPY data)
-    spy_starting = 50000.0
-    spy_current = 52500.0  # Placeholder
-    spy_ytd_return = get_ytd_return(spy_current, spy_starting)
+    # Get real SPY data
+    spy_starting = STARTING_CASH  # $100k starting capital
+    spy_quote = get_quote("SPY")
+    
+    if spy_quote and spy_quote.get('price'):
+        spy_ytd_pct = spy_quote.get('changesPercentage', 0) or 0
+        # Calculate what $100k would be worth based on YTD return
+        spy_current = spy_starting * (1 + spy_ytd_pct / 100)
+        spy_ytd_return = spy_ytd_pct
+    else:
+        spy_current = spy_starting
+        spy_ytd_return = 0.0
     
     col1, col2, col3 = st.columns(3)
     col1.metric("SPY Starting", f"${spy_starting:,.2f}")
@@ -20599,7 +20594,7 @@ elif selected_page == "💼 Paper Portfolio":
     # Determine leader
     performances = [
         ("User", user_ytd_return),
-        ("Founder", get_ytd_return(calculate_portfolio_value(st.session_state.founder_portfolio, st.session_state.founder_cash), 50000.0)),
+        ("Founder", get_ytd_return(calculate_portfolio_value(st.session_state.founder_portfolio, st.session_state.founder_cash), STARTING_CASH)),
         ("SPY", spy_ytd_return)
     ]
     leader = max(performances, key=lambda x: x[1])
@@ -20619,12 +20614,12 @@ elif selected_page == "💼 Paper Portfolio":
     st.divider()
     if st.button("🔄 Reset Your Portfolio", type="secondary"):
         st.session_state.portfolio = []
-        st.session_state.cash = 50000.0
+        st.session_state.cash = STARTING_CASH
         st.session_state.transactions = []
         st.session_state.realized_gains = 0.0
         st.session_state.concentration_flags = {}
         save_user_progress()
-        st.success("Portfolio reset! You have $50,000 to start fresh.")
+        st.success(f"Portfolio reset! You have ${STARTING_CASH:,.0f} to start fresh.")
         st.rerun()
     
     # AI Coach integration
