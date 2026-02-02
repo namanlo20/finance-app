@@ -5676,7 +5676,20 @@ def render_ai_chatbot():
     # Add prominent button in sidebar
     with st.sidebar:
         st.markdown("---")
-        # Single AI Assistant button with description below
+        # Red styled AI Assistant button
+        st.markdown("""
+        <style>
+        /* Make AI Assistant button red */
+        [data-testid="stSidebar"] button[kind="primary"] {
+            background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%) !important;
+            border: none !important;
+            color: white !important;
+        }
+        [data-testid="stSidebar"] button[kind="primary"]:hover {
+            background: linear-gradient(135deg, #FF6666 0%, #EE0000 100%) !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
         if st.button("🤖 AI Assistant", key="sidebar_ai_chat_button", use_container_width=True, type="primary"):
             show_chatbot_dialog()
         st.caption("Ask about stocks, prices, investing concepts and much more")
@@ -7645,25 +7658,52 @@ with header_cols[0]:
         st.rerun()
 
 with header_cols[1]:
-    start_options = ["🏠 Start Here ▼", "🏠 Start Here", "🧠 Risk Quiz", "📚 Learn Hub", "📘 Glossary"]
-    start_choice = st.selectbox("", start_options, key="nav_start_select", label_visibility="collapsed")
-    if start_choice and start_choice != "🏠 Start Here ▼":
-        st.session_state.selected_page = start_choice
-        st.rerun()
+    with st.popover("🏠 Start Here ▼", use_container_width=True):
+        if st.button("🏠 Start Here", key="nav_start_here", use_container_width=True):
+            st.session_state.selected_page = "🏠 Start Here"
+            st.rerun()
+        if st.button("🧠 Risk Quiz", key="nav_risk_quiz", use_container_width=True):
+            st.session_state.selected_page = "🧠 Risk Quiz"
+            st.rerun()
+        if st.button("📚 Learn Hub", key="nav_learn_hub", use_container_width=True):
+            st.session_state.selected_page = "📚 Learn Hub"
+            st.rerun()
+        if st.button("📘 Glossary", key="nav_glossary", use_container_width=True):
+            st.session_state.selected_page = "📘 Glossary"
+            st.rerun()
 
 with header_cols[2]:
-    company_options = ["📊 Company Analysis ▼", "📊 Company Analysis", "📈 Financial Health", "📰 Market Intelligence", "📊 Market Overview", "🔍 AI Stock Screener"]
-    company_choice = st.selectbox("", company_options, key="nav_company_select", label_visibility="collapsed")
-    if company_choice and company_choice != "📊 Company Analysis ▼":
-        st.session_state.selected_page = company_choice
-        st.rerun()
+    with st.popover("📊 Company Analysis ▼", use_container_width=True):
+        if st.button("📊 Company Analysis", key="nav_company_analysis", use_container_width=True):
+            st.session_state.selected_page = "📊 Company Analysis"
+            st.rerun()
+        if st.button("📈 Financial Health", key="nav_financial_health", use_container_width=True):
+            st.session_state.selected_page = "📈 Financial Health"
+            st.rerun()
+        if st.button("📰 Market Intelligence", key="nav_market_intel", use_container_width=True):
+            st.session_state.selected_page = "📰 Market Intelligence"
+            st.rerun()
+        if st.button("📊 Market Overview", key="nav_market_overview", use_container_width=True):
+            st.session_state.selected_page = "📊 Market Overview"
+            st.rerun()
+        if st.button("🔍 AI Stock Screener", key="nav_ai_screener", use_container_width=True):
+            st.session_state.selected_page = "🔍 AI Stock Screener"
+            st.rerun()
 
 with header_cols[3]:
-    pro_options = ["📊 Pro Checklist ▼", "📊 Pro Checklist", "👑 Ultimate", "💼 Paper Portfolio", "👤 Naman's Portfolio"]
-    pro_choice = st.selectbox("", pro_options, key="nav_pro_select", label_visibility="collapsed")
-    if pro_choice and pro_choice != "📊 Pro Checklist ▼":
-        st.session_state.selected_page = pro_choice
-        st.rerun()
+    with st.popover("📊 Pro Checklist ▼", use_container_width=True):
+        if st.button("📊 Pro Checklist", key="nav_pro_checklist", use_container_width=True):
+            st.session_state.selected_page = "📊 Pro Checklist"
+            st.rerun()
+        if st.button("👑 Ultimate", key="nav_ultimate", use_container_width=True):
+            st.session_state.selected_page = "👑 Ultimate"
+            st.rerun()
+        if st.button("💼 Paper Portfolio", key="nav_paper_portfolio", use_container_width=True):
+            st.session_state.selected_page = "💼 Paper Portfolio"
+            st.rerun()
+        if st.button("👤 Naman's Portfolio", key="nav_naman_portfolio", use_container_width=True):
+            st.session_state.selected_page = "👤 Naman's Portfolio"
+            st.rerun()
 
 # Spacer column (header_cols[4]) - empty
 
