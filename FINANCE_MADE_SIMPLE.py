@@ -20325,9 +20325,14 @@ elif selected_page == "💼 Paper Portfolio":
         
         st.markdown(f"### 🛒 {panel_title}")
         
+        # Check for prefilled ticker from quick buy/sell buttons
+        prefill_ticker = st.session_state.pop(f'prefill_ticker_{portfolio_type}', '')
+        prefill_action = st.session_state.pop(f'prefill_action_{portfolio_type}', None)
+        
         # Ticker input with name resolution
         ticker_input = st.text_input(
             "Stock (name or ticker)",
+            value=prefill_ticker,
             placeholder="AAPL or Apple",
             key=f"ticker_input_{portfolio_type}"
         ).strip()
@@ -20350,11 +20355,13 @@ elif selected_page == "💼 Paper Portfolio":
             current_price = quote.get('price', 0)
             st.metric("Current Price", f"${current_price:.2f}")
             
-            # Action toggle
+            # Action toggle - default to prefilled action if set
+            default_action_idx = 1 if prefill_action == 'Sell' else 0
             action = st.radio(
                 "Action",
                 ["Buy", "Sell"],
                 horizontal=True,
+                index=default_action_idx,
                 key=f"action_{portfolio_type}"
             )
             
@@ -20480,49 +20487,88 @@ elif selected_page == "💼 Paper Portfolio":
     
     # ============= POSITIONS TABLE COMPONENT =============
     def render_positions_table(portfolio, realized_gains, portfolio_type='user'):
-        """Render positions table with realized/unrealized G/L"""
+        """Render Robinhood-style positions with buy/sell buttons"""
         if not portfolio:
             st.info("No positions yet. Use the trade panel to buy your first stock!")
             return
+        
+        # Get transactions for this portfolio type
+        if portfolio_type == 'founder':
+            transactions = st.session_state.founder_transactions
+        else:
+            transactions = st.session_state.transactions
         
         # Update concentration flags
         update_concentration_flags(portfolio)
         concentration_flags = st.session_state.get('concentration_flags', {})
         
-        positions_data = []
-        for pos in portfolio:
+        # Render each position as a card
+        for idx, pos in enumerate(portfolio):
             quote = get_quote(pos['ticker'])
-            if quote:
-                current_price = quote.get('price', 0)
-                market_value = pos['shares'] * current_price
-                cost_basis = pos['shares'] * pos['avg_price']
-                unrealized_gain = market_value - cost_basis
-                unrealized_gain_pct = (unrealized_gain / cost_basis * 100) if cost_basis > 0 else 0
+            if not quote:
+                continue
                 
-                # Get concentration warning icon
-                conc_flag = concentration_flags.get(pos['ticker'], {})
-                severity = conc_flag.get('severity', 'none')
-                warning_icon = "🚨" if severity == "high" else "⚠️" if severity == "warning" else ""
+            current_price = quote.get('price', 0)
+            market_value = pos['shares'] * current_price
+            cost_basis = pos['shares'] * pos['avg_price']
+            unrealized_gain = market_value - cost_basis
+            unrealized_gain_pct = (unrealized_gain / cost_basis * 100) if cost_basis > 0 else 0
+            
+            # Concentration warning
+            conc_flag = concentration_flags.get(pos['ticker'], {})
+            severity = conc_flag.get('severity', 'none')
+            warning_icon = "🚨 " if severity == "high" else "⚠️ " if severity == "warning" else ""
+            
+            # Color for gain/loss
+            gain_color = "#00C853" if unrealized_gain >= 0 else "#FF5252"
+            
+            # Position card with columns
+            with st.container():
+                col1, col2, col3, col4 = st.columns([2, 2, 2, 1.5])
                 
-                positions_data.append({
-                    '⚠': warning_icon,
-                    'Ticker': pos['ticker'],
-                    'Shares': f"{pos['shares']:.4f}",
-                    'Avg Cost': f"${pos['avg_price']:.2f}",
-                    'Price': f"${current_price:.2f}",
-                    'Value': f"${market_value:,.2f}",
-                    'Unrealized $': f"${unrealized_gain:,.2f}",
-                    'Unrealized %': f"{unrealized_gain_pct:+.2f}%"
-                })
+                with col1:
+                    st.markdown(f"### {warning_icon}{pos['ticker']}")
+                    st.caption(f"{pos['shares']:.4f} shares")
+                
+                with col2:
+                    st.metric("Avg Cost", f"${pos['avg_price']:.2f}")
+                
+                with col3:
+                    st.metric("Market Value", f"${market_value:,.2f}", 
+                              delta=f"{unrealized_gain_pct:+.2f}%")
+                
+                with col4:
+                    # Buy/Sell buttons
+                    buy_col, sell_col = st.columns(2)
+                    with buy_col:
+                        if st.button("🟢 Buy", key=f"quick_buy_{portfolio_type}_{pos['ticker']}_{idx}", use_container_width=True):
+                            st.session_state[f'prefill_ticker_{portfolio_type}'] = pos['ticker']
+                            st.session_state[f'prefill_action_{portfolio_type}'] = 'Buy'
+                            st.rerun()
+                    with sell_col:
+                        if st.button("🔴 Sell", key=f"quick_sell_{portfolio_type}_{pos['ticker']}_{idx}", use_container_width=True):
+                            st.session_state[f'prefill_ticker_{portfolio_type}'] = pos['ticker']
+                            st.session_state[f'prefill_action_{portfolio_type}'] = 'Sell'
+                            st.rerun()
+                
+                # Expandable transaction history for this ticker
+                ticker_transactions = [t for t in transactions if t.get('ticker') == pos['ticker']]
+                if ticker_transactions:
+                    with st.expander(f"📜 {pos['ticker']} Trade History ({len(ticker_transactions)} trades)", expanded=False):
+                        for txn in reversed(ticker_transactions[-10:]):
+                            txn_type = txn.get('type', 'BUY')
+                            txn_color = "#00C853" if txn_type == 'BUY' else "#FF5252"
+                            st.markdown(f"""
+                            <div style="padding: 8px; margin: 4px 0; background: #f8f9fa; border-radius: 6px; border-left: 4px solid {txn_color};">
+                                <strong>{txn_type}</strong> {txn.get('shares', 0):.4f} shares @ ${txn.get('price', 0):.2f}<br>
+                                <small style="color: #666;">{txn.get('date', 'N/A')} • Total: ${txn.get('total', 0):,.2f}</small>
+                            </div>
+                            """, unsafe_allow_html=True)
+                
+                st.markdown("---")
         
-        if positions_data:
-            df = pd.DataFrame(positions_data)
-            st.dataframe(df, use_container_width=True, hide_index=True)
-            
-            if any(row['⚠'] for row in positions_data):
-                st.caption("⚠️ = Concentration warning | 🚨 = High concentration risk")
-            
-            st.caption(f"**Total Realized G/L:** ${realized_gains:,.2f}")
+        # Summary
+        st.caption(f"**Total Realized G/L:** ${realized_gains:,.2f}")
     
     # ============= SECTION A: YOUR PAPER PORTFOLIO =============
     st.markdown("## 📊 Section A — Your Paper Portfolio")
