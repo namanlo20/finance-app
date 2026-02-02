@@ -5676,17 +5676,25 @@ def render_ai_chatbot():
     # Add prominent button in sidebar
     with st.sidebar:
         st.markdown("---")
-        # Red styled AI Assistant button
+        # Use HTML button that matches nav tabs exactly
         st.markdown("""
         <style>
-        /* Make AI Assistant button red */
-        [data-testid="stSidebar"] button[kind="primary"] {
+        /* AI Assistant button - SAME red as nav tabs */
+        div[data-testid="stSidebar"] button[kind="primary"] {
             background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%) !important;
             border: none !important;
-            color: white !important;
+            border-radius: 8px !important;
+            color: #FFFFFF !important;
+            font-weight: 600 !important;
+            min-height: 42px !important;
         }
-        [data-testid="stSidebar"] button[kind="primary"]:hover {
-            background: linear-gradient(135deg, #FF6666 0%, #EE0000 100%) !important;
+        div[data-testid="stSidebar"] button[kind="primary"]:hover {
+            background: linear-gradient(135deg, #FF6666 0%, #DD0000 100%) !important;
+            box-shadow: 0 4px 12px rgba(255, 68, 68, 0.4) !important;
+        }
+        div[data-testid="stSidebar"] button[kind="primary"] p,
+        div[data-testid="stSidebar"] button[kind="primary"] span {
+            color: #FFFFFF !important;
         }
         </style>
         """, unsafe_allow_html=True)
@@ -7226,28 +7234,6 @@ def render_fit_check_panel(ticker=None):
     # Only display technical details if not unknown
     if risk_tier != "unknown" and vol_tier != "unknown":
         st.caption(f"Risk tier: **{risk_tier}** | Volatility: **{vol_tier}** (method: {vol_method})")
-
-    """Render the site logo at top of page - centered, smaller size"""
-    import base64
-    
-    # For deployment: User should add logo.png to their repo root
-    logo_path = "logo.png"
-    
-    try:
-        col1, col2, col3 = st.columns([1, 1, 1])
-        with col2:
-            st.image(logo_path, width=300)  # Fixed width for smaller size
-    except:
-        # Fallback if image not found - show text logo
-        st.markdown("""
-        <div style="text-align: center; padding: 10px 0; margin-bottom: 10px;">
-            <h3 style="color: #FF4444; margin: 0;">STOCKINVESTING.AI</h3>
-            <p style="color: #888; margin: 5px 0; font-size: 0.9em;">
-                <span style="color: #00D9FF;">LEARN</span> • 
-                <span style="color: #FFD700;">INVEST</span>
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
 
 def render_setup_nudge():
     """Render non-blocking setup nudge card"""
