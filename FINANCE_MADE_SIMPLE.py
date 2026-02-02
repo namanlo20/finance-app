@@ -270,9 +270,21 @@ def show_page_popup(page_id, title, summary, cool_feature):
     if 'dismissed_popups' not in st.session_state:
         st.session_state.dismissed_popups = set()
     
-    # Already dismissed this session? Skip.
+    # Already dismissed this session? Skip completely - don't even define the dialog
     if page_id in st.session_state.dismissed_popups:
         return
+    
+    # Check if popup dialog is currently open for THIS page
+    popup_key = f"popup_shown_{page_id}"
+    if popup_key not in st.session_state:
+        st.session_state[popup_key] = False
+    
+    # If we've shown it once but user hasn't clicked "Got it", don't show again on rerun
+    if st.session_state[popup_key]:
+        return
+    
+    # Mark that we're showing this popup
+    st.session_state[popup_key] = True
     
     # Inject global CSS to style ALL dialogs with dark background
     st.markdown("""
@@ -3640,187 +3652,94 @@ COMPANY_NAME_TO_TICKER = {
     "amc": "AMC", "amc entertainment": "AMC",
     "spy": "SPY", "s&p 500": "SPY", "s&p": "SPY",
     "qqq": "QQQ", "nasdaq": "QQQ",
-    # Additional common searches that were failing
-    "micron": "MU", "micron technology": "MU", "mu": "MU",
-    "dolby": "DLB", "dolby laboratories": "DLB", "dlb": "DLB",
-    "qualcomm": "QCOM", "qcom": "QCOM",
-    "broadcom": "AVGO", "avgo": "AVGO",
-    "texas instruments": "TXN", "txn": "TXN",
-    "lam research": "LRCX", "lrcx": "LRCX",
-    "applied materials": "AMAT", "amat": "AMAT",
-    "asml": "ASML",
-    "tsmc": "TSM", "taiwan semiconductor": "TSM", "tsm": "TSM",
-    "arm": "ARM", "arm holdings": "ARM",
-    "crowdstrike": "CRWD", "crwd": "CRWD",
-    "datadog": "DDOG", "ddog": "DDOG",
-    "servicenow": "NOW", "now": "NOW",
-    "workday": "WDAY", "wday": "WDAY",
-    "atlassian": "TEAM", "team": "TEAM",
-    "twilio": "TWLO", "twlo": "TWLO",
-    "square": "SQ", "block": "SQ", "sq": "SQ",
-    "shopify": "SHOP", "shop": "SHOP",
-    "roku": "ROKU",
-    "draftkings": "DKNG", "dkng": "DKNG",
-    "roblox": "RBLX", "rblx": "RBLX",
-    "unity": "U", "unity software": "U",
-    "rivian": "RIVN", "rivn": "RIVN",
-    "lucid": "LCID", "lucid motors": "LCID", "lcid": "LCID",
-    "nio": "NIO",
-    "ford": "F", "f": "F",
-    "gm": "GM", "general motors": "GM",
-    "att": "T", "at&t": "T", "t": "T",
-    "verizon": "VZ", "vz": "VZ",
-    "t-mobile": "TMUS", "tmobile": "TMUS", "tmus": "TMUS",
-    "comcast": "CMCSA", "cmcsa": "CMCSA",
-    "target": "TGT", "tgt": "TGT",
-    "lowes": "LOW", "lowe's": "LOW", "low": "LOW",
-    "cvs": "CVS", "cvs health": "CVS",
-    "walgreens": "WBA", "wba": "WBA",
-    "moderna": "MRNA", "mrna": "MRNA",
-    "eli lilly": "LLY", "lilly": "LLY", "lly": "LLY",
-    "abbvie": "ABBV", "abbv": "ABBV",
-    "merck": "MRK", "mrk": "MRK",
-    "bristol myers": "BMY", "bristol-myers": "BMY", "bmy": "BMY",
-    "amgen": "AMGN", "amgn": "AMGN",
-    "gilead": "GILD", "gilead sciences": "GILD", "gild": "GILD",
-    "regeneron": "REGN", "regn": "REGN",
-    "biogen": "BIIB", "biib": "BIIB",
-    "bank of america": "BAC", "bofa": "BAC", "bac": "BAC",
-    "wells fargo": "WFC", "wfc": "WFC",
-    "citigroup": "C", "citi": "C", "c": "C",
-    "goldman sachs": "GS", "goldman": "GS", "gs": "GS",
-    "morgan stanley": "MS", "ms": "MS",
-    "american express": "AXP", "amex": "AXP", "axp": "AXP",
-    "blackrock": "BLK", "blk": "BLK",
-    "charles schwab": "SCHW", "schwab": "SCHW", "schw": "SCHW",
-    "caterpillar": "CAT", "cat": "CAT",
-    "deere": "DE", "john deere": "DE", "de": "DE",
-    "3m": "MMM", "mmm": "MMM",
-    "honeywell": "HON", "hon": "HON",
-    "ge": "GE", "general electric": "GE",
-    "lockheed": "LMT", "lockheed martin": "LMT", "lmt": "LMT",
-    "raytheon": "RTX", "rtx": "RTX",
-    "northrop": "NOC", "northrop grumman": "NOC", "noc": "NOC",
-    "ups": "UPS", "united parcel": "UPS",
-    "fedex": "FDX", "fdx": "FDX",
-    "delta": "DAL", "delta airlines": "DAL", "dal": "DAL",
-    "united airlines": "UAL", "ual": "UAL",
-    "american airlines": "AAL", "aal": "AAL",
-    "southwest": "LUV", "southwest airlines": "LUV", "luv": "LUV",
 }
 
 # Magnificent 7 tickers for default news
 MAG_7_TICKERS = ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA"]
 
-@st.cache_data(ttl=3600)  # Cache for 1 hour
-def search_fmp_ticker(query):
-    """
-    Search FMP API directly for company name/ticker.
-    THIS IS THE PRIMARY SEARCH METHOD - handles ANY company.
-    """
-    if not query or len(query.strip()) < 1:
-        return None, None
-    
-    query = query.strip()
-    
-    # Try the search endpoint
-    url = f"{BASE_URL}/search?query={query}&limit=15&apikey={FMP_API_KEY}"
-    
-    try:
-        response = requests.get(url, timeout=15)
-        if response.status_code == 200:
-            results = response.json()
-            if results and len(results) > 0:
-                # Filter for US stocks first (NYSE, NASDAQ, AMEX)
-                us_results = [r for r in results if r.get('exchangeShortName') in ['NYSE', 'NASDAQ', 'AMEX', 'NYSEArca', 'BATS']]
-                
-                if us_results:
-                    # Return the first US result
-                    best = us_results[0]
-                    return best.get('symbol'), best.get('name')
-                
-                # If no US stocks, try ETFs
-                etf_results = [r for r in results if r.get('exchangeShortName') == 'ETF']
-                if etf_results:
-                    best = etf_results[0]
-                    return best.get('symbol'), best.get('name')
-                
-                # Fallback to first result
-                best = results[0]
-                return best.get('symbol'), best.get('name')
-    except Exception as e:
-        print(f"[FMP Search] Error searching '{query}': {e}")
-    
-    return None, None
-
 def resolve_company_to_ticker(query):
-    """
-    Convert company name or ticker to standardized ticker symbol.
-    USES FMP API TO FIND ANY COMPANY - not limited to dictionary!
-    """
+    """Convert company name or ticker to standardized ticker symbol"""
     if not query:
         return None
     
-    query_clean = query.strip()
-    if not query_clean:
-        return None
+    query_lower = query.strip().lower()
     
-    query_lower = query_clean.lower()
-    query_upper = query_clean.upper()
-    
-    # 1. Quick dictionary lookup for common names (FAST PATH)
+    # Check direct mapping first
     if query_lower in COMPANY_NAME_TO_TICKER:
         return COMPANY_NAME_TO_TICKER[query_lower]
     
-    # 2. If it looks like a ticker (short, all letters), verify it exists
-    if len(query_upper) <= 5 and query_upper.replace('.', '').replace('-', '').isalpha():
-        profile = get_profile(query_upper)
-        if profile and profile.get('symbol'):
-            return query_upper
+    # Check if it's already a valid ticker (uppercase)
+    # Support tickers with dots (BRK.B) and dashes (BRK-B)
+    query_upper = query.strip().upper()
+    query_clean = query_upper.replace('.', '').replace('-', '')
     
-    # 3. USE FMP SEARCH API - This finds ANY company!
-    # This is the critical path for companies not in our dictionary
-    ticker, name = search_fmp_ticker(query_clean)
-    if ticker:
-        return ticker
+    # Valid ticker patterns: 1-5 letters, optionally followed by .X or -X (class shares)
+    # Examples: AAPL, MSFT, BRK.B, BRK-B, RDS.A
+    if len(query_clean) <= 6 and query_clean.isalpha():
+        normalized = query_upper.replace('-', '.')
+        try:
+            all_stocks = get_all_stocks()
+            # Only accept as ticker if it actually exists
+            if normalized in all_stocks:
+                return normalized
+            # Otherwise resolve as company name (Dolby -> DLB)
+            ticker, _ = smart_search_ticker(query)
+            return ticker
+        except Exception:
+            return normalized
+
     
-    # 4. If still not found, return as uppercase (user might know the exact ticker)
-    return query_upper
+    # Fuzzy match - check if query is contained in any company name
+    for name, ticker in COMPANY_NAME_TO_TICKER.items():
+        if query_lower in name or name in query_lower:
+            return ticker
+    
+    # Default: return as-is (uppercase), normalize dashes to dots
+    return query_upper.replace('-', '.')
 
 def smart_search_ticker(search_term):
-    """
-    Smart search with company name support - returns (ticker, company_name).
-    USES FMP API TO FIND ANY COMPANY!
-    """
+    """Smart search with company name support - FIXED to prioritize exact matches"""
     if not search_term:
         return None, None
     
-    search_term_clean = search_term.strip()
-    if not search_term_clean:
-        return None, None
+    search_upper = search_term.upper().strip()
+    search_lower = search_term.lower().strip()
     
-    search_lower = search_term_clean.lower()
-    search_upper = search_term_clean.upper()
-    
-    # 1. Quick dictionary lookup
+    # 1. Check dictionary FIRST for exact matches
     if search_lower in COMPANY_NAME_TO_TICKER:
         ticker = COMPANY_NAME_TO_TICKER[search_lower]
-        profile = get_profile(ticker)
-        company_name = profile.get('companyName', ticker) if profile else ticker
-        return ticker, company_name
+        return ticker, ticker
     
-    # 2. Check if it's already a valid ticker
-    if len(search_upper) <= 5 and search_upper.replace('.', '').replace('-', '').isalpha():
+    # 2. If it looks like a ticker (1-5 chars), verify with FMP profile
+    if len(search_upper) <= 5 and search_upper.isalpha():
         profile = get_profile(search_upper)
         if profile and profile.get('symbol'):
             return search_upper, profile.get('companyName', search_upper)
     
-    # 3. USE FMP SEARCH API - This finds ANY company!
-    ticker, name = search_fmp_ticker(search_term_clean)
-    if ticker:
-        return ticker, name or ticker
+    # 3. Check all_stocks for exact match
+    all_stocks = get_all_stocks()
+    if search_upper in all_stocks and len(search_upper) <= 5:
+        return search_upper, all_stocks[search_upper]
     
-    # 4. Return as-is (user might know exact ticker)
+    # 4. Search FMP API for company names
+    try:
+        url = f"{BASE_URL}/search?query={search_term}&limit=10&apikey={FMP_API_KEY}"
+        response = requests.get(url, timeout=10)
+        if response.status_code == 200:
+            results = response.json()
+            if results:
+                # Prefer US exchanges
+                us_results = [r for r in results if r.get('exchangeShortName') in ['NYSE', 'NASDAQ', 'AMEX']]
+                if us_results:
+                    best = us_results[0]
+                    return best.get('symbol'), best.get('name', best.get('symbol'))
+                if results:
+                    best = results[0]
+                    return best.get('symbol'), best.get('name', best.get('symbol'))
+    except:
+        pass
+    
+    # 5. Return as-is (might be valid ticker we don't know)
     return search_upper, search_upper
 
 @st.cache_data(ttl=300)
@@ -5729,6 +5648,10 @@ def render_ai_chatbot():
     if 'chat_messages' not in st.session_state:
         st.session_state.chat_messages = []
     
+    # Track if dialog should stay open
+    if 'chatbot_dialog_open' not in st.session_state:
+        st.session_state.chatbot_dialog_open = False
+    
     # Define chatbot dialog
     @st.dialog("🤖 AI Investment Assistant", width="large")
     def show_chatbot_dialog():
@@ -5749,18 +5672,17 @@ def render_ai_chatbot():
         
         st.markdown("---")
         
-        # Input
-        user_input = st.text_input("Your question:", placeholder="e.g., What's Tesla's market cap?", key="chatbot_dialog_input")
+        # Input using form to prevent dialog close
+        with st.form(key="chatbot_form", clear_on_submit=True):
+            user_input = st.text_input("Your question:", placeholder="e.g., What's Tesla's market cap?", key="chatbot_form_input")
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                send_btn = st.form_submit_button("📤 Send", type="primary", use_container_width=True)
+            with col2:
+                clear_btn = st.form_submit_button("🗑️ Clear")
         
-        col1, col2, col3 = st.columns([2, 1, 1])
-        with col1:
-            send_btn = st.button("📤 Send", type="primary", use_container_width=True, key="chatbot_send_btn")
-        with col2:
-            if st.button("🗑️ Clear", key="chatbot_clear_btn"):
-                st.session_state.chat_messages = []
-                st.rerun()
-        with col3:
-            pass  # Empty column for spacing
+        if clear_btn:
+            st.session_state.chat_messages = []
         
         if send_btn and user_input:
             st.session_state.chat_messages.append({"role": "user", "content": user_input})
@@ -5775,56 +5697,24 @@ def render_ai_chatbot():
                 response = get_chatbot_response(user_input, context)
             
             st.session_state.chat_messages.append({"role": "assistant", "content": response})
-            st.rerun()
+            # Display response immediately without closing dialog
+            st.markdown(f'<div style="background: rgba(33,150,243,0.15); padding: 10px 15px; border-radius: 10px; margin: 8px 0; color: #333;"><strong>🤖 AI:</strong> {response}</div>', unsafe_allow_html=True)
     
-    # Add prominent button in sidebar
+    # Add prominent button in sidebar with DARK RED styling
     with st.sidebar:
         st.markdown("---")
-        st.markdown("### 🤖 AI Assistant")
-        st.caption("Ask about stocks, prices, investing concepts")
+        # Dark red AI Assistant box
+        st.markdown("""
+        <div style="background: linear-gradient(135deg, #8B0000 0%, #CC0000 100%); 
+                    padding: 15px; border-radius: 12px; margin-bottom: 10px;
+                    border: 2px solid #FF4444;">
+            <h3 style="color: #FFFFFF; margin: 0 0 5px 0; font-size: 18px;">🤖 AI Assistant</h3>
+            <p style="color: #FFCCCC; margin: 0; font-size: 13px;">Ask about stocks, prices, investing concepts</p>
+        </div>
+        """, unsafe_allow_html=True)
         if st.button("💬 Ask AI a Question", key="sidebar_ai_chat_button", use_container_width=True, type="primary"):
             show_chatbot_dialog()
     
-    # Also show a visual indicator (non-clickable) at bottom right
-    st.markdown("""
-    <style>
-    .chatbot-indicator {
-        position: fixed !important;
-        bottom: 30px !important;
-        right: 30px !important;
-        width: 60px !important;
-        height: 60px !important;
-        background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%) !important;
-        border-radius: 50% !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        z-index: 999998 !important;
-        box-shadow: 0 4px 20px rgba(255, 68, 68, 0.5) !important;
-        border: 3px solid #FFFFFF !important;
-        font-size: 28px !important;
-        animation: pulse-indicator 2s infinite !important;
-    }
-    @keyframes pulse-indicator {
-        0%, 100% { transform: scale(1); }
-        50% { transform: scale(1.05); }
-    }
-    .chatbot-tooltip {
-        position: fixed !important;
-        bottom: 100px !important;
-        right: 20px !important;
-        background: #333 !important;
-        color: white !important;
-        padding: 8px 12px !important;
-        border-radius: 8px !important;
-        font-size: 12px !important;
-        z-index: 999997 !important;
-        white-space: nowrap !important;
-    }
-    </style>
-    <div class="chatbot-indicator">💬</div>
-    <div class="chatbot-tooltip">Use sidebar button to chat →</div>
-    """, unsafe_allow_html=True)
 
 # ============= WELCOME POPUP =============
 def show_welcome_popup():
@@ -7772,6 +7662,18 @@ def nav_action_changed():
 
 # Create columns for header with navigation tabs + auth buttons
 # Layout: [Dashboard] [Learn▼] [Analyze▼] [Action▼] [---spacer---] [Sign Up] [Sign In] [VIP]
+
+# Add CSS for active tab highlighting
+current_page = st.session_state.selected_page
+st.markdown(f"""
+<style>
+/* Style for active navigation button - make it stand out */
+[data-testid="stButton"] button {{
+    transition: all 0.2s ease;
+}}
+</style>
+""", unsafe_allow_html=True)
+
 if st.session_state.get("is_logged_in"):
     header_cols = st.columns([1.3, 1.5, 1.8, 1.5, 1.5, 1.5, 1.3])
 else:
@@ -7779,55 +7681,69 @@ else:
 
 # Navigation tabs on the LEFT
 with header_cols[0]:
-    if st.button("🏠 Dashboard", key="nav_dashboard_btn", use_container_width=True):
+    # Highlight if on Dashboard
+    btn_type = "primary" if current_page == "🏠 Dashboard" else "secondary"
+    if st.button("🏠 Dashboard", key="nav_dashboard_btn", use_container_width=True, type=btn_type):
         st.session_state.selected_page = "🏠 Dashboard"
         st.rerun()
 
 with header_cols[1]:
-    with st.popover("🏠 Start Here", use_container_width=True):
-        if st.button("🏠 Start Here", key="nav_start_here", use_container_width=True):
+    # Check if any page in this group is active
+    start_here_pages = ["🏠 Start Here", "🧠 Risk Quiz", "📚 Learn Hub", "📘 Glossary"]
+    is_start_here_active = current_page in start_here_pages
+    popover_label = "🏠 Start Here ▼" if not is_start_here_active else "🏠 Start Here ✓"
+    with st.popover(popover_label, use_container_width=True):
+        if st.button("🏠 Start Here", key="nav_start_here", use_container_width=True, type="primary" if current_page == "🏠 Start Here" else "secondary"):
             st.session_state.selected_page = "🏠 Start Here"
             st.rerun()
-        if st.button("🧠 Risk Quiz", key="nav_risk_quiz", use_container_width=True):
+        if st.button("🧠 Risk Quiz", key="nav_risk_quiz", use_container_width=True, type="primary" if current_page == "🧠 Risk Quiz" else "secondary"):
             st.session_state.selected_page = "🧠 Risk Quiz"
             st.rerun()
-        if st.button("📚 Learn Hub", key="nav_learn_hub", use_container_width=True):
+        if st.button("📚 Learn Hub", key="nav_learn_hub", use_container_width=True, type="primary" if current_page == "📚 Learn Hub" else "secondary"):
             st.session_state.selected_page = "📚 Learn Hub"
             st.rerun()
-        if st.button("📘 Glossary", key="nav_glossary", use_container_width=True):
+        if st.button("📘 Glossary", key="nav_glossary", use_container_width=True, type="primary" if current_page == "📘 Glossary" else "secondary"):
             st.session_state.selected_page = "📘 Glossary"
             st.rerun()
 
 with header_cols[2]:
-    with st.popover("📊 Company Analysis", use_container_width=True):
-        if st.button("📊 Company Analysis", key="nav_company_analysis", use_container_width=True):
+    # Check if any page in this group is active
+    company_pages = ["📊 Company Analysis", "📈 Financial Health", "📰 Market Intelligence", "📊 Market Overview", "🔍 AI Stock Screener"]
+    is_company_active = current_page in company_pages
+    popover_label2 = "📊 Company Analysis ▼" if not is_company_active else "📊 Company Analysis ✓"
+    with st.popover(popover_label2, use_container_width=True):
+        if st.button("📊 Company Analysis", key="nav_company_analysis", use_container_width=True, type="primary" if current_page == "📊 Company Analysis" else "secondary"):
             st.session_state.selected_page = "📊 Company Analysis"
             st.rerun()
-        if st.button("📈 Financial Health", key="nav_financial_health", use_container_width=True):
+        if st.button("📈 Financial Health", key="nav_financial_health", use_container_width=True, type="primary" if current_page == "📈 Financial Health" else "secondary"):
             st.session_state.selected_page = "📈 Financial Health"
             st.rerun()
-        if st.button("📰 Market Intelligence", key="nav_market_intel", use_container_width=True):
+        if st.button("📰 Market Intelligence", key="nav_market_intel", use_container_width=True, type="primary" if current_page == "📰 Market Intelligence" else "secondary"):
             st.session_state.selected_page = "📰 Market Intelligence"
             st.rerun()
-        if st.button("📊 Market Overview", key="nav_market_overview", use_container_width=True):
+        if st.button("📊 Market Overview", key="nav_market_overview", use_container_width=True, type="primary" if current_page == "📊 Market Overview" else "secondary"):
             st.session_state.selected_page = "📊 Market Overview"
             st.rerun()
-        if st.button("🔍 AI Stock Screener", key="nav_ai_screener", use_container_width=True):
+        if st.button("🔍 AI Stock Screener", key="nav_ai_screener", use_container_width=True, type="primary" if current_page == "🔍 AI Stock Screener" else "secondary"):
             st.session_state.selected_page = "🔍 AI Stock Screener"
             st.rerun()
 
 with header_cols[3]:
-    with st.popover("📊 Pro Checklist", use_container_width=True):
-        if st.button("📊 Pro Checklist", key="nav_pro_checklist", use_container_width=True):
+    # Check if any page in this group is active
+    pro_pages = ["📊 Pro Checklist", "👑 Ultimate", "💼 Paper Portfolio", "👤 Naman's Portfolio"]
+    is_pro_active = current_page in pro_pages
+    popover_label3 = "📊 Pro Checklist ▼" if not is_pro_active else "📊 Pro Checklist ✓"
+    with st.popover(popover_label3, use_container_width=True):
+        if st.button("📊 Pro Checklist", key="nav_pro_checklist", use_container_width=True, type="primary" if current_page == "📊 Pro Checklist" else "secondary"):
             st.session_state.selected_page = "📊 Pro Checklist"
             st.rerun()
-        if st.button("👑 Ultimate", key="nav_ultimate", use_container_width=True):
+        if st.button("👑 Ultimate", key="nav_ultimate", use_container_width=True, type="primary" if current_page == "👑 Ultimate" else "secondary"):
             st.session_state.selected_page = "👑 Ultimate"
             st.rerun()
-        if st.button("💼 Paper Portfolio", key="nav_paper_portfolio", use_container_width=True):
+        if st.button("💼 Paper Portfolio", key="nav_paper_portfolio", use_container_width=True, type="primary" if current_page == "💼 Paper Portfolio" else "secondary"):
             st.session_state.selected_page = "💼 Paper Portfolio"
             st.rerun()
-        if st.button("👤 Naman's Portfolio", key="nav_naman_portfolio", use_container_width=True):
+        if st.button("👤 Naman's Portfolio", key="nav_naman_portfolio", use_container_width=True, type="primary" if current_page == "👤 Naman's Portfolio" else "secondary"):
             st.session_state.selected_page = "👤 Naman's Portfolio"
             st.rerun()
 
