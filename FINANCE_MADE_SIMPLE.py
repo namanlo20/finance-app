@@ -3664,8 +3664,18 @@ def resolve_company_to_ticker(query):
     # Valid ticker patterns: 1-5 letters, optionally followed by .X or -X (class shares)
     # Examples: AAPL, MSFT, BRK.B, BRK-B, RDS.A
     if len(query_clean) <= 6 and query_clean.isalpha():
-        # Normalize dash to dot for FMP API compatibility (BRK-B -> BRK.B)
-        return query_upper.replace('-', '.')
+        normalized = query_upper.replace('-', '.')
+        try:
+            all_stocks = get_all_stocks()
+            # Only accept as ticker if it actually exists
+            if normalized in all_stocks:
+                return normalized
+            # Otherwise resolve as company name (Dolby -> DLB)
+            ticker, _ = smart_search_ticker(query)
+            return ticker
+        except Exception:
+            return normalized
+
     
     # Fuzzy match - check if query is contained in any company name
     for name, ticker in COMPANY_NAME_TO_TICKER.items():
