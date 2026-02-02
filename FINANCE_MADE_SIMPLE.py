@@ -2100,70 +2100,17 @@ def render_ai_coach(tab, ticker=None, facts=None):
     # Get user's first name for personalized greeting
     first_name = st.session_state.get('first_name', 'there')
     
-    # Inject CSS for the floating button and panel
+    # Inject CSS for the panel (NO floating button anymore)
     st.markdown("""
     <style>
-    /* Hide the streamlit toggle button - we use the floating button instead */
-    button[kind="secondary"]:has(p:contains("🤖")) {
-        display: none !important;
-    }
-    
     /* Hide ONLY the AI Coach toggle button (scoped) */
     .ai-coach-hidden-toggle .stButton button {
         position: absolute !important;
         opacity: 0 !important;
         pointer-events: none !important;
     }
-
-/* Floating AI button - single instance */
-    .ai-float-btn {
-        position: fixed;
-        bottom: 25px;
-        right: 25px;
-        width: 56px;
-        height: 56px;
-        border-radius: 50%;
-        background: linear-gradient(135deg, #ff3333 0%, #cc0000 100%);
-        box-shadow: 0 4px 15px rgba(255,51,51,0.4);
-        z-index: 9998;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 24px;
-        border: 2px solid rgba(255,255,255,0.2);
-        color: white;
-        transition: all 0.3s ease;
-    }
-    .ai-float-btn:hover {
-        transform: scale(1.08);
-        box-shadow: 0 6px 20px rgba(255,51,51,0.6);
-    }
-    
-    /* Mobile responsive */
-    @media (max-width: 768px) {
-        .ai-float-btn {
-            width: 50px;
-            height: 50px;
-            font-size: 20px;
-            bottom: 15px;
-            right: 15px;
-        }
-    }
     </style>
     """, unsafe_allow_html=True)
-    
-    # Show floating button only when panel is closed
-    if not st.session_state.ai_coach_open:
-        # Single floating button
-        st.markdown("""
-        <div class="ai-float-btn" id="ai-btn" onclick="
-            var btns = document.querySelectorAll('button[kind=\\'secondary\\']');
-            for(var i=0; i<btns.length; i++) {
-                if(btns[i].innerText.includes('🤖')) btns[i].click();
-            }
-        ">😊</div>
-        """, unsafe_allow_html=True)
     
     # Toggle button - we'll hide it with CSS
     st.markdown('<div class="ai-coach-hidden-toggle">', unsafe_allow_html=True)
@@ -16614,7 +16561,30 @@ elif selected_page == "📈 Financial Health":
     ratios_df = get_financial_ratios(ticker, period_type, years * 4 if period_type == 'quarter' else years)
     
     if not ratios_df.empty:
-        st.subheader(f"{company_name} ({ticker}) - Ratio Analysis")
+        # Get full profile for company header (matching Company Analysis style)
+        profile = get_profile(ticker)
+        if profile:
+            full_company_name = profile.get('companyName', ticker)
+            sector = profile.get('sector', 'N/A')
+            industry = profile.get('industry', 'N/A')
+            logo_url = profile.get('image', '')
+            
+            # Company header with LOGO (same as Company Analysis)
+            if logo_url:
+                st.markdown(f"""
+                <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                    <img src="{logo_url}" width="50" height="50" style="border-radius: 8px; margin-right: 15px;">
+                    <div>
+                        <div style="font-size: 24px; font-weight: bold;">📈 {full_company_name} ({ticker})</div>
+                        <div style="color: #888; font-size: 14px;"><strong>Sector:</strong> {sector} | <strong>Industry:</strong> {industry}</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.subheader(f"📈 {full_company_name} ({ticker})")
+                st.caption(f"**Sector:** {sector} | **Industry:** {industry}")
+        else:
+            st.subheader(f"{company_name} ({ticker}) - Ratio Analysis")
         
         # Fit Check Panel
         render_fit_check_panel(ticker)
