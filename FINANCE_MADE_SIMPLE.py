@@ -10688,13 +10688,7 @@ elif selected_page == "📚 Learn Hub":
     - Personalized recommendations
     """
     
-    # Show page popup
-    show_page_popup(
-        'learn_hub',
-        '📚 Learn Hub',
-        'Master investing with 55 interactive lessons. Earn XP and badges as you progress through beginner to advanced topics.',
-        'Take quizzes after each lesson to test your knowledge and unlock achievements!'
-    )
+    # Page popup removed - user requested no popups except welcome
     
     # ============= SESSION STATE INITIALIZATION =============
     # Initialize all Learn Hub state variables
@@ -13928,13 +13922,7 @@ elif selected_page == "📘 Glossary":
     st.header("🎓 Finance 101: From Theory to Practice")
     st.caption("*Bridge from Learn Hub lessons to real company analysis. See exactly how the metrics work on actual companies.*")
     
-    # Show page popup
-    show_page_popup(
-        'finance_101',
-        '🎓 Finance 101',
-        'Your bridge from Learn Hub lessons to real analysis. Pick a company and walk through the analysis step-by-step.',
-        'See how the 5 metrics work in practice!'
-    )
+    # Page popup removed - user requested no popups except welcome
     
     st.markdown("---")
     
@@ -14408,13 +14396,7 @@ elif selected_page == "📊 Company Analysis":
     # Track page usage
     track_feature_usage("company_analysis")
     
-    # Show page popup
-    show_page_popup(
-        'company_analysis',
-        '🔍 Company Analysis',
-        'Deep dive into any stock. View financial metrics, charts, and compare companies side-by-side.',
-        'AI explains complex metrics in simple terms - no jargon!'
-    )
+    # Page popup removed - user requested no popups except welcome
     
     # Robinhood-style guidance
     st.caption("*This page explains how this company makes money and where the risks are.*")
@@ -16981,13 +16963,7 @@ elif selected_page == "📈 Financial Health":
 # ============= MARKET INTELLIGENCE TAB =============
 elif selected_page == "📰 Market Intelligence":
     
-    # Show page popup
-    show_page_popup(
-        'market_intelligence',
-        '📰 Market Intelligence',
-        'Stay informed with AI-powered news, earnings calendar, and market sentiment. Search any stock for latest news.',
-        'Real-time market sentiment gauge shows fear vs greed levels!'
-    )
+    # Page popup removed - user requested no popups except welcome
     
     st.header("📰 Market Intelligence & News")
     st.markdown("**Stay informed with AI-powered market insights, news, and earnings**")
@@ -17814,13 +17790,7 @@ elif selected_page == "👑 Become a VIP":
 
 elif selected_page == "📊 Pro Checklist":
     
-    # Show page popup
-    show_page_popup(
-        'pro_checklist',
-        '📊 Pro Checklist',
-        'Upload stock charts for AI-powered technical pattern detection. Complete a pre-investment checklist.',
-        'AI explains chart patterns in plain English - no jargon!'
-    )
+    # Page popup removed - user requested no popups except welcome
     
     # ============= YELLOW PILL HEADER =============
     st.markdown("""
@@ -18594,13 +18564,7 @@ elif selected_page == "📊 Pro Checklist":
 
 elif selected_page == "👑 Ultimate":
     
-    # Show page popup
-    show_page_popup(
-        'ultimate',
-        '👑 Ultimate',
-        'Upload portfolio screenshots for AI analysis. Get personalized feedback on your holdings.',
-        'AI analyzes diversification, risk, and allocation in seconds!'
-    )
+    # Page popup removed - user requested no popups except welcome
     
     # ============= PURPLE PILL HEADER =============
     st.markdown("""
@@ -19967,13 +19931,7 @@ Return JSON with grade, summary, top_risks (MAX 5), improvement_playbook (MAX 5)
 
 elif selected_page == "💼 Paper Portfolio":
     
-    # Show page popup
-    show_page_popup(
-        'paper_portfolio',
-        '💼 Paper Portfolio',
-        'Practice trading with $100,000 fake money. Track your performance vs the market.',
-        'Compare your returns against SPY benchmark to see how you stack up!'
-    )
+    # Page popup removed - user requested no popups except welcome
     
     st.header("💼 Paper Portfolio")
     st.caption("*Practice trading with fake money. Track your performance vs the market.*")
@@ -20512,11 +20470,6 @@ elif selected_page == "💼 Paper Portfolio":
             # Get company logo
             logo_url = get_company_logo(pos['ticker'])
             
-            # Concentration warning
-            conc_flag = concentration_flags.get(pos['ticker'], {})
-            severity = conc_flag.get('severity', 'none')
-            warning_icon = "🚨" if severity == "high" else "⚠️" if severity == "warning" else ""
-            
             # Color for gain/loss
             gain_color = "#00C853" if unrealized_gain >= 0 else "#FF5252"
             gain_sign = "+" if unrealized_gain >= 0 else ""
@@ -20530,7 +20483,7 @@ elif selected_page == "💼 Paper Portfolio":
                     {logo_html}
                 </div>
                 <div style="flex: 1; margin-left: 12px;">
-                    <div style="font-weight: 600; font-size: 16px; color: #121212;">{warning_icon} {pos['ticker']}</div>
+                    <div style="font-weight: 600; font-size: 16px; color: #121212;">{pos['ticker']}</div>
                     <div style="font-size: 13px; color: #666;">{company_name[:30]}{'...' if len(company_name) > 30 else ''}</div>
                 </div>
                 <div style="text-align: right; margin-right: 20px;">
@@ -20689,52 +20642,34 @@ elif selected_page == "💼 Paper Portfolio":
     # ============= SECTION C: BENCHMARK & WHO'S WINNING =============
     st.markdown("## 🏆 Section C — Benchmark & Who's Winning")
     
-    # SPY benchmark - REAL YTD DATA using FMP API
+    # SPY benchmark - REAL YTD DATA using same method as Company Analysis chart
     st.markdown("### 📊 SPY Benchmark")
     
     spy_starting = STARTING_CASH  # $100k starting capital
     spy_ytd_return = 0.0
     spy_current = spy_starting
     
-    # Get SPY YTD performance from FMP - calculate from historical + current price
+    # Use EXACT same method as Company Analysis page chart (get_historical_price + calculate growth)
     try:
-        # Get current SPY price first
-        spy_quote = get_quote("SPY")
-        spy_current_price = spy_quote.get('price', 0) if spy_quote else 0
+        # Get YTD data - use ~0.2 years to get data from start of year
+        spy_data = get_historical_price("SPY", 0.5)  # Get ~6 months to ensure we have YTD data
         
-        if spy_current_price > 0:
-            # Get SPY price from first trading day of 2026 (Jan 2)
-            # Use a date range to ensure we get data
+        if not spy_data.empty and len(spy_data) > 1:
+            # Filter to current year only (YTD)
             current_year = datetime.now().year
-            hist_url = f"{BASE_URL}/historical-price-full/SPY?from={current_year}-01-01&to={current_year}-01-10&apikey={FMP_API_KEY}"
-            hist_response = requests.get(hist_url, timeout=10)
+            spy_data['year'] = spy_data['date'].dt.year
+            spy_ytd_data = spy_data[spy_data['year'] == current_year]
             
-            if hist_response.status_code == 200:
-                hist_data = hist_response.json()
-                if hist_data and 'historical' in hist_data and len(hist_data['historical']) > 0:
-                    # Get the earliest price in the range (last item since FMP returns newest first)
-                    jan_price = hist_data['historical'][-1].get('close', spy_current_price)
-                    
-                    # Calculate YTD return
-                    if jan_price > 0:
-                        spy_ytd_return = ((spy_current_price - jan_price) / jan_price) * 100
-                        spy_current = spy_starting * (1 + spy_ytd_return / 100)
+            if len(spy_ytd_data) >= 2:
+                price_col = 'close' if 'close' in spy_ytd_data.columns else 'price'
+                start_price = spy_ytd_data[price_col].iloc[0]
+                end_price = spy_ytd_data[price_col].iloc[-1]
+                
+                if start_price > 0:
+                    spy_ytd_return = ((end_price - start_price) / start_price) * 100
+                    spy_current = spy_starting * (1 + spy_ytd_return / 100)
     except Exception as e:
         pass
-    
-    # Fallback: If still 0, try stock-price-change endpoint
-    if spy_ytd_return == 0:
-        try:
-            ytd_url = f"{BASE_URL}/stock-price-change/SPY?apikey={FMP_API_KEY}"
-            response = requests.get(ytd_url, timeout=10)
-            if response.status_code == 200:
-                data = response.json()
-                if data and len(data) > 0:
-                    spy_ytd_return = data[0].get('ytd') or data[0].get('1Y') or 0
-                    if spy_ytd_return:
-                        spy_current = spy_starting * (1 + spy_ytd_return / 100)
-        except:
-            pass
     
     col1, col2, col3 = st.columns(3)
     col1.metric("SPY Starting", f"${spy_starting:,.2f}")
