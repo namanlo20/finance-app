@@ -3644,7 +3644,24 @@ def get_dividend_yield(ticker, price):
         return None
 
 
-def get_company_logo(ticker):
+@st.cache_data(ttl=86400)  # Cache for 24 hours - revenue growth doesn't change often
+def get_revenue_growth(ticker):
+    """
+    Get YoY revenue growth from FMP income-growth endpoint.
+    Returns the most recent annual revenue growth percentage.
+    """
+    try:
+        url = f"{BASE_URL}/income-statement-growth/{ticker}?limit=1&apikey={FMP_API_KEY}"
+        response = requests.get(url, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            if data and len(data) > 0:
+                growth = data[0].get('growthRevenue')
+                if growth is not None:
+                    return growth * 100  # Convert to percentage
+        return None
+    except:
+        return None
     """Get company logo URL from FMP profile"""
     profile = get_profile(ticker)
     if profile and 'image' in profile and profile['image']:
@@ -4020,7 +4037,7 @@ def get_earnings_calendar(ticker):
 
 @st.cache_data(ttl=3600)  # Cache for 1 hour - earnings don't change often
 def get_weekly_earnings_fmp():
-    """Get this week's major earnings from FMP API - FAST version, no profile calls"""
+    """Get this week's major US earnings from FMP API - filters out non-US companies"""
     today = datetime.now()
     monday = today - timedelta(days=today.weekday())
     sunday = monday + timedelta(days=6)
@@ -4034,9 +4051,11 @@ def get_weekly_earnings_fmp():
         if response.status_code == 200:
             data = response.json()
             if data and len(data) > 0:
-                # Collect all earnings - NO profile calls for speed
+                # Collect US earnings only
                 all_earnings = []
                 
+                # Filter for US stocks only - no dots in symbol (like .L, .F, .DE)
+                # and not OTC/ADR patterns
                 for earning in data:
                     symbol = earning.get('symbol', '')
                     date_str = earning.get('date', '')
@@ -4045,13 +4064,22 @@ def get_weekly_earnings_fmp():
                     if not symbol or not date_str:
                         continue
                     
+                    # Skip non-US: symbols with dots (foreign exchanges), 
+                    # symbols ending in Y (ADRs), symbols with numbers
+                    if '.' in symbol or symbol.endswith('Y') or symbol.endswith('F'):
+                        continue
+                    
+                    # Skip symbols that look like OTC/foreign
+                    if len(symbol) > 5:
+                        continue
+                    
                     # Only include significant companies (>$500M revenue estimate)
                     if revenue_est > 500000000:
                         all_earnings.append({
                             'symbol': symbol,
-                            'company_name': symbol,  # Just use symbol - fast
+                            'company_name': symbol,
                             'date': date_str,
-                            'market_cap': revenue_est * 5,  # Estimate
+                            'market_cap': revenue_est * 5,
                             'eps_est': earning.get('epsEstimated'),
                             'revenue_est': revenue_est
                         })
@@ -5503,22 +5531,43 @@ def render_ai_chatbot():
                     else:
                         st.markdown(f'<div style="background: rgba(33,150,243,0.15); padding: 10px 15px; border-radius: 10px; margin: 8px 0; color: #333;"><strong>🤖 AI:</strong> {msg["content"]}</div>', unsafe_allow_html=True)
             else:
-                st.info("💡 Try: 'What is Apple's P/E ratio?', 'How did markets do today?', 'Explain dollar-cost averaging'")
+                # Show example queries when no messages yet
+                st.markdown("**💡 Try these example queries:**")
+                st.markdown("""
+                **Stock Research:**
+                - "What is Apple's P/E ratio?"
+                - "What's Tesla's market cap?"
+                - "How did markets do today?"
+                
+                **Find Stocks:**
+                - "Find tech stocks growing 15%+ with high FCF"
+                - "Show me undervalued stocks with P/E under 12"
+                - "Find dividend stocks with yields over 4%"
+                
+                **Learn:**
+                - "Explain dollar-cost averaging"
+                - "What is a P/E ratio?"
+                - "How do I read a balance sheet?"
+                """)
         
         st.markdown("---")
         
-        # Input
-        user_input = st.text_input("Your question:", placeholder="e.g., What's Tesla's market cap?", key="chatbot_dialog_input")
+        # Input - using a form to prevent page refresh on Enter
+        with st.form(key="chatbot_form", clear_on_submit=True):
+            user_input = st.text_input("Your question:", placeholder="e.g., Find growth stocks with 30%+ revenue growth", key="chatbot_dialog_input")
+            
+            col1, col2, col3 = st.columns([2, 1, 1])
+            with col1:
+                send_btn = st.form_submit_button("📤 Send", type="primary", use_container_width=True)
+            with col2:
+                pass
+            with col3:
+                pass
         
-        col1, col2, col3 = st.columns([2, 1, 1])
-        with col1:
-            send_btn = st.button("📤 Send", type="primary", use_container_width=True, key="chatbot_send_btn")
-        with col2:
-            if st.button("🗑️ Clear", key="chatbot_clear_btn"):
-                st.session_state.chat_messages = []
-                st.rerun()
-        with col3:
-            pass  # Empty column for spacing
+        # Clear button outside form
+        if st.button("🗑️ Clear Chat", key="chatbot_clear_btn"):
+            st.session_state.chat_messages = []
+            st.rerun()
         
         if send_btn and user_input:
             st.session_state.chat_messages.append({"role": "user", "content": user_input})
@@ -7900,9 +7949,6 @@ with header_cols[2]:
         if st.button("📊 Market Overview", key="nav_market_overview", use_container_width=True):
             st.session_state.selected_page = "📊 Market Overview"
             st.rerun()
-        if st.button("🔍 AI Stock Screener", key="nav_ai_screener", use_container_width=True):
-            st.session_state.selected_page = "🔍 AI Stock Screener"
-            st.rerun()
 
 with header_cols[3]:
     with st.popover("📊 Pro Checklist ▼", use_container_width=True):
@@ -9740,6 +9786,9 @@ if selected_page == "🏠 Dashboard":
     if st.session_state.pinned_tickers:
         pinned_data = []
         
+        # Check if user loaded a template with specific metric
+        template_metric = st.session_state.get('template_metric', None)
+        
         for ticker in st.session_state.pinned_tickers:
             quote = get_quote(ticker)
             logo_url = get_company_logo(ticker)  # Get logo for each ticker
@@ -9759,13 +9808,34 @@ if selected_page == "🏠 Dashboard":
                 else:
                     mc_str = "N/A"
                 
+                # Get extra metric based on template
+                extra_metric = None
+                extra_metric_str = "—"
+                
+                # Always try to get the relevant metric for known tickers
+                growth_stocks = ["PLTR", "HOOD", "SHOP", "NVDA", "AVGO"]
+                dividend_stocks = ["T", "VZ", "JNJ", "KO", "BAC", "PG", "PEP", "MMM"]
+                
+                if ticker in growth_stocks or template_metric == 'rev_growth':
+                    rev_growth = get_revenue_growth(ticker)
+                    if rev_growth is not None:
+                        extra_metric = rev_growth
+                        extra_metric_str = f"{rev_growth:+.1f}%"
+                elif ticker in dividend_stocks or template_metric == 'dividend_yield':
+                    div_yield = get_dividend_yield(ticker, price)
+                    if div_yield is not None:
+                        extra_metric = div_yield
+                        extra_metric_str = f"{div_yield:.2f}%"
+                
                 pinned_data.append({
                     "Ticker": ticker,
                     "Price": f"${price:.2f}" if price else "N/A",
                     "Change": f"{change_pct:+.2f}%" if change_pct else "0.00%",
                     "Mkt Cap": mc_str,
+                    "Extra": extra_metric_str,
                     "_change_val": change_pct,  # Hidden column for sorting
-                    "_logo_url": logo_url  # Logo URL
+                    "_logo_url": logo_url,  # Logo URL
+                    "_extra_val": extra_metric if extra_metric else 0
                 })
             else:
                 pinned_data.append({
@@ -9773,8 +9843,10 @@ if selected_page == "🏠 Dashboard":
                     "Price": "N/A",
                     "Change": "N/A",
                     "Mkt Cap": "N/A",
+                    "Extra": "—",
                     "_change_val": 0,
-                    "_logo_url": logo_url
+                    "_logo_url": logo_url,
+                    "_extra_val": 0
                 })
         
         # Create DataFrame and display
@@ -9788,8 +9860,23 @@ if selected_page == "🏠 Dashboard":
                 return 'color: #ef4444'
             return ''
         
-        # Display header row
-        header_col1, header_col2, header_col3, header_col4, header_col5, header_col6, header_col7 = st.columns([1.3, 1.2, 1, 1, 0.8, 0.8, 0.5])
+        # Display header row - determine extra column label
+        template_metric = st.session_state.get('template_metric', None)
+        growth_stocks = ["PLTR", "HOOD", "SHOP", "NVDA", "AVGO"]
+        dividend_stocks = ["T", "VZ", "JNJ", "KO", "BAC", "PG", "PEP", "MMM"]
+        
+        # Check what kind of stocks are in the watchlist
+        has_growth = any(t in growth_stocks for t in st.session_state.pinned_tickers)
+        has_dividend = any(t in dividend_stocks for t in st.session_state.pinned_tickers)
+        
+        if template_metric == 'rev_growth' or has_growth:
+            extra_label = "REV GROWTH"
+        elif template_metric == 'dividend_yield' or has_dividend:
+            extra_label = "DIV YIELD"
+        else:
+            extra_label = "METRIC"
+        
+        header_col1, header_col2, header_col3, header_col4, header_col5, header_col6, header_col7, header_col8 = st.columns([1.2, 1, 0.9, 0.9, 0.8, 0.7, 0.7, 0.4])
         with header_col1:
             st.markdown("<p style='color: #888; font-size: 12px; font-weight: bold;'>TICKER</p>", unsafe_allow_html=True)
         with header_col2:
@@ -9799,17 +9886,19 @@ if selected_page == "🏠 Dashboard":
         with header_col4:
             st.markdown("<p style='color: #888; font-size: 12px; font-weight: bold; text-align: center;'>MKT CAP</p>", unsafe_allow_html=True)
         with header_col5:
-            st.markdown("<p style='color: #888; font-size: 12px; font-weight: bold; text-align: center;'>UPDATED</p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='color: #888; font-size: 12px; font-weight: bold; text-align: center;'>{extra_label}</p>", unsafe_allow_html=True)
         with header_col6:
-            st.markdown("<p style='color: #888; font-size: 12px; font-weight: bold; text-align: center;'>ACTION</p>", unsafe_allow_html=True)
+            st.markdown("<p style='color: #888; font-size: 12px; font-weight: bold; text-align: center;'>UPDATED</p>", unsafe_allow_html=True)
         with header_col7:
+            st.markdown("<p style='color: #888; font-size: 12px; font-weight: bold; text-align: center;'>ACTION</p>", unsafe_allow_html=True)
+        with header_col8:
             st.markdown("<p style='color: #888; font-size: 12px;'></p>", unsafe_allow_html=True)
         
         st.markdown("<hr style='margin: 5px 0; border-color: rgba(128,128,128,0.3);'>", unsafe_allow_html=True)
         
         # Display each ticker row with LOGO
         for i, row in enumerate(pinned_data):
-            col1, col2, col3, col4, col5, col6, col7 = st.columns([1.3, 1.2, 1, 1, 0.8, 0.8, 0.5])
+            col1, col2, col3, col4, col5, col6, col7, col8 = st.columns([1.2, 1, 0.9, 0.9, 0.8, 0.7, 0.7, 0.4])
             
             with col1:
                 # Display ticker with LOGO
@@ -9840,9 +9929,15 @@ if selected_page == "🏠 Dashboard":
                 st.markdown(f"<p style='text-align: center; padding-top: 10px;'>{row['Mkt Cap']}</p>", unsafe_allow_html=True)
             
             with col5:
-                st.markdown(f"<p style='text-align: center; padding-top: 10px; color: #888; font-size: 12px;'>just now</p>", unsafe_allow_html=True)
+                # Extra metric (revenue growth or dividend yield)
+                extra_val = row.get('_extra_val', 0)
+                extra_color = "#22c55e" if extra_val > 0 else "#ef4444" if extra_val < 0 else "#888"
+                st.markdown(f"<p style='text-align: center; padding-top: 10px; color: {extra_color}; font-weight: 500;'>{row['Extra']}</p>", unsafe_allow_html=True)
             
             with col6:
+                st.markdown(f"<p style='text-align: center; padding-top: 10px; color: #888; font-size: 12px;'>just now</p>", unsafe_allow_html=True)
+            
+            with col7:
                 # Analyze button
                 analyze_clicked = st.button("📊 Analyze", key=f"analyze_btn_{i}", use_container_width=True)
                 if analyze_clicked:
@@ -9851,7 +9946,7 @@ if selected_page == "🏠 Dashboard":
                     st.session_state.selected_page = "📊 Company Analysis"
                     st.rerun()
             
-            with col7:
+            with col8:
                 # Remove button
                 remove_clicked = st.button("✕", key=f"remove_btn_{i}", help=f"Remove {row['Ticker']}")
                 if remove_clicked:
@@ -9965,9 +10060,9 @@ if selected_page == "🏠 Dashboard":
     # ============= BLOCK C: TODAY'S BRIEF =============
     st.markdown("### 📰 Today's Brief")
     
-    st.markdown("#### 📊 Market Snapshot")
+    st.markdown("#### 📊 Market Snapshot (YTD Performance)")
     
-    # Get SPY, QQQ, DIA quotes with REAL daily change
+    # Get SPY, QQQ, DIA with YTD returns (same method as Paper Portfolio)
     market_tickers = ["SPY", "QQQ", "DIA"]
     market_names = {"SPY": "S&P 500", "QQQ": "Nasdaq 100", "DIA": "Dow Jones"}
     market_cols = st.columns(3)
@@ -9975,18 +10070,38 @@ if selected_page == "🏠 Dashboard":
     for i, mticker in enumerate(market_tickers):
         with market_cols[i]:
             mquote = get_quote(mticker)
+            mname = market_names.get(mticker, mticker)
+            
             if mquote:
                 mprice = mquote.get('price', 0)
-                mchange = mquote.get('changesPercentage', 0) or 0
-                mcolor = "#22c55e" if mchange > 0 else "#ef4444" if mchange < 0 else "#888"
-                mname = market_names.get(mticker, mticker)
+                
+                # Calculate YTD return (same method as Paper Portfolio SPY benchmark)
+                ytd_return = 0.0
+                try:
+                    hist_data = get_historical_price(mticker, 0.5)  # ~6 months to ensure YTD data
+                    if not hist_data.empty and len(hist_data) > 1:
+                        current_year = datetime.now().year
+                        hist_data['year'] = hist_data['date'].dt.year
+                        ytd_data = hist_data[hist_data['year'] == current_year]
+                        
+                        if len(ytd_data) >= 2:
+                            price_col = 'close' if 'close' in ytd_data.columns else 'price'
+                            start_price = ytd_data[price_col].iloc[0]
+                            end_price = ytd_data[price_col].iloc[-1]
+                            
+                            if start_price > 0:
+                                ytd_return = ((end_price - start_price) / start_price) * 100
+                except:
+                    pass
+                
+                mcolor = "#22c55e" if ytd_return > 0 else "#ef4444" if ytd_return < 0 else "#888"
                 
                 st.markdown(f"""
                 <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
                     <div style="font-size: 12px; color: #888;">{mname}</div>
                     <div style="font-size: 14px; color: #666;">{mticker}</div>
                     <div style="font-size: 20px; font-weight: bold;">${mprice:.2f}</div>
-                    <div style="color: {mcolor}; font-size: 16px; font-weight: bold;">{mchange:+.2f}%</div>
+                    <div style="color: {mcolor}; font-size: 16px; font-weight: bold;">{ytd_return:+.2f}% YTD</div>
                 </div>
                 """, unsafe_allow_html=True)
             else:
@@ -10202,16 +10317,20 @@ if selected_page == "🏠 Dashboard":
         template_cols = st.columns(3)
         
         templates = [
-            {"name": "Growth Stocks", "tickers": ["PLTR", "HOOD", "SHOP", "NVDA", "AVGO"], "metric": "YoY Revenue Growth"},
-            {"name": "Tech Giants", "tickers": ["GOOGL", "AAPL", "MSFT", "META", "AMZN"], "metric": "Market Cap"},
-            {"name": "Dividend Kings", "tickers": ["JNJ", "KO", "PG", "MMM", "PEP"], "metric": "Dividend Yield"},
+            {"name": "Growth Stocks", "tickers": ["PLTR", "HOOD", "SHOP", "NVDA", "AVGO"], "metric": "rev_growth"},
+            {"name": "Tech Giants", "tickers": ["GOOGL", "AAPL", "MSFT", "META", "AMZN"], "metric": "market_cap"},
+            {"name": "Dividend Stocks", "tickers": ["T", "VZ", "JNJ", "KO", "BAC"], "metric": "dividend_yield"},
         ]
         
         for i, template in enumerate(templates):
             with template_cols[i]:
-                st.markdown(f"<div style='font-size: 11px; color: #888; margin-bottom: 5px;'>({template['metric']})</div>", unsafe_allow_html=True)
+                # Show metric label
+                metric_labels = {"rev_growth": "Revenue Growth %", "market_cap": "Market Cap", "dividend_yield": "Dividend Yield %"}
+                st.markdown(f"<div style='font-size: 11px; color: #888; margin-bottom: 5px;'>({metric_labels.get(template['metric'], '')})</div>", unsafe_allow_html=True)
                 if st.button(f"📋 {template['name']}", key=f"template_{i}", use_container_width=True):
                     st.session_state.pinned_tickers = template['tickers'].copy()
+                    # Also set a flag to indicate which template metrics to show
+                    st.session_state.template_metric = template['metric']
                     save_to_localstorage('pinned_tickers', st.session_state.pinned_tickers)
                     st.success(f"✅ Loaded {template['name']} watchlist!")
                     st.rerun()
@@ -17465,7 +17584,7 @@ elif selected_page == "👑 Become a VIP":
             "- “What traders generally do next” educational checklist\n"
             "\n"
             "**Ultimate adds:**\n"
-            "- **🔍 AI Stock Screener** - Ask in plain English, get matching stocks!\n"
+            "- **🤖 AI Assistant** - Ask stock questions in plain English, get AI answers!\n"
             "- **Historical Similar Setups** (find past periods that looked like today)\n"
             "- Outcome stats (next 5D/20D returns, drawdowns, hit rate)\n"
             "- Alerts / watchlists + exportable reports (coming next)"
@@ -17598,7 +17717,7 @@ elif selected_page == "👑 Become a VIP":
               <div style="color:#555;font-size:14px;margin-bottom:10px;">For “show me the receipts” users</div>
               <ul style="color:#333;line-height:1.6;">
                 <li>Everything in <b>Pro</b></li>
-                <li><b>🔍 AI Stock Screener</b>: Ask in plain English, get matching stocks!</li>
+                <li><b>🤖 AI Assistant</b>: Ask stock questions via the sidebar chatbot!</li>
                 <li><b>Historical Similar Setups</b>: find past charts that looked like today</li>
                 <li><b>Outcome stats</b>: typical next 5D/20D returns + drawdowns (educational)</li>
                 <li><b>Backtest-style insights</b> (coming next)</li>
