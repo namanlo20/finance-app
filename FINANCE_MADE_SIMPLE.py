@@ -3662,11 +3662,15 @@ def get_revenue_growth(ticker):
         return None
     except:
         return None
+
+
+def get_company_logo(ticker):
     """Get company logo URL from FMP profile"""
     profile = get_profile(ticker)
     if profile and 'image' in profile and profile['image']:
         return profile['image']
     return None
+
 
 def display_stock_with_logo(ticker, size=30):
     """Display stock ticker with logo inline using HTML"""
@@ -5511,9 +5515,11 @@ Guidelines:
     return "I'm having trouble connecting to the AI service. Please try again in a moment."
 
 def render_ai_chatbot():
-    """Render the AI chatbot using sidebar button + st.dialog - NO PAGE REFRESH"""
+    """Render the AI chatbot using sidebar button + st.dialog - STAYS OPEN after messages"""
     if 'chat_messages' not in st.session_state:
         st.session_state.chat_messages = []
+    if 'chatbot_processing' not in st.session_state:
+        st.session_state.chatbot_processing = False
     
     # Define chatbot dialog
     @st.dialog("🤖 AI Investment Assistant", width="large")
@@ -5522,7 +5528,7 @@ def render_ai_chatbot():
         st.caption("🔍 Powered by Perplexity AI with real-time web search")
         
         # Chat history container
-        chat_container = st.container(height=300)
+        chat_container = st.container(height=350)
         with chat_container:
             if st.session_state.chat_messages:
                 for msg in st.session_state.chat_messages[-10:]:
@@ -5533,45 +5539,48 @@ def render_ai_chatbot():
             else:
                 # Show example queries when no messages yet
                 st.markdown("**💡 Try these example queries:**")
-                st.markdown("""
-                **Stock Research:**
-                - "What is Apple's P/E ratio?"
-                - "What's Tesla's market cap?"
-                - "How did markets do today?"
-                
-                **Find Stocks:**
-                - "Find tech stocks growing 15%+ with high FCF"
-                - "Show me undervalued stocks with P/E under 12"
-                - "Find dividend stocks with yields over 4%"
-                
-                **Learn:**
-                - "Explain dollar-cost averaging"
-                - "What is a P/E ratio?"
-                - "How do I read a balance sheet?"
-                """)
+                example_col1, example_col2 = st.columns(2)
+                with example_col1:
+                    st.markdown("""
+                    **Stock Research:**
+                    - What is Apple's P/E ratio?
+                    - What's Tesla's market cap?
+                    - How did markets do today?
+                    """)
+                with example_col2:
+                    st.markdown("""
+                    **Find Stocks:**
+                    - Find tech stocks growing 15%+
+                    - Undervalued stocks P/E under 12
+                    - Dividend stocks yields over 4%
+                    """)
         
         st.markdown("---")
         
-        # Input - using a form to prevent page refresh on Enter
-        with st.form(key="chatbot_form", clear_on_submit=True):
-            user_input = st.text_input("Your question:", placeholder="e.g., Find growth stocks with 30%+ revenue growth", key="chatbot_dialog_input")
-            
-            col1, col2, col3 = st.columns([2, 1, 1])
-            with col1:
-                send_btn = st.form_submit_button("📤 Send", type="primary", use_container_width=True)
-            with col2:
-                pass
-            with col3:
-                pass
+        # Input area
+        user_input = st.text_input(
+            "Your question:", 
+            placeholder="e.g., Find growth stocks with 30%+ revenue growth", 
+            key="chatbot_dialog_input_v2"
+        )
         
-        # Clear button outside form
-        if st.button("🗑️ Clear Chat", key="chatbot_clear_btn"):
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            send_btn = st.button("📤 Send", type="primary", use_container_width=True, key="chatbot_send_v2")
+        with col2:
+            clear_btn = st.button("🗑️ Clear", key="chatbot_clear_v2")
+        
+        # Handle clear
+        if clear_btn:
             st.session_state.chat_messages = []
             st.rerun()
         
-        if send_btn and user_input:
-            st.session_state.chat_messages.append({"role": "user", "content": user_input})
+        # Handle send - process immediately without closing dialog
+        if send_btn and user_input and user_input.strip():
+            # Add user message
+            st.session_state.chat_messages.append({"role": "user", "content": user_input.strip()})
             
+            # Get AI response
             context = {
                 "current_page": st.session_state.get("selected_page", "Home"),
                 "selected_ticker": st.session_state.get("selected_ticker", None),
@@ -5579,9 +5588,12 @@ def render_ai_chatbot():
             }
             
             with st.spinner("🔍 Searching & thinking..."):
-                response = get_chatbot_response(user_input, context)
+                response = get_chatbot_response(user_input.strip(), context)
             
+            # Add AI response
             st.session_state.chat_messages.append({"role": "assistant", "content": response})
+            
+            # Rerun to show the new messages but dialog stays open because it's in session
             st.rerun()
     
     # Add logo and prominent button in sidebar
