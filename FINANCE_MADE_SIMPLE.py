@@ -3650,12 +3650,15 @@ def get_dividend_yield(ticker, price):
 @st.cache_data(ttl=86400)  # Cache for 24 hours - revenue growth doesn't change often
 def get_revenue_growth(ticker):
     """
-    Get YoY revenue growth from FMP.
+    Get YoY revenue growth from FMP using v3 API.
     Tries multiple endpoints to get the data.
     """
     try:
-        # Try financial-growth endpoint first
-        url = f"{BASE_URL}/financial-growth/{ticker}?limit=1&apikey={FMP_API_KEY}"
+        # Use v3 API directly - more reliable than stable
+        base_v3 = "https://financialmodelingprep.com/api/v3"
+        
+        # Try financial-growth endpoint first (v3)
+        url = f"{base_v3}/financial-growth/{ticker}?limit=1&apikey={FMP_API_KEY}"
         response = requests.get(url, timeout=10)
         if response.status_code == 200:
             data = response.json()
@@ -3664,8 +3667,8 @@ def get_revenue_growth(ticker):
                 if growth is not None:
                     return growth * 100  # Convert to percentage
         
-        # Fallback: Try income-statement-growth endpoint
-        url2 = f"{BASE_URL}/income-statement-growth/{ticker}?limit=1&apikey={FMP_API_KEY}"
+        # Fallback: Try income-statement-growth endpoint (v3)
+        url2 = f"{base_v3}/income-statement-growth/{ticker}?limit=1&apikey={FMP_API_KEY}"
         response2 = requests.get(url2, timeout=10)
         if response2.status_code == 200:
             data2 = response2.json()
@@ -3674,8 +3677,8 @@ def get_revenue_growth(ticker):
                 if growth2 is not None:
                     return growth2 * 100
         
-        # Fallback: Calculate from income statements
-        url3 = f"{BASE_URL}/income-statement/{ticker}?limit=2&apikey={FMP_API_KEY}"
+        # Fallback: Calculate from income statements (v3)
+        url3 = f"{base_v3}/income-statement/{ticker}?limit=2&apikey={FMP_API_KEY}"
         response3 = requests.get(url3, timeout=10)
         if response3.status_code == 200:
             data3 = response3.json()
@@ -3686,7 +3689,8 @@ def get_revenue_growth(ticker):
                     return ((current_rev - prev_rev) / prev_rev) * 100
         
         return None
-    except:
+    except Exception as e:
+        print(f"[REV_GROWTH] Error for {ticker}: {e}")
         return None
 
 
@@ -5461,9 +5465,15 @@ Guidelines:
 - Be concise and helpful (2-4 sentences unless asked for detail)
 - Use simple language that beginners can understand
 - You CAN provide factual data like P/E ratios, market caps, stock prices, news
-- Use your web search capability to get current, accurate information
+- When asked to find stocks, PROVIDE SPECIFIC TICKER SYMBOLS with data
+- For stock screening questions, search for real stocks meeting the criteria
 - Never give specific "buy" or "sell" recommendations
 - Be encouraging and supportive
+
+When the user asks to find stocks (like "find stocks with P/E under 12"), you MUST:
+1. Search for real stocks that match
+2. List specific tickers (like AAPL, NVDA, etc.)
+3. Include key data points for each stock
 """
     
     # Add context if available
@@ -5475,38 +5485,7 @@ Guidelines:
         if context.get('unhinged_mode'):
             system_prompt += "\nUNHINGED MODE: Be witty and add playful roast commentary while still being helpful."
     
-    # Try Perplexity FIRST (has web search)
-    if PERPLEXITY_API_KEY:
-        try:
-            response = requests.post(
-                "https://api.perplexity.ai/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "model": "sonar",
-                    "messages": [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_message}
-                    ],
-                    "max_tokens": 800,
-                    "temperature": 0.5
-                },
-                timeout=30
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
-                content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-                if content:
-                    return content
-            # Log error for debugging
-            print(f"[CHATBOT] Perplexity failed: {response.status_code} - {response.text[:200]}")
-        except Exception as e:
-            print(f"[CHATBOT] Perplexity error: {e}")
-    
-    # Try Grok as SECOND fallback (good for X/Twitter content and real-time)
+    # Try Grok FIRST (best for real-time X/Twitter content and stock questions)
     if GROK_API_KEY:
         try:
             response = requests.post(
@@ -5521,7 +5500,37 @@ Guidelines:
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": user_message}
                     ],
-                    "max_tokens": 800,
+                    "max_tokens": 1000,
+                    "temperature": 0.7
+                },
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                if content and len(content) > 50:  # Only accept substantial responses
+                    return content
+            print(f"[CHATBOT] Grok failed: {response.status_code} - {response.text[:200]}")
+        except Exception as e:
+            print(f"[CHATBOT] Grok error: {e}")
+    
+    # Try Perplexity SECOND (has web search for current data)
+    if PERPLEXITY_API_KEY:
+        try:
+            response = requests.post(
+                "https://api.perplexity.ai/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": "sonar",
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_message}
+                    ],
+                    "max_tokens": 1000,
                     "temperature": 0.5
                 },
                 timeout=30
@@ -5530,11 +5539,11 @@ Guidelines:
             if response.status_code == 200:
                 data = response.json()
                 content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-                if content:
+                if content and len(content) > 50:
                     return content
-            print(f"[CHATBOT] Grok failed: {response.status_code} - {response.text[:200]}")
+            print(f"[CHATBOT] Perplexity failed: {response.status_code} - {response.text[:200]}")
         except Exception as e:
-            print(f"[CHATBOT] Grok error: {e}")
+            print(f"[CHATBOT] Perplexity error: {e}")
     
     # Try OpenAI as THIRD fallback
     if OPENAI_API_KEY:
@@ -5546,13 +5555,13 @@ Guidelines:
                     "Content-Type": "application/json"
                 },
                 json={
-                    "model": "gpt-3.5-turbo",
+                    "model": "gpt-4o-mini",
                     "messages": [
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": user_message}
                     ],
-                    "max_tokens": 800,
-                    "temperature": 0.5
+                    "max_tokens": 1000,
+                    "temperature": 0.7
                 },
                 timeout=30
             )
@@ -5566,9 +5575,9 @@ Guidelines:
         except Exception as e:
             print(f"[CHATBOT] OpenAI error: {e}")
     
-    # Both failed
-    if not PERPLEXITY_API_KEY and not OPENAI_API_KEY:
-        return "❌ No API keys configured. Please add PERPLEXITY_API_KEY or OPENAI_API_KEY to your environment variables."
+    # All failed
+    if not GROK_API_KEY and not PERPLEXITY_API_KEY and not OPENAI_API_KEY:
+        return "❌ No API keys configured. Please add GROK_API_KEY, PERPLEXITY_API_KEY or OPENAI_API_KEY to your environment variables."
     
     return "I'm having trouble connecting to the AI service. Please try again in a moment."
 
@@ -5576,14 +5585,14 @@ def render_ai_chatbot():
     """Render the AI chatbot using sidebar button + st.dialog - STAYS OPEN after messages"""
     if 'chat_messages' not in st.session_state:
         st.session_state.chat_messages = []
-    if 'chatbot_processing' not in st.session_state:
-        st.session_state.chatbot_processing = False
+    if 'chatbot_open' not in st.session_state:
+        st.session_state.chatbot_open = False
     
     # Define chatbot dialog
     @st.dialog("🤖 AI Investment Assistant", width="large")
     def show_chatbot_dialog():
         st.markdown("**Ask me anything about stocks, investing, or markets!**")
-        st.caption("🔍 Powered by Perplexity AI with real-time web search")
+        st.caption("🔍 Powered by Grok + Perplexity + OpenAI")
         
         # Chat history container
         chat_container = st.container(height=350)
@@ -5615,25 +5624,21 @@ def render_ai_chatbot():
         
         st.markdown("---")
         
-        # Input area
-        user_input = st.text_input(
-            "Your question:", 
-            placeholder="e.g., Find growth stocks with 30%+ revenue growth", 
-            key="chatbot_dialog_input_v2"
-        )
+        # Use a form to prevent page refresh on submit
+        with st.form(key="chatbot_form_v3", clear_on_submit=True):
+            user_input = st.text_input(
+                "Your question:", 
+                placeholder="e.g., Find growth stocks with 30%+ revenue growth", 
+                key="chatbot_input_v3"
+            )
+            
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                send_btn = st.form_submit_button("📤 Send", type="primary", use_container_width=True)
+            with col2:
+                clear_btn = st.form_submit_button("🗑️ Clear")
         
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            send_btn = st.button("📤 Send", type="primary", use_container_width=True, key="chatbot_send_v2")
-        with col2:
-            clear_btn = st.button("🗑️ Clear", key="chatbot_clear_v2")
-        
-        # Handle clear
-        if clear_btn:
-            st.session_state.chat_messages = []
-            st.rerun()
-        
-        # Handle send - process immediately without closing dialog
+        # Handle form submission
         if send_btn and user_input and user_input.strip():
             # Add user message
             st.session_state.chat_messages.append({"role": "user", "content": user_input.strip()})
@@ -5645,14 +5650,21 @@ def render_ai_chatbot():
                 "unhinged_mode": st.session_state.get("unhinged_mode", False)
             }
             
+            # Show response immediately in the dialog
             with st.spinner("🔍 Searching & thinking..."):
                 response = get_chatbot_response(user_input.strip(), context)
             
             # Add AI response
             st.session_state.chat_messages.append({"role": "assistant", "content": response})
             
-            # Rerun to show the new messages but dialog stays open because it's in session
-            st.rerun()
+            # Display the new response immediately
+            st.markdown(f'<div style="background: rgba(33,150,243,0.15); padding: 10px 15px; border-radius: 10px; margin: 8px 0; color: #333;"><strong>🤖 AI:</strong> {response}</div>', unsafe_allow_html=True)
+            
+            # Note: NOT calling st.rerun() to keep dialog open
+        
+        if clear_btn:
+            st.session_state.chat_messages = []
+            st.info("Chat cleared! Ask a new question.")
     
     # Add logo and prominent button in sidebar
     with st.sidebar:
@@ -9892,24 +9904,25 @@ if selected_page == "🏠 Dashboard":
                 else:
                     mc_str = "N/A"
                 
-                # Get extra metric based on template
+                # Get extra metric - ALWAYS try revenue growth first, then dividend
                 extra_metric = None
                 extra_metric_str = "—"
                 
-                # Always try to get the relevant metric for known tickers
-                growth_stocks = ["PLTR", "HOOD", "SHOP", "NVDA", "AVGO"]
-                dividend_stocks = ["T", "VZ", "JNJ", "KO", "BAC", "PG", "PEP", "MMM"]
+                # Known dividend stocks - show dividend yield
+                dividend_stocks = ["T", "VZ", "JNJ", "KO", "BAC", "PG", "PEP", "MMM", "XOM", "CVX"]
                 
-                if ticker in growth_stocks or template_metric == 'rev_growth':
-                    rev_growth = get_revenue_growth(ticker)
-                    if rev_growth is not None:
-                        extra_metric = rev_growth
-                        extra_metric_str = f"{rev_growth:+.1f}%"
-                elif ticker in dividend_stocks or template_metric == 'dividend_yield':
+                if ticker in dividend_stocks:
+                    # For dividend stocks, show dividend yield
                     div_yield = get_dividend_yield(ticker, price)
                     if div_yield is not None:
                         extra_metric = div_yield
                         extra_metric_str = f"{div_yield:.2f}%"
+                else:
+                    # For all other stocks, show revenue growth
+                    rev_growth = get_revenue_growth(ticker)
+                    if rev_growth is not None:
+                        extra_metric = rev_growth
+                        extra_metric_str = f"{rev_growth:+.1f}%"
                 
                 pinned_data.append({
                     "Ticker": ticker,
