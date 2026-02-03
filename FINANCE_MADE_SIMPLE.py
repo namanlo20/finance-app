@@ -31,6 +31,9 @@ USE_AI_ANALYSIS = bool(PERPLEXITY_API_KEY)
 # OpenAI API for AI Coach chatbot
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 
+# Grok API for X/Twitter real-time content
+GROK_API_KEY = os.environ.get("GROK_API_KEY", "")
+
 # Portfolio Configuration - Starting cash for paper trading
 STARTING_CASH = float(os.environ.get("STARTING_CASH", "100000"))
 
@@ -3647,18 +3650,41 @@ def get_dividend_yield(ticker, price):
 @st.cache_data(ttl=86400)  # Cache for 24 hours - revenue growth doesn't change often
 def get_revenue_growth(ticker):
     """
-    Get YoY revenue growth from FMP income-growth endpoint.
-    Returns the most recent annual revenue growth percentage.
+    Get YoY revenue growth from FMP.
+    Tries multiple endpoints to get the data.
     """
     try:
-        url = f"{BASE_URL}/income-statement-growth/{ticker}?limit=1&apikey={FMP_API_KEY}"
+        # Try financial-growth endpoint first
+        url = f"{BASE_URL}/financial-growth/{ticker}?limit=1&apikey={FMP_API_KEY}"
         response = requests.get(url, timeout=10)
         if response.status_code == 200:
             data = response.json()
             if data and len(data) > 0:
-                growth = data[0].get('growthRevenue')
+                growth = data[0].get('revenueGrowth')
                 if growth is not None:
                     return growth * 100  # Convert to percentage
+        
+        # Fallback: Try income-statement-growth endpoint
+        url2 = f"{BASE_URL}/income-statement-growth/{ticker}?limit=1&apikey={FMP_API_KEY}"
+        response2 = requests.get(url2, timeout=10)
+        if response2.status_code == 200:
+            data2 = response2.json()
+            if data2 and len(data2) > 0:
+                growth2 = data2[0].get('growthRevenue')
+                if growth2 is not None:
+                    return growth2 * 100
+        
+        # Fallback: Calculate from income statements
+        url3 = f"{BASE_URL}/income-statement/{ticker}?limit=2&apikey={FMP_API_KEY}"
+        response3 = requests.get(url3, timeout=10)
+        if response3.status_code == 200:
+            data3 = response3.json()
+            if data3 and len(data3) >= 2:
+                current_rev = data3[0].get('revenue', 0)
+                prev_rev = data3[1].get('revenue', 0)
+                if prev_rev > 0:
+                    return ((current_rev - prev_rev) / prev_rev) * 100
+        
         return None
     except:
         return None
@@ -4041,7 +4067,7 @@ def get_earnings_calendar(ticker):
 
 @st.cache_data(ttl=3600)  # Cache for 1 hour - earnings don't change often
 def get_weekly_earnings_fmp():
-    """Get this week's major US earnings from FMP API - filters out non-US companies"""
+    """Get this week's major US earnings from FMP API - sorted by market cap"""
     today = datetime.now()
     monday = today - timedelta(days=today.weekday())
     sunday = monday + timedelta(days=6)
@@ -4051,44 +4077,46 @@ def get_weekly_earnings_fmp():
     
     url = f"{BASE_URL}/earnings-calendar?from={from_date}&to={to_date}&apikey={FMP_API_KEY}"
     try:
-        response = requests.get(url, timeout=10)
+        response = requests.get(url, timeout=15)
         if response.status_code == 200:
             data = response.json()
             if data and len(data) > 0:
-                # Collect US earnings only
+                # Collect US earnings with market cap
                 all_earnings = []
                 
-                # Filter for US stocks only - no dots in symbol (like .L, .F, .DE)
-                # and not OTC/ADR patterns
                 for earning in data:
                     symbol = earning.get('symbol', '')
                     date_str = earning.get('date', '')
-                    revenue_est = earning.get('revenueEstimated') or 0
                     
                     if not symbol or not date_str:
                         continue
                     
-                    # Skip non-US: symbols with dots (foreign exchanges), 
-                    # symbols ending in Y (ADRs), symbols with numbers
-                    if '.' in symbol or symbol.endswith('Y') or symbol.endswith('F'):
+                    # Skip non-US: symbols with dots (foreign exchanges)
+                    if '.' in symbol:
                         continue
                     
-                    # Skip symbols that look like OTC/foreign
+                    # Skip very long symbols (likely OTC)
                     if len(symbol) > 5:
                         continue
                     
-                    # Only include significant companies (>$500M revenue estimate)
-                    if revenue_est > 500000000:
+                    # Get actual market cap from quote
+                    quote = get_quote(symbol)
+                    market_cap = 0
+                    if quote:
+                        market_cap = quote.get('marketCap', 0) or 0
+                    
+                    # Only include companies with market cap > $10B (big companies)
+                    if market_cap > 10000000000:  # $10B+
                         all_earnings.append({
                             'symbol': symbol,
                             'company_name': symbol,
                             'date': date_str,
-                            'market_cap': revenue_est * 5,
+                            'market_cap': market_cap,
                             'eps_est': earning.get('epsEstimated'),
-                            'revenue_est': revenue_est
+                            'revenue_est': earning.get('revenueEstimated') or 0
                         })
                 
-                # Group by date and keep top 5 by revenue per day
+                # Group by date and keep top 5 by MARKET CAP per day
                 earnings_by_day = {}
                 for earning in all_earnings:
                     date_str = earning['date']
@@ -4096,11 +4124,11 @@ def get_weekly_earnings_fmp():
                         earnings_by_day[date_str] = []
                     earnings_by_day[date_str].append(earning)
                 
-                # Sort each day by revenue and keep top 5
+                # Sort each day by market cap and keep top 5
                 for date_str in earnings_by_day:
                     earnings_by_day[date_str] = sorted(
                         earnings_by_day[date_str],
-                        key=lambda x: x.get('revenue_est', 0),
+                        key=lambda x: x.get('market_cap', 0),
                         reverse=True
                     )[:5]
                 
@@ -5478,7 +5506,37 @@ Guidelines:
         except Exception as e:
             print(f"[CHATBOT] Perplexity error: {e}")
     
-    # Try OpenAI as FALLBACK
+    # Try Grok as SECOND fallback (good for X/Twitter content and real-time)
+    if GROK_API_KEY:
+        try:
+            response = requests.post(
+                "https://api.x.ai/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {GROK_API_KEY}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": "grok-beta",
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_message}
+                    ],
+                    "max_tokens": 800,
+                    "temperature": 0.5
+                },
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                if content:
+                    return content
+            print(f"[CHATBOT] Grok failed: {response.status_code} - {response.text[:200]}")
+        except Exception as e:
+            print(f"[CHATBOT] Grok error: {e}")
+    
+    # Try OpenAI as THIRD fallback
     if OPENAI_API_KEY:
         try:
             response = requests.post(
@@ -9137,6 +9195,10 @@ def build_explain_chart_prompt(facts: dict, rule_based: dict, simple_mode: bool 
     """
     import json
     
+    # Get ticker from facts
+    ticker = facts.get('ticker', 'this stock')
+    company_name = facts.get('company_name', ticker)
+    
     # Clean facts for JSON (remove None values)
     clean_facts = {k: v for k, v in facts.items() if v is not None}
     facts_json = json.dumps(clean_facts, indent=2)
@@ -9144,7 +9206,7 @@ def build_explain_chart_prompt(facts: dict, rule_based: dict, simple_mode: bool 
     
     language_style = "simple, conversational language (like talking to a friend)" if simple_mode else "clear professional language"
     
-    prompt = f"""You are a chart analysis AI assistant. Write in natural, CONVERSATIONAL language.
+    prompt = f"""You are a chart analysis AI assistant analyzing {company_name} ({ticker}). Write in natural, CONVERSATIONAL language.
 
 CRITICAL FORMATTING RULES:
 1. Format ALL dollar amounts as: $XXX.XX (with $ sign and 2 decimals)
@@ -9153,6 +9215,9 @@ CRITICAL FORMATTING RULES:
 4. Do NOT include fact_keys, citations, or any technical tags like [sma50] in your response
 5. Write in {language_style}
 6. Use ONLY the facts provided below - do NOT invent data
+7. ALWAYS refer to the stock as {ticker} or {company_name}
+
+STOCK: {ticker} ({company_name})
 
 FACTS TO USE:
 {facts_json}
@@ -9163,29 +9228,29 @@ PATTERN DETECTED:
 Return ONLY this JSON (no markdown, no code blocks):
 
 {{
-  "summary_one_liner": "One conversational sentence explaining the current situation (what's happening with this stock right now)",
+  "summary_one_liner": "One conversational sentence explaining {ticker}'s current situation (what's happening right now)",
   "trend": [
-    "First observation about trend (where price is vs moving averages) - explain what it means",
-    "Second observation about trend direction/strength - why it matters",
+    "First observation about {ticker}'s trend (where price is vs moving averages) - explain what it means",
+    "Second observation about trend direction/strength - why it matters for {ticker}",
     "Third observation about how long trend has lasted - is it reliable?"
   ],
   "momentum": [
-    "First observation about RSI (explain if momentum is strong, weak, or neutral) - what it suggests",
+    "First observation about {ticker}'s RSI (explain if momentum is strong, weak, or neutral) - what it suggests",
     "Second observation about recent price gains/losses - put in context",
     "Third observation about volume (is it high/low, what does that mean)"
   ],
   "key_levels": {{
     "support": {{"level": 123.45, "distance_pct": -2.5}},
     "resistance": {{"level": 150.00, "distance_pct": 3.2}},
-    "watch_level": {{"level": 145.50, "note": "Plain English note about this level"}}
+    "watch_level": {{"level": 145.50, "note": "Plain English note about this level for {ticker}"}}
   }},
   "risk_notes": [
-    "First risk to watch - explain why it's a risk",
+    "First risk to watch for {ticker} - explain why it's a risk",
     "Second risk - what could go wrong",
     "Third risk - what traders worry about here"
   ],
   "what_to_watch_next_5_days": [
-    "First specific thing to monitor (price level, event, pattern)",
+    "First specific thing to monitor for {ticker} (price level, event, pattern)",
     "Second thing to watch",
     "Third thing to watch"
   ]
@@ -9195,11 +9260,11 @@ CRITICAL:
 - NO fact_keys anywhere in output
 - NO brackets like [sma50] or [rsi14_last]
 - ALL numbers formatted with $, %, or commas as appropriate
-- Each bullet should EXPLAIN what the fact MEANS, not just state it
-- Write naturally - pretend you're texting a friend about the stock
+- Each bullet should EXPLAIN what the fact MEANS for {ticker}, not just state it
+- Write naturally - pretend you're texting a friend about {ticker}
 
 Example GOOD bullet:
-"Price is sitting at $653.06, about 2% above the 50-day average - this suggests buyers have been in control recently"
+"{ticker} is sitting at $653.06, about 2% above the 50-day average - this suggests buyers have been in control recently"
 
 Example BAD bullet:
 "The last close at 653.06 is slightly above the 50-day SMA of 643.3988 (+1.50%).[last_close][sma50][pct_above_sma50]"
@@ -9224,13 +9289,17 @@ def build_bull_bear_prompt(facts: dict, simple_mode: bool = False) -> str:
     """
     import json
     
+    # Get ticker from facts
+    ticker = facts.get('ticker', 'this stock')
+    company_name = facts.get('company_name', ticker)
+    
     # Clean facts for JSON
     clean_facts = {k: v for k, v in facts.items() if v is not None}
     facts_json = json.dumps(clean_facts, indent=2)
     
     language_style = "simple conversational language" if simple_mode else "clear professional language"
     
-    prompt = f"""You are a chart analysis AI. Present both bull and bear perspectives naturally.
+    prompt = f"""You are a chart analysis AI analyzing {company_name} ({ticker}). Present both bull and bear perspectives naturally.
 
 CRITICAL FORMATTING:
 1. Format ALL dollar amounts: $XXX.XX (with $, 2 decimals)
@@ -9239,6 +9308,9 @@ CRITICAL FORMATTING:
 4. Do NOT include fact_keys, citations, or any [brackets]
 5. Write in {language_style}
 6. Use ONLY the facts below - no inventing data
+7. ALWAYS refer to the stock as {ticker} or {company_name}
+
+STOCK: {ticker} ({company_name})
 
 FACTS:
 {facts_json}
@@ -9247,22 +9319,22 @@ Return ONLY this JSON (no markdown, no code blocks):
 
 {{
   "bull_case": [
-    "First bullish point - explain what's positive and WHY it matters",
-    "Second bullish point - what bulls see as good",
-    "Third bullish point - what could drive price higher",
+    "First bullish point for {ticker} - explain what's positive and WHY it matters",
+    "Second bullish point - what bulls see as good for {ticker}",
+    "Third bullish point - what could drive {ticker}'s price higher",
     "Fourth bullish point - additional positive factor",
     "Fifth bullish point - final bullish observation"
   ],
   "bear_case": [
-    "First bearish point - explain the concern and WHY it's risky",
+    "First bearish point for {ticker} - explain the concern and WHY it's risky",
     "Second bearish point - what bears worry about",
-    "Third bearish point - what could push price lower",
+    "Third bearish point - what could push {ticker}'s price lower",
     "Fourth bearish point - additional negative factor"
   ],
-  "neutral_take": "One sentence balancing both sides - what's the most likely scenario",
+  "neutral_take": "One sentence balancing both sides for {ticker} - what's the most likely scenario",
   "two_conditions_to_change_view": [
-    "What would make you MORE bullish (specific price level or event)",
-    "What would make you MORE bearish (specific price level or event)"
+    "What would make you MORE bullish on {ticker} (specific price level or event)",
+    "What would make you MORE bearish on {ticker} (specific price level or event)"
   ]
 }}
 
@@ -9270,11 +9342,11 @@ CRITICAL:
 - NO fact_keys anywhere
 - NO brackets like [sma50] or [last_close]
 - ALL numbers properly formatted
-- Each point should EXPLAIN what the fact MEANS, not just state it
-- Write conversationally - like explaining to a friend
+- Each point should EXPLAIN what the fact MEANS for {ticker}, not just state it
+- Write conversationally - like explaining {ticker} to a friend
 
 Example GOOD bull point:
-"Price is holding above the $650 level, which acted as support twice before - this shows buyers are stepping in"
+"{ticker} is holding above the $650 level, which acted as support twice before - this shows buyers are stepping in"
 
 Example BAD bull point:
 "Price remains well above the rising long-term 200-day moving average.[last_close][sma200][pct_above_sma200]"
@@ -17928,6 +18000,15 @@ elif selected_page == "📊 Pro Checklist":
     with col1:
         ticker_check = st.text_input("Ticker or Company Name:", value=default_ticker, key="checklist_ticker")
     
+    # CRITICAL: Clear AI outputs when ticker changes
+    if 'last_pro_ticker' not in st.session_state:
+        st.session_state.last_pro_ticker = None
+    
+    if ticker_check != st.session_state.last_pro_ticker:
+        st.session_state.pro_explain_ai = None
+        st.session_state.pro_bull_bear_ai = None
+        st.session_state.last_pro_ticker = ticker_check
+    
     with col2:
         timeframe = st.selectbox("Timeframe", ["3M", "6M", "1Y", "2Y", "5Y"], index=2, key="checklist_timeframe")
     
@@ -18243,7 +18324,14 @@ elif selected_page == "📊 Pro Checklist":
         
         # Compute technical facts if not already done
         tech_facts = compute_technical_facts(price_history)
+        # CRITICAL: Add ticker to tech_facts so AI knows which stock
+        tech_facts['ticker'] = ticker_check
+        tech_facts['company_name'] = quote.get('name', ticker_check)
+        
         if 'pro_tech_facts' not in st.session_state:
+            st.session_state.pro_tech_facts = tech_facts
+        else:
+            # Update session state with new ticker's facts
             st.session_state.pro_tech_facts = tech_facts
         
         # Generate and display callouts
@@ -18306,7 +18394,13 @@ elif selected_page == "📊 Pro Checklist":
                     
                                         
                     # Rule-based pattern suggestion (fact-locked fallback)
-                    tech_facts = st.session_state.get('pro_tech_facts') or compute_technical_facts(price_history)
+                    tech_facts = st.session_state.get('pro_tech_facts')
+                    if not tech_facts:
+                        tech_facts = compute_technical_facts(price_history)
+                        # Ensure ticker is in tech_facts
+                        tech_facts['ticker'] = ticker_check
+                        tech_facts['company_name'] = quote.get('name', ticker_check)
+                    
                     pattern_label, confidence, reasons, watch_level, watch_note = detect_rule_based_pattern(
                         tech_facts,
                         simple_mode=simple_mode
@@ -18706,6 +18800,12 @@ elif selected_page == "👑 Ultimate":
                 
                 # Compute technical facts
                 tech_facts = compute_technical_facts(price_data)
+                # CRITICAL: Add ticker to tech_facts so AI knows which stock
+                tech_facts['ticker'] = ticker
+                # Get company name from quote
+                quote = get_quote(ticker)
+                tech_facts['company_name'] = quote.get('name', ticker) if quote else ticker
+                
                 st.session_state.ultimate_tech_facts = tech_facts
                 
                 st.success(f"✅ Loaded {len(price_data)} data points for {ticker}")
