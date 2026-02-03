@@ -3841,52 +3841,25 @@ def get_dividend_yield(ticker, price):
 @st.cache_data(ttl=3600)  # Cache for 1 hour
 def get_revenue_growth(ticker):
     """
-    Get YoY revenue growth from FMP using v3 API.
-    Self-contained function that doesn't depend on other functions.
+    Get YoY revenue growth using the SAME API endpoint as charts (income-statement).
+    Uses BASE_URL which is the stable API that works for all chart data.
     """
-    base_v3 = "https://financialmodelingprep.com/api/v3"
-    
     try:
-        # Method 1: Try financial-growth endpoint (v3 API - most reliable)
-        url1 = f"{base_v3}/financial-growth/{ticker}?limit=1&apikey={FMP_API_KEY}"
-        response1 = requests.get(url1, timeout=10)
-        if response1.status_code == 200:
-            data1 = response1.json()
-            if data1 and len(data1) > 0:
-                rev_growth = data1[0].get('revenueGrowth')
-                if rev_growth is not None:
-                    return rev_growth * 100  # Convert to percentage
+        # Use EXACT same URL pattern as get_income_statement function (line ~4695)
+        url = f"{BASE_URL}/income-statement?symbol={ticker}&period=annual&limit=2&apikey={FMP_API_KEY}"
+        response = requests.get(url, timeout=10)
         
-        # Method 2: Try income-statement-growth endpoint (v3 API)
-        url2 = f"{base_v3}/income-statement-growth/{ticker}?limit=1&apikey={FMP_API_KEY}"
-        response2 = requests.get(url2, timeout=10)
-        if response2.status_code == 200:
-            data2 = response2.json()
-            if data2 and len(data2) > 0:
-                rev_growth = data2[0].get('growthRevenue')
-                if rev_growth is not None:
-                    return rev_growth * 100
-        
-        # Method 3: Try key-metrics-ttm endpoint (v3 API)
-        url3 = f"{base_v3}/key-metrics-ttm/{ticker}?apikey={FMP_API_KEY}"
-        response3 = requests.get(url3, timeout=10)
-        if response3.status_code == 200:
-            data3 = response3.json()
-            if data3 and len(data3) > 0:
-                rev_growth = data3[0].get('revenueGrowth')
-                if rev_growth is not None:
-                    return rev_growth * 100
-        
-        # Method 4: Calculate from income statements (v3 API)
-        url4 = f"{base_v3}/income-statement/{ticker}?limit=2&apikey={FMP_API_KEY}"
-        response4 = requests.get(url4, timeout=10)
-        if response4.status_code == 200:
-            data4 = response4.json()
-            if data4 and len(data4) >= 2:
-                current_rev = data4[0].get('revenue', 0)
-                prev_rev = data4[1].get('revenue', 0)
+        if response.status_code == 200:
+            data = response.json()
+            
+            if data and len(data) >= 2:
+                # FMP returns most recent first, so [0] is current, [1] is previous
+                current_rev = data[0].get('revenue', 0)
+                prev_rev = data[1].get('revenue', 0)
+                
                 if prev_rev > 0 and current_rev > 0:
-                    return ((current_rev - prev_rev) / prev_rev) * 100
+                    growth = ((current_rev - prev_rev) / prev_rev) * 100
+                    return growth
         
         return None
     except Exception as e:
