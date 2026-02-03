@@ -3841,12 +3841,14 @@ def get_dividend_yield(ticker, price):
 @st.cache_data(ttl=3600)  # Cache for 1 hour
 def get_revenue_growth(ticker):
     """
-    Get YoY revenue growth from FMP.
+    Get YoY revenue growth from FMP using v3 API.
     Self-contained function that doesn't depend on other functions.
     """
+    base_v3 = "https://financialmodelingprep.com/api/v3"
+    
     try:
-        # Method 1: Try financial-growth endpoint directly
-        url1 = f"{BASE_URL}/financial-growth/{ticker}?limit=1&apikey={FMP_API_KEY}"
+        # Method 1: Try financial-growth endpoint (v3 API - most reliable)
+        url1 = f"{base_v3}/financial-growth/{ticker}?limit=1&apikey={FMP_API_KEY}"
         response1 = requests.get(url1, timeout=10)
         if response1.status_code == 200:
             data1 = response1.json()
@@ -3855,18 +3857,18 @@ def get_revenue_growth(ticker):
                 if rev_growth is not None:
                     return rev_growth * 100  # Convert to percentage
         
-        # Method 2: Try v3 API financial-growth
-        url2 = f"https://financialmodelingprep.com/api/v3/financial-growth/{ticker}?limit=1&apikey={FMP_API_KEY}"
+        # Method 2: Try income-statement-growth endpoint (v3 API)
+        url2 = f"{base_v3}/income-statement-growth/{ticker}?limit=1&apikey={FMP_API_KEY}"
         response2 = requests.get(url2, timeout=10)
         if response2.status_code == 200:
             data2 = response2.json()
             if data2 and len(data2) > 0:
-                rev_growth = data2[0].get('revenueGrowth')
+                rev_growth = data2[0].get('growthRevenue')
                 if rev_growth is not None:
                     return rev_growth * 100
         
-        # Method 3: Try key-metrics-ttm endpoint
-        url3 = f"{BASE_URL}/key-metrics-ttm/{ticker}?apikey={FMP_API_KEY}"
+        # Method 3: Try key-metrics-ttm endpoint (v3 API)
+        url3 = f"{base_v3}/key-metrics-ttm/{ticker}?apikey={FMP_API_KEY}"
         response3 = requests.get(url3, timeout=10)
         if response3.status_code == 200:
             data3 = response3.json()
@@ -3875,8 +3877,8 @@ def get_revenue_growth(ticker):
                 if rev_growth is not None:
                     return rev_growth * 100
         
-        # Method 4: Calculate from income statements
-        url4 = f"{BASE_URL}/income-statement/{ticker}?limit=2&apikey={FMP_API_KEY}"
+        # Method 4: Calculate from income statements (v3 API)
+        url4 = f"{base_v3}/income-statement/{ticker}?limit=2&apikey={FMP_API_KEY}"
         response4 = requests.get(url4, timeout=10)
         if response4.status_code == 200:
             data4 = response4.json()
@@ -10089,8 +10091,17 @@ if selected_page == "🏠 Dashboard":
             
             if quote:
                 price = quote.get('price', 0)
-                change_pct = quote.get('changesPercentage', 0)
                 market_cap = quote.get('marketCap', 0)
+                
+                # Get change percentage - try multiple fields
+                change_pct = quote.get('changesPercentage', 0) or 0
+                
+                # If changesPercentage is 0, try to calculate from change and previousClose
+                if change_pct == 0:
+                    change_val = quote.get('change', 0) or 0
+                    prev_close = quote.get('previousClose', 0) or 0
+                    if prev_close > 0 and change_val != 0:
+                        change_pct = (change_val / prev_close) * 100
                 
                 # Format market cap
                 if market_cap >= 1e12:
@@ -20812,9 +20823,17 @@ elif selected_page == "💼 Paper Portfolio":
             # Get company logo
             logo_url = get_company_logo(pos['ticker'])
             
-            # Color for gain/loss
-            gain_color = "#00C853" if unrealized_gain >= 0 else "#FF5252"
-            gain_sign = "+" if unrealized_gain >= 0 else ""
+            # Color for gain/loss - Robinhood style (green gain, red loss with background)
+            if unrealized_gain >= 0:
+                gain_color = "#00C853"
+                gain_bg = "rgba(0, 200, 83, 0.15)"
+                gain_text = f"+${unrealized_gain:,.2f}"
+                gain_pct_text = f"(+{unrealized_gain_pct:.2f}%)"
+            else:
+                gain_color = "#FF5252"
+                gain_bg = "rgba(255, 82, 82, 0.15)"
+                gain_text = f"-${abs(unrealized_gain):,.2f}"
+                gain_pct_text = f"(-{abs(unrealized_gain_pct):.2f}%)"
             
             # Robinhood-style card with logo
             logo_html = f'<img src="{logo_url}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">' if logo_url else f'<div style="width: 40px; height: 40px; border-radius: 50%; background: #E0E0E0; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #666;">{pos["ticker"][:2]}</div>'
@@ -20844,10 +20863,10 @@ elif selected_page == "💼 Paper Portfolio":
                     <div style="font-size: 13px; color: #666;">Market Value</div>
                     <div style="font-weight: 600; color: #121212;">${market_value:,.2f}</div>
                 </div>
-                <div style="text-align: right; min-width: 100px;">
+                <div style="text-align: right; min-width: 110px;">
                     <div style="font-size: 13px; color: #666;">Gain/Loss</div>
-                    <div style="font-weight: 600; color: {gain_color};">{gain_sign}${abs(unrealized_gain):,.2f}</div>
-                    <div style="font-size: 12px; color: {gain_color};">({gain_sign}{abs(unrealized_gain_pct):.2f}%)</div>
+                    <div style="font-weight: 600; color: {gain_color}; background: {gain_bg}; padding: 4px 8px; border-radius: 6px; display: inline-block;">{gain_text}</div>
+                    <div style="font-size: 12px; color: {gain_color};">{gain_pct_text}</div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
