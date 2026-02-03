@@ -2092,99 +2092,9 @@ Rules:
     
     return {"answer": ["I had trouble connecting to AI. Please try again."], "lessons": [], "receipts": []}
 
-def render_ai_coach(tab, ticker=None, facts=None):
-    """Render AI Coach as a slide-out panel on the right side"""
-    initialize_ai_coach_state()
-    st.session_state.ai_coach_context = build_ai_context(tab, ticker, facts)
-    
-    # Get user's first name for personalized greeting
-    first_name = st.session_state.get('first_name', 'there')
-    
-    # Inject CSS for the panel (NO floating button anymore)
-    st.markdown("""
-    <style>
-    /* Hide ONLY the AI Coach toggle button (scoped) */
-    .ai-coach-hidden-toggle .stButton button {
-        position: absolute !important;
-        opacity: 0 !important;
-        pointer-events: none !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-    
-    # Toggle button - we'll hide it with CSS
-    st.markdown('<div class="ai-coach-hidden-toggle">', unsafe_allow_html=True)
-    col_hidden, _ = st.columns([0.001, 0.999])
-    with col_hidden:
-        if st.button("🤖", key=f"ai_toggle_{tab}"):
-            st.session_state.ai_coach_open = not st.session_state.ai_coach_open
-            st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    # Slide-out panel when open
-    if st.session_state.ai_coach_open:
-        st.markdown("---")
-        
-        # Panel header
-        head_col1, head_col2 = st.columns([4, 1])
-        with head_col1:
-            st.markdown(f"""
-            <div style="background: linear-gradient(135deg, #ff3333 0%, #cc0000 100%); padding: 15px 20px; border-radius: 10px; margin-bottom: 15px;">
-                <h3 style="color: white; margin: 0; font-size: 18px;">🤖 AI Assistant</h3>
-                <p style="color: rgba(255,255,255,0.8); margin: 5px 0 0 0; font-size: 12px;">Powered by AI • Educational only</p>
-            </div>
-            """, unsafe_allow_html=True)
-        with head_col2:
-            if st.button("✕ Close", key=f"close_ai_{tab}"):
-                st.session_state.ai_coach_open = False
-                st.rerun()
-        
-        # Greeting
-        st.markdown(f"**Hi, {first_name.title()}!** Ask me about stocks, investing, or this page.")
-        
-        # Mode selector
-        modes = {"explain": "📊 Explain", "learn": "📚 Learn", "portfolio": "💼 Portfolio"}
-        mode = st.radio("Mode:", list(modes.keys()), format_func=lambda x: modes[x], horizontal=True, key=f"ai_mode_{tab}", label_visibility="collapsed")
-        st.session_state.ai_coach_mode = mode
-        
-        # Chat history (last 6 messages)
-        if st.session_state.ai_coach_history:
-            for i, msg in enumerate(st.session_state.ai_coach_history[-6:]):
-                if msg["role"] == "user":
-                    st.markdown(f"**You:** {msg['content']}")
-                else:
-                    st.markdown("**AI:**")
-                    for bullet in msg.get("answer", []):
-                        st.markdown(f"• {bullet}")
-                    
-                    # Lesson links
-                    for lesson in msg.get("lessons", []):
-                        if st.button(f"📖 {lesson['label']}", key=f"lesson_{tab}_{lesson['id']}_{i}"):
-                            st.session_state.learn_selected_lesson_id = lesson['id']
-                            st.session_state.selected_page = "📚 Learn Hub"
-                            st.rerun()
-        
-        st.markdown("---")
-        
-        # Input area
-        user_input = st.text_input("Ask me anything:", placeholder="e.g., What does P/E ratio mean?", key=f"ai_input_{tab}")
-        
-        btn_col1, btn_col2 = st.columns([4, 1])
-        with btn_col1:
-            send = st.button("Send", type="primary", use_container_width=True, key=f"ai_send_{tab}")
-        with btn_col2:
-            if st.button("🗑️", key=f"ai_clear_{tab}", help="Clear chat"):
-                st.session_state.ai_coach_history = []
-                st.rerun()
-        
-        if send and user_input:
-            st.session_state.ai_coach_history.append({"role": "user", "content": user_input})
-            
-            with st.spinner("Thinking..."):
-                response = call_ai(user_input, st.session_state.ai_coach_mode, st.session_state.ai_coach_context)
-            
-            st.session_state.ai_coach_history.append({"role": "assistant", **response})
-            st.rerun()
+def render_ai_coach_DISABLED(tab, ticker=None, facts=None):
+    """DISABLED: AI Coach panel - using sidebar chatbot instead"""
+    pass  # This function is disabled - using sidebar AI assistant instead
 
 # ============= GAMIFICATION HELPERS (Robinhood-style) =============
 def _ensure_basics_gamification_state():
@@ -5934,8 +5844,8 @@ TOUR_PAGES = [
         "description": "Unlock premium features",
         "features": [
             "🆓 **Free Tier** - 3 pinned stocks, basic analysis",
-            "⭐ **Pro ($9/mo)** - 25 pins, advanced charts, AI insights",
-            "💎 **Premium ($19/mo)** - Unlimited, priority support",
+            "⭐ **Pro ($5/mo)** - 25 pins, advanced charts, AI insights",
+            "💎 **Ultimate ($10/mo)** - Unlimited, priority support",
             "🎁 **Coming Soon** - Lifetime deals and family plans"
         ]
     }
@@ -9983,7 +9893,7 @@ if selected_page == "🏠 Dashboard":
         
         # Show starter suggestions with LOGOS
         st.markdown("**💡 Popular tickers to get started:**")
-        starters = ["AAPL", "NVDA", "MSFT", "GOOGL", "AMZN"]
+        starters = ["NVDA", "TSLA", "PLTR", "HOOD", "GOOGL"]
         
         # Create columns for each starter
         starter_cols = st.columns(5)
@@ -13870,7 +13780,7 @@ elif selected_page == "📚 Learn Hub":
             st.markdown("---")
 
         # AI coach on the side of Learn Hub (unchanged)
-        render_ai_coach("Learn Hub", ticker=None, facts=None)
+        #REMOVED: render_ai_coach("Learn Hub", ticker=None, facts=None)
 
 
 elif selected_page == "📘 Glossary":
@@ -13975,13 +13885,15 @@ elif selected_page == "📘 Glossary":
     # Overview card
     st.markdown(f"""
     <div style="
-        background: linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%);
+        background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%);
         padding: 25px;
         border-radius: 12px;
         margin: 20px 0;
+        border: 1px solid #90CAF9;
+        color: #1a1a2e;
     ">
-        <div style="font-size: 28px; font-weight: bold; margin-bottom: 15px;">{selected}</div>
-        <div style="font-size: 16px; opacity: 0.95;">
+        <div style="font-size: 28px; font-weight: bold; margin-bottom: 15px; color: #1a1a2e;">{selected}</div>
+        <div style="font-size: 16px; color: #333;">
             <strong>Famous for:</strong> {company["famous_for"]}<br>
             <strong>Key insight:</strong> {company["key_insight"]}<br>
             <strong>Watch for:</strong> {company["watch_for"]}
@@ -14133,7 +14045,7 @@ elif selected_page == "📘 Glossary":
         Good: <15 value, 15-25 fair, >25 growth
         """)
     
-    render_ai_coach("Finance 101", ticker=None, facts=None)
+    #REMOVED: render_ai_coach("Finance 101", ticker=None, facts=None)
 
 
 elif selected_page == "🧠 Risk Quiz":
@@ -14344,7 +14256,7 @@ elif selected_page == "🧠 Risk Quiz":
                 st.rerun()
     
     # AI Coach integration
-    render_ai_coach("Risk Quiz", ticker=None, facts=None)
+    #REMOVED: render_ai_coach("Risk Quiz", ticker=None, facts=None)
 
 
 elif selected_page == "📊 Company Analysis":
@@ -15926,13 +15838,13 @@ elif selected_page == "📊 Company Analysis":
             st.info("💡 **Tip:** Try a major stock like AAPL, MSFT, or GOOGL")
     
     # AI Coach integration with ticker context
-    render_ai_coach("Company Analysis", ticker=ticker if ticker and ticker != "AAPL" else None, facts=None)
+    #REMOVED: render_ai_coach("Company Analysis", ticker=ticker if ticker and ticker != "AAPL" else None, facts=None)
 
 
 elif selected_page == "📊 Market Overview":
     
     st.header("📊 Market Overview")
-    st.caption("*Top 100 stocks by market cap (ETFs excluded). Real-time data from FMP Stock Screener.*")
+    st.caption("*Top 50 stocks by market cap (ETFs excluded). Real-time data from FMP Stock Screener.*")
     
     # Show data source indicator
     show_data_source(source="FMP Stock Screener API", updated_at=datetime.now())
@@ -15961,7 +15873,7 @@ elif selected_page == "📊 Market Overview":
             st.info(f"Loading companies from {len(selected_sectors)} sector(s)...")
             
             for sector in selected_sectors:
-                companies = get_companies_from_screener(sector=sector, limit=100)
+                companies = get_companies_from_screener(sector=sector, limit=50)
                 
                 for company in companies:
                     ticker_sym = company.get('symbol')
@@ -16039,7 +15951,7 @@ elif selected_page == "📊 Market Overview":
             # Default view: Load top 100 companies across all sectors
             st.info("Loading top 100 companies by market cap...")
             
-            companies = get_companies_from_screener(sector=None, limit=100)
+            companies = get_companies_from_screener(sector=None, limit=50)
             
             for company in companies:
                 ticker_sym = company.get('symbol')
@@ -16204,7 +16116,7 @@ elif selected_page == "📊 Market Overview":
             st.write(f"Debug: rows list was empty after processing")
 
     # AI Coach integration
-    render_ai_coach("Market Overview", ticker=None, facts=None)
+    #REMOVED: render_ai_coach("Market Overview", ticker=None, facts=None)
 
 
 # ============= AI STOCK SCREENER PAGE =============
@@ -16363,8 +16275,8 @@ Return ONLY the JSON, no explanation."""
                     with st.expander("🔧 Parsed Criteria", expanded=False):
                         st.json(criteria)
                     
-                    # Step 2: Build FMP API call
-                    screener_url = f"{BASE_URL}/stock-screener?"
+                    # Step 2: Build FMP API call - Use the correct v3 endpoint for stock screener
+                    screener_url = "https://financialmodelingprep.com/api/v3/stock-screener"
                     params = {"apikey": FMP_API_KEY, "isEtf": "false", "isActivelyTrading": "true"}
                     
                     if criteria.get("sector"):
@@ -16584,7 +16496,7 @@ Be educational, not advisory. Don't recommend buying."""
             """)
     
     # AI Coach integration
-    render_ai_coach("AI Stock Screener", ticker=None, facts=None)
+    #REMOVED: render_ai_coach("AI Stock Screener", ticker=None, facts=None)
 
 
 elif selected_page == "📈 Financial Health":
@@ -16913,7 +16825,7 @@ elif selected_page == "📈 Financial Health":
         st.info("**Tip:** Try major stocks like AAPL, MSFT, GOOGL, or AMZN")
     
     # AI Coach integration
-    render_ai_coach("Financial Health", ticker=ticker if ticker else None, facts=None)
+    #REMOVED: render_ai_coach("Financial Health", ticker=ticker if ticker else None, facts=None)
 
 
 # ============= MARKET INTELLIGENCE TAB =============
@@ -17059,12 +16971,21 @@ Keep each bullet to ONE line. Be concise."""
         top_news, error = get_top_market_news()
     
     if top_news:
-        # Display in a card with light blue background
+        # Parse the news into individual lines and display each on its own line
+        news_lines = [line.strip() for line in top_news.split('\n') if line.strip() and (line.strip().startswith('•') or line.strip().startswith('-') or line.strip().startswith('*'))]
+        
+        if news_lines:
+            formatted_news = '<br>'.join(news_lines)
+        else:
+            # If no bullets found, just replace newlines with <br>
+            formatted_news = top_news.replace('\n', '<br>')
+        
+        # Display in a card with light blue background - horizontal format
         st.markdown(f"""
         <div style="background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%); 
                     border: 2px solid #ff3333; border-radius: 15px; padding: 30px; margin: 20px 0;">
-            <div style="color: #1a1a2e; font-size: 16px; line-height: 1.8;">
-                {top_news}
+            <div style="color: #1a1a2e; font-size: 15px; line-height: 2.0;">
+                {formatted_news}
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -17172,14 +17093,12 @@ Keep each bullet to ONE line. Be concise."""
     
     # ============= EARNINGS CALENDAR (Using FMP API) =============
     st.markdown("### 📅 Earnings Calendar - This Week")
-    st.caption("Biggest earnings releases this week • Source: FMP API")
+    st.caption("Top 5 biggest earnings by market cap each day • Source: FMP API")
     
     with st.spinner("📊 Loading earnings calendar..."):
         earnings_by_day, earnings_error = get_weekly_earnings_fmp()
     
     if earnings_by_day and len(earnings_by_day) > 0:
-        # Build formatted earnings display
-        earnings_html = ""
         day_names = {0: 'Monday', 1: 'Tuesday', 2: 'Wednesday', 3: 'Thursday', 4: 'Friday', 5: 'Saturday', 6: 'Sunday'}
         
         # Sort dates
@@ -17190,30 +17109,36 @@ Keep each bullet to ONE line. Be concise."""
                 date_obj = datetime.strptime(date_str, '%Y-%m-%d')
                 day_name = day_names.get(date_obj.weekday(), '')
                 formatted_date = date_obj.strftime('%B %d')
-                earnings_html += f"<p><strong>{day_name}, {formatted_date}:</strong></p>"
                 
-                for earning in earnings_by_day[date_str]:
+                st.markdown(f"**{day_name}, {formatted_date}:**")
+                
+                # Display each company with logo
+                for earning in earnings_by_day[date_str][:5]:
                     symbol = earning['symbol']
-                    company_name = earning.get('company_name', symbol)
-                    # Show company name followed by ticker
-                    if company_name and company_name != symbol:
-                        earnings_html += f"<p>• <strong>{company_name}</strong> ({symbol})</p>"
+                    logo_url = get_company_logo(symbol)
+                    profile = get_profile(symbol)
+                    company_name = profile.get('companyName', symbol) if profile else symbol
+                    
+                    # Build logo HTML
+                    if logo_url:
+                        logo_html = f'<img src="{logo_url}" width="32" height="32" style="border-radius: 6px; margin-right: 10px;">'
                     else:
-                        earnings_html += f"<p>• {symbol}</p>"
-            except:
+                        logo_html = f'<div style="width: 32px; height: 32px; background: #E0E0E0; border-radius: 6px; margin-right: 10px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px;">{symbol[:2]}</div>'
+                    
+                    st.markdown(f"""
+                    <div style="display: flex; align-items: center; background: rgba(128,128,128,0.05); padding: 8px 12px; border-radius: 8px; margin: 5px 0;">
+                        {logo_html}
+                        <div>
+                            <span style="font-weight: 600; color: #333;">{company_name[:30]}</span>
+                            <span style="color: #888; margin-left: 8px;">({symbol})</span>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                st.markdown("")  # Spacer
+            except Exception as e:
                 continue
         
-        if earnings_html:
-            st.markdown(f"""
-            <div style="background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%); 
-                        border: 2px solid #ff3333; border-radius: 15px; padding: 30px; margin: 20px 0;">
-                <div style="color: #1a1a2e; font-size: 16px; line-height: 1.8;">
-                    {earnings_html}
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            st.info("No major earnings scheduled for this week.")
     elif earnings_error:
         st.warning(f"Could not fetch earnings: {earnings_error}")
         st.info("📊 Check FMP API connection")
@@ -17332,7 +17257,7 @@ Keep each bullet to ONE line. Be concise."""
     st.caption("*News powered by Perplexity AI and Financial Modeling Prep. This is not financial advice.*")
     
     # AI Coach integration
-    render_ai_coach("Market Intelligence", ticker=None, facts=None)
+    #REMOVED: render_ai_coach("Market Intelligence", ticker=None, facts=None)
 
 
 
@@ -18516,7 +18441,7 @@ elif selected_page == "📊 Pro Checklist":
         # ✅ PRO CLEANUP + THEME FIX COMPLETE
     
     # AI Coach integration
-    render_ai_coach("Pro Checklist", ticker=ticker_check if 'ticker_check' in locals() else None, facts=None)
+    #REMOVED: render_ai_coach("Pro Checklist", ticker=ticker_check if 'ticker_check' in locals() else None, facts=None)
 
 
 # ============================================================================
@@ -19884,7 +19809,7 @@ Return JSON with grade, summary, top_risks (MAX 5), improvement_playbook (MAX 5)
             st.info("💼 You don't have any positions in your Paper Portfolio yet. Go to the Paper Portfolio tab to start trading!")
     
     # AI Coach integration
-    render_ai_coach("Portfolio Review", ticker=None, facts=None)
+    #REMOVED: render_ai_coach("Portfolio Review", ticker=None, facts=None)
 
 
 # NEW PAPER PORTFOLIO PAGE - Section 6 Implementation
@@ -20678,7 +20603,7 @@ elif selected_page == "💼 Paper Portfolio":
         st.rerun()
     
     # AI Coach integration
-    render_ai_coach("Paper Portfolio", ticker=None, facts=None)
+    #REMOVED: render_ai_coach("Paper Portfolio", ticker=None, facts=None)
 
 elif selected_page == "✅ Portfolio Risk Analyzer":
     st.header("📈 Portfolio Risk Analyzer")
@@ -20951,7 +20876,7 @@ elif selected_page == "✅ Portfolio Risk Analyzer":
                         st.success("✅ Portfolio looks well-balanced!")
     
     # AI Coach integration
-    render_ai_coach("Portfolio Risk Analyzer", ticker=None, facts=None)
+    #REMOVED: render_ai_coach("Portfolio Risk Analyzer", ticker=None, facts=None)
 
 # ============= FOUNDER TRACK RECORD (PUBLIC READ-ONLY) =============
 elif selected_page == "📜 Founder Track Record":
