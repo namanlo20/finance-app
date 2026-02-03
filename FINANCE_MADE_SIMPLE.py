@@ -3867,11 +3867,28 @@ def get_revenue_growth(ticker):
         return None
 
 
+# Fallback logos for stocks with missing or black/white logos
+FALLBACK_LOGOS = {
+    "PLTR": "https://logo.clearbit.com/palantir.com",
+    "BRK.B": "https://logo.clearbit.com/berkshirehathaway.com",
+    "BRK-B": "https://logo.clearbit.com/berkshirehathaway.com",
+}
+
 def get_company_logo(ticker):
-    """Get company logo URL from FMP profile"""
+    """Get company logo URL from FMP profile, with fallbacks for problematic logos"""
+    # Check fallback first for known problematic logos
+    if ticker in FALLBACK_LOGOS:
+        return FALLBACK_LOGOS[ticker]
+    
     profile = get_profile(ticker)
     if profile and 'image' in profile and profile['image']:
         return profile['image']
+    
+    # Try Clearbit as fallback
+    if profile and 'website' in profile and profile['website']:
+        domain = profile['website'].replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0]
+        return f"https://logo.clearbit.com/{domain}"
+    
     return None
 
 
@@ -4211,6 +4228,44 @@ Rules:
         
         print(f"[DEBUG] Vision API Error: {response.status_code}")
         print(f"[DEBUG] Response: {response.text[:500]}")
+        
+        # Fallback to Grok if OpenAI fails (Grok also supports vision)
+        grok_api_key = os.environ.get('GROK_API_KEY', '')
+        if grok_api_key:
+            try:
+                grok_url = "https://api.x.ai/v1/chat/completions"
+                grok_headers = {
+                    "Authorization": f"Bearer {grok_api_key}",
+                    "Content-Type": "application/json"
+                }
+                grok_payload = {
+                    "model": "grok-vision-beta",
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": message_content
+                        }
+                    ],
+                    "max_tokens": 2000,
+                    "temperature": 0.1
+                }
+                
+                grok_response = requests.post(grok_url, headers=grok_headers, json=grok_payload, timeout=60)
+                
+                if grok_response.status_code == 200:
+                    grok_content = grok_response.json().get('choices', [{}])[0].get('message', {}).get('content', '')
+                    if grok_content:
+                        grok_content = grok_content.strip()
+                        if grok_content.startswith('```json'):
+                            grok_content = grok_content[7:]
+                        elif grok_content.startswith('```'):
+                            grok_content = grok_content[3:]
+                        if grok_content.endswith('```'):
+                            grok_content = grok_content[:-3]
+                        return json.loads(grok_content.strip())
+            except Exception as grok_e:
+                print(f"[DEBUG] Grok Vision fallback failed: {str(grok_e)}")
+        
         return None
     
     except Exception as e:
@@ -6320,6 +6375,54 @@ UNHINGED_COMMENTS = {
         "A checklist before buying? What happened to gut feelings and tweets?",
         "10-point analysis? Back in my day we just bought whatever Elon tweeted.",
     ],
+    # NEW: Portfolio concentration roasts
+    "concentration_high": [
+        "Whoa there, putting all your eggs in one basket? That's not diversification, that's a trust fall with your money.",
+        "50%+ in one stock? Either you're a genius or you'll be a cautionary tale. No in-between.",
+        "That's a spicy concentration! Hope you're ready to ride that rollercoaster with no seatbelt.",
+        "One stock to rule them all? Sauron would be proud. Your financial advisor? Not so much.",
+        "Portfolio looking more concentrated than espresso. Bold move, cotton. Let's see if it pays off.",
+    ],
+    "concentration_warning": [
+        "Getting a bit top-heavy there! That stock better be worth the heart palpitations.",
+        "Concentration building up... might want to spread the love (and risk) around.",
+        "Single stock syndrome detected! Remember: diversification is just admitting you don't know everything.",
+    ],
+    "founder_portfolio": [
+        "Ah, the Founder's picks! Let's see if they practice what they preach.",
+        "Founder portfolio check! Are they eating their own cooking? 🍳",
+        "The Founder's positions are public because transparency builds trust. Or entertainment.",
+    ],
+    "founder_loss": [
+        "Even the Founder is down! Misery loves company, am I right?",
+        "Founder taking losses too! See, we're all in this dumpster fire together.",
+        "Red in the Founder's portfolio? Nobody's perfect. Except Buffett. Maybe.",
+    ],
+    "founder_gain": [
+        "Founder's up! Must be nice to pick winners. Or just be lucky. Probably lucky.",
+        "Green in the Founder's portfolio! Quick, copy their trades! (Not financial advice)",
+        "Founder making gains while you're reading this. Coincidence? I think not.",
+    ],
+    "user_loss": [
+        "Down bad? Join the club. We have snacks and copium.",
+        "Your portfolio called. It wants a better manager.",
+        "Losses happen! What matters is... actually no, losses just stink. Sorry.",
+    ],
+    "user_gain": [
+        "Wait, you're actually up? Screenshot that immediately.",
+        "Green portfolio! Don't get used to it, the market giveth and taketh.",
+        "Making money? Careful, confidence leads to overtrading leads to... well, you know.",
+    ],
+    "portfolio_review": [
+        "Time to face the music! Let's see what financial decisions haunt you today.",
+        "Portfolio review time! Like a report card, but it costs real money.",
+        "Analyzing your portfolio... preparing emotional support...",
+    ],
+    "all_in_meme": [
+        "100% meme stocks? You absolute legend. Reckless, but legendary.",
+        "All-in on meme stocks! To the moon or to zero, no boring middle ground!",
+        "Meme portfolio detected! May the Reddit gods bless your positions.",
+    ],
 }
 
 def get_unhinged_comment(context, extra_data=None):
@@ -7662,19 +7765,31 @@ def get_concentration_warning(ticker, weight, risk_tier):
             return ("warning", f"ℹ️ This position is {weight_pct}% of your portfolio.\nTake the Risk Quiz to get personalized concentration warnings.")
         return ("none", "")
     
+    # Get unhinged roast if enabled
+    unhinged_roast = ""
+    if st.session_state.get("unhinged_mode", False):
+        if strong_threshold and weight >= strong_threshold:
+            roast = get_unhinged_comment("concentration_high")
+            if roast:
+                unhinged_roast = f"\n\n🔥 *{roast}*"
+        elif weight >= warning_threshold:
+            roast = get_unhinged_comment("concentration_warning")
+            if roast:
+                unhinged_roast = f"\n\n🔥 *{roast}*"
+    
     # Strong warning
     if strong_threshold and weight >= strong_threshold:
         message = f"""🚨 **Concentration risk:**
 This position is {weight_pct}% of your portfolio.
 Based on your Risk Quiz ({risk_tier}), this may feel extremely volatile during drawdowns.
-Consider diversifying or reducing position size."""
+Consider diversifying or reducing position size.{unhinged_roast}"""
         return ("high", message)
     
     # Caution warning
     if weight >= warning_threshold:
         message = f"""⚠️ **Concentration warning:**
 This position makes up {weight_pct}% of your portfolio.
-Based on your {risk_tier} risk profile, this could increase volatility."""
+Based on your {risk_tier} risk profile, this could increase volatility.{unhinged_roast}"""
         return ("warning", message)
     
     return ("none", "")
