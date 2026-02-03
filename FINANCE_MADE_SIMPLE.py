@@ -20487,85 +20487,88 @@ elif selected_page == "💼 Paper Portfolio":
     
     # ============= POSITIONS TABLE COMPONENT =============
     def render_positions_table(portfolio, realized_gains, portfolio_type='user'):
-        """Render Robinhood-style positions with buy/sell buttons"""
+        """Render Robinhood-style positions table with logo, name, shares, price, value, gain/loss"""
         if not portfolio:
             st.info("No positions yet. Use the trade panel to buy your first stock!")
             return
-        
-        # Get transactions for this portfolio type
-        if portfolio_type == 'founder':
-            transactions = st.session_state.founder_transactions
-        else:
-            transactions = st.session_state.transactions
         
         # Update concentration flags
         update_concentration_flags(portfolio)
         concentration_flags = st.session_state.get('concentration_flags', {})
         
-        # Render each position as a card
+        # Render each position as a clean Robinhood-style row
         for idx, pos in enumerate(portfolio):
             quote = get_quote(pos['ticker'])
             if not quote:
                 continue
-                
+            
             current_price = quote.get('price', 0)
+            company_name = quote.get('name', pos['ticker'])
             market_value = pos['shares'] * current_price
             cost_basis = pos['shares'] * pos['avg_price']
             unrealized_gain = market_value - cost_basis
             unrealized_gain_pct = (unrealized_gain / cost_basis * 100) if cost_basis > 0 else 0
             
+            # Get company logo
+            logo_url = get_company_logo(pos['ticker'])
+            
             # Concentration warning
             conc_flag = concentration_flags.get(pos['ticker'], {})
             severity = conc_flag.get('severity', 'none')
-            warning_icon = "🚨 " if severity == "high" else "⚠️ " if severity == "warning" else ""
+            warning_icon = "🚨" if severity == "high" else "⚠️" if severity == "warning" else ""
             
             # Color for gain/loss
             gain_color = "#00C853" if unrealized_gain >= 0 else "#FF5252"
+            gain_sign = "+" if unrealized_gain >= 0 else ""
             
-            # Position card with columns
-            with st.container():
-                col1, col2, col3, col4 = st.columns([2, 2, 2, 1.5])
-                
-                with col1:
-                    st.markdown(f"### {warning_icon}{pos['ticker']}")
-                    st.caption(f"{pos['shares']:.4f} shares")
-                
-                with col2:
-                    st.metric("Avg Cost", f"${pos['avg_price']:.2f}")
-                
-                with col3:
-                    st.metric("Market Value", f"${market_value:,.2f}", 
-                              delta=f"{unrealized_gain_pct:+.2f}%")
-                
-                with col4:
-                    # Buy/Sell buttons
-                    buy_col, sell_col = st.columns(2)
-                    with buy_col:
-                        if st.button("🟢 Buy", key=f"quick_buy_{portfolio_type}_{pos['ticker']}_{idx}", use_container_width=True):
-                            st.session_state[f'prefill_ticker_{portfolio_type}'] = pos['ticker']
-                            st.session_state[f'prefill_action_{portfolio_type}'] = 'Buy'
-                            st.rerun()
-                    with sell_col:
-                        if st.button("🔴 Sell", key=f"quick_sell_{portfolio_type}_{pos['ticker']}_{idx}", use_container_width=True):
-                            st.session_state[f'prefill_ticker_{portfolio_type}'] = pos['ticker']
-                            st.session_state[f'prefill_action_{portfolio_type}'] = 'Sell'
-                            st.rerun()
-                
-                # Expandable transaction history for this ticker
-                ticker_transactions = [t for t in transactions if t.get('ticker') == pos['ticker']]
-                if ticker_transactions:
-                    with st.expander(f"📜 {pos['ticker']} Trade History ({len(ticker_transactions)} trades)", expanded=False):
-                        for txn in reversed(ticker_transactions[-10:]):
-                            txn_type = txn.get('type', 'BUY')
-                            txn_color = "#00C853" if txn_type == 'BUY' else "#FF5252"
-                            st.markdown(f"""
-                            <div style="padding: 8px; margin: 4px 0; background: #f8f9fa; border-radius: 6px; border-left: 4px solid {txn_color};">
-                                <strong>{txn_type}</strong> {txn.get('shares', 0):.4f} shares @ ${txn.get('price', 0):.2f}<br>
-                                <small style="color: #666;">{txn.get('date', 'N/A')} • Total: ${txn.get('total', 0):,.2f}</small>
-                            </div>
-                            """, unsafe_allow_html=True)
-                
-                st.markdown("---")
+            # Robinhood-style card with logo
+            logo_html = f'<img src="{logo_url}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">' if logo_url else f'<div style="width: 40px; height: 40px; border-radius: 50%; background: #E0E0E0; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #666;">{pos["ticker"][:2]}</div>'
+            
+            st.markdown(f"""
+            <div style="display: flex; align-items: center; padding: 16px; background: #FAFAFA; border-radius: 12px; margin-bottom: 12px; border: 1px solid #E0E0E0;">
+                <div style="flex: 0 0 50px;">
+                    {logo_html}
+                </div>
+                <div style="flex: 1; margin-left: 12px;">
+                    <div style="font-weight: 600; font-size: 16px; color: #121212;">{warning_icon} {pos['ticker']}</div>
+                    <div style="font-size: 13px; color: #666;">{company_name[:30]}{'...' if len(company_name) > 30 else ''}</div>
+                </div>
+                <div style="text-align: right; margin-right: 20px;">
+                    <div style="font-size: 13px; color: #666;">Shares</div>
+                    <div style="font-weight: 500; color: #121212;">{pos['shares']:.4f}</div>
+                </div>
+                <div style="text-align: right; margin-right: 20px;">
+                    <div style="font-size: 13px; color: #666;">Current Price</div>
+                    <div style="font-weight: 500; color: #121212;">${current_price:,.2f}</div>
+                </div>
+                <div style="text-align: right; margin-right: 20px;">
+                    <div style="font-size: 13px; color: #666;">Avg Cost</div>
+                    <div style="font-weight: 500; color: #121212;">${pos['avg_price']:.2f}</div>
+                </div>
+                <div style="text-align: right; margin-right: 20px;">
+                    <div style="font-size: 13px; color: #666;">Market Value</div>
+                    <div style="font-weight: 600; color: #121212;">${market_value:,.2f}</div>
+                </div>
+                <div style="text-align: right; min-width: 100px;">
+                    <div style="font-size: 13px; color: #666;">Gain/Loss</div>
+                    <div style="font-weight: 600; color: {gain_color};">{gain_sign}${abs(unrealized_gain):,.2f}</div>
+                    <div style="font-size: 12px; color: {gain_color};">({gain_sign}{abs(unrealized_gain_pct):.2f}%)</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Buy/Sell buttons below each position
+            col_spacer, col_buy, col_sell, col_spacer2 = st.columns([3, 1, 1, 3])
+            with col_buy:
+                if st.button("🟢 Buy", key=f"quick_buy_{portfolio_type}_{pos['ticker']}_{idx}", use_container_width=True):
+                    st.session_state[f'prefill_ticker_{portfolio_type}'] = pos['ticker']
+                    st.session_state[f'prefill_action_{portfolio_type}'] = 'Buy'
+                    st.rerun()
+            with col_sell:
+                if st.button("🔴 Sell", key=f"quick_sell_{portfolio_type}_{pos['ticker']}_{idx}", use_container_width=True):
+                    st.session_state[f'prefill_ticker_{portfolio_type}'] = pos['ticker']
+                    st.session_state[f'prefill_action_{portfolio_type}'] = 'Sell'
+                    st.rerun()
         
         # Summary
         st.caption(f"**Total Realized G/L:** ${realized_gains:,.2f}")
@@ -20693,47 +20696,43 @@ elif selected_page == "💼 Paper Portfolio":
     spy_ytd_return = 0.0
     spy_current = spy_starting
     
-    # Get SPY YTD performance from FMP - try multiple methods
+    # Get SPY YTD performance from FMP - calculate from historical + current price
     try:
-        # Method 1: Use stock price change endpoint
-        ytd_url = f"{BASE_URL}/stock-price-change/SPY?apikey={FMP_API_KEY}"
-        response = requests.get(ytd_url, timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            if data and len(data) > 0:
-                # Try 'ytd' first, then '1Y' as fallback
-                spy_ytd_return = data[0].get('ytd') or data[0].get('1Y') or 0
-                if spy_ytd_return:
-                    spy_current = spy_starting * (1 + spy_ytd_return / 100)
+        # Get current SPY price first
+        spy_quote = get_quote("SPY")
+        spy_current_price = spy_quote.get('price', 0) if spy_quote else 0
+        
+        if spy_current_price > 0:
+            # Get SPY price from first trading day of 2026 (Jan 2)
+            # Use a date range to ensure we get data
+            current_year = datetime.now().year
+            hist_url = f"{BASE_URL}/historical-price-full/SPY?from={current_year}-01-01&to={current_year}-01-10&apikey={FMP_API_KEY}"
+            hist_response = requests.get(hist_url, timeout=10)
+            
+            if hist_response.status_code == 200:
+                hist_data = hist_response.json()
+                if hist_data and 'historical' in hist_data and len(hist_data['historical']) > 0:
+                    # Get the earliest price in the range (last item since FMP returns newest first)
+                    jan_price = hist_data['historical'][-1].get('close', spy_current_price)
+                    
+                    # Calculate YTD return
+                    if jan_price > 0:
+                        spy_ytd_return = ((spy_current_price - jan_price) / jan_price) * 100
+                        spy_current = spy_starting * (1 + spy_ytd_return / 100)
     except Exception as e:
         pass
     
-    # Method 2: If still 0, calculate from historical prices
+    # Fallback: If still 0, try stock-price-change endpoint
     if spy_ytd_return == 0:
         try:
-            spy_quote = get_quote("SPY")
-            if spy_quote and spy_quote.get('price'):
-                current_price = spy_quote.get('price')
-                # Get price from start of year
-                hist_url = f"{BASE_URL}/historical-price-full/SPY?from=2026-01-02&to=2026-01-03&apikey={FMP_API_KEY}"
-                hist_response = requests.get(hist_url, timeout=10)
-                if hist_response.status_code == 200:
-                    hist_data = hist_response.json()
-                    if hist_data and 'historical' in hist_data and len(hist_data['historical']) > 0:
-                        jan_price = hist_data['historical'][-1].get('close', current_price)
-                        spy_ytd_return = ((current_price - jan_price) / jan_price) * 100
+            ytd_url = f"{BASE_URL}/stock-price-change/SPY?apikey={FMP_API_KEY}"
+            response = requests.get(ytd_url, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                if data and len(data) > 0:
+                    spy_ytd_return = data[0].get('ytd') or data[0].get('1Y') or 0
+                    if spy_ytd_return:
                         spy_current = spy_starting * (1 + spy_ytd_return / 100)
-        except:
-            pass
-    
-    # Method 3: Last fallback - use daily change as approximation
-    if spy_ytd_return == 0:
-        try:
-            spy_quote = get_quote("SPY")
-            if spy_quote:
-                # At minimum show the current price movement
-                spy_ytd_return = spy_quote.get('changesPercentage', 0) or 0
-                spy_current = spy_starting * (1 + spy_ytd_return / 100)
         except:
             pass
     
