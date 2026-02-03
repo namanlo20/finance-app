@@ -164,6 +164,197 @@ input, textarea, select {
 </style>
 """, unsafe_allow_html=True)
 
+# ============= MOBILE RESPONSIVE CSS + COOL TABLE STYLING =============
+st.markdown("""
+<style>
+/* ============= MOBILE RESPONSIVE CSS ============= */
+@media screen and (max-width: 768px) {
+    /* Sidebar - collapse by default on mobile */
+    [data-testid="stSidebar"] {
+        min-width: 0px !important;
+        width: 0px !important;
+        transform: translateX(-100%) !important;
+    }
+    
+    [data-testid="stSidebar"][aria-expanded="true"] {
+        min-width: 250px !important;
+        width: 250px !important;
+        transform: translateX(0) !important;
+    }
+    
+    /* Main content - full width on mobile */
+    .main .block-container {
+        padding: 1rem 0.5rem !important;
+        max-width: 100% !important;
+    }
+    
+    /* Reduce header sizes on mobile */
+    h1 { font-size: 1.5rem !important; }
+    h2 { font-size: 1.25rem !important; }
+    h3 { font-size: 1.1rem !important; }
+    
+    /* Stack columns vertically on mobile */
+    [data-testid="stHorizontalBlock"] {
+        flex-wrap: wrap !important;
+    }
+    
+    [data-testid="stHorizontalBlock"] > div {
+        flex: 1 1 100% !important;
+        min-width: 100% !important;
+        margin-bottom: 0.5rem !important;
+    }
+    
+    /* Larger touch targets for buttons */
+    .stButton button {
+        min-height: 48px !important;
+        font-size: 16px !important;
+    }
+    
+    /* Input fields - larger for touch */
+    input, textarea {
+        font-size: 16px !important;
+        min-height: 44px !important;
+    }
+    
+    /* Tables - horizontal scroll */
+    [data-testid="stDataFrame"] {
+        overflow-x: auto !important;
+    }
+    
+    /* Metrics - smaller on mobile */
+    [data-testid="stMetric"] {
+        padding: 0.5rem !important;
+    }
+    
+    [data-testid="stMetricValue"] {
+        font-size: 1.2rem !important;
+    }
+    
+    /* Navigation dropdowns - full width */
+    [data-testid="stHorizontalBlock"] [data-baseweb="select"] {
+        width: 100% !important;
+    }
+    
+    /* Dialog/popup - full screen on mobile */
+    [data-testid="stModal"] {
+        width: 95vw !important;
+        max-width: 95vw !important;
+        margin: 2.5vw !important;
+    }
+}
+
+@media screen and (max-width: 480px) {
+    /* Extra small screens */
+    .main .block-container {
+        padding: 0.5rem 0.25rem !important;
+    }
+    
+    h1 { font-size: 1.3rem !important; }
+    h2 { font-size: 1.1rem !important; }
+    h3 { font-size: 1rem !important; }
+    
+    /* Hide less important columns on very small screens */
+    .stDataFrame th:nth-child(n+5),
+    .stDataFrame td:nth-child(n+5) {
+        display: none;
+    }
+}
+
+/* ============= COOL MARKET OVERVIEW TABLE STYLING ============= */
+/* Modern table with gradient headers and hover effects */
+.market-overview-container {
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    background: white;
+}
+
+/* Style all dataframes to look modern */
+[data-testid="stDataFrame"] > div {
+    border-radius: 12px !important;
+    overflow: hidden !important;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-testid="stDataFrame"] table {
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+}
+
+/* Header row styling */
+[data-testid="stDataFrame"] thead tr th {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%) !important;
+    color: white !important;
+    font-weight: 600 !important;
+    padding: 14px 12px !important;
+    text-transform: uppercase !important;
+    font-size: 11px !important;
+    letter-spacing: 0.5px !important;
+    border: none !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 10 !important;
+}
+
+/* Row styling with alternating colors */
+[data-testid="stDataFrame"] tbody tr:nth-child(odd) {
+    background-color: #f8f9fa !important;
+}
+
+[data-testid="stDataFrame"] tbody tr:nth-child(even) {
+    background-color: #ffffff !important;
+}
+
+/* Hover effect on rows */
+[data-testid="stDataFrame"] tbody tr:hover {
+    background: linear-gradient(90deg, rgba(255, 68, 68, 0.08) 0%, rgba(255, 68, 68, 0.04) 100%) !important;
+    transform: scale(1.002);
+    transition: all 0.2s ease !important;
+    cursor: pointer !important;
+}
+
+/* Cell styling */
+[data-testid="stDataFrame"] tbody td {
+    padding: 12px !important;
+    border-bottom: 1px solid #eee !important;
+    font-size: 13px !important;
+    transition: all 0.2s ease !important;
+}
+
+/* First column (Ticker) - bold and accent color */
+[data-testid="stDataFrame"] tbody td:first-child {
+    font-weight: 700 !important;
+    color: #1a1a2e !important;
+}
+
+/* Price column styling */
+[data-testid="stDataFrame"] tbody td:nth-child(5) {
+    font-weight: 600 !important;
+    color: #2d3748 !important;
+}
+
+/* Scrollbar styling */
+[data-testid="stDataFrame"] ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+[data-testid="stDataFrame"] ::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+[data-testid="stDataFrame"] ::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%);
+    border-radius: 4px;
+}
+
+[data-testid="stDataFrame"] ::-webkit-scrollbar-thumb:hover {
+    background: #CC0000;
+}
+</style>
+""", unsafe_allow_html=True)
+
 # Initialize selected page
 if 'selected_page' not in st.session_state:
     st.session_state.selected_page = "🏠 Dashboard"
@@ -3647,45 +3838,52 @@ def get_dividend_yield(ticker, price):
         return None
 
 
-@st.cache_data(ttl=86400)  # Cache for 24 hours - revenue growth doesn't change often
+@st.cache_data(ttl=3600)  # Cache for 1 hour
 def get_revenue_growth(ticker):
     """
-    Get YoY revenue growth from FMP using v3 API.
-    Tries multiple endpoints to get the data.
+    Get YoY revenue growth from FMP.
+    Self-contained function that doesn't depend on other functions.
     """
     try:
-        # Use v3 API directly - more reliable than stable
-        base_v3 = "https://financialmodelingprep.com/api/v3"
+        # Method 1: Try financial-growth endpoint directly
+        url1 = f"{BASE_URL}/financial-growth/{ticker}?limit=1&apikey={FMP_API_KEY}"
+        response1 = requests.get(url1, timeout=10)
+        if response1.status_code == 200:
+            data1 = response1.json()
+            if data1 and len(data1) > 0:
+                rev_growth = data1[0].get('revenueGrowth')
+                if rev_growth is not None:
+                    return rev_growth * 100  # Convert to percentage
         
-        # Try financial-growth endpoint first (v3)
-        url = f"{base_v3}/financial-growth/{ticker}?limit=1&apikey={FMP_API_KEY}"
-        response = requests.get(url, timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            if data and len(data) > 0:
-                growth = data[0].get('revenueGrowth')
-                if growth is not None:
-                    return growth * 100  # Convert to percentage
-        
-        # Fallback: Try income-statement-growth endpoint (v3)
-        url2 = f"{base_v3}/income-statement-growth/{ticker}?limit=1&apikey={FMP_API_KEY}"
+        # Method 2: Try v3 API financial-growth
+        url2 = f"https://financialmodelingprep.com/api/v3/financial-growth/{ticker}?limit=1&apikey={FMP_API_KEY}"
         response2 = requests.get(url2, timeout=10)
         if response2.status_code == 200:
             data2 = response2.json()
             if data2 and len(data2) > 0:
-                growth2 = data2[0].get('growthRevenue')
-                if growth2 is not None:
-                    return growth2 * 100
+                rev_growth = data2[0].get('revenueGrowth')
+                if rev_growth is not None:
+                    return rev_growth * 100
         
-        # Fallback: Calculate from income statements (v3)
-        url3 = f"{base_v3}/income-statement/{ticker}?limit=2&apikey={FMP_API_KEY}"
+        # Method 3: Try key-metrics-ttm endpoint
+        url3 = f"{BASE_URL}/key-metrics-ttm/{ticker}?apikey={FMP_API_KEY}"
         response3 = requests.get(url3, timeout=10)
         if response3.status_code == 200:
             data3 = response3.json()
-            if data3 and len(data3) >= 2:
-                current_rev = data3[0].get('revenue', 0)
-                prev_rev = data3[1].get('revenue', 0)
-                if prev_rev > 0:
+            if data3 and len(data3) > 0:
+                rev_growth = data3[0].get('revenueGrowth')
+                if rev_growth is not None:
+                    return rev_growth * 100
+        
+        # Method 4: Calculate from income statements
+        url4 = f"{BASE_URL}/income-statement/{ticker}?limit=2&apikey={FMP_API_KEY}"
+        response4 = requests.get(url4, timeout=10)
+        if response4.status_code == 200:
+            data4 = response4.json()
+            if data4 and len(data4) >= 2:
+                current_rev = data4[0].get('revenue', 0)
+                prev_rev = data4[1].get('revenue', 0)
+                if prev_rev > 0 and current_rev > 0:
                     return ((current_rev - prev_rev) / prev_rev) * 100
         
         return None
@@ -9958,20 +10156,16 @@ if selected_page == "🏠 Dashboard":
             return ''
         
         # Display header row - determine extra column label
-        template_metric = st.session_state.get('template_metric', None)
-        growth_stocks = ["PLTR", "HOOD", "SHOP", "NVDA", "AVGO"]
-        dividend_stocks = ["T", "VZ", "JNJ", "KO", "BAC", "PG", "PEP", "MMM"]
+        dividend_stocks = ["T", "VZ", "JNJ", "KO", "BAC", "PG", "PEP", "MMM", "XOM", "CVX"]
         
         # Check what kind of stocks are in the watchlist
-        has_growth = any(t in growth_stocks for t in st.session_state.pinned_tickers)
         has_dividend = any(t in dividend_stocks for t in st.session_state.pinned_tickers)
         
-        if template_metric == 'rev_growth' or has_growth:
-            extra_label = "REV GROWTH"
-        elif template_metric == 'dividend_yield' or has_dividend:
+        # Show REV GROWTH by default, only show DIV YIELD if ALL stocks are dividend stocks
+        if has_dividend and all(t in dividend_stocks for t in st.session_state.pinned_tickers):
             extra_label = "DIV YIELD"
         else:
-            extra_label = "METRIC"
+            extra_label = "REV GROWTH"
         
         header_col1, header_col2, header_col3, header_col4, header_col5, header_col6, header_col7, header_col8 = st.columns([1.2, 1, 0.9, 0.9, 0.8, 0.7, 0.7, 0.4])
         with header_col1:
@@ -16284,6 +16478,19 @@ elif selected_page == "📊 Market Overview":
             display_df['FCF/Share'] = display_df['FCF/Share'].apply(lambda x: f"${x:.2f}" if pd.notna(x) else "—")
             display_df['Dividend Yield %'] = display_df['Dividend Yield %'].apply(lambda x: f"{x:.2f}%" if pd.notna(x) and x > 0 else "—")
             # VIP columns already have placeholders, no formatting needed
+            
+            # Cool header styling for the section
+            st.markdown("""
+            <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
+                        padding: 15px 20px; border-radius: 12px 12px 0 0; margin-bottom: 0;">
+                <h3 style="color: white; margin: 0; font-size: 16px;">
+                    📊 Top Companies by Market Cap
+                </h3>
+                <p style="color: rgba(255,255,255,0.7); margin: 5px 0 0 0; font-size: 12px;">
+                    Click any row to analyze • Real-time data from FMP
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
             
             # Display table with row selection enabled
             event = st.dataframe(display_df, use_container_width=True, height=600, 
