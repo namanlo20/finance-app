@@ -5794,6 +5794,336 @@ def show_welcome_popup():
         </div>
         ''', unsafe_allow_html=True)
 
+# ============= APP TOUR DIALOG =============
+TOUR_PAGES = [
+    {
+        "title": "🏠 Dashboard",
+        "icon": "🏠",
+        "description": "Your personalized investing command center",
+        "features": [
+            "📌 **Pinned Watchlist** - Track your favorite stocks in real-time",
+            "📈 **Market Movers** - See what's hot (gainers) and what's not (losers)",
+            "📰 **Quick News** - Stay updated with latest market headlines",
+            "🔍 **Quick Search** - Type any company name or ticker to dive deeper"
+        ]
+    },
+    {
+        "title": "📚 Learn Hub",
+        "icon": "📚",
+        "description": "Master investing with 55+ interactive lessons",
+        "features": [
+            "🎮 **Gamified Learning** - Earn XP and badges as you progress",
+            "📊 **All Levels** - From beginner basics to advanced strategies",
+            "✅ **Quizzes** - Test your knowledge after each lesson",
+            "🏆 **Achievements** - Track your learning streak and milestones"
+        ]
+    },
+    {
+        "title": "🎓 Finance 101",
+        "icon": "🎓",
+        "description": "Bridge from lessons to real stock analysis",
+        "features": [
+            "🔗 **Theory → Practice** - Apply what you learned on real companies",
+            "📈 **Step-by-Step** - Walk through analysis of any stock",
+            "💡 **5 Key Metrics** - Understand P/E, Revenue Growth, Margins & more",
+            "🎯 **Guided Experience** - Perfect for beginners ready to analyze"
+        ]
+    },
+    {
+        "title": "🔍 Company Analysis",
+        "icon": "🔍",
+        "description": "Deep dive into any stock with AI-powered insights",
+        "features": [
+            "📊 **Full Financials** - Revenue, earnings, cash flow, balance sheet",
+            "📈 **Interactive Charts** - Compare any stock vs S&P 500",
+            "🤖 **AI Explanations** - Complex metrics explained simply",
+            "🎯 **Price Targets** - See what Wall Street analysts think"
+        ]
+    },
+    {
+        "title": "⚖️ Compare Stocks",
+        "icon": "⚖️",
+        "description": "Side-by-side comparison of two companies",
+        "features": [
+            "📊 **Head-to-Head** - Compare metrics side by side",
+            "📈 **Chart Overlay** - See price performance together",
+            "✅ **Winner Highlights** - Quickly see which company leads",
+            "💡 **Investment Decision Helper** - Make informed choices"
+        ]
+    },
+    {
+        "title": "📰 Market Intelligence",
+        "icon": "📰",
+        "description": "Stay informed with AI-powered market insights",
+        "features": [
+            "🌡️ **VIX Fear Index** - Real-time market sentiment gauge",
+            "📅 **Earnings Calendar** - Upcoming earnings reports this week",
+            "📰 **Stock News** - Latest news for any company",
+            "🔔 **Market Alerts** - Important market-moving events"
+        ]
+    },
+    {
+        "title": "📊 Pro Checklist",
+        "icon": "📊",
+        "description": "Professional-grade analysis tools",
+        "features": [
+            "📋 **Investment Checklist** - 10-point evaluation before buying",
+            "📈 **Technical Analysis** - RSI, Moving Averages, Support/Resistance",
+            "🖼️ **Chart Upload** - AI analyzes your chart screenshots",
+            "⚠️ **Risk Assessment** - Understand what could go wrong"
+        ]
+    },
+    {
+        "title": "👑 Ultimate",
+        "icon": "👑",
+        "description": "Portfolio analysis and optimization",
+        "features": [
+            "📸 **Screenshot Analysis** - Upload your brokerage screenshot",
+            "🎯 **Diversification Score** - See if you're too concentrated",
+            "⚖️ **Risk Profile** - Match portfolio to your risk tolerance",
+            "💡 **AI Recommendations** - Personalized improvement suggestions"
+        ]
+    },
+    {
+        "title": "💼 Paper Portfolio",
+        "icon": "💼",
+        "description": "Practice trading with $100K fake money",
+        "features": [
+            "💰 **$100,000 Starting Cash** - Risk-free paper trading",
+            "📊 **Track Performance** - See your YTD returns",
+            "🏆 **Benchmark vs SPY** - Compare against the market",
+            "👑 **Founder Portfolio** - See what the founder is buying"
+        ]
+    },
+    {
+        "title": "🔐 Sign In / Sign Up",
+        "icon": "🔐",
+        "description": "Save your progress across devices",
+        "features": [
+            "☁️ **Cloud Sync** - Your watchlist, lessons, portfolio saved",
+            "📱 **Cross-Device** - Continue on phone, tablet, or computer",
+            "🔒 **Secure** - Industry-standard encryption",
+            "⚡ **Quick Setup** - Just email and password, no credit card"
+        ]
+    },
+    {
+        "title": "⏱️ Timeline (Left Panel)",
+        "icon": "⏱️",
+        "description": "Control how much history you see",
+        "features": [
+            "📅 **1-30 Years** - Slide to change history depth",
+            "📈 **Affects Charts** - All charts use this timeframe",
+            "📊 **Affects Metrics** - CAGR and returns calculated accordingly",
+            "💡 **Tip**: Start with 5Y for balanced view, 1Y for recent trends"
+        ]
+    },
+    {
+        "title": "🔥 Unhinged Mode",
+        "icon": "🔥",
+        "description": "Enable playful roast commentary",
+        "features": [
+            "😂 **Fun Roasts** - Witty comments about your stock picks",
+            "🎭 **Entertainment Only** - Don't take it too seriously!",
+            "🔞 **18+ Only** - Age-gated for mature humor",
+            "⚙️ **Toggle Anytime** - Turn on/off in the left sidebar"
+        ]
+    },
+    {
+        "title": "👑 VIP Tiers",
+        "icon": "👑",
+        "description": "Unlock premium features",
+        "features": [
+            "🆓 **Free Tier** - 3 pinned stocks, basic analysis",
+            "⭐ **Pro ($9/mo)** - 25 pins, advanced charts, AI insights",
+            "💎 **Premium ($19/mo)** - Unlimited, priority support",
+            "🎁 **Coming Soon** - Lifetime deals and family plans"
+        ]
+    }
+]
+
+@st.dialog("🎯 App Tour", width="large")
+def show_app_tour():
+    """Interactive tour dialog showing all app features"""
+    
+    # Initialize tour page
+    if 'tour_page' not in st.session_state:
+        st.session_state.tour_page = 0
+    
+    # Styling
+    st.markdown("""
+    <style>
+    [data-testid="stDialog"] {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%) !important;
+    }
+    [data-testid="stDialog"] [data-testid="stMarkdownContainer"] p,
+    [data-testid="stDialog"] [data-testid="stMarkdownContainer"] li,
+    [data-testid="stDialog"] label {
+        color: #FFFFFF !important;
+    }
+    [data-testid="stDialog"] h1, [data-testid="stDialog"] h2, [data-testid="stDialog"] h3 {
+        color: #FF4444 !important;
+    }
+    .tour-progress {
+        background: #333;
+        border-radius: 10px;
+        height: 8px;
+        margin: 10px 0 20px 0;
+    }
+    .tour-progress-bar {
+        background: linear-gradient(90deg, #FF4444, #FF6B6B);
+        border-radius: 10px;
+        height: 100%;
+        transition: width 0.3s ease;
+    }
+    .tour-icon {
+        font-size: 48px;
+        text-align: center;
+        margin-bottom: 10px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    current_page = st.session_state.tour_page
+    total_pages = len(TOUR_PAGES)
+    page_data = TOUR_PAGES[current_page]
+    
+    # Progress bar
+    progress_pct = ((current_page + 1) / total_pages) * 100
+    st.markdown(f"""
+    <div class="tour-progress">
+        <div class="tour-progress-bar" style="width: {progress_pct}%;"></div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Page counter
+    st.caption(f"Page {current_page + 1} of {total_pages}")
+    
+    # Page content
+    st.markdown(f"<div class='tour-icon'>{page_data['icon']}</div>", unsafe_allow_html=True)
+    st.markdown(f"## {page_data['title']}")
+    st.markdown(f"*{page_data['description']}*")
+    
+    st.markdown("---")
+    st.markdown("### ✨ Key Features:")
+    for feature in page_data['features']:
+        st.markdown(f"• {feature}")
+    
+    st.markdown("---")
+    
+    # Navigation buttons
+    col1, col2, col3 = st.columns([1, 1, 1])
+    
+    with col1:
+        if current_page > 0:
+            if st.button("⬅️ Previous", use_container_width=True, key="tour_prev"):
+                st.session_state.tour_page -= 1
+                st.rerun()
+        else:
+            st.write("")  # Spacer
+    
+    with col2:
+        if st.button("❌ Close Tour", use_container_width=True, type="secondary", key="tour_close"):
+            st.session_state.tour_page = 0
+            st.session_state.show_tour = False
+            st.rerun()
+    
+    with col3:
+        if current_page < total_pages - 1:
+            if st.button("Next ➡️", use_container_width=True, type="primary", key="tour_next"):
+                st.session_state.tour_page += 1
+                st.rerun()
+        else:
+            if st.button("✅ Finish!", use_container_width=True, type="primary", key="tour_finish"):
+                st.session_state.tour_page = 0
+                st.session_state.show_tour = False
+                st.session_state.tour_completed = True
+                st.rerun()
+
+# ============= ENHANCED UNHINGED COMMENTS BY CONTEXT =============
+UNHINGED_COMMENTS = {
+    "dashboard": [
+        "Ah, the dashboard. Where dreams of financial freedom meet the cold reality of red numbers.",
+        "Welcome back! Your portfolio missed you. Actually, it didn't. It's just numbers.",
+        "Another day, another chance to stare at charts and pretend you understand them.",
+    ],
+    "watchlist_empty": [
+        "Your watchlist is emptier than my faith in meme stocks.",
+        "No stocks pinned? Even my grandma has a watchlist. She only tracks gold, but still.",
+        "Add some stocks! Or don't. The market doesn't care either way.",
+    ],
+    "watchlist_add": [
+        "Ooh, adding to the watchlist! Watching it go down is a spectator sport now.",
+        "Another stock to obsessively check every 5 minutes. Healthy.",
+        "Great choice! Or terrible. Time will tell. Usually the latter.",
+    ],
+    "stock_up": [
+        "Green! Quick, screenshot it before it turns red!",
+        "It's up! Sell now and regret it later, or hold and regret it differently!",
+        "Congrats on the gains! Don't worry, the market will humble you soon.",
+    ],
+    "stock_down": [
+        "It's not a loss if you don't sell! *cries in unrealized losses*",
+        "Red means it's on sale, right? ...Right?",
+        "Diamond hands? More like 'too scared to check my portfolio' hands.",
+    ],
+    "buy_trade": [
+        "Buying more? Bold strategy. Let's see how this ages.",
+        "Ah yes, the classic 'it can't go lower' move. Famous last words.",
+        "YOLO! (Your Only Losing Opportunity)",
+    ],
+    "sell_trade": [
+        "Selling? Paper hands detected! Just kidding, profits are profits.",
+        "Taking profits? What is this, responsible investing? Boring!",
+        "Congrats on selling! Watch it moon 200% tomorrow.",
+    ],
+    "compare_stocks": [
+        "Comparing stocks? Why choose when you can lose money on both!",
+        "Head-to-head comparison! May the least terrible option win.",
+        "Analysis paralysis incoming in 3... 2... 1...",
+    ],
+    "market_fear": [
+        "Market is fearful! Time to be greedy! Or cry. Crying works too.",
+        "VIX is high! Everyone's scared! This is fine. 🔥🐕🔥",
+        "Fear in the market = opportunities for those brave enough (or dumb enough).",
+    ],
+    "market_greed": [
+        "Market is greedy! Time to be fearful! Or FOMO in. We all FOMO in.",
+        "Everyone's making money! Surely this will last forever! *narrator: it didn't*",
+        "Greed levels high! What could possibly go wrong?",
+    ],
+    "paper_portfolio": [
+        "Paper trading! All the stress of real trading with none of the actual consequences!",
+        "Fake money, real emotions. The WSB way.",
+        "Practice makes perfect! Or at least makes you lose fake money first.",
+    ],
+    "learn_hub": [
+        "Learning about investing? Nerd! ...but also smart. But mostly nerd.",
+        "Education is the best investment! Said no one with a lambo.",
+        "Reading lessons? Most people just YOLO first, learn later.",
+    ],
+    "pro_checklist": [
+        "Using a checklist? How very... responsible of you. Boring but smart.",
+        "A checklist before buying? What happened to gut feelings and tweets?",
+        "10-point analysis? Back in my day we just bought whatever Elon tweeted.",
+    ],
+}
+
+def get_unhinged_comment(context, extra_data=None):
+    """Get a context-appropriate unhinged comment if mode is enabled"""
+    if not st.session_state.get("unhinged_mode", False):
+        return None
+    
+    # Check age restriction
+    user_age = st.session_state.get("user_age", 25)
+    if user_age < 18:
+        return None
+    
+    # Get comments for this context
+    comments = UNHINGED_COMMENTS.get(context, UNHINGED_ROASTS)
+    
+    # Return a random comment
+    return random.choice(comments)
+
 # ============= LOGOUT HELPER =============
 def do_logout():
     """Logout helper function to sign out and clear session state"""
@@ -6512,7 +6842,19 @@ def validate_and_insert_trade(user_id, portfolio_type, action, ticker, shares, p
     # Success!
     action_word = "Bought" if action == "Buy" else "Sold"
     db_status = " (saved to database)" if db_saved else " (saved locally)"
-    return True, f"✅ {action_word} {shares} shares of {ticker} at ${price:.2f}{db_status}"
+    
+    # Add unhinged comment if enabled
+    unhinged_trade = None
+    if st.session_state.get("unhinged_mode", False) and st.session_state.get("user_age", 25) >= 18:
+        trade_context = "buy_trade" if action == "Buy" else "sell_trade"
+        trade_comments = UNHINGED_COMMENTS.get(trade_context, [])
+        if trade_comments:
+            unhinged_trade = random.choice(trade_comments)
+    
+    base_msg = f"✅ {action_word} {shares} shares of {ticker} at ${price:.2f}{db_status}"
+    if unhinged_trade:
+        return True, f"{base_msg}\n\n🔥 *{unhinged_trade}*"
+    return True, base_msg
 
 
 
@@ -9343,6 +9685,10 @@ if selected_page == "🏠 Dashboard":
         show_first_time_welcome()
         st.stop()
     
+    # Initialize tour state
+    if 'show_tour' not in st.session_state:
+        st.session_state.show_tour = False
+    
     st.markdown("""
     <div style="background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%); 
                 padding: 25px; border-radius: 15px; margin-bottom: 25px; border: 1px solid #B8D4E8;">
@@ -9351,6 +9697,26 @@ if selected_page == "🏠 Dashboard":
     </div>
     """, unsafe_allow_html=True)
     
+    # ============= APP TOUR SECTION =============
+    if not st.session_state.get('tour_completed', False):
+        tour_col1, tour_col2 = st.columns([3, 1])
+        with tour_col1:
+            st.info("🎯 **New here?** Take a quick tour to learn what each section does!")
+        with tour_col2:
+            if st.button("🚀 Start Tour", key="start_tour_btn", use_container_width=True, type="primary"):
+                st.session_state.show_tour = True
+                st.session_state.tour_page = 0
+                st.rerun()
+    
+    # Show tour dialog if triggered
+    if st.session_state.get('show_tour', False):
+        show_app_tour()
+    
+    # Unhinged comment for dashboard
+    unhinged_dashboard = get_unhinged_comment("dashboard")
+    if unhinged_dashboard:
+        st.markdown(f"🔥 *{unhinged_dashboard}*")
+    
     # Onboarding tooltip for first-time users
     if len(st.session_state.get('pinned_tickers', [])) == 0:
         show_onboarding_tooltip(
@@ -9358,6 +9724,10 @@ if selected_page == "🏠 Dashboard":
             "Start by pinning stocks!",
             "Add your favorite stocks to track them here. Try typing AAPL, NVDA, or MSFT below."
         )
+        # Unhinged comment for empty watchlist
+        unhinged_empty = get_unhinged_comment("watchlist_empty")
+        if unhinged_empty:
+            st.markdown(f"🔥 *{unhinged_empty}*")
     
     # ============= BLOCK A: PINNED WATCHLIST =============
     st.markdown("### 📌 Pinned Watchlist")
@@ -10689,6 +11059,11 @@ elif selected_page == "📚 Learn Hub":
     """
     
     # Page popup removed - user requested no popups except welcome
+    
+    # Unhinged comment for Learn Hub
+    unhinged_learn = get_unhinged_comment("learn_hub")
+    if unhinged_learn:
+        st.markdown(f"🔥 *{unhinged_learn}*")
     
     # ============= SESSION STATE INITIALIZATION =============
     # Initialize all Learn Hub state variables
@@ -17792,6 +18167,11 @@ elif selected_page == "📊 Pro Checklist":
     
     # Page popup removed - user requested no popups except welcome
     
+    # Unhinged comment for Pro Checklist
+    unhinged_pro = get_unhinged_comment("pro_checklist")
+    if unhinged_pro:
+        st.markdown(f"🔥 *{unhinged_pro}*")
+    
     # ============= YELLOW PILL HEADER =============
     st.markdown("""
     <div style="background: linear-gradient(135deg, #FFD60A 0%, #FFA500 100%); 
@@ -19935,6 +20315,11 @@ elif selected_page == "💼 Paper Portfolio":
     
     st.header("💼 Paper Portfolio")
     st.caption("*Practice trading with fake money. Track your performance vs the market.*")
+    
+    # Unhinged comment for Paper Portfolio
+    unhinged_paper = get_unhinged_comment("paper_portfolio")
+    if unhinged_paper:
+        st.markdown(f"🔥 *{unhinged_paper}*")
     
     # Show data source indicator
     show_data_source(source="FMP API + Local Portfolio Data", updated_at=datetime.now())
