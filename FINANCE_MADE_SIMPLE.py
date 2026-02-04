@@ -842,14 +842,15 @@ def show_empty_state(title, message, action_text=None, action_key=None, icon="�
     st.markdown(f"""
     <div style="
         text-align: center;
-        padding: 40px 20px;
-        background: rgba(128, 128, 128, 0.05);
-        border-radius: 15px;
+        padding: 50px 30px;
+        background: linear-gradient(135deg, rgba(255,75,75,0.05) 0%, rgba(255,215,0,0.05) 100%);
+        border-radius: 20px;
         margin: 20px 0;
+        border: 2px dashed rgba(255,75,75,0.3);
     ">
-        <div style="font-size: 48px; margin-bottom: 15px;">{icon}</div>
-        <h3 style="margin: 0 0 10px 0; color: inherit;">{title}</h3>
-        <p style="color: #888; margin: 0;">{message}</p>
+        <div style="font-size: 64px; margin-bottom: 20px;">{icon}</div>
+        <h3 style="margin: 0 0 15px 0; color: #1a1a2e; font-size: 24px;">{title}</h3>
+        <p style="color: #666; margin: 0; font-size: 16px;">{message}</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -858,6 +859,192 @@ def show_empty_state(title, message, action_text=None, action_key=None, icon="�
         with col2:
             return st.button(action_text, key=action_key, type="primary", use_container_width=True)
     return False
+
+
+def show_loading_spinner(message="Loading data..."):
+    """Display a styled loading spinner"""
+    return st.spinner(message)
+
+
+def show_error_state(title="Something went wrong", message="We couldn't load this data. Please try again.", retry_key=None):
+    """Display a friendly error state with optional retry button"""
+    st.markdown(f"""
+    <div style="
+        text-align: center;
+        padding: 40px 30px;
+        background: linear-gradient(135deg, rgba(239,68,68,0.1) 0%, rgba(239,68,68,0.05) 100%);
+        border-radius: 15px;
+        margin: 20px 0;
+        border: 1px solid rgba(239,68,68,0.3);
+    ">
+        <div style="font-size: 48px; margin-bottom: 15px;">⚠️</div>
+        <h3 style="margin: 0 0 10px 0; color: #dc2626;">{title}</h3>
+        <p style="color: #888; margin: 0;">{message}</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if retry_key:
+        col1, col2, col3 = st.columns([1, 1, 1])
+        with col2:
+            return st.button("🔄 Try Again", key=retry_key, type="secondary", use_container_width=True)
+    return False
+
+
+def show_pro_feature_teaser(feature_name, description, benefits=None):
+    """Display a blurred teaser for Pro features to entice upgrades"""
+    benefits_html = ""
+    if benefits:
+        benefits_html = "<ul style='text-align: left; margin: 15px 0; color: #666;'>"
+        for benefit in benefits[:3]:
+            benefits_html += f"<li>{benefit}</li>"
+        benefits_html += "</ul>"
+    
+    st.markdown(f"""
+    <div style="
+        position: relative;
+        padding: 30px;
+        background: linear-gradient(135deg, rgba(157,78,221,0.1) 0%, rgba(255,215,0,0.1) 100%);
+        border-radius: 15px;
+        margin: 20px 0;
+        border: 2px solid rgba(157,78,221,0.3);
+        overflow: hidden;
+    ">
+        <div style="
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: linear-gradient(135deg, #9D4EDD 0%, #7B2CBF 100%);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        ">⭐ PRO</div>
+        <h3 style="margin: 0 0 10px 0; color: #7B2CBF;">🔒 {feature_name}</h3>
+        <p style="color: #666; margin: 0 0 15px 0;">{description}</p>
+        {benefits_html}
+        <div style="
+            filter: blur(8px);
+            background: rgba(255,255,255,0.8);
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 15px;
+        ">
+            <div style="height: 60px; background: linear-gradient(90deg, #ddd 25%, #eee 50%, #ddd 75%); border-radius: 8px;"></div>
+            <div style="height: 40px; background: linear-gradient(90deg, #ddd 25%, #eee 50%, #ddd 75%); border-radius: 8px; margin-top: 10px; width: 70%;"></div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if st.button("🚀 Unlock with Pro", key=f"unlock_{feature_name.replace(' ', '_')}", type="primary", use_container_width=True):
+            st.session_state.selected_page = "👑 Become a VIP"
+            st.rerun()
+
+
+def show_newsletter_capture(location="sidebar"):
+    """Display newsletter signup prompt"""
+    if location == "inline":
+        st.markdown("""
+        <div style="
+            background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%);
+            padding: 20px;
+            border-radius: 12px;
+            margin: 15px 0;
+            border: 1px solid #81C784;
+        ">
+            <h4 style="color: #2E7D32; margin: 0 0 8px 0;">📰 Get Weekly Investing Insights</h4>
+            <p style="color: #388E3C; margin: 0; font-size: 14px;">Join 500+ investors getting smarter every week. Free forever.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("📬 Subscribe Free", key=f"newsletter_{location}", type="primary", use_container_width=True):
+            st.markdown("[Click here to subscribe](https://namanlohia.substack.com/?r=m4i55&utm_campaign=pub-share-checklist)")
+    else:
+        st.info("📰 **Free Newsletter** - Get weekly investing insights!")
+        st.link_button("Subscribe", "https://namanlohia.substack.com/?r=m4i55&utm_campaign=pub-share-checklist", use_container_width=True)
+
+
+def show_share_analysis(ticker, analysis_summary=None):
+    """Display share buttons for analysis"""
+    share_text = f"Check out my analysis of ${ticker} on Investing Made Simple! 📊"
+    share_url = f"https://aistockinvesting101.com?ticker={ticker}"
+    
+    # URL encode
+    import urllib.parse
+    encoded_text = urllib.parse.quote(share_text)
+    encoded_url = urllib.parse.quote(share_url)
+    
+    st.markdown(f"""
+    <div style="
+        background: rgba(128,128,128,0.05);
+        padding: 15px;
+        border-radius: 10px;
+        margin: 15px 0;
+    ">
+        <p style="margin: 0 0 10px 0; font-weight: bold; color: #333;">📤 Share This Analysis</p>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <a href="https://twitter.com/intent/tweet?text={encoded_text}&url={encoded_url}" target="_blank" 
+               style="background: #1DA1F2; color: white; padding: 8px 16px; border-radius: 8px; text-decoration: none; font-size: 14px;">
+                🐦 Twitter
+            </a>
+            <a href="https://www.linkedin.com/sharing/share-offsite/?url={encoded_url}" target="_blank"
+               style="background: #0A66C2; color: white; padding: 8px 16px; border-radius: 8px; text-decoration: none; font-size: 14px;">
+                💼 LinkedIn
+            </a>
+            <a href="mailto:?subject=Check out this stock analysis&body={encoded_text}%0A%0A{encoded_url}" target="_blank"
+               style="background: #EA4335; color: white; padding: 8px 16px; border-radius: 8px; text-decoration: none; font-size: 14px;">
+                📧 Email
+            </a>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+def show_referral_program():
+    """Display referral program info"""
+    user_email = st.session_state.get('user_email', '')
+    referral_code = user_email.split('@')[0] if user_email else 'FRIEND'
+    referral_link = f"https://aistockinvesting101.com?ref={referral_code}"
+    
+    st.markdown(f"""
+    <div style="
+        background: linear-gradient(135deg, #FFF3E0 0%, #FFE0B2 100%);
+        padding: 25px;
+        border-radius: 15px;
+        margin: 20px 0;
+        border: 2px solid #FFB74D;
+    ">
+        <div style="display: flex; align-items: center; margin-bottom: 15px;">
+            <span style="font-size: 40px; margin-right: 15px;">🎁</span>
+            <div>
+                <h3 style="margin: 0; color: #E65100;">Invite Friends, Get Rewards!</h3>
+                <p style="margin: 5px 0 0 0; color: #F57C00;">Give 1 month free, get 1 month free when they upgrade</p>
+            </div>
+        </div>
+        <div style="
+            background: white;
+            padding: 12px 15px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 15px;
+        ">
+            <code style="color: #E65100; font-size: 14px;">{referral_link}</code>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("📋 Copy Link", key="copy_referral", use_container_width=True):
+            st.success("✅ Link copied! (Use Ctrl+C to copy from above)")
+    with col2:
+        share_text = f"I'm learning to invest smarter with Investing Made Simple! Join me: {referral_link}"
+        import urllib.parse
+        encoded = urllib.parse.quote(share_text)
+        st.markdown(f'<a href="https://twitter.com/intent/tweet?text={encoded}" target="_blank"><button style="width: 100%; padding: 8px; background: #1DA1F2; color: white; border: none; border-radius: 8px; cursor: pointer;">🐦 Share on Twitter</button></a>', unsafe_allow_html=True)
 
 
 # Initialize persistence on app load
@@ -8984,13 +9171,16 @@ with st.sidebar:
     period_type = st.radio("Time Period:", ["Annual", "Quarterly"], key="global_period_type", horizontal=True)
     st.session_state.global_period = 'annual' if period_type == "Annual" else 'quarter'
     
-    # ============= SETTINGS BUTTON (POPUP) =============
+    # ============= SETTINGS SECTION =============
     # Initialize unhinged_mode if not exists
     if 'unhinged_mode' not in st.session_state:
         st.session_state.unhinged_mode = False
     
-    # Settings as expander (clicking header opens/closes content)
-    with st.expander("⚙️ Settings", expanded=False):
+    # Settings header styled same as Timeline
+    st.markdown("### ⚙️ Settings")
+    
+    # Settings content in expander
+    with st.expander("Click to expand", expanded=False):
         # Unhinged Mode
         user_age = st.session_state.get("user_age", 25)
         if user_age < 18:
@@ -11296,6 +11486,12 @@ elif selected_page == "🏠 Start Here":
     if st.button("🚀 Take the Risk Quiz →", type="primary", use_container_width=True):
         st.session_state.selected_page = "🧠 Risk Quiz"
         st.rerun()
+    
+    # ============= NEWSLETTER CAPTURE FOR FREE USERS =============
+    user_tier = get_user_tier()
+    if user_tier == "free":
+        st.markdown("---")
+        show_newsletter_capture(location="inline")
     
     st.markdown("---")
     st.caption("💡 **Tip:** Use the Timeline picker in the sidebar to see how these metrics change over different time periods!")
@@ -16604,6 +16800,18 @@ elif selected_page == "📊 Company Analysis":
             st.warning(f"⚠️ Could not calculate scenarios for {ticker}. Historical price data may not be available.")
             st.info("💡 **Tip:** Try a major stock like AAPL, MSFT, or GOOGL")
     
+    # ============= SHARE & NEWSLETTER SECTION =============
+    if ticker and ticker != "AAPL":
+        st.markdown("---")
+        
+        # Share this analysis
+        show_share_analysis(ticker)
+        
+        # Newsletter prompt for free users
+        user_tier = get_user_tier()
+        if user_tier == "free":
+            show_newsletter_capture(location="inline")
+    
     # AI Coach integration with ticker context
     #REMOVED: render_ai_coach("Company Analysis", ticker=ticker if ticker and ticker != "AAPL" else None, facts=None)
 
@@ -17642,6 +17850,20 @@ elif selected_page == "📈 Financial Health":
         st.markdown("---")
         st.info("📰 **Looking for news?** Check out the **Market Intelligence** tab in the sidebar for AI-powered news analysis and market insights!")
         
+        # ============= PRO FEATURE TEASER FOR FREE USERS =============
+        user_tier = get_user_tier()
+        if user_tier == "free":
+            st.markdown("---")
+            show_pro_feature_teaser(
+                "Advanced Ratio Analysis",
+                "Unlock deeper insights with Pro tier features",
+                benefits=[
+                    "📊 AI-powered ratio interpretation",
+                    "📈 Historical pattern recognition",
+                    "🎯 Personalized investment fit scoring"
+                ]
+            )
+        
         # Disclaimer at bottom of page
         st.markdown("---")
         st.caption("*Data based on historical filings; past performance does not guarantee future results. S&P 500 benchmark values are approximate averages.*")
@@ -18270,110 +18492,6 @@ elif selected_page == "👤 Naman's Portfolio":
     st.caption("*Portfolio weightings as of December 2025. Subject to change based on market conditions. This is not financial advice.*")
 
 
-# ============= SETTINGS PAGE =============
-elif selected_page == "⚙️ Settings":
-    st.header("⚙️ Settings")
-    st.markdown("Customize your experience and manage your account")
-    
-    st.markdown("---")
-    
-    # ============= DISPLAY PREFERENCES =============
-    st.markdown("### 🎨 Display Preferences")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        # Unhinged Mode
-        if 'unhinged_mode' not in st.session_state:
-            st.session_state.unhinged_mode = False
-        
-        user_age = st.session_state.get("user_age", 25)
-        if user_age < 18:
-            st.warning("🔥 Unhinged Mode requires age 18+")
-        else:
-            unhinged_enabled = st.toggle(
-                "🔥 Unhinged Mode",
-                value=st.session_state.unhinged_mode,
-                key="settings_unhinged_toggle",
-                help="Enable playful roast commentary throughout the app"
-            )
-            if unhinged_enabled != st.session_state.unhinged_mode:
-                st.session_state.unhinged_mode = unhinged_enabled
-                save_user_progress()
-                st.success("✅ Unhinged Mode " + ("enabled" if unhinged_enabled else "disabled"))
-    
-    with col2:
-        # Simple Mode
-        simple_enabled = st.toggle(
-            "🎓 Simple Mode",
-            value=st.session_state.get('simple_mode', False),
-            key="settings_simple_toggle",
-            help="Simplified explanations for beginners"
-        )
-        if simple_enabled != st.session_state.get('simple_mode', False):
-            st.session_state.simple_mode = simple_enabled
-            save_user_progress()
-            st.success("✅ Simple Mode " + ("enabled" if simple_enabled else "disabled"))
-    
-    st.markdown("---")
-    
-    # ============= CONTACT & SUPPORT =============
-    st.markdown("### 📬 Contact & Support")
-    
-    st.markdown("""
-    <div style="background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%); 
-                padding: 20px; border-radius: 12px; margin-bottom: 20px;">
-        <h4 style="color: #1565C0; margin: 0 0 10px 0;">Have questions or feedback?</h4>
-        <p style="color: #1976D2; margin: 5px 0;">📧 <strong>Email:</strong> naman@investingmadesimple.com</p>
-        <p style="color: #1976D2; margin: 5px 0;">🐦 <strong>Twitter/X:</strong> <a href="https://x.com/na_man20" target="_blank">@na_man20</a></p>
-        <p style="color: #64B5F6; margin: 10px 0 0 0; font-size: 13px;">💬 Response time: Usually within 24 hours</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    st.markdown("---")
-    
-    # ============= NEWSLETTER =============
-    st.markdown("### 📰 Free Newsletter")
-    
-    st.markdown("""
-    <div style="background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%); 
-                padding: 20px; border-radius: 12px; margin-bottom: 20px;">
-        <h4 style="color: #2E7D32; margin: 0 0 10px 0;">Get smarter about investing!</h4>
-        <p style="color: #388E3C; margin: 5px 0;">Join my free Substack newsletter for:</p>
-        <ul style="color: #43A047; margin: 10px 0;">
-            <li>📈 Weekly market insights</li>
-            <li>💡 Investing tips & strategies</li>
-            <li>🎓 Educational content</li>
-            <li>🔥 Early access to new features</li>
-        </ul>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    if st.button("📬 Subscribe on Substack", type="primary", use_container_width=True):
-        import webbrowser
-        st.markdown("[Click here to subscribe](https://namanlohia.substack.com/?r=m4i55&utm_campaign=pub-share-checklist)")
-    
-    st.markdown("---")
-    
-    # ============= ABOUT =============
-    st.markdown("### ℹ️ About This App")
-    
-    st.markdown("""
-    <div style="background: linear-gradient(135deg, #F3E5F5 0%, #E1BEE7 100%); 
-                padding: 20px; border-radius: 12px;">
-        <h4 style="color: #7B1FA2; margin: 0 0 10px 0;">Investing Made Simple v1.0</h4>
-        <p style="color: #8E24AA; margin: 5px 0;">Built with ❤️ by Naman</p>
-        <p style="color: #9C27B0; margin: 10px 0;"><strong>Data Sources:</strong></p>
-        <ul style="color: #AB47BC; margin: 5px 0;">
-            <li>Financial data: FMP API</li>
-            <li>AI Analysis: OpenAI, Perplexity, Grok</li>
-        </ul>
-        <p style="color: #CE93D8; margin: 15px 0 0 0; font-size: 12px; font-style: italic;">
-            ⚠️ Disclaimer: This app is for educational purposes only. Not financial advice.
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-
 
 elif selected_page == "👑 Become a VIP":
     st.header("👑 Become a VIP")
@@ -18594,6 +18712,26 @@ elif selected_page == "👑 Become a VIP":
         st.info(f"**Current waitlist:** {waitlist_count} people ahead of you. Pro spots open monthly.")
     else:
         st.success("✅ You're currently on the Free tier. Enjoy exploring!")
+    
+    # ============= REFERRAL PROGRAM =============
+    st.markdown("---")
+    if st.session_state.get('is_logged_in'):
+        show_referral_program()
+    else:
+        st.markdown("""
+        <div style="
+            background: linear-gradient(135deg, #FFF3E0 0%, #FFE0B2 100%);
+            padding: 25px;
+            border-radius: 15px;
+            margin: 20px 0;
+            border: 2px solid #FFB74D;
+            text-align: center;
+        ">
+            <span style="font-size: 40px;">🎁</span>
+            <h3 style="margin: 15px 0 10px 0; color: #E65100;">Referral Program</h3>
+            <p style="color: #F57C00; margin: 0;">Sign in to get your unique referral link and earn free months!</p>
+        </div>
+        """, unsafe_allow_html=True)
     
     st.markdown("---")
     st.caption("*Pricing subject to change. No credit card required for waitlist. This is not financial advice.*")
