@@ -3292,7 +3292,8 @@ def calculate_growth_rate(df, column, years=None):
 
 
 def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_title="Amount ($)", period_type='annual'):
-    """Create financial chart with y-axis padding and return growth rates"""
+    """Create financial chart with y-axis padding and return growth rates
+    Uses FMP's fiscal period/calendarYear for proper fiscal year labeling"""
     if df.empty:
         return None, {}
     
@@ -3311,31 +3312,47 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
         else:
             return f"{sign}${abs_val:.0f}"
     
-    def format_period_label(date_val, period_type):
-        """Format date as FY 2024 for annual or Q1 2024 for quarterly"""
+    def format_fiscal_period(row, period_type):
+        """Format using FMP's period and calendarYear fields for accurate fiscal labeling"""
         try:
-            if isinstance(date_val, str):
-                date_obj = pd.to_datetime(date_val)
-            else:
-                date_obj = date_val
+            # Try to use FMP's fiscal period fields first
+            if 'period' in row.index and 'calendarYear' in row.index:
+                period = row.get('period', '')
+                cal_year = row.get('calendarYear', '')
+                
+                if period and cal_year:
+                    # For annual reports
+                    if period_type == 'annual' or period == 'FY':
+                        return f"FY {cal_year}"
+                    else:
+                        # For quarterly - use the period as-is (Q1, Q2, Q3, Q4)
+                        return f"{period} {cal_year}"
             
-            year = date_obj.year
-            month = date_obj.month
-            
-            if period_type == 'annual':
-                return f"FY {year}"
-            else:
-                # Determine quarter from month
-                quarter = (month - 1) // 3 + 1
-                return f"Q{quarter} {year}"
+            # Fallback to date-based calculation
+            date_val = row.get('date', None)
+            if date_val is not None:
+                if isinstance(date_val, str):
+                    date_obj = pd.to_datetime(date_val)
+                else:
+                    date_obj = date_val
+                
+                year = date_obj.year
+                month = date_obj.month
+                
+                if period_type == 'annual':
+                    return f"FY {year}"
+                else:
+                    quarter = (month - 1) // 3 + 1
+                    return f"Q{quarter} {year}"
         except:
-            return str(date_val)
+            pass
+        return str(row.get('date', 'Unknown'))
     
     # Sort by date ASCENDING (oldest first: 2023 -> 2024 -> 2025)
     df_sorted = df.sort_values('date', ascending=True).reset_index(drop=True)
     
-    # Format x-axis labels
-    x_labels = [format_period_label(d, period_type) for d in df_sorted['date']]
+    # Format x-axis labels using fiscal period data
+    x_labels = [format_fiscal_period(row, period_type) for _, row in df_sorted.iterrows()]
     
     fig = go.Figure()
     colors = ['#00D9FF', '#FFD700', '#9D4EDD']
