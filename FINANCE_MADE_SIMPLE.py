@@ -6632,23 +6632,44 @@ def login_dialog():
     st.markdown("""
     <style>
     [data-testid="stDialog"] {
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%) !important;
+        background: linear-gradient(180deg, #1a1a2e 0%, #0f0f1a 100%) !important;
+        border: 2px solid #FFD700 !important;
+        border-radius: 20px !important;
     }
     [data-testid="stDialog"] [data-testid="stMarkdownContainer"] p,
     [data-testid="stDialog"] label {
         color: #FFFFFF !important;
     }
     [data-testid="stDialog"] h1, [data-testid="stDialog"] h2, [data-testid="stDialog"] h3 {
-        color: #FF4444 !important;
+        color: #FFD700 !important;
+    }
+    [data-testid="stDialog"] input {
+        background: rgba(255,255,255,0.1) !important;
+        border: 2px solid #FFD700 !important;
+        border-radius: 10px !important;
+        color: white !important;
+        padding: 12px !important;
+    }
+    [data-testid="stDialog"] input:focus {
+        border-color: #FF4444 !important;
+        box-shadow: 0 0 10px rgba(255,68,68,0.3) !important;
     }
     </style>
     """, unsafe_allow_html=True)
     
-    st.markdown("### Welcome back!")
-    st.markdown("*Sign in to access your saved progress*")
+    # Welcome header with icon
+    st.markdown("""
+    <div style="text-align: center; margin-bottom: 20px;">
+        <div style="font-size: 50px; margin-bottom: 10px;">👋</div>
+        <h2 style="color: #FFD700; margin: 0;">Welcome Back!</h2>
+        <p style="color: #AAAAAA; margin-top: 5px;">Sign in to access your saved progress</p>
+    </div>
+    """, unsafe_allow_html=True)
     
-    email = st.text_input("Email Address", placeholder="john@example.com", key="login_email")
-    password = st.text_input("Password", type="password", placeholder="Enter your password", key="login_password")
+    email = st.text_input("📧 Email Address", placeholder="john@example.com", key="login_email")
+    password = st.text_input("🔒 Password", type="password", placeholder="Enter your password", key="login_password")
+    
+    st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
     
     col_btn1, col_btn2 = st.columns(2)
     with col_btn1:
@@ -6711,32 +6732,53 @@ def signup_dialog():
     st.markdown("""
     <style>
     [data-testid="stDialog"] {
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%) !important;
+        background: linear-gradient(180deg, #1a1a2e 0%, #0f0f1a 100%) !important;
+        border: 2px solid #00C853 !important;
+        border-radius: 20px !important;
     }
     [data-testid="stDialog"] [data-testid="stMarkdownContainer"] p,
     [data-testid="stDialog"] label {
         color: #FFFFFF !important;
     }
     [data-testid="stDialog"] h1, [data-testid="stDialog"] h2, [data-testid="stDialog"] h3 {
-        color: #FF4444 !important;
+        color: #00C853 !important;
+    }
+    [data-testid="stDialog"] input {
+        background: rgba(255,255,255,0.1) !important;
+        border: 2px solid #00C853 !important;
+        border-radius: 10px !important;
+        color: white !important;
+        padding: 12px !important;
+    }
+    [data-testid="stDialog"] input:focus {
+        border-color: #FFD700 !important;
+        box-shadow: 0 0 10px rgba(255,215,0,0.3) !important;
     }
     </style>
     """, unsafe_allow_html=True)
     
-    st.markdown("### Join Investing Made Simple today!")
-    st.markdown("*Start your journey to financial freedom*")
+    # Welcome header with icon
+    st.markdown("""
+    <div style="text-align: center; margin-bottom: 20px;">
+        <div style="font-size: 50px; margin-bottom: 10px;">🚀</div>
+        <h2 style="color: #00C853; margin: 0;">Join Us Today!</h2>
+        <p style="color: #AAAAAA; margin-top: 5px;">Start your journey to financial freedom</p>
+    </div>
+    """, unsafe_allow_html=True)
     
-    first_name = st.text_input("First Name", placeholder="John", key="signup_first_name")
-    email = st.text_input("Email Address", placeholder="john@example.com", key="signup_email")
+    first_name = st.text_input("👤 First Name", placeholder="John", key="signup_first_name")
+    email = st.text_input("📧 Email Address", placeholder="john@example.com", key="signup_email")
     
     col3, col4 = st.columns(2)
     with col3:
-        phone = st.text_input("Phone Number", placeholder="+1 (555) 123-4567", key="signup_phone")
+        phone = st.text_input("📱 Phone Number", placeholder="+1 (555) 123-4567", key="signup_phone")
     with col4:
-        age = st.number_input("Age", min_value=1, max_value=120, value=25, key="signup_age")
+        age = st.number_input("🎂 Age", min_value=1, max_value=120, value=25, key="signup_age")
     
-    password = st.text_input("Create Password", type="password", placeholder="Enter a strong password", key="signup_password")
-    password_confirm = st.text_input("Confirm Password", type="password", placeholder="Re-enter your password", key="signup_confirm")
+    password = st.text_input("🔒 Create Password", type="password", placeholder="Enter a strong password", key="signup_password")
+    password_confirm = st.text_input("🔒 Confirm Password", type="password", placeholder="Re-enter your password", key="signup_confirm")
+    
+    st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
     
     col_btn1, col_btn2 = st.columns(2)
     with col_btn1:
@@ -8509,23 +8551,50 @@ with header_cols[3]:
 
 # Auth buttons on the RIGHT
 with header_cols[-1]:
-    # VIP button always visible
-    if st.button("👑 Become a VIP", key="header_vip_btn", use_container_width=True):
-        st.session_state.selected_page = "👑 Become a VIP"
-        st.rerun()
+    # VIP button - only show if NOT already a VIP
+    user_tier = get_user_tier()
+    if user_tier == "free":
+        if st.button("👑 Become a VIP", key="header_vip_btn", use_container_width=True):
+            st.session_state.selected_page = "👑 Become a VIP"
+            st.rerun()
+    else:
+        # Show tier badge instead of VIP button
+        tier_color = "#FFD700" if user_tier == "ultimate" else "#9D4EDD"
+        tier_icon = "👑" if user_tier == "ultimate" else "⭐"
+        tier_label = "Ultimate" if user_tier == "ultimate" else "Pro"
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, {tier_color} 0%, {'#FFA500' if user_tier == 'ultimate' else '#7B2CBF'} 100%);
+                    padding: 8px 16px; border-radius: 20px; text-align: center;
+                    color: {'#000' if user_tier == 'ultimate' else '#FFF'}; font-weight: bold; font-size: 14px;">
+            {tier_icon} {tier_label}
+        </div>
+        """, unsafe_allow_html=True)
 
 if st.session_state.get("is_logged_in"):
-    # Logged in: show account dropdown
+    # Logged in: show account dropdown with tier badge
     with header_cols[-2]:
         first_name = st.session_state.get("first_name") or "Account"
+        user_tier = get_user_tier()
+        
+        # Add tier indicator to name
+        if user_tier == "ultimate":
+            display_name = f"👑 {first_name}"
+        elif user_tier == "pro":
+            display_name = f"⭐ {first_name}"
+        else:
+            display_name = f"👤 {first_name}"
+        
         choice = st.selectbox(
             "",
-            [f"👤 Hi, {first_name}", "Log out"],
+            [f"Hi, {display_name}", "⚙️ Settings", "Log out"],
             key="account_menu",
             label_visibility="collapsed"
         )
         if choice == "Log out":
             do_logout()
+        elif choice == "⚙️ Settings":
+            st.session_state.selected_page = "⚙️ Settings"
+            st.rerun()
 else:
     # Logged out: show Sign Up and Sign In buttons
     with header_cols[-3]:
@@ -8912,8 +8981,8 @@ with st.sidebar:
     period_type = st.radio("Time Period:", ["Annual", "Quarterly"], key="global_period_type", horizontal=True)
     st.session_state.global_period = 'annual' if period_type == "Annual" else 'quarter'
     
-    # ============= UNHINGED MODE =============
-    st.markdown("### 🔥 Settings")
+    # ============= SETTINGS SECTION =============
+    st.markdown("### ⚙️ Settings")
     
     # Initialize unhinged_mode if not exists
     if 'unhinged_mode' not in st.session_state:
@@ -8936,6 +9005,47 @@ with st.sidebar:
             # Save progress when toggle changes
             save_user_progress()
             st.rerun()
+    
+    st.markdown("---")
+    
+    # ============= CONTACT & RESOURCES =============
+    with st.expander("📬 Contact & Support", expanded=False):
+        st.markdown("""
+        **Have questions or feedback?**
+        
+        📧 **Email:** naman@investingmadesimple.com
+        
+        🐦 **Twitter/X:** [@na_man20](https://x.com/na_man20)
+        
+        💬 **Response time:** Usually within 24 hours
+        """)
+    
+    # ============= NEWSLETTER SIGNUP =============
+    with st.expander("📰 Free Newsletter", expanded=False):
+        st.markdown("""
+        **Get smarter about investing!**
+        
+        Join my free Substack newsletter for:
+        - 📈 Weekly market insights
+        - 💡 Investing tips & strategies  
+        - 🎓 Educational content
+        - 🔥 Early access to new features
+        """)
+        st.link_button("📬 Subscribe on Substack", "https://namansinvestinginsights.substack.com/", use_container_width=True)
+    
+    # ============= APP INFO =============
+    with st.expander("ℹ️ About This App", expanded=False):
+        st.markdown("""
+        **Investing Made Simple** v1.0
+        
+        Built with ❤️ by Naman
+        
+        **Data Sources:**
+        - Financial data: FMP API
+        - AI Analysis: OpenAI, Perplexity, Grok
+        
+        **Disclaimer:** This app is for educational purposes only. Not financial advice.
+        """)
     
     st.markdown("---")
 
@@ -16747,17 +16857,62 @@ elif selected_page == "📊 Market Overview":
             display_df['Dividend Yield %'] = display_df['Dividend Yield %'].apply(lambda x: f"{x:.2f}%" if pd.notna(x) and x > 0 else "—")
             # VIP columns already have placeholders, no formatting needed
             
-            # Cool header styling for the section
+            # Cool header styling for the section - LIGHT BLUE gradient
             st.markdown("""
-            <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
-                        padding: 15px 20px; border-radius: 12px 12px 0 0; margin-bottom: 0;">
-                <h3 style="color: white; margin: 0; font-size: 16px;">
+            <div style="background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 50%, #90CAF9 100%); 
+                        padding: 20px 25px; border-radius: 16px 16px 0 0; margin-bottom: 0;
+                        border: 2px solid #64B5F6; border-bottom: none;">
+                <h3 style="color: #1565C0; margin: 0; font-size: 18px; font-weight: 700;">
                     📊 Top Companies by Market Cap
                 </h3>
-                <p style="color: rgba(255,255,255,0.7); margin: 5px 0 0 0; font-size: 12px;">
+                <p style="color: #1976D2; margin: 5px 0 0 0; font-size: 13px;">
                     Click any row to analyze • Real-time data from FMP
                 </p>
             </div>
+            """, unsafe_allow_html=True)
+            
+            # Add custom CSS for table styling
+            st.markdown("""
+            <style>
+            /* Table container styling */
+            [data-testid="stDataFrame"] {
+                border: 2px solid #64B5F6 !important;
+                border-radius: 0 0 16px 16px !important;
+                overflow: hidden !important;
+            }
+            
+            /* Table header styling */
+            [data-testid="stDataFrame"] thead tr th {
+                background: linear-gradient(135deg, #1565C0 0%, #1976D2 100%) !important;
+                color: white !important;
+                font-weight: 600 !important;
+                text-transform: uppercase !important;
+                font-size: 11px !important;
+                letter-spacing: 0.5px !important;
+                padding: 12px 8px !important;
+            }
+            
+            /* Alternating row colors */
+            [data-testid="stDataFrame"] tbody tr:nth-child(odd) {
+                background-color: #F5F9FF !important;
+            }
+            [data-testid="stDataFrame"] tbody tr:nth-child(even) {
+                background-color: #FFFFFF !important;
+            }
+            
+            /* Row hover effect */
+            [data-testid="stDataFrame"] tbody tr:hover {
+                background: linear-gradient(90deg, #E3F2FD 0%, #BBDEFB 100%) !important;
+                cursor: pointer !important;
+            }
+            
+            /* Cell styling */
+            [data-testid="stDataFrame"] td {
+                padding: 10px 8px !important;
+                font-size: 13px !important;
+                border-bottom: 1px solid #E3F2FD !important;
+            }
+            </style>
             """, unsafe_allow_html=True)
             
             # Display table with row selection enabled
