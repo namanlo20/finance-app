@@ -2165,9 +2165,115 @@ FINANCIAL_METRICS_EXPLAINED = {
     }
 }
 
+# ============= COMPANY-SPECIFIC KPIs =============
+# Custom metrics that matter most for specific companies
+# These would ideally be pulled from earnings calls or SEC filings
+COMPANY_SPECIFIC_KPIS = {
+    "HOOD": {
+        "name": "Robinhood",
+        "key_metrics": [
+            {"name": "Monthly Active Users (MAU)", "why": "User engagement drives trading volume", "source": "earnings"},
+            {"name": "Assets Under Custody (AUC)", "why": "Total customer assets = trust + revenue potential", "source": "earnings"},
+            {"name": "Average Revenue Per User (ARPU)", "why": "Monetization efficiency", "source": "earnings"},
+            {"name": "Trading Volume", "why": "Core revenue driver - options, crypto, equities", "source": "earnings"},
+        ],
+        "what_to_watch": "MAU growth + ARPU expansion = revenue acceleration"
+    },
+    "UBER": {
+        "name": "Uber",
+        "key_metrics": [
+            {"name": "Gross Bookings", "why": "Total value of rides + deliveries before Uber's cut", "source": "earnings"},
+            {"name": "Monthly Active Platform Consumers (MAPC)", "why": "Unique users across all services", "source": "earnings"},
+            {"name": "Trips", "why": "Total rides + deliveries completed", "source": "earnings"},
+            {"name": "Take Rate", "why": "% of bookings Uber keeps as revenue", "source": "earnings"},
+        ],
+        "what_to_watch": "Gross bookings growth + improving take rate = profitability"
+    },
+    "AFRM": {
+        "name": "Affirm",
+        "key_metrics": [
+            {"name": "Gross Merchandise Volume (GMV)", "why": "Total purchase value financed through Affirm", "source": "earnings"},
+            {"name": "Active Consumers", "why": "Unique customers using Affirm", "source": "earnings"},
+            {"name": "Active Merchants", "why": "Businesses accepting Affirm", "source": "earnings"},
+            {"name": "Revenue Less Transaction Costs (RLTC)", "why": "True profitability per transaction", "source": "earnings"},
+        ],
+        "what_to_watch": "GMV growth + RLTC margin expansion = path to profitability"
+    },
+    "PLTR": {
+        "name": "Palantir",
+        "key_metrics": [
+            {"name": "Total Contract Value (TCV)", "why": "Future revenue already signed", "source": "earnings"},
+            {"name": "US Commercial Revenue", "why": "Fastest growing segment, key to bull thesis", "source": "earnings"},
+            {"name": "Customer Count", "why": "Expanding beyond government clients", "source": "earnings"},
+            {"name": "Remaining Deal Value (RDV)", "why": "Backlog of contracted revenue", "source": "earnings"},
+        ],
+        "what_to_watch": "US Commercial growth rate + Rule of 40 (growth + margin)"
+    },
+    "SHOP": {
+        "name": "Shopify",
+        "key_metrics": [
+            {"name": "Gross Merchandise Volume (GMV)", "why": "Total sales through Shopify stores", "source": "earnings"},
+            {"name": "Monthly Recurring Revenue (MRR)", "why": "Subscription revenue from merchants", "source": "earnings"},
+            {"name": "Merchant Solutions Revenue", "why": "Payments, shipping, capital - higher margin", "source": "earnings"},
+            {"name": "Attach Rate", "why": "% of GMV using Shopify Payments", "source": "earnings"},
+        ],
+        "what_to_watch": "GMV growth + attach rate expansion = compounding revenue"
+    },
+    "SQ": {
+        "name": "Block (Square)",
+        "key_metrics": [
+            {"name": "Gross Payment Volume (GPV)", "why": "Total payments processed through Square", "source": "earnings"},
+            {"name": "Cash App MAU", "why": "Monthly active Cash App users", "source": "earnings"},
+            {"name": "Cash App Inflows per Active", "why": "Money flowing into Cash App per user", "source": "earnings"},
+            {"name": "Bitcoin Revenue", "why": "Growing but low-margin segment", "source": "earnings"},
+        ],
+        "what_to_watch": "Cash App monetization + Square GPV growth"
+    },
+    "COIN": {
+        "name": "Coinbase",
+        "key_metrics": [
+            {"name": "Trading Volume", "why": "Transaction fees = main revenue driver", "source": "earnings"},
+            {"name": "Monthly Transacting Users (MTU)", "why": "Active traders (not just account holders)", "source": "earnings"},
+            {"name": "Assets on Platform", "why": "Custody drives subscription revenue", "source": "earnings"},
+            {"name": "Subscription & Services Revenue", "why": "Recurring revenue, less volatile", "source": "earnings"},
+        ],
+        "what_to_watch": "Subscription revenue growth = stability; trading volume = upside"
+    },
+    "NFLX": {
+        "name": "Netflix",
+        "key_metrics": [
+            {"name": "Paid Memberships", "why": "Total global subscribers", "source": "earnings"},
+            {"name": "Average Revenue Per Membership (ARM)", "why": "Pricing power indicator", "source": "earnings"},
+            {"name": "Net Subscriber Additions", "why": "Growth momentum", "source": "earnings"},
+            {"name": "Ad-Tier Membership %", "why": "New monetization channel", "source": "earnings"},
+        ],
+        "what_to_watch": "Subscriber growth + ARM expansion + ad tier adoption"
+    },
+    "ABNB": {
+        "name": "Airbnb",
+        "key_metrics": [
+            {"name": "Gross Booking Value (GBV)", "why": "Total value of bookings", "source": "earnings"},
+            {"name": "Nights & Experiences Booked", "why": "Volume indicator", "source": "earnings"},
+            {"name": "Average Daily Rate (ADR)", "why": "Price per night", "source": "earnings"},
+            {"name": "Take Rate", "why": "% of bookings Airbnb keeps", "source": "earnings"},
+        ],
+        "what_to_watch": "GBV growth + stable take rate = healthy business"
+    },
+    "SNOW": {
+        "name": "Snowflake",
+        "key_metrics": [
+            {"name": "Product Revenue", "why": "Consumption-based cloud revenue", "source": "earnings"},
+            {"name": "Net Revenue Retention (NRR)", "why": "Existing customers spending more = 130%+ is elite", "source": "earnings"},
+            {"name": "Remaining Performance Obligations (RPO)", "why": "Contracted future revenue", "source": "earnings"},
+            {"name": "Customers with $1M+ TTM Revenue", "why": "Large enterprise adoption", "source": "earnings"},
+        ],
+        "what_to_watch": "NRR staying above 130% + large customer growth"
+    },
+}
 
-
-# ============= AI COACH - PERSISTENT CHATBOT =============
+def get_company_specific_kpis(ticker):
+    """Get company-specific KPIs if available"""
+    return COMPANY_SPECIFIC_KPIS.get(ticker.upper(), None)
 # Educational cross-tab AI assistant with 4 modes
 
 def initialize_ai_coach_state():
@@ -3867,29 +3973,39 @@ def get_revenue_growth(ticker):
         return None
 
 
-# Fallback logos for stocks with missing or black/white logos
+# Fallback logos for stocks with missing or problematic logos
+# Using reliable sources with PNG format
 FALLBACK_LOGOS = {
-    "PLTR": "https://logo.clearbit.com/palantir.com",
-    "BRK.B": "https://logo.clearbit.com/berkshirehathaway.com",
-    "BRK-B": "https://logo.clearbit.com/berkshirehathaway.com",
+    # These logos have known issues with FMP - using alternatives
+    "PLTR": "https://s3-symbol-logo.tradingview.com/palantir--big.svg",
+    "BRK.B": "https://s3-symbol-logo.tradingview.com/berkshire-hathaway--big.svg",
+    "BRK-B": "https://s3-symbol-logo.tradingview.com/berkshire-hathaway--big.svg",
+    "GOOG": "https://s3-symbol-logo.tradingview.com/alphabet--big.svg",
+    "GOOGL": "https://s3-symbol-logo.tradingview.com/alphabet--big.svg",
+    "META": "https://s3-symbol-logo.tradingview.com/meta-platforms--big.svg",
+    "AMZN": "https://s3-symbol-logo.tradingview.com/amazon--big.svg",
+    "TSLA": "https://s3-symbol-logo.tradingview.com/tesla--big.svg",
 }
 
 def get_company_logo(ticker):
-    """Get company logo URL from FMP profile, with fallbacks for problematic logos"""
-    # Check fallback first for known problematic logos
-    if ticker in FALLBACK_LOGOS:
-        return FALLBACK_LOGOS[ticker]
+    """Get company logo URL from multiple sources with fallbacks"""
+    ticker_upper = ticker.upper()
     
+    # 1. Check our hardcoded fallbacks first (most reliable)
+    if ticker_upper in FALLBACK_LOGOS:
+        return FALLBACK_LOGOS[ticker_upper]
+    
+    # 2. Try FMP profile image
     profile = get_profile(ticker)
     if profile and 'image' in profile and profile['image']:
-        return profile['image']
+        img_url = profile['image']
+        # Check if it's a valid URL (not empty/placeholder)
+        if img_url and len(img_url) > 10 and 'placeholder' not in img_url.lower():
+            return img_url
     
-    # Try Clearbit as fallback
-    if profile and 'website' in profile and profile['website']:
-        domain = profile['website'].replace('https://', '').replace('http://', '').replace('www.', '').split('/')[0]
-        return f"https://logo.clearbit.com/{domain}"
-    
-    return None
+    # 3. Fallback to TradingView logos (very reliable)
+    # Convert ticker to company name format for TradingView
+    return f"https://s3-symbol-logo.tradingview.com/{ticker_upper.lower()}--big.svg"
 
 
 def display_stock_with_logo(ticker, size=30):
@@ -3955,10 +4071,10 @@ Include real URLs from reputable financial news sources like Reuters, Bloomberg,
 def call_perplexity_json(prompt: str, max_tokens: int = 2000, temperature: float = 0.1) -> dict:
     """
     Calls Perplexity and returns parsed JSON dict if possible, else None.
-    Enforces JSON-only responses with no markdown.
+    Falls back to Grok then OpenAI if Perplexity fails.
     
     Args:
-        prompt: The user prompt (should instruct Perplexity to return JSON only)
+        prompt: The user prompt (should instruct to return JSON only)
         max_tokens: Maximum response tokens
         temperature: Response randomness (lower = more deterministic)
     
@@ -3967,94 +4083,148 @@ def call_perplexity_json(prompt: str, max_tokens: int = 2000, temperature: float
     """
     import json
     
+    # TRY PERPLEXITY FIRST
     perplexity_api_key = os.environ.get('PERPLEXITY_API_KEY', '')
-    if not perplexity_api_key:
+    if perplexity_api_key:
+        try:
+            perplexity_url = "https://api.perplexity.ai/chat/completions"
+            perplexity_headers = {
+                "Authorization": f"Bearer {perplexity_api_key}",
+                "Content-Type": "application/json"
+            }
+            perplexity_payload = {
+                "model": "sonar",
+                "messages": [
+                    {"role": "system", "content": "You are a technical assistant. Return ONLY valid JSON with no markdown, no code blocks, no preamble, no explanation. Just pure JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                "max_tokens": max_tokens,
+                "temperature": temperature
+            }
+            
+            response = requests.post(perplexity_url, headers=perplexity_headers, json=perplexity_payload, timeout=30)
+            
+            if response.status_code == 200:
+                content = response.json().get('choices', [{}])[0].get('message', {}).get('content', '')
+                if content:
+                    result = _parse_json_content(content)
+                    if result:
+                        return result
+        except Exception as e:
+            print(f"[DEBUG] Perplexity Exception: {str(e)}")
+    
+    # TRY GROK AS FALLBACK
+    grok_api_key = os.environ.get('GROK_API_KEY', '')
+    if grok_api_key:
+        try:
+            grok_url = "https://api.x.ai/v1/chat/completions"
+            grok_headers = {
+                "Authorization": f"Bearer {grok_api_key}",
+                "Content-Type": "application/json"
+            }
+            grok_payload = {
+                "model": "grok-beta",
+                "messages": [
+                    {"role": "system", "content": "You are a technical assistant. Return ONLY valid JSON with no markdown, no code blocks, no preamble. Just pure JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                "max_tokens": max_tokens,
+                "temperature": temperature
+            }
+            
+            response = requests.post(grok_url, headers=grok_headers, json=grok_payload, timeout=30)
+            
+            if response.status_code == 200:
+                content = response.json().get('choices', [{}])[0].get('message', {}).get('content', '')
+                if content:
+                    result = _parse_json_content(content)
+                    if result:
+                        return result
+        except Exception as e:
+            print(f"[DEBUG] Grok Exception: {str(e)}")
+    
+    # TRY OPENAI AS LAST FALLBACK
+    openai_api_key = os.environ.get('OPENAI_API_KEY', '')
+    if openai_api_key:
+        try:
+            openai_url = "https://api.openai.com/v1/chat/completions"
+            openai_headers = {
+                "Authorization": f"Bearer {openai_api_key}",
+                "Content-Type": "application/json"
+            }
+            openai_payload = {
+                "model": "gpt-4o-mini",
+                "messages": [
+                    {"role": "system", "content": "You are a financial analysis AI. Return ONLY valid JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                "response_format": {"type": "json_object"},
+                "max_tokens": max_tokens,
+                "temperature": temperature
+            }
+            
+            response = requests.post(openai_url, headers=openai_headers, json=openai_payload, timeout=30)
+            
+            if response.status_code == 200:
+                content = response.json().get('choices', [{}])[0].get('message', {}).get('content', '')
+                if content:
+                    return json.loads(content)
+        except Exception as e:
+            print(f"[DEBUG] OpenAI Exception: {str(e)}")
+    
+    return None
+
+def _parse_json_content(content: str) -> dict:
+    """Helper to parse JSON from API response content"""
+    import json
+    
+    if not content:
+        return None
+    
+    # Try direct parse first
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError:
+        pass
+    
+    # Try to extract from markdown code blocks
+    content = content.strip()
+    
+    if content.startswith('```json'):
+        content = content[7:]
+    elif content.startswith('```'):
+        content = content[3:]
+    
+    if content.endswith('```'):
+        content = content[:-3]
+    
+    content = content.strip()
+    
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError:
+        pass
+    
+    # Last resort: find JSON object/array
+    start_obj = content.find('{')
+    start_arr = content.find('[')
+    
+    if start_obj == -1 and start_arr == -1:
         return None
     
     try:
-        perplexity_url = "https://api.perplexity.ai/chat/completions"
-        perplexity_headers = {
-            "Authorization": f"Bearer {perplexity_api_key}",
-            "Content-Type": "application/json"
-        }
-        perplexity_payload = {
-            "model": "sonar",  # FIXED: Use correct model name
-            "messages": [
-                {"role": "system", "content": "You are a technical assistant. Return ONLY valid JSON with no markdown, no code blocks, no preamble, no explanation. Just pure JSON."},
-                {"role": "user", "content": prompt}
-            ],
-            "max_tokens": max_tokens,
-            "temperature": temperature
-        }
-        
-        response = requests.post(perplexity_url, headers=perplexity_headers, json=perplexity_payload, timeout=30)
-        
-        # DEBUG: Log response status
-        print(f"[DEBUG] Perplexity API Status: {response.status_code}")
-        
-        if response.status_code == 200:
-            content = response.json().get('choices', [{}])[0].get('message', {}).get('content', '')
-            
-            # DEBUG: Log content received
-            print(f"[DEBUG] Content received: {len(content) if content else 0} chars")
-            
-            if not content:
-                return None
-            
-            # Try to parse JSON from the response
-            try:
-                # First try direct parse
-                return json.loads(content)
-            except json.JSONDecodeError:
-                # Try to extract JSON from markdown code blocks
-                content = content.strip()
-                
-                # Remove markdown code fences
-                if content.startswith('```json'):
-                    content = content[7:]
-                elif content.startswith('```'):
-                    content = content[3:]
-                
-                if content.endswith('```'):
-                    content = content[:-3]
-                
-                content = content.strip()
-                
-                # Try parsing again
-                try:
-                    return json.loads(content)
-                except json.JSONDecodeError:
-                    # Last resort: find JSON object/array
-                    start_obj = content.find('{')
-                    start_arr = content.find('[')
-                    
-                    if start_obj == -1 and start_arr == -1:
-                        return None
-                    
-                    # Determine which comes first
-                    if start_obj != -1 and (start_arr == -1 or start_obj < start_arr):
-                        # Object
-                        end = content.rfind('}')
-                        if end > start_obj:
-                            json_str = content[start_obj:end+1]
-                            return json.loads(json_str)
-                    else:
-                        # Array
-                        end = content.rfind(']')
-                        if end > start_arr:
-                            json_str = content[start_arr:end+1]
-                            return json.loads(json_str)
-                    
-                    return None
-        
-        # Non-200 response
-        print(f"[DEBUG] Perplexity API Error: Status {response.status_code}")
-        print(f"[DEBUG] Response: {response.text[:500]}")  # First 500 chars of error
-        return None
+        if start_obj != -1 and (start_arr == -1 or start_obj < start_arr):
+            end = content.rfind('}')
+            if end > start_obj:
+                return json.loads(content[start_obj:end+1])
+        else:
+            end = content.rfind(']')
+            if end > start_arr:
+                return json.loads(content[start_arr:end+1])
+    except json.JSONDecodeError:
+        pass
     
-    except Exception as e:
-        print(f"[DEBUG] Perplexity Exception: {str(e)}")
-        return None
+    return None
 
 
 def call_openai_json(prompt: str, max_tokens: int = 2000, temperature: float = 0.1) -> dict:
@@ -15337,7 +15507,6 @@ elif selected_page == "📊 Company Analysis":
                 
                 if num_analysts > 0:
                     st.caption(f"Based on {num_analysts} analysts")
-        
     
     if view == "🌟 The Big Picture":
         
