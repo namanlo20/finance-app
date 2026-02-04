@@ -6277,7 +6277,7 @@ def render_ai_chatbot():
             st.markdown('<div style="font-weight:700; color:#FF4444; font-size:1.1rem; margin-bottom:10px;">📈 STOCKINVESTING.AI</div>', unsafe_allow_html=True)
         
         st.markdown("---")
-        # AI Assistant button - BOLD, GLOWING, ATTENTION-GRABBING
+        # AI Assistant button - FREE FOR ALL - BOLD, GLOWING, ATTENTION-GRABBING
         st.markdown("""
         <style>
         /* AI Assistant button - STANDS OUT */
@@ -9171,16 +9171,31 @@ with st.sidebar:
     period_type = st.radio("Time Period:", ["Annual", "Quarterly"], key="global_period_type", horizontal=True)
     st.session_state.global_period = 'annual' if period_type == "Annual" else 'quarter'
     
-    # ============= SETTINGS SECTION =============
+    # ============= SETTINGS - BLUE STYLED EXPANDER =============
     # Initialize unhinged_mode if not exists
     if 'unhinged_mode' not in st.session_state:
         st.session_state.unhinged_mode = False
     
-    # Settings header styled same as Timeline
-    st.markdown("### ⚙️ Settings")
+    # Add blue styling for Settings expander in sidebar
+    st.markdown("""
+    <style>
+    /* Style the Settings expander to be blue like Timeline */
+    [data-testid="stSidebar"] [data-testid="stExpander"]:last-of-type > div:first-child {
+        background: linear-gradient(135deg, #4FC3F7 0%, #29B6F6 100%) !important;
+        border-radius: 8px !important;
+    }
+    [data-testid="stSidebar"] [data-testid="stExpander"]:last-of-type > div:first-child p {
+        color: white !important;
+        font-weight: 600 !important;
+    }
+    [data-testid="stSidebar"] [data-testid="stExpander"]:last-of-type > div:first-child svg {
+        fill: white !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
     
-    # Settings content in expander
-    with st.expander("Click to expand", expanded=False):
+    # Single Settings expander - everything inside
+    with st.expander("⚙️ Settings", expanded=False):
         # Unhinged Mode
         user_age = st.session_state.get("user_age", 25)
         if user_age < 18:
@@ -18312,64 +18327,71 @@ elif selected_page == "👤 Naman's Portfolio":
     st.header("Naman's Portfolio")
     st.markdown("**My High-Conviction Investment Strategy**")
     
-    # FREE TIER HOLDINGS ONLY - Hard data block for security (Pro/Ultimate data NOT fetched for free users)
-    FREE_TIER_HOLDINGS = [
-        {"ticker": "META", "name": "Meta Platforms", "sector": "Technology", "weight": 12.53},
-        {"ticker": "NFLX", "name": "Netflix", "sector": "Communication Services", "weight": 11.93},
-        {"ticker": "SPGI", "name": "S&P Global", "sector": "Financials", "weight": 10.53},
+    # Get actual user tier
+    user_tier = get_user_tier()
+    
+    # ALL HOLDINGS - Full portfolio data (updated Feb 2026)
+    ALL_HOLDINGS = [
+        {"ticker": "NFLX", "name": "Netflix", "sector": "Communication Services", "weight": 12.33},
+        {"ticker": "META", "name": "Meta Platforms", "sector": "Technology", "weight": 11.84},
+        {"ticker": "AMZN", "name": "Amazon", "sector": "Consumer Cyclical", "weight": 10.07},
+        {"ticker": "SPGI", "name": "S&P Global", "sector": "Financials", "weight": 9.36},
+        {"ticker": "MCO", "name": "Moody's", "sector": "Financials", "weight": 8.46},
+        {"ticker": "PANW", "name": "Palo Alto Networks", "sector": "Technology", "weight": 8.22},
+        {"ticker": "MSFT", "name": "Microsoft", "sector": "Technology", "weight": 7.44},
+        {"ticker": "HOOD", "name": "Robinhood", "sector": "Financials", "weight": 6.37},
+        {"ticker": "NVDA", "name": "NVIDIA", "sector": "Technology", "weight": 5.66},
+        {"ticker": "AVGO", "name": "Broadcom", "sector": "Technology", "weight": 5.15},
+        {"ticker": "CRWD", "name": "CrowdStrike", "sector": "Technology", "weight": 5.12},
+        {"ticker": "GOOG", "name": "Alphabet", "sector": "Technology", "weight": 5.08},
+        {"ticker": "ASML", "name": "ASML Holdings", "sector": "Technology", "weight": 3.73},
+        {"ticker": "CRM", "name": "Salesforce", "sector": "Technology", "weight": 1.18},
     ]
     
-    # Initialize selected tier in session state (still needed for compatibility)
-    if 'selected_tier' not in st.session_state:
-        st.session_state.selected_tier = "Free"
-    
-    # Set access_tier for backward compatibility
-    access_tier = st.session_state.selected_tier
+    # FREE TIER - only top 3
+    FREE_TIER_HOLDINGS = ALL_HOLDINGS[:3]
     
     # ============= PORTFOLIO CONTENT STARTS HERE =============
     
-    # ============= WAITLIST OVERLAY FOR PRO/ULTIMATE =============
-    if access_tier != "Free":
+    # Pro/Ultimate users see FULL portfolio
+    if user_tier in ["pro", "ultimate"]:
         st.markdown("---")
-        st.markdown("""
-        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
-                    border: 2px solid #9D4EDD; border-radius: 15px; padding: 40px; 
-                    text-align: center; margin: 20px 0;">
-            <h2 style="color: #9D4EDD; margin-bottom: 20px;">🔒 Naman's Pro/Ultimate Portfolio is Locked for Exclusivity</h2>
-            <p style="color: #ffffff; font-size: 18px; margin-bottom: 30px;">
-                Join the waitlist for the next <strong>50 spots</strong>. Get instant trade alerts and full portfolio access.
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.success(f"👑 **{user_tier.title()} Member** - Full portfolio access unlocked!")
+        st.markdown("### 📊 Full Portfolio Holdings")
         
-        # Email capture form with Supabase integration
-        st.markdown("### 📧 Join the Waitlist")
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            waitlist_email = st.text_input("Enter your email:", placeholder="your@email.com", key="waitlist_email")
-        with col2:
-            st.markdown("<br>", unsafe_allow_html=True)
-            if st.button("Join Waitlist", key="join_waitlist", type="primary"):
-                if waitlist_email and "@" in waitlist_email and "." in waitlist_email:
-                    success, message = save_waitlist_email(waitlist_email, "pro")
-                    if success:
-                        if message == "Already on waitlist":
-                            st.info(f"📧 {waitlist_email} is already on the waitlist!")
-                        else:
-                            st.success(f"🎉 You're on the list! We'll notify {waitlist_email} when spots open.")
-                            st.balloons()
-                    else:
-                        # Fallback - show success anyway for UX
-                        st.success(f"🎉 You're on the list! We'll notify {waitlist_email} when spots open.")
+        # Display ALL holdings
+        for i, holding in enumerate(ALL_HOLDINGS):
+            logo_url = get_company_logo(holding["ticker"])
+            
+            col1, col2, col3, col4 = st.columns([3, 2, 2, 1])
+            
+            with col1:
+                if logo_url:
+                    st.markdown(f"""
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <img src="{logo_url}" width="30" height="30" style="border-radius: 4px;">
+                        <span><strong>{holding["ticker"]}</strong> - {holding["name"]}</span>
+                    </div>
+                    """, unsafe_allow_html=True)
                 else:
-                    st.error("Please enter a valid email address.")
+                    st.markdown(f"**{holding['ticker']}** - {holding['name']}")
+            
+            with col2:
+                st.caption(holding["sector"])
+            
+            with col3:
+                st.markdown(f"**{holding['weight']:.2f}%**")
+            
+            with col4:
+                st.caption(f"#{i+1}")
         
-        # Show dynamic waitlist count
-        waitlist_count = get_waitlist_count()
-        st.info(f"**Current waitlist:** {waitlist_count} people ahead of you. Pro spots open monthly.")
+        # Total weight
+        total_weight = sum(h["weight"] for h in ALL_HOLDINGS)
+        st.markdown(f"**Total Portfolio Weight: {total_weight:.2f}%**")
+        st.caption("*Remaining allocation in cash/bonds*")
         
     else:
-        # FREE TIER - Show only the 3 free holdings (HARD DATA BLOCK - no Pro/Ultimate data fetched)
+        # FREE TIER - Show only the 3 free holdings
         st.markdown("---")
         st.markdown("### 📊 Portfolio Holdings (Free Preview)")
         st.info("**Free Preview:** Showing top 3 holdings only. Pro/Ultimate holdings are locked for exclusivity.")
@@ -18400,15 +18422,19 @@ elif selected_page == "👤 Naman's Portfolio":
             with col4:
                 st.caption(f"#{i+1}")
         
-        # Show locked indicator for remaining holdings (NO DATA - just count)
+        # Show locked indicator for remaining holdings
         st.markdown("---")
-        st.markdown("### 🔒 10 More Holdings Locked")
+        st.markdown("### 🔒 11 More Holdings Locked")
         st.markdown("""
         <div style="background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%); border: 2px solid #42A5F5; border-radius: 10px; padding: 20px; text-align: center;">
-            <p style="color: #333; font-size: 16px;">Holdings #4-13 are exclusive to Pro & Ultimate members.</p>
-            <p style="color: #1976D2; font-size: 14px; font-weight: bold;">Join the waitlist above to unlock full portfolio access.</p>
+            <p style="color: #333; font-size: 16px;">Holdings #4-14 are exclusive to Pro & Ultimate members.</p>
+            <p style="color: #1976D2; font-size: 14px; font-weight: bold;">Upgrade to Pro to see my full portfolio!</p>
         </div>
         """, unsafe_allow_html=True)
+        
+        if st.button("🚀 Upgrade to Pro", key="upgrade_from_portfolio", type="primary", use_container_width=True):
+            st.session_state.selected_page = "👑 Become a VIP"
+            st.rerun()
     
     # ============= THE NAMAN ANALYSIS (Visible to ALL) =============
     st.markdown("---")
