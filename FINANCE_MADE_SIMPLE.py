@@ -8972,8 +8972,16 @@ with st.sidebar:
     if 'unhinged_mode' not in st.session_state:
         st.session_state.unhinged_mode = False
     
+    # Settings header styled like Timeline
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, #4FC3F7 0%, #29B6F6 100%); 
+                padding: 8px 12px; border-radius: 8px; margin-bottom: 10px;">
+        <span style="color: white; font-weight: 600; font-size: 14px;">⚙️ Settings</span>
+    </div>
+    """, unsafe_allow_html=True)
+    
     # Settings as a popover (click to open, click away to close)
-    with st.popover("⚙️ Settings", use_container_width=True):
+    with st.popover("Click to Open Settings", use_container_width=True):
         st.markdown("### ⚙️ Settings")
         st.markdown("---")
         
@@ -8996,7 +9004,7 @@ with st.sidebar:
         
         # Contact & Support
         st.markdown("**📬 Contact & Support**")
-        st.markdown("📧 naman@investingmadesimple.com")
+        st.markdown("📧 namanlohia02@gmail.com")
         st.markdown("[🐦 @na_man20](https://x.com/na_man20)")
         
         st.markdown("---")
