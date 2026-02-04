@@ -6631,32 +6631,15 @@ def login_dialog():
     """Sign in dialog for existing users"""
     st.markdown("""
     <style>
-    [data-testid="stDialog"] {
-        background: linear-gradient(180deg, #1a1a2e 0%, #0f0f1a 100%) !important;
-        border: 2px solid #FFD700 !important;
-        border-radius: 20px !important;
-    }
-    [data-testid="stDialog"] [data-testid="stMarkdownContainer"] p,
-    [data-testid="stDialog"] label,
-    [data-testid="stDialog"] span {
-        color: #FFD700 !important;
-    }
-    [data-testid="stDialog"] h1, [data-testid="stDialog"] h2, [data-testid="stDialog"] h3 {
-        color: #FFD700 !important;
-    }
     [data-testid="stDialog"] input {
-        background: rgba(255,215,0,0.1) !important;
+        background: #FFFFFF !important;
         border: 2px solid #FFD700 !important;
         border-radius: 10px !important;
-        color: #FFD700 !important;
+        color: #000000 !important;
         padding: 12px !important;
     }
     [data-testid="stDialog"] input::placeholder {
-        color: rgba(255,215,0,0.5) !important;
-    }
-    [data-testid="stDialog"] input:focus {
-        border-color: #FFA500 !important;
-        box-shadow: 0 0 10px rgba(255,165,0,0.5) !important;
+        color: #888888 !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -6666,14 +6649,14 @@ def login_dialog():
     <div style="text-align: center; margin-bottom: 20px;">
         <div style="font-size: 50px; margin-bottom: 10px;">👋</div>
         <h2 style="color: #FFD700; margin: 0;">Welcome Back!</h2>
-        <p style="color: #FFD700; margin-top: 5px; opacity: 0.8;">Sign in to access your saved progress</p>
+        <p style="color: #888888; margin-top: 5px;">Sign in to access your saved progress</p>
     </div>
     """, unsafe_allow_html=True)
     
-    st.markdown("<p style='color: #FFD700; font-weight: bold;'>📧 Email Address</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #333333; font-weight: bold;'>📧 Email Address</p>", unsafe_allow_html=True)
     email = st.text_input("Email", placeholder="john@example.com", key="login_email", label_visibility="collapsed")
     
-    st.markdown("<p style='color: #FFD700; font-weight: bold;'>🔒 Password</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #333333; font-weight: bold;'>🔒 Password</p>", unsafe_allow_html=True)
     password = st.text_input("Password", type="password", placeholder="Enter your password", key="login_password", label_visibility="collapsed")
     
     st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
@@ -6743,27 +6726,15 @@ def signup_dialog():
         border: 2px solid #00C853 !important;
         border-radius: 20px !important;
     }
-    [data-testid="stDialog"] [data-testid="stMarkdownContainer"] p,
-    [data-testid="stDialog"] label,
-    [data-testid="stDialog"] span {
-        color: #00E676 !important;
-    }
-    [data-testid="stDialog"] h1, [data-testid="stDialog"] h2, [data-testid="stDialog"] h3 {
-        color: #00E676 !important;
-    }
     [data-testid="stDialog"] input {
-        background: rgba(0,230,118,0.1) !important;
-        border: 2px solid #00E676 !important;
+        background: #FFFFFF !important;
+        border: 2px solid #00C853 !important;
         border-radius: 10px !important;
-        color: #00E676 !important;
+        color: #000000 !important;
         padding: 12px !important;
     }
     [data-testid="stDialog"] input::placeholder {
-        color: rgba(0,230,118,0.5) !important;
-    }
-    [data-testid="stDialog"] input:focus {
-        border-color: #69F0AE !important;
-        box-shadow: 0 0 10px rgba(105,240,174,0.5) !important;
+        color: #888888 !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -6772,29 +6743,29 @@ def signup_dialog():
     st.markdown("""
     <div style="text-align: center; margin-bottom: 20px;">
         <div style="font-size: 50px; margin-bottom: 10px;">🚀</div>
-        <h2 style="color: #00E676; margin: 0;">Welcome to Investing Made Simple!</h2>
-        <p style="color: #00E676; margin-top: 5px; opacity: 0.8;">Create your free account to get started</p>
+        <h2 style="color: #00C853; margin: 0;">Welcome to Investing Made Simple!</h2>
+        <p style="color: #888888; margin-top: 5px;">Create your free account to get started</p>
     </div>
     """, unsafe_allow_html=True)
     
-    st.markdown("<p style='color: #00E676; font-weight: bold;'>👤 First Name</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #333333; font-weight: bold;'>👤 First Name</p>", unsafe_allow_html=True)
     first_name = st.text_input("First Name", placeholder="John", key="signup_first_name", label_visibility="collapsed")
     
-    st.markdown("<p style='color: #00E676; font-weight: bold;'>📧 Email Address</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #333333; font-weight: bold;'>📧 Email Address</p>", unsafe_allow_html=True)
     email = st.text_input("Email", placeholder="john@example.com", key="signup_email", label_visibility="collapsed")
     
     col3, col4 = st.columns(2)
     with col3:
-        st.markdown("<p style='color: #00E676; font-weight: bold;'>📱 Phone Number</p>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #333333; font-weight: bold;'>📱 Phone Number</p>", unsafe_allow_html=True)
         phone = st.text_input("Phone", placeholder="+1 (555) 123-4567", key="signup_phone", label_visibility="collapsed")
     with col4:
-        st.markdown("<p style='color: #00E676; font-weight: bold;'>🎂 Age</p>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #333333; font-weight: bold;'>🎂 Age</p>", unsafe_allow_html=True)
         age = st.number_input("Age", min_value=1, max_value=120, value=25, key="signup_age", label_visibility="collapsed")
     
-    st.markdown("<p style='color: #00E676; font-weight: bold;'>🔒 Create Password</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #333333; font-weight: bold;'>🔒 Create Password</p>", unsafe_allow_html=True)
     password = st.text_input("Password", type="password", placeholder="Enter a strong password", key="signup_password", label_visibility="collapsed")
     
-    st.markdown("<p style='color: #00E676; font-weight: bold;'>🔒 Confirm Password</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #333333; font-weight: bold;'>🔒 Confirm Password</p>", unsafe_allow_html=True)
     password_confirm = st.text_input("Confirm", type="password", placeholder="Re-enter your password", key="signup_confirm", label_visibility="collapsed")
     
     st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
@@ -8577,43 +8548,39 @@ with header_cols[-1]:
             st.session_state.selected_page = "👑 Become a VIP"
             st.rerun()
     else:
-        # Show tier badge instead of VIP button
-        tier_color = "#FFD700" if user_tier == "ultimate" else "#9D4EDD"
-        tier_icon = "👑" if user_tier == "ultimate" else "⭐"
-        tier_label = "Ultimate" if user_tier == "ultimate" else "Pro"
-        st.markdown(f"""
-        <div style="background: linear-gradient(135deg, {tier_color} 0%, {'#FFA500' if user_tier == 'ultimate' else '#7B2CBF'} 100%);
-                    padding: 8px 16px; border-radius: 20px; text-align: center;
-                    color: {'#000' if user_tier == 'ultimate' else '#FFF'}; font-weight: bold; font-size: 14px;">
-            {tier_icon} {tier_label}
-        </div>
-        """, unsafe_allow_html=True)
+        # Show tier badge instead of VIP button - clean gold/purple design
+        if user_tier == "ultimate":
+            st.markdown("""
+            <div style="background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+                        padding: 10px 20px; border-radius: 25px; text-align: center;
+                        color: #000; font-weight: bold; font-size: 14px;
+                        box-shadow: 0 2px 8px rgba(255,215,0,0.4);">
+                👑 Ultimate
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown("""
+            <div style="background: linear-gradient(135deg, #9D4EDD 0%, #7B2CBF 100%);
+                        padding: 10px 20px; border-radius: 25px; text-align: center;
+                        color: #FFF; font-weight: bold; font-size: 14px;
+                        box-shadow: 0 2px 8px rgba(157,78,221,0.4);">
+                ⭐ Pro
+            </div>
+            """, unsafe_allow_html=True)
 
 if st.session_state.get("is_logged_in"):
-    # Logged in: show account dropdown with tier badge
+    # Logged in: show simple dropdown with just name and logout
     with header_cols[-2]:
         first_name = st.session_state.get("first_name") or "Account"
-        user_tier = get_user_tier()
-        
-        # Add tier indicator to name
-        if user_tier == "ultimate":
-            display_name = f"👑 {first_name}"
-        elif user_tier == "pro":
-            display_name = f"⭐ {first_name}"
-        else:
-            display_name = f"👤 {first_name}"
         
         choice = st.selectbox(
             "",
-            [f"Hi, {display_name}", "⚙️ Settings", "Log out"],
+            [f"👤 Hi, {first_name}", "Log out"],
             key="account_menu",
             label_visibility="collapsed"
         )
         if choice == "Log out":
             do_logout()
-        elif choice == "⚙️ Settings":
-            st.session_state.selected_page = "⚙️ Settings"
-            st.rerun()
 else:
     # Logged out: show Sign Up and Sign In buttons
     with header_cols[-3]:
@@ -9000,44 +8967,50 @@ with st.sidebar:
     period_type = st.radio("Time Period:", ["Annual", "Quarterly"], key="global_period_type", horizontal=True)
     st.session_state.global_period = 'annual' if period_type == "Annual" else 'quarter'
     
-    # ============= SETTINGS SECTION =============
-    st.markdown("### ⚙️ Settings")
-    
+    # ============= SETTINGS BUTTON (POPUP) =============
     # Initialize unhinged_mode if not exists
     if 'unhinged_mode' not in st.session_state:
         st.session_state.unhinged_mode = False
     
-    # Check age restriction for unhinged mode
-    user_age = st.session_state.get("user_age", 25)
-    if user_age < 18:
-        st.caption("*Unhinged Mode requires age 18+*")
-        st.session_state.unhinged_mode = False
-    else:
-        unhinged_enabled = st.toggle(
-            "🔥 Unhinged Mode",
-            value=st.session_state.unhinged_mode,
-            key="unhinged_toggle",
-            help="Enable playful roast commentary. For entertainment only!"
-        )
-        if unhinged_enabled != st.session_state.unhinged_mode:
-            st.session_state.unhinged_mode = unhinged_enabled
-            # Save progress when toggle changes
-            save_user_progress()
-            st.rerun()
-    
-    # Contact & Support
-    with st.expander("📬 Contact & Support"):
-        st.markdown("**📧 Email:** naman@investingmadesimple.com")
-        st.markdown("**🐦 Twitter:** [@na_man20](https://x.com/na_man20)")
-    
-    # Newsletter
-    with st.expander("📰 Free Newsletter"):
+    # Settings as a popover (click to open, click away to close)
+    with st.popover("⚙️ Settings", use_container_width=True):
+        st.markdown("### ⚙️ Settings")
+        st.markdown("---")
+        
+        # Unhinged Mode
+        user_age = st.session_state.get("user_age", 25)
+        if user_age < 18:
+            st.caption("*Unhinged Mode requires age 18+*")
+        else:
+            unhinged_enabled = st.toggle(
+                "🔥 Unhinged Mode",
+                value=st.session_state.unhinged_mode,
+                key="settings_unhinged_toggle",
+                help="Enable playful roast commentary"
+            )
+            if unhinged_enabled != st.session_state.unhinged_mode:
+                st.session_state.unhinged_mode = unhinged_enabled
+                save_user_progress()
+        
+        st.markdown("---")
+        
+        # Contact & Support
+        st.markdown("**📬 Contact & Support**")
+        st.markdown("📧 naman@investingmadesimple.com")
+        st.markdown("[🐦 @na_man20](https://x.com/na_man20)")
+        
+        st.markdown("---")
+        
+        # Newsletter
+        st.markdown("**📰 Free Newsletter**")
         st.markdown("Get weekly investing insights!")
-        st.link_button("📬 Subscribe", "https://namanlohia.substack.com/?r=m4i55&utm_campaign=pub-share-checklist", use_container_width=True)
-    
-    # About
-    with st.expander("ℹ️ About This App"):
-        st.markdown("**Investing Made Simple** v1.0")
+        st.link_button("📬 Subscribe on Substack", "https://namanlohia.substack.com/?r=m4i55&utm_campaign=pub-share-checklist", use_container_width=True)
+        
+        st.markdown("---")
+        
+        # About
+        st.markdown("**ℹ️ About This App**")
+        st.markdown("Investing Made Simple v1.0")
         st.markdown("Built with ❤️ by Naman")
         st.caption("*For educational purposes only.*")
     
