@@ -8972,19 +8972,8 @@ with st.sidebar:
     if 'unhinged_mode' not in st.session_state:
         st.session_state.unhinged_mode = False
     
-    # Settings header styled like Timeline
-    st.markdown("""
-    <div style="background: linear-gradient(135deg, #4FC3F7 0%, #29B6F6 100%); 
-                padding: 8px 12px; border-radius: 8px; margin-bottom: 10px;">
-        <span style="color: white; font-weight: 600; font-size: 14px;">⚙️ Settings</span>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Settings as a popover (click to open, click away to close)
-    with st.popover("Click to Open Settings", use_container_width=True):
-        st.markdown("### ⚙️ Settings")
-        st.markdown("---")
-        
+    # Settings as expander (clicking header opens/closes content)
+    with st.expander("⚙️ Settings", expanded=False):
         # Unhinged Mode
         user_age = st.session_state.get("user_age", 25)
         if user_age < 18:
@@ -9011,16 +9000,14 @@ with st.sidebar:
         
         # Newsletter
         st.markdown("**📰 Free Newsletter**")
-        st.markdown("Get weekly investing insights!")
-        st.link_button("📬 Subscribe on Substack", "https://namanlohia.substack.com/?r=m4i55&utm_campaign=pub-share-checklist", use_container_width=True)
+        st.link_button("📬 Subscribe", "https://namanlohia.substack.com/?r=m4i55&utm_campaign=pub-share-checklist", use_container_width=True)
         
         st.markdown("---")
         
         # About
-        st.markdown("**ℹ️ About This App**")
-        st.markdown("Investing Made Simple v1.0")
-        st.markdown("Built with ❤️ by Naman")
-        st.caption("*For educational purposes only.*")
+        st.markdown("**ℹ️ About**")
+        st.caption("Investing Made Simple v1.0")
+        st.caption("Built with ❤️ by Naman")
     
     st.markdown("---")
 
