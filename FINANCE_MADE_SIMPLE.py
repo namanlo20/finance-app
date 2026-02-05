@@ -34,6 +34,28 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 # Grok API for X/Twitter real-time content
 GROK_API_KEY = os.environ.get("GROK_API_KEY", "")
 
+# ============= STRIPE CONFIGURATION =============
+# Get your keys from: https://dashboard.stripe.com/apikeys
+STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
+STRIPE_PUBLISHABLE_KEY = os.environ.get("STRIPE_PUBLISHABLE_KEY", "")
+STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+# Create these in Stripe Dashboard → Products → Create product → Get Price ID
+STRIPE_PRO_PRICE_ID = os.environ.get("STRIPE_PRO_PRICE_ID", "")  # e.g., price_1234...
+STRIPE_ULTIMATE_PRICE_ID = os.environ.get("STRIPE_ULTIMATE_PRICE_ID", "")  # e.g., price_5678...
+# Payment links (easier alternative to Checkout)
+STRIPE_PRO_PAYMENT_LINK = os.environ.get("STRIPE_PRO_PAYMENT_LINK", "")  # e.g., https://buy.stripe.com/xxx
+STRIPE_ULTIMATE_PAYMENT_LINK = os.environ.get("STRIPE_ULTIMATE_PAYMENT_LINK", "")  # e.g., https://buy.stripe.com/yyy
+
+# ============= EMAIL CONFIGURATION (Resend) =============
+# Get your API key from: https://resend.com/api-keys
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
+EMAIL_FROM = os.environ.get("EMAIL_FROM", "naman@investingmadesimple.com")
+
+# ============= ANALYTICS CONFIGURATION =============
+# Mixpanel: https://mixpanel.com or PostHog: https://posthog.com
+MIXPANEL_TOKEN = os.environ.get("MIXPANEL_TOKEN", "")
+POSTHOG_API_KEY = os.environ.get("POSTHOG_API_KEY", "")
+
 # Portfolio Configuration - Starting cash for paper trading
 STARTING_CASH = float(os.environ.get("STARTING_CASH", "100000"))
 
@@ -169,94 +191,172 @@ st.markdown("""
 <style>
 /* ============= MOBILE RESPONSIVE CSS ============= */
 @media screen and (max-width: 768px) {
-    /* Sidebar - collapse by default on mobile */
+    /* ============= MOBILE APP-LIKE EXPERIENCE ============= */
+    
+    /* Hide desktop navbar on mobile - use sidebar instead */
+    .main > div:first-child > div:first-child [data-testid="stHorizontalBlock"]:first-of-type {
+        display: none !important;
+    }
+    
+    /* Sidebar - slide-out menu style */
     [data-testid="stSidebar"] {
+        min-width: 280px !important;
+        width: 280px !important;
+        background: #FFFFFF !important;
+        box-shadow: 2px 0 10px rgba(0,0,0,0.1) !important;
+    }
+    
+    [data-testid="stSidebar"][aria-expanded="false"] {
         min-width: 0px !important;
         width: 0px !important;
         transform: translateX(-100%) !important;
     }
     
-    [data-testid="stSidebar"][aria-expanded="true"] {
-        min-width: 250px !important;
-        width: 250px !important;
-        transform: translateX(0) !important;
-    }
-    
-    /* Main content - full width on mobile */
+    /* Main content - full width, no overflow */
     .main .block-container {
-        padding: 1rem 0.5rem !important;
+        padding: 1rem 1rem !important;
         max-width: 100% !important;
+        overflow-x: hidden !important;
     }
     
-    /* Reduce header sizes on mobile */
-    h1 { font-size: 1.5rem !important; }
-    h2 { font-size: 1.25rem !important; }
-    h3 { font-size: 1.1rem !important; }
+    /* App-like header sizes */
+    h1 { font-size: 1.5rem !important; line-height: 1.3 !important; }
+    h2 { font-size: 1.25rem !important; line-height: 1.3 !important; }
+    h3 { font-size: 1.1rem !important; line-height: 1.3 !important; }
     
-    /* Stack columns vertically on mobile */
+    /* Stack ALL columns vertically on mobile */
     [data-testid="stHorizontalBlock"] {
-        flex-wrap: wrap !important;
+        flex-direction: column !important;
+        gap: 0.75rem !important;
     }
     
     [data-testid="stHorizontalBlock"] > div {
         flex: 1 1 100% !important;
+        width: 100% !important;
         min-width: 100% !important;
-        margin-bottom: 0.5rem !important;
+        max-width: 100% !important;
     }
     
-    /* Larger touch targets for buttons */
+    /* Large touch-friendly buttons */
     .stButton button {
-        min-height: 48px !important;
+        min-height: 52px !important;
         font-size: 16px !important;
-    }
-    
-    /* Input fields - larger for touch */
-    input, textarea {
-        font-size: 16px !important;
-        min-height: 44px !important;
-    }
-    
-    /* Tables - horizontal scroll */
-    [data-testid="stDataFrame"] {
-        overflow-x: auto !important;
-    }
-    
-    /* Metrics - smaller on mobile */
-    [data-testid="stMetric"] {
-        padding: 0.5rem !important;
-    }
-    
-    [data-testid="stMetricValue"] {
-        font-size: 1.2rem !important;
-    }
-    
-    /* Navigation dropdowns - full width */
-    [data-testid="stHorizontalBlock"] [data-baseweb="select"] {
+        padding: 12px 16px !important;
+        border-radius: 12px !important;
         width: 100% !important;
     }
     
-    /* Dialog/popup - full screen on mobile */
-    [data-testid="stModal"] {
+    /* Input fields - mobile optimized */
+    input, textarea, select {
+        font-size: 16px !important;
+        min-height: 48px !important;
+        border-radius: 10px !important;
+        padding: 12px !important;
+    }
+    
+    /* Cards and containers - full width with breathing room */
+    [data-testid="stExpander"],
+    .stAlert,
+    [data-testid="stMetric"] {
+        width: 100% !important;
+        margin: 0.5rem 0 !important;
+    }
+    
+    /* Metrics - mobile card style */
+    [data-testid="stMetric"] {
+        padding: 1rem !important;
+        background: #f8f9fa !important;
+        border-radius: 12px !important;
+        margin-bottom: 0.75rem !important;
+    }
+    
+    [data-testid="stMetricValue"] {
+        font-size: 1.4rem !important;
+    }
+    
+    [data-testid="stMetricLabel"] {
+        font-size: 0.85rem !important;
+    }
+    
+    /* Tables - horizontal scroll with shadow hint */
+    [data-testid="stDataFrame"] {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        border-radius: 12px !important;
+    }
+    
+    /* Dialog/popup - nearly full screen */
+    [data-testid="stModal"],
+    [data-testid="stDialog"] {
         width: 95vw !important;
         max-width: 95vw !important;
-        margin: 2.5vw !important;
+        max-height: 90vh !important;
+        margin: 2.5vw auto !important;
+        border-radius: 16px !important;
+    }
+    
+    /* Expanders - cleaner on mobile */
+    [data-testid="stExpander"] > div:first-child {
+        padding: 1rem !important;
+        border-radius: 12px !important;
+    }
+    
+    /* Popovers/dropdowns - full width on mobile */
+    [data-baseweb="popover"] {
+        width: 90vw !important;
+        left: 5vw !important;
+    }
+    
+    /* Charts - prevent overflow */
+    .js-plotly-plot, .plotly {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    
+    /* Text readability */
+    p, li, span {
+        font-size: 15px !important;
+        line-height: 1.5 !important;
+    }
+    
+    /* Hide scrollbars but keep functionality */
+    ::-webkit-scrollbar {
+        width: 4px !important;
+        height: 4px !important;
+    }
+    
+    /* Welcome popup - mobile friendly */
+    [data-testid="stDialog"] > div {
+        padding: 1.5rem !important;
     }
 }
 
 @media screen and (max-width: 480px) {
-    /* Extra small screens */
+    /* Extra small screens - even more compact */
     .main .block-container {
-        padding: 0.5rem 0.25rem !important;
+        padding: 0.75rem 0.75rem !important;
     }
     
     h1 { font-size: 1.3rem !important; }
-    h2 { font-size: 1.1rem !important; }
+    h2 { font-size: 1.15rem !important; }
     h3 { font-size: 1rem !important; }
     
-    /* Hide less important columns on very small screens */
-    .stDataFrame th:nth-child(n+5),
-    .stDataFrame td:nth-child(n+5) {
-        display: none;
+    /* Smaller metrics */
+    [data-testid="stMetricValue"] {
+        font-size: 1.2rem !important;
+    }
+    
+    /* Compact buttons */
+    .stButton button {
+        min-height: 48px !important;
+        font-size: 15px !important;
+        padding: 10px 14px !important;
+    }
+    
+    /* Hide columns 4+ in tables */
+    .stDataFrame th:nth-child(n+4),
+    .stDataFrame td:nth-child(n+4) {
+        display: none !important;
     }
 }
 
@@ -3151,6 +3251,372 @@ def show_limit_warning(current, limit, feature_name):
 # ============================================
 # PHASE 6: WAITLIST, ONBOARDING, ANALYTICS
 # ============================================
+
+# ============= STRIPE PAYMENT FUNCTIONS =============
+def create_stripe_checkout_session(user_email, tier="pro"):
+    """Create a Stripe Checkout session for subscription"""
+    if not STRIPE_SECRET_KEY:
+        return None, "Stripe not configured"
+    
+    try:
+        import stripe
+        stripe.api_key = STRIPE_SECRET_KEY
+        
+        price_id = STRIPE_PRO_PRICE_ID if tier == "pro" else STRIPE_ULTIMATE_PRICE_ID
+        
+        if not price_id:
+            return None, "Price ID not configured"
+        
+        # Create checkout session
+        session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=[{
+                'price': price_id,
+                'quantity': 1,
+            }],
+            mode='subscription',
+            success_url=f"https://aistockinvesting101.com?payment=success&tier={tier}",
+            cancel_url="https://aistockinvesting101.com?payment=cancelled",
+            customer_email=user_email,
+            metadata={
+                'tier': tier,
+                'user_email': user_email
+            }
+        )
+        return session.url, "Success"
+    except ImportError:
+        return None, "Stripe library not installed (pip install stripe)"
+    except Exception as e:
+        return None, str(e)
+
+def get_stripe_payment_link(tier="pro"):
+    """Get the pre-configured Stripe payment link for a tier"""
+    if tier == "pro" and STRIPE_PRO_PAYMENT_LINK:
+        return STRIPE_PRO_PAYMENT_LINK
+    elif tier == "ultimate" and STRIPE_ULTIMATE_PAYMENT_LINK:
+        return STRIPE_ULTIMATE_PAYMENT_LINK
+    return None
+
+def get_stripe_customer_portal_link():
+    """Get Stripe Customer Portal link for subscription management
+    
+    To set up:
+    1. Go to Stripe Dashboard → Settings → Billing → Customer Portal
+    2. Enable pause/cancel options
+    3. Add STRIPE_CUSTOMER_PORTAL_LINK to Render env vars
+    
+    Or use dynamic portal session (requires STRIPE_SECRET_KEY)
+    """
+    # First check for static portal link
+    portal_link = os.environ.get("STRIPE_CUSTOMER_PORTAL_LINK", "")
+    if portal_link:
+        return portal_link
+    
+    # Try to create dynamic portal session if secret key available
+    if STRIPE_SECRET_KEY and st.session_state.get('user_email'):
+        try:
+            import stripe
+            stripe.api_key = STRIPE_SECRET_KEY
+            
+            # Find customer by email
+            customers = stripe.Customer.list(email=st.session_state.user_email, limit=1)
+            if customers.data:
+                customer_id = customers.data[0].id
+                
+                # Create portal session
+                session = stripe.billing_portal.Session.create(
+                    customer=customer_id,
+                    return_url="https://aistockinvesting101.com"
+                )
+                return session.url
+        except:
+            pass
+    
+    return None
+
+def update_user_tier_after_payment(user_email, new_tier):
+    """Update user's tier in Supabase after successful Stripe payment"""
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        return False, "Database not configured"
+    
+    try:
+        headers = {
+            "apikey": SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+            "Content-Type": "application/json"
+        }
+        
+        # Update user metadata with new tier
+        # Note: This requires a Supabase Edge Function or webhook in production
+        # For now, this updates a 'subscriptions' table
+        data = {
+            "email": user_email.lower().strip(),
+            "tier": new_tier,
+            "subscribed_at": datetime.now().isoformat(),
+            "status": "active"
+        }
+        
+        response = requests.post(
+            f"{SUPABASE_URL}/rest/v1/subscriptions",
+            headers=headers,
+            json=data,
+            timeout=10
+        )
+        
+        if response.status_code in [200, 201, 204]:
+            return True, "Tier updated"
+        return False, f"Error: {response.status_code}"
+    except Exception as e:
+        return False, str(e)
+
+def handle_stripe_webhook(payload, sig_header):
+    """Handle Stripe webhook events (for payment confirmations)
+    
+    Set up webhook in Stripe Dashboard:
+    1. Go to Developers → Webhooks
+    2. Add endpoint: https://aistockinvesting101.com/api/stripe-webhook
+    3. Select events: checkout.session.completed, customer.subscription.updated
+    4. Copy webhook secret to STRIPE_WEBHOOK_SECRET env var
+    """
+    if not STRIPE_SECRET_KEY or not STRIPE_WEBHOOK_SECRET:
+        return False, "Stripe not configured"
+    
+    try:
+        import stripe
+        stripe.api_key = STRIPE_SECRET_KEY
+        
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, STRIPE_WEBHOOK_SECRET
+        )
+        
+        if event['type'] == 'checkout.session.completed':
+            session = event['data']['object']
+            user_email = session.get('customer_email') or session.get('metadata', {}).get('user_email')
+            tier = session.get('metadata', {}).get('tier', 'pro')
+            
+            if user_email:
+                update_user_tier_after_payment(user_email, tier)
+                send_welcome_email(user_email, tier)
+                return True, "Payment processed"
+        
+        return True, "Event received"
+    except Exception as e:
+        return False, str(e)
+
+
+# ============= EMAIL FUNCTIONS (Resend) =============
+def send_email(to_email, subject, html_content):
+    """Send email using Resend API"""
+    if not RESEND_API_KEY:
+        return False, "Email not configured"
+    
+    try:
+        response = requests.post(
+            "https://api.resend.com/emails",
+            headers={
+                "Authorization": f"Bearer {RESEND_API_KEY}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "from": EMAIL_FROM,
+                "to": [to_email],
+                "subject": subject,
+                "html": html_content
+            },
+            timeout=10
+        )
+        
+        if response.status_code in [200, 201]:
+            return True, "Email sent"
+        return False, f"Error: {response.status_code}"
+    except Exception as e:
+        return False, str(e)
+
+def send_welcome_email(user_email, tier="free"):
+    """Send welcome email to new users"""
+    tier_name = tier.title()
+    
+    html = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #FF4B4B 0%, #CC0000 100%); padding: 30px; text-align: center;">
+            <h1 style="color: white; margin: 0;">🎉 Welcome to Investing Made Simple!</h1>
+        </div>
+        <div style="padding: 30px; background: #f9f9f9;">
+            <p style="font-size: 18px; color: #333;">Hey there!</p>
+            <p style="color: #555;">Thanks for joining <strong>Investing Made Simple</strong>! You're now a <strong>{tier_name}</strong> member.</p>
+            
+            <div style="background: white; border-radius: 10px; padding: 20px; margin: 20px 0;">
+                <h3 style="color: #FF4B4B; margin-top: 0;">🚀 What you can do now:</h3>
+                <ul style="color: #555; line-height: 1.8;">
+                    <li>📊 Analyze any stock with AI-powered insights</li>
+                    <li>📈 Track your favorite tickers on your Dashboard</li>
+                    <li>🤖 Ask our AI Assistant anything about investing</li>
+                    <li>📚 Learn with 55+ interactive lessons</li>
+                </ul>
+            </div>
+            
+            <a href="https://aistockinvesting101.com" style="display: inline-block; background: #FF4B4B; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold;">Start Exploring →</a>
+            
+            <p style="color: #888; font-size: 12px; margin-top: 30px;">
+                Questions? Reply to this email or DM me on Twitter <a href="https://x.com/na_man20">@na_man20</a>
+            </p>
+        </div>
+    </div>
+    """
+    
+    return send_email(user_email, f"Welcome to Investing Made Simple, {tier_name} Member! 🎉", html)
+
+def send_payment_confirmation_email(user_email, tier, amount):
+    """Send payment confirmation email"""
+    tier_name = tier.title()
+    
+    html = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); padding: 30px; text-align: center;">
+            <h1 style="color: #1a1a2e; margin: 0;">👑 Payment Confirmed!</h1>
+        </div>
+        <div style="padding: 30px; background: #f9f9f9;">
+            <p style="font-size: 18px; color: #333;">You're now a <strong>{tier_name}</strong> member!</p>
+            
+            <div style="background: white; border-radius: 10px; padding: 20px; margin: 20px 0; border: 2px solid #FFD700;">
+                <h3 style="color: #333; margin-top: 0;">Receipt</h3>
+                <p><strong>Plan:</strong> {tier_name}</p>
+                <p><strong>Amount:</strong> ${amount}/month</p>
+                <p><strong>Date:</strong> {datetime.now().strftime('%B %d, %Y')}</p>
+            </div>
+            
+            <p style="color: #555;">Your {tier_name} features are now unlocked! Go explore:</p>
+            
+            <a href="https://aistockinvesting101.com" style="display: inline-block; background: #FFD700; color: #1a1a2e; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold;">Access {tier_name} Features →</a>
+        </div>
+    </div>
+    """
+    
+    return send_email(user_email, f"Payment Confirmed - {tier_name} Plan 👑", html)
+
+def send_password_reset_email(user_email, reset_link):
+    """Send password reset email"""
+    html = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: #1a1a2e; padding: 30px; text-align: center;">
+            <h1 style="color: white; margin: 0;">🔐 Password Reset</h1>
+        </div>
+        <div style="padding: 30px; background: #f9f9f9;">
+            <p style="font-size: 18px; color: #333;">Reset your password</p>
+            <p style="color: #555;">Click the button below to reset your password. This link expires in 1 hour.</p>
+            
+            <a href="{reset_link}" style="display: inline-block; background: #FF4B4B; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; margin: 20px 0;">Reset Password →</a>
+            
+            <p style="color: #888; font-size: 12px; margin-top: 30px;">
+                If you didn't request this, you can safely ignore this email.
+            </p>
+        </div>
+    </div>
+    """
+    
+    return send_email(user_email, "Reset Your Password - Investing Made Simple", html)
+
+
+# ============= ANALYTICS FUNCTIONS =============
+def track_event(event_name, properties=None):
+    """Track analytics event (Mixpanel or PostHog)"""
+    user_email = st.session_state.get('user_email', 'anonymous')
+    user_tier = get_user_tier() if 'get_user_tier' in dir() else 'free'
+    
+    event_data = {
+        "event": event_name,
+        "user_email": user_email,
+        "user_tier": user_tier,
+        "timestamp": datetime.now().isoformat(),
+        "properties": properties or {}
+    }
+    
+    # Mixpanel tracking
+    if MIXPANEL_TOKEN:
+        try:
+            import base64
+            data = {
+                "event": event_name,
+                "properties": {
+                    "token": MIXPANEL_TOKEN,
+                    "distinct_id": user_email,
+                    "tier": user_tier,
+                    **(properties or {})
+                }
+            }
+            encoded = base64.b64encode(json.dumps(data).encode()).decode()
+            requests.get(f"https://api.mixpanel.com/track?data={encoded}", timeout=2)
+        except:
+            pass
+    
+    # PostHog tracking
+    if POSTHOG_API_KEY:
+        try:
+            requests.post(
+                "https://app.posthog.com/capture/",
+                headers={"Content-Type": "application/json"},
+                json={
+                    "api_key": POSTHOG_API_KEY,
+                    "event": event_name,
+                    "distinct_id": user_email,
+                    "properties": {
+                        "tier": user_tier,
+                        **(properties or {})
+                    }
+                },
+                timeout=2
+            )
+        except:
+            pass
+    
+    # Also store locally in session
+    if 'analytics_events' not in st.session_state:
+        st.session_state.analytics_events = []
+    st.session_state.analytics_events.append(event_data)
+
+def track_page_view(page_name):
+    """Track page view"""
+    track_event("page_view", {"page": page_name})
+
+def track_signup(method="email"):
+    """Track user signup"""
+    track_event("signup", {"method": method})
+
+def track_upgrade(from_tier, to_tier):
+    """Track tier upgrade"""
+    track_event("upgrade", {"from_tier": from_tier, "to_tier": to_tier})
+
+def track_feature_usage_analytics(feature_name, ticker=None):
+    """Track feature usage with external analytics"""
+    track_event("feature_used", {"feature": feature_name, "ticker": ticker})
+
+
+# ============= PASSWORD RESET FUNCTIONS =============
+def request_password_reset(email):
+    """Request password reset via Supabase"""
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        return False, "Database not configured"
+    
+    try:
+        # Use Supabase Auth API to send reset email
+        response = requests.post(
+            f"{SUPABASE_URL}/auth/v1/recover",
+            headers={
+                "apikey": SUPABASE_KEY,
+                "Content-Type": "application/json"
+            },
+            json={
+                "email": email.lower().strip()
+            },
+            timeout=10
+        )
+        
+        if response.status_code in [200, 201, 204]:
+            return True, "Reset email sent"
+        return False, f"Error: {response.status_code}"
+    except Exception as e:
+        return False, str(e)
+
 
 def save_waitlist_email(email, tier_interest="pro"):
     """Save waitlist email to Supabase"""
@@ -6863,6 +7329,17 @@ def login_dialog():
     st.markdown("<p style='color: #333333; font-weight: bold;'>🔒 Password</p>", unsafe_allow_html=True)
     password = st.text_input("Password", type="password", placeholder="Enter your password", key="login_password", label_visibility="collapsed")
     
+    # Forgot Password link
+    if st.button("🔑 Forgot Password?", key="forgot_password_btn", type="secondary"):
+        if email and "@" in email:
+            success, msg = request_password_reset(email)
+            if success:
+                st.success("📧 Password reset email sent! Check your inbox.")
+            else:
+                st.error(f"❌ Could not send reset email: {msg}")
+        else:
+            st.warning("⚠️ Enter your email above first, then click Forgot Password")
+    
     st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
     
     col_btn1, col_btn2 = st.columns(2)
@@ -6904,6 +7381,9 @@ def login_dialog():
                     
                     # Load user progress
                     load_user_progress()
+                    
+                    # Track signup for analytics
+                    track_event("login", {"method": "email"})
                     
                     st.success(f"✅ Welcome back, {st.session_state.first_name}!")
                     st.session_state.show_login_popup = False
@@ -9176,20 +9656,47 @@ with st.sidebar:
     if 'unhinged_mode' not in st.session_state:
         st.session_state.unhinged_mode = False
     
-    # Add blue styling for Settings expander in sidebar
+    # Add blue styling for Settings expander in sidebar - STRONG SELECTOR
     st.markdown("""
     <style>
-    /* Style the Settings expander to be blue like Timeline */
-    [data-testid="stSidebar"] [data-testid="stExpander"]:last-of-type > div:first-child {
-        background: linear-gradient(135deg, #4FC3F7 0%, #29B6F6 100%) !important;
-        border-radius: 8px !important;
+    /* Settings expander - bright blue background */
+    [data-testid="stSidebar"] [data-testid="stExpander"] {
+        border: none !important;
+        box-shadow: none !important;
     }
-    [data-testid="stSidebar"] [data-testid="stExpander"]:last-of-type > div:first-child p {
+    
+    [data-testid="stSidebar"] [data-testid="stExpander"] > div:first-child {
+        background: linear-gradient(135deg, #29B6F6 0%, #0288D1 100%) !important;
+        border-radius: 12px !important;
+        border: none !important;
+        padding: 12px 16px !important;
+        margin-bottom: 8px !important;
+    }
+    
+    [data-testid="stSidebar"] [data-testid="stExpander"] > div:first-child:hover {
+        background: linear-gradient(135deg, #4FC3F7 0%, #29B6F6 100%) !important;
+    }
+    
+    /* Settings text - white */
+    [data-testid="stSidebar"] [data-testid="stExpander"] > div:first-child p,
+    [data-testid="stSidebar"] [data-testid="stExpander"] > div:first-child span {
         color: white !important;
         font-weight: 600 !important;
+        font-size: 16px !important;
     }
-    [data-testid="stSidebar"] [data-testid="stExpander"]:last-of-type > div:first-child svg {
+    
+    /* Settings arrow icon - white */
+    [data-testid="stSidebar"] [data-testid="stExpander"] > div:first-child svg {
         fill: white !important;
+        stroke: white !important;
+    }
+    
+    /* Settings content area when expanded */
+    [data-testid="stSidebar"] [data-testid="stExpander"] > div:last-child {
+        background: #f8f9fa !important;
+        border-radius: 0 0 12px 12px !important;
+        padding: 12px !important;
+        margin-top: -8px !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -9212,6 +9719,29 @@ with st.sidebar:
                 save_user_progress()
         
         st.markdown("---")
+        
+        # Subscription Management (only for Pro/Ultimate users)
+        user_tier = get_user_tier()
+        if user_tier in ["pro", "ultimate"] and st.session_state.get('is_logged_in'):
+            st.markdown("**💳 Subscription**")
+            st.caption(f"Current plan: **{user_tier.title()}**")
+            
+            # Stripe Customer Portal link for managing subscription
+            portal_link = get_stripe_customer_portal_link()
+            if portal_link:
+                st.link_button("⚙️ Manage Subscription", portal_link, use_container_width=True)
+                st.caption("Pause, cancel, or update payment method")
+            else:
+                # Manual buttons if portal not configured
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button("⏸️ Pause", key="pause_sub_btn", use_container_width=True):
+                        st.info("📧 Email namanlohia02@gmail.com to pause your subscription")
+                with col2:
+                    if st.button("❌ Cancel", key="cancel_sub_btn", use_container_width=True):
+                        st.info("📧 Email namanlohia02@gmail.com to cancel your subscription")
+            
+            st.markdown("---")
         
         # Contact & Support
         st.markdown("**📬 Contact & Support**")
@@ -18701,41 +19231,74 @@ elif selected_page == "👑 Become a VIP":
     # Set access_tier based on selected_tier
     access_tier = st.session_state.selected_tier
     
-    # ============= WAITLIST OVERLAY FOR PRO/ULTIMATE =============
+    # ============= PAYMENT SECTION =============
     if access_tier != "Free":
         st.markdown("---")
-        st.markdown("""
-        <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
-                    border: 2px solid #9D4EDD; border-radius: 15px; padding: 40px; 
-                    text-align: center; margin: 20px 0;">
-            <h2 style="color: #FFD700; margin-bottom: 20px;">🎉 Join the Waitlist</h2>
-            <p style="color: #FFFFFF; font-size: 18px; margin-bottom: 30px;">
-                Be among the first to access premium features when they launch!
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
         
-        col1, col2, col3 = st.columns([1, 2, 1])
-        with col2:
-            waitlist_email = st.text_input("Enter your email:", placeholder="your@email.com", key="waitlist_email_vip")
-            st.markdown("<br>", unsafe_allow_html=True)
-            if st.button("🚀 Join Waitlist", key="join_waitlist_vip", type="primary", use_container_width=True):
-                if waitlist_email and "@" in waitlist_email and "." in waitlist_email:
-                    success, message = save_waitlist_email(waitlist_email, "ultimate")
-                    if success:
-                        if message == "Already on waitlist":
-                            st.info(f"📧 {waitlist_email} is already on the waitlist!")
+        # Check if Stripe is configured
+        pro_link = get_stripe_payment_link("pro")
+        ultimate_link = get_stripe_payment_link("ultimate")
+        
+        if pro_link or ultimate_link:
+            # Stripe is configured - show payment buttons
+            st.markdown(f"""
+            <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
+                        border: 2px solid {'#9D4EDD' if access_tier == 'Pro' else '#FFD700'}; border-radius: 15px; padding: 40px; 
+                        text-align: center; margin: 20px 0;">
+                <h2 style="color: {'#9D4EDD' if access_tier == 'Pro' else '#FFD700'}; margin-bottom: 20px;">
+                    {'⭐' if access_tier == 'Pro' else '👑'} Upgrade to {access_tier}
+                </h2>
+                <p style="color: #FFFFFF; font-size: 18px; margin-bottom: 10px;">
+                    {'$5/month - Full Portfolio Access' if access_tier == 'Pro' else '$10/month - Everything + AI Stock Screener'}
+                </p>
+                <p style="color: #888; font-size: 14px; margin-bottom: 30px;">
+                    Cancel anytime • Secure payment via Stripe
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            col1, col2, col3 = st.columns([1, 2, 1])
+            with col2:
+                if access_tier == "Pro" and pro_link:
+                    st.link_button("💳 Subscribe to Pro - $5/mo", pro_link, type="primary", use_container_width=True)
+                elif access_tier == "Ultimate" and ultimate_link:
+                    st.link_button("💳 Subscribe to Ultimate - $10/mo", ultimate_link, type="primary", use_container_width=True)
+                
+                st.caption("🔒 Secured by Stripe • 256-bit encryption")
+        else:
+            # Stripe not configured - show waitlist
+            st.markdown("""
+            <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
+                        border: 2px solid #9D4EDD; border-radius: 15px; padding: 40px; 
+                        text-align: center; margin: 20px 0;">
+                <h2 style="color: #FFD700; margin-bottom: 20px;">🎉 Join the Waitlist</h2>
+                <p style="color: #FFFFFF; font-size: 18px; margin-bottom: 30px;">
+                    Be among the first to access premium features when they launch!
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            col1, col2, col3 = st.columns([1, 2, 1])
+            with col2:
+                waitlist_email = st.text_input("Enter your email:", placeholder="your@email.com", key="waitlist_email_vip")
+                st.markdown("<br>", unsafe_allow_html=True)
+                if st.button("🚀 Join Waitlist", key="join_waitlist_vip", type="primary", use_container_width=True):
+                    if waitlist_email and "@" in waitlist_email and "." in waitlist_email:
+                        success, message = save_waitlist_email(waitlist_email, access_tier.lower())
+                        if success:
+                            if message == "Already on waitlist":
+                                st.info(f"📧 {waitlist_email} is already on the waitlist!")
+                            else:
+                                st.success(f"🎉 You're on the list! We'll notify {waitlist_email} when spots open.")
+                                st.balloons()
                         else:
                             st.success(f"🎉 You're on the list! We'll notify {waitlist_email} when spots open.")
-                            st.balloons()
                     else:
-                        st.success(f"🎉 You're on the list! We'll notify {waitlist_email} when spots open.")
-                else:
-                    st.error("Please enter a valid email address.")
-        
-        # Show dynamic waitlist count
-        waitlist_count = get_waitlist_count()
-        st.info(f"**Current waitlist:** {waitlist_count} people ahead of you. Pro spots open monthly.")
+                        st.error("Please enter a valid email address.")
+            
+            # Show dynamic waitlist count
+            waitlist_count = get_waitlist_count()
+            st.info(f"**Current waitlist:** {waitlist_count} people ahead of you. Pro spots open monthly.")
     else:
         st.success("✅ You're currently on the Free tier. Enjoy exploring!")
     
