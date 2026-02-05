@@ -445,7 +445,7 @@
 <!-- NAV -->
 <nav>
     <div class="nav-logo">💰 Investing Made Simple</div>
-    <a href="#join" class="nav-cta">Join Free</a>
+    <a href="https://app.aistockinvesting101.com" class="nav-cta">Join Free</a>
 </nav>
 
 <!-- HERO -->
@@ -454,8 +454,7 @@
     <h1>Stock analysis,<br><span class="red">explained simply.</span></h1>
     <p class="sub">AI-powered charts, technicals, and a personalized risk quiz — all designed for people who want to learn investing, not get overwhelmed by it.</p>
     <div class="hero-cta-row">
-        <a href="#join" class="btn-primary">Start Free →</a>
-        <a href="#preview" class="btn-secondary">See What You Get</a>
+        <a href="https://app.aistockinvesting101.com" class="btn-primary">Start Free →</a>
     </div>
     <p class="hero-note">Free tier included · No credit card required</p>
 </section>
@@ -640,7 +639,7 @@
                 <li>55+ educational lessons</li>
                 <li>Paper portfolio (practice trading)</li>
             </ul>
-            <a href="#join" class="btn-secondary" style="margin-top: 8px;">Get Started</a>
+            <a href="https://app.aistockinvesting101.com" class="btn-secondary" style="margin-top: 8px;">Get Started</a>
         </div>
         <div class="tier-card featured">
             <h3 style="color: var(--red);">Pro</h3>
@@ -652,7 +651,7 @@
                 <li>Chart Callouts — AI explains what matters</li>
                 <li>Bull vs Bear case breakdowns</li>
             </ul>
-            <a href="#join" class="btn-primary" style="margin-top: 8px; font-size: 15px;">Join Free, Upgrade Later</a>
+            <a href="https://app.aistockinvesting101.com" class="btn-primary" style="margin-top: 8px; font-size: 15px;">Join Free, Upgrade Later</a>
         </div>
         <div class="tier-card">
             <h3 style="color: var(--gold);">Ultimate</h3>
@@ -665,7 +664,7 @@
                 <li>Historical Similar Setups (backtest-lite)</li>
                 <li>AI Deep Dive — institutional-grade analysis</li>
             </ul>
-            <a href="#join" class="btn-secondary" style="margin-top: 8px;">Get Started</a>
+            <a href="https://app.aistockinvesting101.com" class="btn-secondary" style="margin-top: 8px;">Get Started</a>
         </div>
     </div>
 </section>
@@ -682,12 +681,8 @@
 <!-- FINAL CTA -->
 <section class="final-cta fade-in" id="join">
     <h2>Ready to invest smarter?</h2>
-    <p>Join free. No credit card. Get a link to explore on desktop.</p>
-    <div class="email-form">
-        <input type="email" id="email-input" placeholder="your@email.com" autocomplete="email" />
-        <button class="btn-primary" id="join-btn" onclick="handleJoin()">Join Free</button>
-    </div>
-    <div class="form-msg" id="form-msg"></div>
+    <p>Free to start. No credit card required.</p>
+    <a href="https://app.aistockinvesting101.com" class="btn-primary" style="max-width: 360px; margin: 0 auto;">Start Free →</a>
     <p style="font-size: 13px; color: var(--grey-text); margin-top: 20px;">Not financial advice · Educational only · <a href="https://x.com/na_man20" target="_blank" style="color: var(--red); text-decoration: none;">@na_man20</a></p>
 </section>
 
@@ -1008,34 +1003,7 @@
     window.addEventListener('load', initCharts);
     window.addEventListener('resize', () => { clearTimeout(window._rz); window._rz = setTimeout(initCharts, 150); });
 
-    // ============ EMAIL JOIN ============
-    function handleJoin() {
-        const input = document.getElementById('email-input');
-        const msg = document.getElementById('form-msg');
-        const btn = document.getElementById('join-btn');
-        const email = input.value.trim();
-
-        if (!email || !email.includes('@') || !email.includes('.')) {
-            msg.textContent = 'Please enter a valid email.';
-            msg.className = 'form-msg error';
-            return;
-        }
-
-        btn.textContent = 'Joining...';
-        btn.disabled = true;
-
-        // Replace this with your actual signup endpoint (Supabase, etc.)
-        setTimeout(() => {
-            msg.textContent = '🎉 You\'re in! Check your email for a link to get started on desktop.';
-            msg.className = 'form-msg success';
-            btn.textContent = 'Joined ✓';
-            input.value = '';
-        }, 800);
-    }
-
-    document.getElementById('email-input').addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') handleJoin();
-    });
+    // No email form needed — all buttons go directly to app
 </script>
 
 </body>
