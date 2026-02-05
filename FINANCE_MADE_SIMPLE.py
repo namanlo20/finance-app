@@ -19376,13 +19376,14 @@ elif selected_page == "👑 Become a VIP":
     
     with col_free:
         # Highlight if selected
-        border_color = "#00C853" if st.session_state.selected_tier == "Free" else "#333"
-        shadow = "0 0 20px rgba(0,200,83,0.5)" if st.session_state.selected_tier == "Free" else "none"
+        border_color = "#00C853" if st.session_state.selected_tier == "Free" else "#ddd"
+        shadow = "0 0 20px rgba(0,200,83,0.5)" if st.session_state.selected_tier == "Free" else "0 2px 8px rgba(0,0,0,0.1)"
+        bg = "linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%)" if st.session_state.selected_tier == "Free" else "linear-gradient(135deg, #FFFFFF 0%, #F5F5F5 100%)"
         st.markdown(f"""
-        <div style="background: #E3F2FD; border: 3px solid {border_color}; border-radius: 15px; 
+        <div style="background: {bg}; border: 3px solid {border_color}; border-radius: 15px; 
                     padding: 20px; text-align: center; box-shadow: {shadow};">
             <h3 style="color: #00C853; margin-bottom: 10px;">Free</h3>
-            <p style="color: #333; font-size: 24px; margin: 10px 0;"><strong>$0</strong>/mo</p>
+            <p style="color: #1a1a1a; font-size: 24px; margin: 10px 0;"><strong>$0</strong>/mo</p>
             <p style="color: #555; font-size: 14px;">Preview Access</p>
         </div>
         """, unsafe_allow_html=True)
@@ -19391,13 +19392,14 @@ elif selected_page == "👑 Become a VIP":
             st.rerun()
     
     with col_pro:
-        border_color = "#9D4EDD" if st.session_state.selected_tier == "Pro" else "#333"
-        shadow = "0 0 20px rgba(157,78,221,0.5)" if st.session_state.selected_tier == "Pro" else "none"
+        border_color = "#9D4EDD" if st.session_state.selected_tier == "Pro" else "#ddd"
+        shadow = "0 0 20px rgba(157,78,221,0.5)" if st.session_state.selected_tier == "Pro" else "0 2px 8px rgba(0,0,0,0.1)"
+        bg = "linear-gradient(135deg, #F3E5F5 0%, #E1BEE7 100%)" if st.session_state.selected_tier == "Pro" else "linear-gradient(135deg, #FFFFFF 0%, #F5F5F5 100%)"
         st.markdown(f"""
-        <div style="background: #E3F2FD; border: 3px solid {border_color}; border-radius: 15px; 
+        <div style="background: {bg}; border: 3px solid {border_color}; border-radius: 15px; 
                     padding: 20px; text-align: center; box-shadow: {shadow};">
             <h3 style="color: #9D4EDD; margin-bottom: 10px;">Pro</h3>
-            <p style="color: #333; font-size: 24px; margin: 10px 0;"><strong>$5</strong>/mo</p>
+            <p style="color: #1a1a1a; font-size: 24px; margin: 10px 0;"><strong>$5</strong>/mo</p>
             <p style="color: #555; font-size: 14px;">Full Portfolio Access</p>
         </div>
         """, unsafe_allow_html=True)
@@ -19413,13 +19415,14 @@ elif selected_page == "👑 Become a VIP":
             st.rerun()
     
     with col_ultimate:
-        border_color = "#FFD700" if st.session_state.selected_tier == "Ultimate" else "#333"
-        shadow = "0 0 20px rgba(255,215,0,0.5)" if st.session_state.selected_tier == "Ultimate" else "none"
+        border_color = "#FFD700" if st.session_state.selected_tier == "Ultimate" else "#ddd"
+        shadow = "0 0 20px rgba(255,215,0,0.5)" if st.session_state.selected_tier == "Ultimate" else "0 2px 8px rgba(0,0,0,0.1)"
+        bg = "linear-gradient(135deg, #FFF8E1 0%, #FFECB3 100%)" if st.session_state.selected_tier == "Ultimate" else "linear-gradient(135deg, #FFFFFF 0%, #F5F5F5 100%)"
         st.markdown(f"""
-        <div style="background: #E3F2FD; border: 3px solid {border_color}; border-radius: 15px; 
+        <div style="background: {bg}; border: 3px solid {border_color}; border-radius: 15px; 
                     padding: 20px; text-align: center; box-shadow: {shadow};">
-            <h3 style="color: #FFD700; margin-bottom: 10px;">Ultimate</h3>
-            <p style="color: #333; font-size: 24px; margin: 10px 0;"><strong>$10</strong>/mo</p>
+            <h3 style="color: #E6A800; margin-bottom: 10px;">Ultimate</h3>
+            <p style="color: #1a1a1a; font-size: 24px; margin: 10px 0;"><strong>$10</strong>/mo</p>
             <p style="color: #555; font-size: 14px;">VIP Access + Support</p>
         </div>
         """, unsafe_allow_html=True)
@@ -19522,12 +19525,8 @@ elif selected_page == "👑 Become a VIP":
     if access_tier != "Free":
         st.markdown("---")
         
-        # Check if Stripe is configured
-        pro_link = get_stripe_payment_link("pro")
-        ultimate_link = get_stripe_payment_link("ultimate")
-        
-        if pro_link or ultimate_link:
-            # Stripe is configured - show payment buttons
+        # MUST be signed in before accessing Stripe
+        if not st.session_state.get('is_logged_in'):
             st.markdown(f"""
             <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
                         border: 2px solid {'#9D4EDD' if access_tier == 'Pro' else '#FFD700'}; border-radius: 15px; padding: 40px; 
@@ -19538,54 +19537,86 @@ elif selected_page == "👑 Become a VIP":
                 <p style="color: #FFFFFF; font-size: 18px; margin-bottom: 10px;">
                     {'$5/month - Full Portfolio Access' if access_tier == 'Pro' else '$10/month - Everything + AI Stock Screener'}
                 </p>
-                <p style="color: #888; font-size: 14px; margin-bottom: 30px;">
-                    Cancel anytime • Secure payment via Stripe
+                <p style="color: #FF6B6B; font-size: 16px; font-weight: bold; margin-top: 20px;">
+                    ⚠️ Please sign up / sign in first to subscribe
                 </p>
             </div>
             """, unsafe_allow_html=True)
             
             col1, col2, col3 = st.columns([1, 2, 1])
             with col2:
-                if access_tier == "Pro" and pro_link:
-                    st.link_button("💳 Subscribe to Pro - $5/mo", pro_link, type="primary", use_container_width=True)
-                elif access_tier == "Ultimate" and ultimate_link:
-                    st.link_button("💳 Subscribe to Ultimate - $10/mo", ultimate_link, type="primary", use_container_width=True)
-                
-                st.caption("🔒 Secured by Stripe • 256-bit encryption")
+                if st.button("📝 Sign Up First", key="vip_signup_first", type="primary", use_container_width=True):
+                    st.session_state.show_signup = True
+                    st.rerun()
+                if st.button("🏛️ Sign In", key="vip_signin_first", use_container_width=True):
+                    st.session_state.show_login = True
+                    st.rerun()
         else:
-            # Stripe not configured - show waitlist
-            st.markdown("""
-            <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
-                        border: 2px solid #9D4EDD; border-radius: 15px; padding: 40px; 
-                        text-align: center; margin: 20px 0;">
-                <h2 style="color: #FFD700; margin-bottom: 20px;">🎉 Join the Waitlist</h2>
-                <p style="color: #FFFFFF; font-size: 18px; margin-bottom: 30px;">
-                    Be among the first to access premium features when they launch!
-                </p>
-            </div>
-            """, unsafe_allow_html=True)
+            # User IS logged in - show payment options
+            # Check if Stripe is configured
+            pro_link = get_stripe_payment_link("pro")
+            ultimate_link = get_stripe_payment_link("ultimate")
             
-            col1, col2, col3 = st.columns([1, 2, 1])
-            with col2:
-                waitlist_email = st.text_input("Enter your email:", placeholder="your@email.com", key="waitlist_email_vip")
-                st.markdown("<br>", unsafe_allow_html=True)
-                if st.button("🚀 Join Waitlist", key="join_waitlist_vip", type="primary", use_container_width=True):
-                    if waitlist_email and "@" in waitlist_email and "." in waitlist_email:
-                        success, message = save_waitlist_email(waitlist_email, access_tier.lower())
-                        if success:
-                            if message == "Already on waitlist":
-                                st.info(f"📧 {waitlist_email} is already on the waitlist!")
+            if pro_link or ultimate_link:
+                # Stripe is configured - show payment buttons
+                st.markdown(f"""
+                <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
+                            border: 2px solid {'#9D4EDD' if access_tier == 'Pro' else '#FFD700'}; border-radius: 15px; padding: 40px; 
+                            text-align: center; margin: 20px 0;">
+                    <h2 style="color: {'#9D4EDD' if access_tier == 'Pro' else '#FFD700'}; margin-bottom: 20px;">
+                        {'⭐' if access_tier == 'Pro' else '👑'} Upgrade to {access_tier}
+                    </h2>
+                    <p style="color: #FFFFFF; font-size: 18px; margin-bottom: 10px;">
+                        {'$5/month - Full Portfolio Access' if access_tier == 'Pro' else '$10/month - Everything + AI Stock Screener'}
+                    </p>
+                    <p style="color: #888; font-size: 14px; margin-bottom: 30px;">
+                        Cancel anytime • Secure payment via Stripe
+                    </p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                col1, col2, col3 = st.columns([1, 2, 1])
+                with col2:
+                    if access_tier == "Pro" and pro_link:
+                        st.link_button("💳 Subscribe to Pro - $5/mo", pro_link, type="primary", use_container_width=True)
+                    elif access_tier == "Ultimate" and ultimate_link:
+                        st.link_button("💳 Subscribe to Ultimate - $10/mo", ultimate_link, type="primary", use_container_width=True)
+                    
+                    st.caption("🔒 Secured by Stripe • 256-bit encryption")
+            else:
+                # Stripe not configured - show waitlist
+                st.markdown("""
+                <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
+                            border: 2px solid #9D4EDD; border-radius: 15px; padding: 40px; 
+                            text-align: center; margin: 20px 0;">
+                    <h2 style="color: #FFD700; margin-bottom: 20px;">🎉 Join the Waitlist</h2>
+                    <p style="color: #FFFFFF; font-size: 18px; margin-bottom: 30px;">
+                        Be among the first to access premium features when they launch!
+                    </p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                col1, col2, col3 = st.columns([1, 2, 1])
+                with col2:
+                    waitlist_email = st.text_input("Enter your email:", placeholder="your@email.com", key="waitlist_email_vip")
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    if st.button("🚀 Join Waitlist", key="join_waitlist_vip", type="primary", use_container_width=True):
+                        if waitlist_email and "@" in waitlist_email and "." in waitlist_email:
+                            success, message = save_waitlist_email(waitlist_email, access_tier.lower())
+                            if success:
+                                if message == "Already on waitlist":
+                                    st.info(f"📧 {waitlist_email} is already on the waitlist!")
+                                else:
+                                    st.success(f"🎉 You're on the list! We'll notify {waitlist_email} when spots open.")
+                                    st.balloons()
                             else:
                                 st.success(f"🎉 You're on the list! We'll notify {waitlist_email} when spots open.")
-                                st.balloons()
                         else:
-                            st.success(f"🎉 You're on the list! We'll notify {waitlist_email} when spots open.")
-                    else:
-                        st.error("Please enter a valid email address.")
-            
-            # Show dynamic waitlist count
-            waitlist_count = get_waitlist_count()
-            st.info(f"**Current waitlist:** {waitlist_count} people ahead of you. Pro spots open monthly.")
+                            st.error("Please enter a valid email address.")
+                
+                # Show dynamic waitlist count
+                waitlist_count = get_waitlist_count()
+                st.info(f"**Current waitlist:** {waitlist_count} people ahead of you. Pro spots open monthly.")
     else:
         st.success("✅ You're currently on the Free tier. Enjoy exploring!")
     
@@ -19771,6 +19802,22 @@ elif selected_page == "📊 Pro Checklist":
     
     # Store simple_mode in session state for use across features
     st.session_state.simple_mode = simple_mode
+    
+    # ============= ACCESS GATE: Pro/Ultimate only =============
+    user_tier = get_user_tier()
+    if analyze_button and user_tier == "free":
+        analyze_button = False  # Block the analyze
+        st.markdown("""
+        <div style="background: linear-gradient(135deg, #FFF3E0 0%, #FFE0B2 100%); border: 2px solid #FF9800; 
+                    border-radius: 12px; padding: 25px; text-align: center; margin: 20px 0;">
+            <h3 style="color: #E65100; margin: 0 0 10px 0;">🔒 Pro Feature</h3>
+            <p style="color: #333; margin: 0;">AI Chart Analysis requires a <strong>Pro</strong> or <strong>Ultimate</strong> subscription.</p>
+            <p style="color: #555; font-size: 14px; margin-top: 10px;">You can browse the interface, but analysis is locked for Free users.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("⭐ Upgrade to Pro", key="pro_gate_upgrade", type="primary", use_container_width=True):
+            st.session_state.selected_page = "👑 Become a VIP"
+            st.rerun()
     
     
     # ============= ANALYSIS SECTION =============
@@ -20507,6 +20554,23 @@ elif selected_page == "👑 Ultimate":
                                help="Explain Like I'm 5 - simpler language")
     
     analyze_btn = st.button("🔍 Analyze", key="ultimate_analyze", use_container_width=True)
+    
+    # ============= ACCESS GATE: Ultimate only =============
+    user_tier = get_user_tier()
+    if analyze_btn and user_tier != "ultimate":
+        analyze_btn = False  # Block the analyze
+        tier_label = user_tier.title() if user_tier != "free" else "Free"
+        st.markdown(f"""
+        <div style="background: linear-gradient(135deg, #F3E5F5 0%, #E1BEE7 100%); border: 2px solid #9C27B0; 
+                    border-radius: 12px; padding: 25px; text-align: center; margin: 20px 0;">
+            <h3 style="color: #6A1B9A; margin: 0 0 10px 0;">🔒 Ultimate Feature</h3>
+            <p style="color: #333; margin: 0;">AI Planner & Backtest-Lite requires an <strong>Ultimate</strong> subscription.</p>
+            <p style="color: #555; font-size: 14px; margin-top: 10px;">You're on the <strong>{tier_label}</strong> plan. Upgrade to access this feature.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("👑 Upgrade to Ultimate", key="ultimate_gate_upgrade", type="primary", use_container_width=True):
+            st.session_state.selected_page = "👑 Become a VIP"
+            st.rerun()
     
     # Generate cache key for this ticker/timeframe/interval combo
     cache_key = f"{ticker}|{timeframe}|{interval}"
@@ -21467,109 +21531,108 @@ CRITICAL REQUIREMENTS:
                                 st.warning(f"Could not read: {', '.join(unreadable)}")
                             st.info("💡 **Tip:** Try uploading clearer screenshots or use the CSV upload option for best results.")
                         
-                        # Show extracted holdings
+                        # Show extracted holdings (just ticker + weight)
                         st.markdown("#### 📋 Extracted Holdings")
                         if holdings:
-                            holdings_df = pd.DataFrame(holdings)
+                            # Display simplified - just ticker and weight
+                            display_holdings = []
+                            for h in holdings:
+                                display_holdings.append({
+                                    "ticker_or_name": h.get('ticker_or_name', ''),
+                                    "weight": h.get('weight', 0)
+                                })
+                            holdings_df = pd.DataFrame(display_holdings)
                             st.dataframe(holdings_df, use_container_width=True)
                             
-                            # Normalize tickers
+                            # ============= RISK QUIZ CHECK =============
+                            risk_profile = st.session_state.get('risk_profile')
+                            has_taken_quiz = risk_profile is not None and risk_profile != {}
+                            
+                            if not has_taken_quiz:
+                                st.markdown("""
+                                <div style="background: linear-gradient(135deg, #FFF3E0 0%, #FFE0B2 100%); border: 2px solid #FF9800; 
+                                            border-radius: 12px; padding: 20px; text-align: center; margin: 15px 0;">
+                                    <h3 style="color: #E65100; margin: 0 0 10px 0;">📝 Take the Risk Quiz First!</h3>
+                                    <p style="color: #333; margin: 0;">For a personalized portfolio analysis, we recommend taking the Risk Quiz first. 
+                                    It helps us tailor recommendations to your risk tolerance and investment goals.</p>
+                                </div>
+                                """, unsafe_allow_html=True)
+                                if st.button("🧠 Take Risk Quiz Now", key="quiz_from_portfolio", type="primary", use_container_width=True):
+                                    st.session_state.selected_page = "🧠 Risk Quiz"
+                                    st.rerun()
+                                st.markdown("---")
+                                st.caption("*Continuing without Risk Quiz — analysis will use general assumptions.*")
+                            
+                            # Normalize tickers and get sector data
                             normalized_holdings = []
-                            total_value = 0
                             
                             with st.spinner("📊 Fetching sector data..."):
                                 for holding in holdings:
                                     ticker_raw = holding.get('ticker_or_name', '').upper().strip()
-                                    
-                                    # Try to extract ticker (handle cases like "AAPL - Apple Inc.")
                                     ticker = ticker_raw.split(' ')[0].split('-')[0].strip()
                                     
-                                    # Get current price and sector
-                                    quote = get_quote(ticker)
+                                    # Get sector from FMP
                                     sector = "Unknown"
-                                    if quote and quote.get('price'):
-                                        current_price = quote['price']
-                                        
-                                        # Try to get sector from FMP
-                                        try:
-                                            profile_url = f"{BASE_URL}/profile/{ticker}?apikey={FMP_API_KEY}"
-                                            profile_resp = requests.get(profile_url, timeout=5)
-                                            if profile_resp.status_code == 200:
-                                                profile_data = profile_resp.json()
-                                                if profile_data and len(profile_data) > 0:
-                                                    sector = profile_data[0].get('sector', 'Unknown')
-                                        except:
-                                            pass
-                                        
-                                        # Calculate market value
-                                        if holding.get('market_value'):
-                                            market_value = float(holding['market_value'])
-                                        elif holding.get('shares'):
-                                            market_value = float(holding['shares']) * current_price
-                                        else:
-                                            market_value = 0
-                                        
-                                        normalized_holdings.append({
-                                            'ticker': ticker,
-                                            'sector': sector,
-                                            'shares': holding.get('shares'),
-                                            'market_value': market_value,
-                                            'weight': holding.get('weight')
-                                        })
-                                        total_value += market_value
+                                    try:
+                                        profile_url = f"{BASE_URL}/profile/{ticker}?apikey={FMP_API_KEY}"
+                                        profile_resp = requests.get(profile_url, timeout=5)
+                                        if profile_resp.status_code == 200:
+                                            profile_data = profile_resp.json()
+                                            if profile_data and len(profile_data) > 0:
+                                                sector = profile_data[0].get('sector', 'Unknown')
+                                    except:
+                                        pass
+                                    
+                                    weight = holding.get('weight') or 0
+                                    
+                                    normalized_holdings.append({
+                                        'ticker': ticker,
+                                        'sector': sector,
+                                        'weight_pct': float(weight) if weight else 0
+                                    })
                             
                             # Compute deterministic metrics
-                            if normalized_holdings and total_value > 0:
-                                # Recalculate weights
-                                for holding in normalized_holdings:
-                                    holding['weight_pct'] = (holding['market_value'] / total_value) * 100 if total_value > 0 else 0
+                            if normalized_holdings:
+                                # If no weights provided, distribute evenly
+                                total_weight = sum(h['weight_pct'] for h in normalized_holdings)
+                                if total_weight == 0:
+                                    equal_weight = 100 / len(normalized_holdings)
+                                    for h in normalized_holdings:
+                                        h['weight_pct'] = equal_weight
+                                elif total_weight != 100:
+                                    # Normalize to 100%
+                                    for h in normalized_holdings:
+                                        h['weight_pct'] = (h['weight_pct'] / total_weight) * 100
                                 
                                 # Sector allocation
                                 sector_totals = {}
                                 for holding in normalized_holdings:
                                     sector = holding['sector']
-                                    sector_totals[sector] = sector_totals.get(sector, 0) + holding['market_value']
-                                
-                                sector_allocation = {sector: (value / total_value) * 100 for sector, value in sector_totals.items()}
+                                    sector_totals[sector] = sector_totals.get(sector, 0) + holding['weight_pct']
                                 
                                 # Find largest holding
-                                largest_holding = max(normalized_holdings, key=lambda x: x['market_value'])
+                                largest_holding = max(normalized_holdings, key=lambda x: x['weight_pct'])
                                 
-                                # Calculate concentration risk
+                                # Concentration risk
                                 concentration_risk = largest_holding['weight_pct']
                                 
-                                # Diversification score (simple: 10 - HHI/1000, capped at 10)
-                                hhi = sum([(weight_pct ** 2) for weight_pct in [h['weight_pct'] for h in normalized_holdings]])
+                                # Diversification score
+                                hhi = sum([(h['weight_pct'] ** 2) for h in normalized_holdings])
                                 diversification_score = max(0, min(10, 10 - (hhi / 1000)))
-                                
-                                # Prepare metrics for AI
-                                portfolio_metrics = {
-                                    "total_value": total_value,
-                                    "num_positions": len(normalized_holdings),
-                                    "largest_holding": {
-                                        "ticker": largest_holding['ticker'],
-                                        "percent": largest_holding['weight_pct']
-                                    },
-                                    "sector_allocation": sector_allocation,
-                                    "concentration_risk": concentration_risk,
-                                    "diversification_score": diversification_score,
-                                    "holdings": normalized_holdings
-                                }
                                 
                                 # Display Summary Card
                                 st.markdown("#### 📊 Portfolio Summary")
-                                col1, col2, col3, col4 = st.columns(4)
-                                col1.metric("Total Value", f"${total_value:,.2f}")
-                                col2.metric("Positions", len(normalized_holdings))
-                                col3.metric("Largest", f"{largest_holding['ticker']} ({largest_holding['weight_pct']:.1f}%)")
-                                col4.metric("Diversification", f"{diversification_score:.1f}/10")
+                                col1, col2, col3 = st.columns(3)
+                                col1.metric("Positions", len(normalized_holdings))
+                                col2.metric("Largest", f"{largest_holding['ticker']} ({largest_holding['weight_pct']:.1f}%)")
+                                col3.metric("Diversification", f"{diversification_score:.1f}/10")
                                 
                                 # Sector Chart
-                                if len(sector_allocation) > 0:
+                                if len(sector_totals) > 0:
                                     import plotly.graph_objects as go
                                     fig_sector = go.Figure(data=[go.Pie(
-                                        labels=list(sector_allocation.keys()),
-                                        values=list(sector_allocation.values()),
+                                        labels=list(sector_totals.keys()),
+                                        values=list(sector_totals.values()),
                                         hole=0.3
                                     )])
                                     fig_sector.update_layout(
@@ -21579,31 +21642,52 @@ CRITICAL REQUIREMENTS:
                                     )
                                     st.plotly_chart(fig_sector, use_container_width=True)
                                 
+                                # Build risk quiz context for AI
+                                risk_context = ""
+                                if has_taken_quiz:
+                                    risk_label = risk_profile.get('label', 'Unknown')
+                                    risk_score = risk_profile.get('score', 'N/A')
+                                    risk_context = f"""
+USER'S RISK PROFILE (from Risk Quiz):
+- Risk Label: {risk_label}
+- Risk Score: {risk_score}
+- Use this to assess if the portfolio matches their risk tolerance.
+- If portfolio is too aggressive for their profile, note it.
+- If portfolio is too conservative for their profile, note it.
+"""
+                                else:
+                                    risk_context = """
+USER'S RISK PROFILE: Not taken yet. Use general assumptions (moderate risk tolerance).
+"""
+                                
                                 # AI Analysis
                                 with st.spinner("🤖 AI analyzing your portfolio..."):
                                     ai_prompt = f"""Analyze this portfolio (facts provided). Educational analysis only - no specific buy/sell advice.
 
 PORTFOLIO METRICS (DETERMINISTIC):
-- Total Value: ${portfolio_metrics['total_value']:,.2f}
-- Number of Positions: {portfolio_metrics['num_positions']}
-- Largest Holding: {portfolio_metrics['largest_holding']['ticker']} at {portfolio_metrics['largest_holding']['percent']:.1f}%
-- Concentration Risk: {portfolio_metrics['concentration_risk']:.1f}%
-- Diversification Score: {portfolio_metrics['diversification_score']:.1f}/10
-- Sector Breakdown: {json.dumps(portfolio_metrics['sector_allocation'])}
+- Number of Positions: {len(normalized_holdings)}
+- Largest Holding: {largest_holding['ticker']} at {largest_holding['weight_pct']:.1f}%
+- Concentration Risk: {concentration_risk:.1f}%
+- Diversification Score: {diversification_score:.1f}/10
+- Sector Breakdown: {json.dumps(sector_totals)}
+- Holdings: {json.dumps([{{'ticker': h['ticker'], 'weight': h['weight_pct'], 'sector': h['sector']}} for h in normalized_holdings])}
+
+{risk_context}
 
 Return ONLY this JSON structure:
 {{
   "grade": "A" or "B" or "C" or "D",
   "summary": "One sentence portfolio assessment",
+  "risk_alignment": "How well portfolio matches user's risk profile (or general assessment if no quiz taken)",
   "top_risks": [
     "Risk 1 with specific % from facts (MAX 5 BULLETS)",
     "Risk 2...",
-    ...
+    "..."
   ],
   "improvement_playbook": [
     "Improvement 1 in educational conditional phrasing (MAX 5 BULLETS)",
     "Improvement 2...",
-    ...
+    "..."
   ],
   "confidence": "High" or "Medium" or "Low"
 }}
@@ -21612,6 +21696,8 @@ CRITICAL RULES:
 - MAX 5 bullets for top_risks
 - MAX 5 bullets for improvement_playbook
 - Cite specific numbers from facts
+- Assess diversification across sectors, individual stock concentration
+- If risk quiz taken, analyze alignment between portfolio and risk tolerance
 - Use conditional phrasing: "Consider", "If seeking", "For those targeting"
 - NO specific "sell X%" advice
 - Educational tone only"""
@@ -21619,7 +21705,6 @@ CRITICAL RULES:
                                     ai_review = call_openai_json(ai_prompt, max_tokens=2000, temperature=0.1)
                                     
                                     if ai_review:
-                                        # Display AI Review
                                         with st.expander("🤖 AI Portfolio Review", expanded=True):
                                             grade = ai_review.get('grade', 'C')
                                             grade_colors = {'A': '#4CAF50', 'B': '#8BC34A', 'C': '#FFC107', 'D': '#FF5722'}
@@ -21633,27 +21718,28 @@ CRITICAL RULES:
                                             </div>
                                             """, unsafe_allow_html=True)
                                             
-                                            # Top Risks
+                                            # Risk Alignment
+                                            risk_alignment = ai_review.get('risk_alignment', '')
+                                            if risk_alignment:
+                                                quiz_icon = "✅" if has_taken_quiz else "ℹ️"
+                                                st.info(f"{quiz_icon} **Risk Alignment:** {risk_alignment}")
+                                            
                                             st.markdown("**⚠️ Top Risks:**")
-                                            top_risks = ai_review.get('top_risks', [])[:5]  # MAX 5
+                                            top_risks = ai_review.get('top_risks', [])[:5]
                                             for i, risk in enumerate(top_risks, 1):
                                                 st.markdown(f"{i}. {risk}")
                                             
                                             st.markdown("")
-                                            
-                                            # Improvement Playbook
                                             st.markdown("**📈 Improvement Playbook:**")
-                                            improvements = ai_review.get('improvement_playbook', [])[:5]  # MAX 5
+                                            improvements = ai_review.get('improvement_playbook', [])[:5]
                                             for i, improvement in enumerate(improvements, 1):
                                                 st.markdown(f"{i}. {improvement}")
                                             
-                                            # Trust line
                                             confidence = ai_review.get('confidence', 'Medium')
                                             confidence_icon = "✅" if confidence == "High" else "⚠️"
                                             st.info(f"{confidence_icon} Analysis based on extracted portfolio data • Confidence: {confidence} • Ultimate tier exclusive")
                                     
                                     else:
-                                        # Fallback analysis
                                         st.warning("⚠️ AI analysis unavailable. Showing deterministic summary:")
                                         st.markdown(f"""
                                         **Portfolio Grade:** {"A" if diversification_score >= 8 else "B" if diversification_score >= 6 else "C" if diversification_score >= 4 else "D"}
