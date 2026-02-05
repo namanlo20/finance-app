@@ -9419,6 +9419,55 @@ else:
 # Add spacing for frozen bar
 st.markdown("<div style='margin-bottom: 80px;'></div>", unsafe_allow_html=True)
 
+# ============= FIX: AUTO-CLOSE POPOVER DROPDOWNS ON CLICK =============
+# When a user clicks a button inside a popover, close the popover immediately
+# instead of requiring a manual click outside
+st.markdown("""
+<script>
+(function() {
+    // Close any open popovers by clicking the document body
+    function closePopovers() {
+        // Click the body to dismiss popover overlay
+        document.body.click();
+        // Also try pressing Escape
+        document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', code: 'Escape', keyCode: 27, bubbles: true}));
+    }
+
+    // Watch for clicks on buttons inside popovers
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('button');
+        if (!btn) return;
+        // Check if this button is inside a popover
+        var popover = btn.closest('[data-baseweb="popover"]');
+        if (popover) {
+            // Small delay then force close
+            setTimeout(closePopovers, 80);
+        }
+    }, true);
+
+    // MutationObserver: watch for new popovers and attach close-on-click
+    var observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(m) {
+            m.addedNodes.forEach(function(node) {
+                if (node.nodeType === 1) {
+                    // If a popover was added, watch buttons inside it
+                    var popovers = node.querySelectorAll ? node.querySelectorAll('[data-baseweb="popover"]') : [];
+                    popovers.forEach(function(pop) {
+                        pop.querySelectorAll('button').forEach(function(btn) {
+                            btn.addEventListener('click', function() {
+                                setTimeout(closePopovers, 80);
+                            });
+                        });
+                    });
+                }
+            });
+        });
+    });
+    observer.observe(document.body, {childList: true, subtree: true});
+})();
+</script>
+""", unsafe_allow_html=True)
+
 # ============= LIVE TICKER BAR =============
 render_live_ticker_bar()
 
@@ -11228,13 +11277,44 @@ if selected_page == "🏠 Dashboard":
     </div>
     """, unsafe_allow_html=True)
     
-    # ============= APP TOUR SECTION =============
+    # ============= APP TOUR SECTION — BIG & BOLD =============
     if not st.session_state.get('tour_completed', False):
-        tour_col1, tour_col2 = st.columns([3, 1])
-        with tour_col1:
-            st.info("🎯 **New here?** Take a quick tour to learn what each section does!")
-        with tour_col2:
-            if st.button("🚀 Start Tour", key="start_tour_btn", use_container_width=True, type="primary"):
+        st.markdown("""
+        <div style="
+            background: linear-gradient(135deg, #FF4444 0%, #CC0000 60%, #FF6B6B 100%);
+            padding: 30px 28px;
+            border-radius: 18px;
+            margin-bottom: 28px;
+            text-align: center;
+            box-shadow: 0 8px 32px rgba(255,68,68,0.35);
+            border: 2px solid rgba(255,255,255,0.15);
+            position: relative;
+            overflow: hidden;
+        ">
+            <div style="position: absolute; top: -30px; right: -30px; width: 120px; height: 120px; background: rgba(255,255,255,0.08); border-radius: 50%;"></div>
+            <div style="position: absolute; bottom: -20px; left: -20px; width: 80px; height: 80px; background: rgba(255,255,255,0.05); border-radius: 50%;"></div>
+            <div style="font-size: 48px; margin-bottom: 10px;">🚀</div>
+            <h2 style="color: #FFFFFF !important; font-size: 26px; font-weight: 800; margin: 0 0 8px 0; letter-spacing: -0.5px;">New here? Start the 60-Second Tour!</h2>
+            <p style="color: rgba(255,255,255,0.9) !important; font-size: 16px; margin: 0 0 4px 0; line-height: 1.5;">Learn what each tool does — charts, analysis, portfolio & more.</p>
+            <p style="color: rgba(255,255,255,0.7) !important; font-size: 13px; margin: 0;">No account needed · Takes less than a minute</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        tour_cta_col1, tour_cta_col2, tour_cta_col3 = st.columns([1, 2, 1])
+        with tour_cta_col2:
+            st.markdown("""
+            <style>
+            /* Override for the tour button specifically */
+            div[data-testid="stVerticalBlock"] > div:has(button[key="start_tour_btn"]) button,
+            button[kind="primary"] {
+                font-size: 20px !important;
+                padding: 18px 40px !important;
+                min-height: 60px !important;
+                letter-spacing: 0.5px !important;
+            }
+            </style>
+            """, unsafe_allow_html=True)
+            if st.button("🚀 START THE TOUR", key="start_tour_btn", use_container_width=True, type="primary"):
                 st.session_state.show_tour = True
                 st.session_state.tour_page = 0
                 st.rerun()
@@ -11242,6 +11322,60 @@ if selected_page == "🏠 Dashboard":
     # Show tour dialog if triggered
     if st.session_state.get('show_tour', False):
         show_app_tour()
+    
+    # ============= VISUAL WELCOME CARDS — Eye candy for new visitors =============
+    st.markdown("""
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 28px;">
+        <!-- Card 1: Analyze -->
+        <div style="background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%); border-radius: 16px; padding: 22px 18px; text-align: center; border: 1px solid rgba(255,75,75,0.15); transition: transform 0.3s; cursor: default;">
+            <div style="font-size: 40px; margin-bottom: 8px;">📊</div>
+            <div style="font-size: 15px; font-weight: 700; color: #FFFFFF; margin-bottom: 4px;">Analyze Any Stock</div>
+            <div style="font-size: 12px; color: #9a9aad; line-height: 1.4;">Type a ticker, get instant AI-powered insights in plain English</div>
+            <div style="margin-top: 10px;">
+                <svg viewBox="0 0 160 35" style="width: 100%; height: 28px;">
+                    <path d="M0,28 Q20,26 35,20 T70,18 T105,10 T140,14 T160,6" fill="none" stroke="#22c55e" stroke-width="2" opacity="0.7"/>
+                    <path d="M0,30 Q20,28 35,24 T70,26 T105,20 T140,22 T160,16" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1" stroke-dasharray="3 3"/>
+                </svg>
+            </div>
+        </div>
+        <!-- Card 2: Learn -->
+        <div style="background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%); border-radius: 16px; padding: 22px 18px; text-align: center; border: 1px solid rgba(59,130,246,0.15); transition: transform 0.3s; cursor: default;">
+            <div style="font-size: 40px; margin-bottom: 8px;">🎓</div>
+            <div style="font-size: 15px; font-weight: 700; color: #FFFFFF; margin-bottom: 4px;">55+ Lessons</div>
+            <div style="font-size: 12px; color: #9a9aad; line-height: 1.4;">From "What is a stock?" to reading balance sheets — earn XP as you go</div>
+            <div style="margin-top: 10px; background: rgba(255,255,255,0.06); border-radius: 100px; height: 8px; overflow: hidden;">
+                <div style="background: linear-gradient(90deg, #3b82f6, #22c55e); height: 100%; width: 35%; border-radius: 100px;"></div>
+            </div>
+            <div style="font-size: 10px; color: #9a9aad; margin-top: 4px;">Your progress</div>
+        </div>
+        <!-- Card 3: Risk Quiz -->
+        <div style="background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%); border-radius: 16px; padding: 22px 18px; text-align: center; border: 1px solid rgba(255,215,0,0.15); transition: transform 0.3s; cursor: default;">
+            <div style="font-size: 40px; margin-bottom: 8px;">🧠</div>
+            <div style="font-size: 15px; font-weight: 700; color: #FFFFFF; margin-bottom: 4px;">Risk Quiz</div>
+            <div style="font-size: 12px; color: #9a9aad; line-height: 1.4;">Find out what kind of investor you are — get personalized suggestions</div>
+            <div style="display: flex; justify-content: center; gap: 6px; margin-top: 10px;">
+                <span style="background: rgba(34,197,94,0.15); color: #22c55e; padding: 3px 10px; border-radius: 100px; font-size: 10px; font-weight: 600;">Conservative</span>
+                <span style="background: rgba(255,215,0,0.15); color: #FFD700; padding: 3px 10px; border-radius: 100px; font-size: 10px; font-weight: 600;">Moderate</span>
+                <span style="background: rgba(255,68,68,0.15); color: #FF4444; padding: 3px 10px; border-radius: 100px; font-size: 10px; font-weight: 600;">Aggressive</span>
+            </div>
+        </div>
+        <!-- Card 4: Paper Portfolio -->
+        <div style="background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%); border-radius: 16px; padding: 22px 18px; text-align: center; border: 1px solid rgba(34,197,94,0.15); transition: transform 0.3s; cursor: default;">
+            <div style="font-size: 40px; margin-bottom: 8px;">💼</div>
+            <div style="font-size: 15px; font-weight: 700; color: #FFFFFF; margin-bottom: 4px;">Paper Portfolio</div>
+            <div style="font-size: 12px; color: #9a9aad; line-height: 1.4;">Practice trading with $100K fake money — zero risk, real learning</div>
+            <div style="margin-top: 10px;">
+                <svg viewBox="0 0 80 80" style="width: 52px; height: 52px; margin: 0 auto; display: block;">
+                    <circle cx="40" cy="40" r="32" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="8"/>
+                    <circle cx="40" cy="40" r="32" fill="none" stroke="#FF4B4B" stroke-width="8" stroke-dasharray="60 141" stroke-linecap="round" transform="rotate(-90 40 40)"/>
+                    <circle cx="40" cy="40" r="32" fill="none" stroke="#22c55e" stroke-width="8" stroke-dasharray="50 151" stroke-dashoffset="-60" stroke-linecap="round" transform="rotate(-90 40 40)"/>
+                    <circle cx="40" cy="40" r="32" fill="none" stroke="#3b82f6" stroke-width="8" stroke-dasharray="40 161" stroke-dashoffset="-110" stroke-linecap="round" transform="rotate(-90 40 40)"/>
+                    <text x="40" y="43" text-anchor="middle" fill="white" font-size="11" font-weight="700" font-family="monospace">+12%</text>
+                </svg>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
     
     # Unhinged comment for dashboard
     unhinged_dashboard = get_unhinged_comment("dashboard")
