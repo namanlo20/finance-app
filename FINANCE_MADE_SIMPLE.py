@@ -193,17 +193,26 @@ st.markdown("""
 @media screen and (max-width: 768px) {
     /* ============= MOBILE APP-LIKE EXPERIENCE ============= */
     
-    /* Hide desktop navbar on mobile - use sidebar instead */
-    .main > div:first-child > div:first-child [data-testid="stHorizontalBlock"]:first-of-type {
-        display: none !important;
+    /* Force hide ALL horizontal blocks that are the navbar */
+    .main [data-testid="stHorizontalBlock"] {
+        flex-direction: column !important;
+        gap: 0.5rem !important;
     }
     
-    /* Sidebar - slide-out menu style */
+    .main [data-testid="stHorizontalBlock"] > div {
+        flex: 1 1 100% !important;
+        width: 100% !important;
+        min-width: 100% !important;
+        max-width: 100% !important;
+    }
+    
+    /* Sidebar - clean slide-out */
     [data-testid="stSidebar"] {
-        min-width: 280px !important;
-        width: 280px !important;
+        min-width: 85vw !important;
+        max-width: 85vw !important;
         background: #FFFFFF !important;
-        box-shadow: 2px 0 10px rgba(0,0,0,0.1) !important;
+        box-shadow: 4px 0 20px rgba(0,0,0,0.15) !important;
+        z-index: 9999 !important;
     }
     
     [data-testid="stSidebar"][aria-expanded="false"] {
@@ -212,145 +221,276 @@ st.markdown("""
         transform: translateX(-100%) !important;
     }
     
-    /* Main content - full width, no overflow */
+    /* Main content - full width, clean padding */
     .main .block-container {
-        padding: 1rem 1rem !important;
+        padding: 0.75rem 1rem !important;
         max-width: 100% !important;
         overflow-x: hidden !important;
     }
     
-    /* App-like header sizes */
-    h1 { font-size: 1.5rem !important; line-height: 1.3 !important; }
-    h2 { font-size: 1.25rem !important; line-height: 1.3 !important; }
-    h3 { font-size: 1.1rem !important; line-height: 1.3 !important; }
-    
-    /* Stack ALL columns vertically on mobile */
-    [data-testid="stHorizontalBlock"] {
-        flex-direction: column !important;
-        gap: 0.75rem !important;
+    /* Prevent horizontal scroll on body */
+    html, body, [data-testid="stAppViewContainer"] {
+        overflow-x: hidden !important;
+        max-width: 100vw !important;
     }
     
-    [data-testid="stHorizontalBlock"] > div {
-        flex: 1 1 100% !important;
-        width: 100% !important;
-        min-width: 100% !important;
-        max-width: 100% !important;
+    /* Clean typography */
+    h1 { font-size: 1.5rem !important; line-height: 1.3 !important; margin-bottom: 0.5rem !important; }
+    h2 { font-size: 1.2rem !important; line-height: 1.3 !important; }
+    h3 { font-size: 1.05rem !important; line-height: 1.3 !important; }
+    
+    /* ---- HERO SECTION - Compact on mobile ---- */
+    .hero-container,
+    .hero-container-simple {
+        padding: 20px 16px !important;
+        margin: 5px 0 15px 0 !important;
+        border-radius: 16px !important;
     }
     
-    /* Large touch-friendly buttons */
-    .stButton button {
-        min-height: 52px !important;
+    .hero-title {
+        font-size: 1.5rem !important;
+        margin-bottom: 8px !important;
+    }
+    
+    .hero-tagline {
+        font-size: 0.95rem !important;
+        margin-bottom: 12px !important;
+    }
+    
+    /* Feature pills - horizontal scroll, no wrap */
+    .hero-features {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        gap: 8px !important;
+        padding-bottom: 8px !important;
+        margin-top: 12px !important;
+        scrollbar-width: none !important;
+    }
+    
+    .hero-features::-webkit-scrollbar {
+        display: none !important;
+    }
+    
+    .feature-pill {
+        font-size: 0.75rem !important;
+        padding: 6px 12px !important;
+        white-space: nowrap !important;
+        flex-shrink: 0 !important;
+    }
+    
+    /* Stats bar - compact */
+    .stats-bar {
+        gap: 20px !important;
+        margin-top: 15px !important;
+        padding-top: 12px !important;
+    }
+    
+    .stat-number {
+        font-size: 1.3rem !important;
+    }
+    
+    .stat-label {
+        font-size: 0.65rem !important;
+    }
+    
+    /* Welcome features list in hero */
+    .welcome-feature {
+        font-size: 0.85rem !important;
+        margin: 3px 0 !important;
+    }
+    
+    /* ---- WELCOME POPUP - Mobile optimized ---- */
+    .welcome-overlay {
+        padding: 16px !important;
+        align-items: flex-start !important;
+        padding-top: 10vh !important;
+    }
+    
+    .welcome-popup {
+        max-width: 95vw !important;
+        width: 95vw !important;
+        padding: 24px 20px !important;
+        border-radius: 16px !important;
+        max-height: 80vh !important;
+        overflow-y: auto !important;
+    }
+    
+    .welcome-popup h1 {
+        font-size: 1.3rem !important;
+        margin-bottom: 10px !important;
+    }
+    
+    .welcome-popup p {
+        font-size: 0.9rem !important;
+    }
+    
+    .welcome-popup li {
+        font-size: 0.85rem !important;
+        margin-bottom: 8px !important;
+        text-align: left !important;
+    }
+    
+    .welcome-popup ul {
+        padding-left: 20px !important;
+        text-align: left !important;
+    }
+    
+    .welcome-start-btn {
         font-size: 16px !important;
-        padding: 12px 16px !important;
+        padding: 14px 30px !important;
+        width: 100% !important;
+    }
+    
+    /* ---- BUTTONS - Large touch targets ---- */
+    .stButton button {
+        min-height: 48px !important;
+        font-size: 15px !important;
+        padding: 10px 16px !important;
         border-radius: 12px !important;
         width: 100% !important;
     }
     
-    /* Input fields - mobile optimized */
-    input, textarea, select {
+    /* ---- INPUTS - Mobile optimized (prevent iOS zoom) ---- */
+    input, textarea, select,
+    [data-baseweb="input"] input,
+    [data-baseweb="textarea"] textarea {
         font-size: 16px !important;
-        min-height: 48px !important;
+        min-height: 44px !important;
         border-radius: 10px !important;
+    }
+    
+    /* ---- METRICS - Card style ---- */
+    [data-testid="stMetric"] {
         padding: 12px !important;
-    }
-    
-    /* Cards and containers - full width with breathing room */
-    [data-testid="stExpander"],
-    .stAlert,
-    [data-testid="stMetric"] {
-        width: 100% !important;
-        margin: 0.5rem 0 !important;
-    }
-    
-    /* Metrics - mobile card style */
-    [data-testid="stMetric"] {
-        padding: 1rem !important;
         background: #f8f9fa !important;
         border-radius: 12px !important;
-        margin-bottom: 0.75rem !important;
+        margin-bottom: 8px !important;
     }
     
     [data-testid="stMetricValue"] {
-        font-size: 1.4rem !important;
+        font-size: 1.3rem !important;
     }
     
     [data-testid="stMetricLabel"] {
-        font-size: 0.85rem !important;
+        font-size: 0.8rem !important;
     }
     
-    /* Tables - horizontal scroll with shadow hint */
+    /* ---- TABLES - Scrollable ---- */
     [data-testid="stDataFrame"] {
         overflow-x: auto !important;
         -webkit-overflow-scrolling: touch !important;
         border-radius: 12px !important;
     }
     
-    /* Dialog/popup - nearly full screen */
+    /* ---- DIALOGS - Full width ---- */
     [data-testid="stModal"],
     [data-testid="stDialog"] {
         width: 95vw !important;
         max-width: 95vw !important;
-        max-height: 90vh !important;
+        max-height: 85vh !important;
         margin: 2.5vw auto !important;
         border-radius: 16px !important;
     }
     
-    /* Expanders - cleaner on mobile */
+    [data-testid="stDialog"] > div {
+        padding: 1.25rem !important;
+    }
+    
+    /* ---- EXPANDERS - Clean ---- */
+    [data-testid="stExpander"] {
+        border: none !important;
+        box-shadow: none !important;
+    }
+    
     [data-testid="stExpander"] > div:first-child {
-        padding: 1rem !important;
+        padding: 10px 14px !important;
         border-radius: 12px !important;
     }
     
-    /* Popovers/dropdowns - full width on mobile */
+    /* ---- POPOVERS - Full width ---- */
     [data-baseweb="popover"] {
         width: 90vw !important;
         left: 5vw !important;
     }
     
-    /* Charts - prevent overflow */
-    .js-plotly-plot, .plotly {
+    /* ---- CHARTS - Prevent overflow ---- */
+    .js-plotly-plot, .plotly,
+    [data-testid="stPlotlyChart"] {
         width: 100% !important;
         max-width: 100% !important;
+        overflow: hidden !important;
     }
     
-    /* Text readability */
-    p, li, span {
-        font-size: 15px !important;
+    /* ---- TEXT - Readable ---- */
+    p, li, span, label {
         line-height: 1.5 !important;
     }
     
-    /* Hide scrollbars but keep functionality */
-    ::-webkit-scrollbar {
-        width: 4px !important;
-        height: 4px !important;
+    /* ---- TABS - Scrollable ---- */
+    [data-testid="stTabs"] [role="tablist"] {
+        overflow-x: auto !important;
+        flex-wrap: nowrap !important;
+        -webkit-overflow-scrolling: touch !important;
+        scrollbar-width: none !important;
     }
     
-    /* Welcome popup - mobile friendly */
-    [data-testid="stDialog"] > div {
-        padding: 1.5rem !important;
+    [data-testid="stTabs"] [role="tablist"]::-webkit-scrollbar {
+        display: none !important;
+    }
+    
+    [data-testid="stTabs"] button[role="tab"] {
+        white-space: nowrap !important;
+        flex-shrink: 0 !important;
+        font-size: 14px !important;
+        padding: 8px 12px !important;
+    }
+    
+    /* ---- SELECTBOX - Full width ---- */
+    [data-baseweb="select"] {
+        width: 100% !important;
+    }
+    
+    /* Hide thin scrollbar */
+    ::-webkit-scrollbar {
+        width: 3px !important;
+        height: 3px !important;
     }
 }
 
 @media screen and (max-width: 480px) {
-    /* Extra small screens - even more compact */
+    /* Extra small phones */
     .main .block-container {
-        padding: 0.75rem 0.75rem !important;
+        padding: 0.5rem 0.75rem !important;
     }
     
     h1 { font-size: 1.3rem !important; }
-    h2 { font-size: 1.15rem !important; }
-    h3 { font-size: 1rem !important; }
+    h2 { font-size: 1.1rem !important; }
+    h3 { font-size: 0.95rem !important; }
     
-    /* Smaller metrics */
-    [data-testid="stMetricValue"] {
-        font-size: 1.2rem !important;
+    .hero-container,
+    .hero-container-simple {
+        padding: 16px 12px !important;
+    }
+    
+    .hero-title {
+        font-size: 1.3rem !important;
+    }
+    
+    .stat-number {
+        font-size: 1.1rem !important;
+    }
+    
+    .stats-bar {
+        gap: 15px !important;
     }
     
     /* Compact buttons */
     .stButton button {
-        min-height: 48px !important;
-        font-size: 15px !important;
-        padding: 10px 14px !important;
+        min-height: 44px !important;
+        font-size: 14px !important;
+        padding: 8px 12px !important;
     }
     
     /* Hide columns 4+ in tables */
@@ -18889,11 +19029,64 @@ elif selected_page == "👤 Naman's Portfolio":
         st.success(f"👑 **{user_tier.title()} Member** - Full portfolio access unlocked!")
         st.markdown("### 📊 Full Portfolio Holdings")
         
-        # Display ALL holdings
+        # Get timeline from sidebar for S&P comparison
+        timeline_years = st.session_state.get('global_timeline', 5)
+        
+        # Fetch S&P 500 return for the selected timeline
+        @st.cache_data(ttl=3600)
+        def get_sp500_return(years):
+            """Get S&P 500 % return over given years"""
+            try:
+                url = f"{BASE_URL}/historical-price-eod/light?symbol=SPY&apikey={FMP_API_KEY}"
+                response = requests.get(url, timeout=15)
+                data = response.json()
+                if data and isinstance(data, list):
+                    df = pd.DataFrame(data)
+                    df['date'] = pd.to_datetime(df['date'])
+                    df = df.sort_values('date')
+                    cutoff = datetime.now() - timedelta(days=years*365)
+                    df_period = df[df['date'] >= cutoff]
+                    if len(df_period) >= 2:
+                        start_price = df_period.iloc[0]['close']
+                        end_price = df_period.iloc[-1]['close']
+                        return round(((end_price - start_price) / start_price) * 100, 1)
+            except:
+                pass
+            return None
+        
+        # Fetch stock return for a ticker over given years
+        @st.cache_data(ttl=3600)
+        def get_stock_return(ticker, years):
+            """Get stock % return over given years"""
+            try:
+                url = f"{BASE_URL}/historical-price-eod/light?symbol={ticker}&apikey={FMP_API_KEY}"
+                response = requests.get(url, timeout=15)
+                data = response.json()
+                if data and isinstance(data, list):
+                    df = pd.DataFrame(data)
+                    df['date'] = pd.to_datetime(df['date'])
+                    df = df.sort_values('date')
+                    cutoff = datetime.now() - timedelta(days=years*365)
+                    df_period = df[df['date'] >= cutoff]
+                    if len(df_period) >= 2:
+                        start_price = df_period.iloc[0]['close']
+                        end_price = df_period.iloc[-1]['close']
+                        return round(((end_price - start_price) / start_price) * 100, 1)
+            except:
+                pass
+            return None
+        
+        sp500_return = get_sp500_return(timeline_years)
+        sp500_display = f"{sp500_return:+.1f}%" if sp500_return is not None else "N/A"
+        
+        st.caption(f"📈 Showing **{timeline_years}Y returns** vs S&P 500 (SPY: **{sp500_display}**) — adjust in sidebar Timeline")
+        
+        # Display ALL holdings with S&P comparison
         for i, holding in enumerate(ALL_HOLDINGS):
             logo_url = get_company_logo(holding["ticker"])
+            stock_return = get_stock_return(holding["ticker"], timeline_years)
             
-            col1, col2, col3, col4 = st.columns([3, 2, 2, 1])
+            col1, col2, col3, col4, col5 = st.columns([3, 1.5, 1.2, 1.5, 1])
             
             with col1:
                 if logo_url:
@@ -18907,13 +19100,34 @@ elif selected_page == "👤 Naman's Portfolio":
                     st.markdown(f"**{holding['ticker']}** - {holding['name']}")
             
             with col2:
-                st.caption(holding["sector"])
-            
-            with col3:
                 st.markdown(f"**{holding['weight']:.2f}%**")
             
+            with col3:
+                # Stock return
+                if stock_return is not None:
+                    color = "#00C853" if stock_return >= 0 else "#FF1744"
+                    st.markdown(f'<span style="color:{color};font-weight:bold;">{stock_return:+.1f}%</span>', unsafe_allow_html=True)
+                else:
+                    st.caption("N/A")
+            
             with col4:
-                st.caption(f"#{i+1}")
+                # S&P 500 return for comparison
+                if sp500_return is not None:
+                    sp_color = "#00C853" if sp500_return >= 0 else "#FF1744"
+                    st.markdown(f'<span style="color:{sp_color};">S&P: {sp500_return:+.1f}%</span>', unsafe_allow_html=True)
+                else:
+                    st.caption("S&P: N/A")
+            
+            with col5:
+                # Beat/miss indicator
+                if stock_return is not None and sp500_return is not None:
+                    diff = stock_return - sp500_return
+                    if diff > 0:
+                        st.markdown(f'<span style="color:#00C853;font-weight:bold;">✅ +{diff:.0f}%</span>', unsafe_allow_html=True)
+                    else:
+                        st.markdown(f'<span style="color:#FF1744;">❌ {diff:.0f}%</span>', unsafe_allow_html=True)
+                else:
+                    st.caption("-")
         
         # Total weight
         total_weight = sum(h["weight"] for h in ALL_HOLDINGS)
@@ -18926,11 +19140,63 @@ elif selected_page == "👤 Naman's Portfolio":
         st.markdown("### 📊 Portfolio Holdings (Free Preview)")
         st.info("**Free Preview:** Showing top 3 holdings only. Pro/Ultimate holdings are locked for exclusivity.")
         
-        # Display FREE tier holdings only
+        # Get timeline from sidebar for S&P comparison
+        timeline_years = st.session_state.get('global_timeline', 5)
+        
+        # Fetch S&P 500 return for the selected timeline
+        @st.cache_data(ttl=3600)
+        def get_sp500_return_free(years):
+            """Get S&P 500 % return over given years"""
+            try:
+                url = f"{BASE_URL}/historical-price-eod/light?symbol=SPY&apikey={FMP_API_KEY}"
+                response = requests.get(url, timeout=15)
+                data = response.json()
+                if data and isinstance(data, list):
+                    df = pd.DataFrame(data)
+                    df['date'] = pd.to_datetime(df['date'])
+                    df = df.sort_values('date')
+                    cutoff = datetime.now() - timedelta(days=years*365)
+                    df_period = df[df['date'] >= cutoff]
+                    if len(df_period) >= 2:
+                        start_price = df_period.iloc[0]['close']
+                        end_price = df_period.iloc[-1]['close']
+                        return round(((end_price - start_price) / start_price) * 100, 1)
+            except:
+                pass
+            return None
+        
+        @st.cache_data(ttl=3600)
+        def get_stock_return_free(ticker, years):
+            """Get stock % return over given years"""
+            try:
+                url = f"{BASE_URL}/historical-price-eod/light?symbol={ticker}&apikey={FMP_API_KEY}"
+                response = requests.get(url, timeout=15)
+                data = response.json()
+                if data and isinstance(data, list):
+                    df = pd.DataFrame(data)
+                    df['date'] = pd.to_datetime(df['date'])
+                    df = df.sort_values('date')
+                    cutoff = datetime.now() - timedelta(days=years*365)
+                    df_period = df[df['date'] >= cutoff]
+                    if len(df_period) >= 2:
+                        start_price = df_period.iloc[0]['close']
+                        end_price = df_period.iloc[-1]['close']
+                        return round(((end_price - start_price) / start_price) * 100, 1)
+            except:
+                pass
+            return None
+        
+        sp500_return = get_sp500_return_free(timeline_years)
+        sp500_display = f"{sp500_return:+.1f}%" if sp500_return is not None else "N/A"
+        
+        st.caption(f"📈 Showing **{timeline_years}Y returns** vs S&P 500 (SPY: **{sp500_display}**) — adjust in sidebar Timeline")
+        
+        # Display FREE tier holdings with S&P comparison
         for i, holding in enumerate(FREE_TIER_HOLDINGS):
             logo_url = get_company_logo(holding["ticker"])
+            stock_return = get_stock_return_free(holding["ticker"], timeline_years)
             
-            col1, col2, col3, col4 = st.columns([3, 2, 2, 1])
+            col1, col2, col3, col4, col5 = st.columns([3, 1.5, 1.2, 1.5, 1])
             
             with col1:
                 if logo_url:
@@ -18944,13 +19210,34 @@ elif selected_page == "👤 Naman's Portfolio":
                     st.markdown(f"**{holding['ticker']}** - {holding['name']}")
             
             with col2:
-                st.caption(holding["sector"])
-            
-            with col3:
                 st.markdown(f"**{holding['weight']:.2f}%**")
             
+            with col3:
+                # Stock return
+                if stock_return is not None:
+                    color = "#00C853" if stock_return >= 0 else "#FF1744"
+                    st.markdown(f'<span style="color:{color};font-weight:bold;">{stock_return:+.1f}%</span>', unsafe_allow_html=True)
+                else:
+                    st.caption("N/A")
+            
             with col4:
-                st.caption(f"#{i+1}")
+                # S&P 500 return for comparison
+                if sp500_return is not None:
+                    sp_color = "#00C853" if sp500_return >= 0 else "#FF1744"
+                    st.markdown(f'<span style="color:{sp_color};">S&P: {sp500_return:+.1f}%</span>', unsafe_allow_html=True)
+                else:
+                    st.caption("S&P: N/A")
+            
+            with col5:
+                # Beat/miss indicator
+                if stock_return is not None and sp500_return is not None:
+                    diff = stock_return - sp500_return
+                    if diff > 0:
+                        st.markdown(f'<span style="color:#00C853;font-weight:bold;">✅ +{diff:.0f}%</span>', unsafe_allow_html=True)
+                    else:
+                        st.markdown(f'<span style="color:#FF1744;">❌ {diff:.0f}%</span>', unsafe_allow_html=True)
+                else:
+                    st.caption("-")
         
         # Show locked indicator for remaining holdings
         st.markdown("---")
