@@ -19820,8 +19820,40 @@ elif selected_page == "📊 Pro Checklist":
             st.rerun()
     
     
+    # ============= TITLES-ONLY PREVIEW FOR FREE USERS =============
+    if user_tier == "free":
+        st.markdown("---")
+        st.markdown("#### 👀 Here's what Pro members get:")
+        
+        preview_features = [
+            ("📈", "Price Chart with Technical Indicators", "Candlestick charts + SMA50/SMA200/RSI/Volume overlays"),
+            ("📌", "Key Observations", "AI-generated technical facts summary"),
+            ("🔍", "Pattern Detection (AI + Rules)", "Pattern label, confidence score, and key levels"),
+            ("🎯", "Pattern Analysis", "Detailed breakdown of detected patterns"),
+            ("✅", "What Traders Generally Do Next (Educational)", "Educational checklist based on current setup"),
+            ("🤖", "AI-Powered Deep Dive (Fact-Locked)", "AI Chart Explanation + Bull vs Bear Analysis"),
+        ]
+        
+        for emoji, title, subtitle in preview_features:
+            st.markdown(f"""
+            <div style="background: linear-gradient(135deg, #F5F5F5 0%, #EEEEEE 100%); 
+                        border: 1px solid #E0E0E0; border-radius: 10px; padding: 16px 20px; margin: 8px 0;
+                        display: flex; align-items: center; gap: 12px;">
+                <span style="font-size: 24px;">{emoji}</span>
+                <div>
+                    <span style="font-size: 16px; font-weight: 600; color: #333;">🔒 {title}</span><br>
+                    <span style="font-size: 13px; color: #888;">{subtitle}</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        st.markdown("")
+        if st.button("⭐ Unlock Pro Features", key="pro_preview_upgrade", type="primary", use_container_width=True):
+            st.session_state.selected_page = "👑 Become a VIP"
+            st.rerun()
+    
     # ============= ANALYSIS SECTION =============
-    if analyze_button or st.session_state.checklist_analyzed:
+    if (analyze_button or st.session_state.checklist_analyzed) and user_tier != "free":
         st.session_state.checklist_analyzed = True
         
         # Resolve ticker
@@ -20572,6 +20604,150 @@ elif selected_page == "👑 Ultimate":
             st.session_state.selected_page = "👑 Become a VIP"
             st.rerun()
     
+    # ============= CHART PREVIEW + LOCKED TITLES FOR NON-ULTIMATE USERS =============
+    if user_tier != "ultimate":
+        # --- Load data and show the candlestick chart as a teaser ---
+        with st.spinner(f"Loading {ticker} preview..."):
+            timeframe_to_years = {"6mo": 0.5, "1y": 1, "2y": 2, "5y": 5}
+            years = timeframe_to_years.get(timeframe, 1)
+            preview_data = get_historical_ohlc(ticker, years)
+        
+        if preview_data is not None and len(preview_data) > 0:
+            st.markdown("---")
+            st.markdown(f"### 📊 {ticker} Price Chart")
+            
+            price_history = preview_data
+            has_ohlc = all(col in price_history.columns for col in ['open', 'high', 'low', 'close'])
+            
+            if has_ohlc:
+                num_rows = 1
+                subplot_titles_list = [f'{ticker} Price']
+                
+                if len(price_history) >= 14:
+                    num_rows += 1
+                    subplot_titles_list.append('RSI (14)')
+                
+                if 'volume' in price_history.columns:
+                    num_rows += 1
+                    subplot_titles_list.append('Volume')
+                
+                if num_rows == 1:
+                    row_heights = [1.0]
+                elif num_rows == 2:
+                    row_heights = [0.7, 0.3]
+                else:
+                    row_heights = [0.6, 0.2, 0.2]
+                
+                fig_preview = make_subplots(
+                    rows=num_rows, cols=1, shared_xaxes=True,
+                    vertical_spacing=0.03, row_heights=row_heights,
+                    subplot_titles=tuple(subplot_titles_list)
+                )
+                
+                fig_preview.add_trace(
+                    go.Candlestick(
+                        x=price_history['date'], open=price_history['open'],
+                        high=price_history['high'], low=price_history['low'],
+                        close=price_history['close'], name='Price',
+                        increasing_line_color='#00FF00', decreasing_line_color='#FF4444'
+                    ), row=1, col=1
+                )
+                
+                if 'volume' in price_history.columns:
+                    colors = ['#00FF00' if price_history['close'].iloc[i] >= price_history['open'].iloc[i] else '#FF4444'
+                              for i in range(len(price_history))]
+                    fig_preview.add_trace(
+                        go.Bar(x=price_history['date'], y=price_history['volume'],
+                               name='Volume', marker_color=colors, opacity=0.5),
+                        row=num_rows, col=1
+                    )
+                
+                close_col = 'close'
+                if len(price_history) >= 50:
+                    sma50 = price_history[close_col].rolling(window=50, min_periods=1).mean()
+                    fig_preview.add_trace(
+                        go.Scatter(x=price_history['date'], y=sma50, mode='lines',
+                                   name='SMA 50', line=dict(color='#FFA500', width=2)),
+                        row=1, col=1
+                    )
+                if len(price_history) >= 200:
+                    sma200 = price_history[close_col].rolling(window=200, min_periods=1).mean()
+                    fig_preview.add_trace(
+                        go.Scatter(x=price_history['date'], y=sma200, mode='lines',
+                                   name='SMA 200', line=dict(color='#9D4EDD', width=2)),
+                        row=1, col=1
+                    )
+                
+                if len(price_history) >= 14:
+                    delta = price_history[close_col].diff()
+                    gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+                    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+                    rs = gain / loss
+                    rsi = 100 - (100 / (1 + rs))
+                    rsi_row = 2
+                    fig_preview.add_trace(
+                        go.Scatter(x=price_history['date'], y=rsi, mode='lines',
+                                   name='RSI', line=dict(color='#FFD700', width=2)),
+                        row=rsi_row, col=1
+                    )
+                    fig_preview.add_hline(y=70, line_dash="dash", line_color="red", opacity=0.5, row=rsi_row, col=1)
+                    fig_preview.add_hline(y=30, line_dash="dash", line_color="green", opacity=0.5, row=rsi_row, col=1)
+                    fig_preview.update_yaxes(title_text="RSI", range=[0, 100], row=rsi_row, col=1)
+                
+                fig_preview.update_layout(
+                    title=f"{ticker} Price History ({timeframe})",
+                    xaxis_title="Date", yaxis_title="Price ($)",
+                    height=600, template='plotly_dark',
+                    margin=dict(l=0, r=0, t=40, b=0),
+                    hovermode='x unified', showlegend=True,
+                    xaxis_rangeslider_visible=False
+                )
+                fig_preview.update_xaxes(
+                    rangeslider=dict(visible=True, thickness=0.05,
+                                    bgcolor="rgba(150, 150, 150, 0.1)"),
+                    row=num_rows, col=1
+                )
+                fig_preview.update_yaxes(title_text="Price ($)", row=1, col=1)
+                if 'volume' in price_history.columns:
+                    fig_preview.update_yaxes(title_text="Volume", row=num_rows, col=1)
+                
+                st.plotly_chart(fig_preview, use_container_width=True)
+                st.success(f"✅ Chart preview loaded — Upgrade to Ultimate for full analysis below")
+            else:
+                st.info(f"Preview not available for {ticker}")
+        
+        # --- Now show locked section titles ---
+        st.markdown("---")
+        st.markdown("#### 🔒 Unlock the rest with Ultimate:")
+        
+        preview_features = [
+            ("🎯", "Key Levels Map", "Top 3 supports and resistances derived from price history"),
+            ("📋", "Trade Plan Builder (Educational)", "Entry zones, invalidation levels, and targets"),
+            ("📊", "Historical Similar Setups (Backtest-Lite)", "Find past dates when the setup looked similar + forward returns"),
+            ("🎲", "Scenario Simulator (Bull/Base/Bear)", "Three potential scenarios based on key levels and volatility"),
+            ("🤖", "Ultimate AI Deep Dive", "Trade Plan Rationale + What Would Change View (AI-powered)"),
+        ]
+        
+        for emoji, title, subtitle in preview_features:
+            st.markdown(f"""
+            <div style="background: linear-gradient(135deg, #F5F5F5 0%, #EEEEEE 100%); 
+                        border: 1px solid #E0E0E0; border-radius: 10px; padding: 16px 20px; margin: 8px 0;
+                        display: flex; align-items: center; gap: 12px;">
+                <span style="font-size: 24px;">{emoji}</span>
+                <div>
+                    <span style="font-size: 16px; font-weight: 600; color: #333;">🔒 {title}</span><br>
+                    <span style="font-size: 13px; color: #888;">{subtitle}</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        st.markdown("")
+        if st.button("👑 Unlock Ultimate Features", key="ultimate_preview_upgrade", type="primary", use_container_width=True):
+            st.session_state.selected_page = "👑 Become a VIP"
+            st.rerun()
+        st.stop()
+    
+    # ============= ULTIMATE CONTENT (ULTIMATE USERS ONLY) =============
     # Generate cache key for this ticker/timeframe/interval combo
     cache_key = f"{ticker}|{timeframe}|{interval}"
     
