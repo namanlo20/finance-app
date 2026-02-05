@@ -19528,16 +19528,16 @@ elif selected_page == "👑 Become a VIP":
         # MUST be signed in before accessing Stripe
         if not st.session_state.get('is_logged_in'):
             st.markdown(f"""
-            <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
+            <div style="background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%); 
                         border: 2px solid {'#9D4EDD' if access_tier == 'Pro' else '#FFD700'}; border-radius: 15px; padding: 40px; 
                         text-align: center; margin: 20px 0;">
-                <h2 style="color: {'#9D4EDD' if access_tier == 'Pro' else '#FFD700'}; margin-bottom: 20px;">
+                <h2 style="color: {'#9D4EDD' if access_tier == 'Pro' else '#E6A800'}; margin-bottom: 20px;">
                     {'⭐' if access_tier == 'Pro' else '👑'} Upgrade to {access_tier}
                 </h2>
-                <p style="color: #FFFFFF; font-size: 18px; margin-bottom: 10px;">
+                <p style="color: #333; font-size: 18px; margin-bottom: 10px;">
                     {'$5/month - Full Portfolio Access' if access_tier == 'Pro' else '$10/month - Everything + AI Stock Screener'}
                 </p>
-                <p style="color: #FF6B6B; font-size: 16px; font-weight: bold; margin-top: 20px;">
+                <p style="color: #D32F2F; font-size: 16px; font-weight: bold; margin-top: 20px;">
                     ⚠️ Please sign up / sign in first to subscribe
                 </p>
             </div>
@@ -19560,16 +19560,16 @@ elif selected_page == "👑 Become a VIP":
             if pro_link or ultimate_link:
                 # Stripe is configured - show payment buttons
                 st.markdown(f"""
-                <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
+                <div style="background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%); 
                             border: 2px solid {'#9D4EDD' if access_tier == 'Pro' else '#FFD700'}; border-radius: 15px; padding: 40px; 
                             text-align: center; margin: 20px 0;">
-                    <h2 style="color: {'#9D4EDD' if access_tier == 'Pro' else '#FFD700'}; margin-bottom: 20px;">
+                    <h2 style="color: {'#9D4EDD' if access_tier == 'Pro' else '#E6A800'}; margin-bottom: 20px;">
                         {'⭐' if access_tier == 'Pro' else '👑'} Upgrade to {access_tier}
                     </h2>
-                    <p style="color: #FFFFFF; font-size: 18px; margin-bottom: 10px;">
+                    <p style="color: #333; font-size: 18px; margin-bottom: 10px;">
                         {'$5/month - Full Portfolio Access' if access_tier == 'Pro' else '$10/month - Everything + AI Stock Screener'}
                     </p>
-                    <p style="color: #888; font-size: 14px; margin-bottom: 30px;">
+                    <p style="color: #666; font-size: 14px; margin-bottom: 30px;">
                         Cancel anytime • Secure payment via Stripe
                     </p>
                 </div>
@@ -19586,11 +19586,11 @@ elif selected_page == "👑 Become a VIP":
             else:
                 # Stripe not configured - show waitlist
                 st.markdown("""
-                <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
+                <div style="background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%); 
                             border: 2px solid #9D4EDD; border-radius: 15px; padding: 40px; 
                             text-align: center; margin: 20px 0;">
-                    <h2 style="color: #FFD700; margin-bottom: 20px;">🎉 Join the Waitlist</h2>
-                    <p style="color: #FFFFFF; font-size: 18px; margin-bottom: 30px;">
+                    <h2 style="color: #E6A800; margin-bottom: 20px;">🎉 Join the Waitlist</h2>
+                    <p style="color: #333; font-size: 18px; margin-bottom: 30px;">
                         Be among the first to access premium features when they launch!
                     </p>
                 </div>
@@ -21623,9 +21623,9 @@ CRITICAL REQUIREMENTS:
                                 # Display Summary Card
                                 st.markdown("#### 📊 Portfolio Summary")
                                 col1, col2, col3 = st.columns(3)
-                                col1.metric("Positions", len(normalized_holdings))
-                                col2.metric("Largest", f"{largest_holding['ticker']} ({largest_holding['weight_pct']:.1f}%)")
-                                col3.metric("Diversification", f"{diversification_score:.1f}/10")
+                                col1.metric("Positions", len(normalized_holdings), help="Total number of stocks in your portfolio")
+                                col2.metric("Largest", f"{largest_holding['ticker']} ({largest_holding['weight_pct']:.1f}%)", help="Your biggest holding and its % weight")
+                                col3.metric("Diversification", f"{diversification_score:.1f}/10", help="How spread out your portfolio is. 10 = very diversified, 1 = concentrated in few stocks")
                                 
                                 # Sector Chart
                                 if len(sector_totals) > 0:
@@ -21662,6 +21662,10 @@ USER'S RISK PROFILE: Not taken yet. Use general assumptions (moderate risk toler
                                 
                                 # AI Analysis
                                 with st.spinner("🤖 AI analyzing your portfolio..."):
+                                    holdings_list = [{"ticker": h['ticker'], "weight": h['weight_pct'], "sector": h['sector']} for h in normalized_holdings]
+                                    holdings_json = json.dumps(holdings_list)
+                                    sector_json = json.dumps(sector_totals)
+                                    
                                     ai_prompt = f"""Analyze this portfolio (facts provided). Educational analysis only - no specific buy/sell advice.
 
 PORTFOLIO METRICS (DETERMINISTIC):
@@ -21669,8 +21673,8 @@ PORTFOLIO METRICS (DETERMINISTIC):
 - Largest Holding: {largest_holding['ticker']} at {largest_holding['weight_pct']:.1f}%
 - Concentration Risk: {concentration_risk:.1f}%
 - Diversification Score: {diversification_score:.1f}/10
-- Sector Breakdown: {json.dumps(sector_totals)}
-- Holdings: {json.dumps([{{'ticker': h['ticker'], 'weight': h['weight_pct'], 'sector': h['sector']}} for h in normalized_holdings])}
+- Sector Breakdown: {sector_json}
+- Holdings: {holdings_json}
 
 {risk_context}
 
