@@ -11519,8 +11519,31 @@ if selected_page == "🏠 Dashboard":
     if st.session_state.get('show_tour', False):
         show_app_tour()
     
-    # ============= VISUAL WELCOME CARDS — REMOVED =============
-    # Cards removed for cleaner dashboard experience
+    # ============= LIFESTYLE IMAGES — Social proof / aspirational =============
+    st.markdown("""
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 28px;">
+        <div style="border-radius: 16px; overflow: hidden; position: relative; height: 280px;">
+            <img src="https://aistockinvesting101.com/womancooking.png" 
+                 style="width: 100%; height: 100%; object-fit: cover; border-radius: 16px;" 
+                 alt="Investing while living your life">
+            <div style="position: absolute; bottom: 0; left: 0; right: 0; padding: 20px; 
+                        background: linear-gradient(transparent, rgba(0,0,0,0.7)); border-radius: 0 0 16px 16px;">
+                <div style="color: #FFFFFF; font-size: 15px; font-weight: 600;">Invest while living your life</div>
+                <div style="color: #E0E0E0; font-size: 12px;">Smart investing doesn't require staring at screens all day</div>
+            </div>
+        </div>
+        <div style="border-radius: 16px; overflow: hidden; position: relative; height: 280px;">
+            <img src="https://aistockinvesting101.com/mantrading.png" 
+                 style="width: 100%; height: 100%; object-fit: cover; border-radius: 16px;" 
+                 alt="AI-powered analysis at your fingertips">
+            <div style="position: absolute; bottom: 0; left: 0; right: 0; padding: 20px; 
+                        background: linear-gradient(transparent, rgba(0,0,0,0.7)); border-radius: 0 0 16px 16px;">
+                <div style="color: #FFFFFF; font-size: 15px; font-weight: 600;">AI-powered analysis at your fingertips</div>
+                <div style="color: #E0E0E0; font-size: 12px;">Get professional-level insights in plain English</div>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
     
     # Unhinged comment for dashboard
     unhinged_dashboard = get_unhinged_comment("dashboard")
@@ -19317,11 +19340,14 @@ elif selected_page == "👤 Naman's Portfolio":
             try:
                 df = get_historical_price(ticker, years)
                 if df is not None and not df.empty and len(df) >= 2:
-                    start_price = df.iloc[0]['close']
-                    end_price = df.iloc[-1]['close']
-                    if start_price > 0:
-                        return round(((end_price - start_price) / start_price) * 100, 1)
-            except:
+                    # FMP light endpoint returns 'close' column; some versions return 'price'
+                    price_col = 'close' if 'close' in df.columns else ('price' if 'price' in df.columns else None)
+                    if price_col:
+                        start_price = float(df.iloc[0][price_col])
+                        end_price = float(df.iloc[-1][price_col])
+                        if start_price > 0:
+                            return round(((end_price - start_price) / start_price) * 100, 1)
+            except Exception:
                 pass
             return None
         
@@ -19337,9 +19363,9 @@ elif selected_page == "👤 Naman's Portfolio":
         with hcol2:
             st.markdown("**Weight**")
         with hcol3:
-            st.markdown(f"**{timeline_years}Y Return**")
+            st.markdown("**% Return**")
         with hcol4:
-            st.markdown(f"**S&P {timeline_years}Y**")
+            st.markdown("**S&P Return**")
         with hcol5:
             st.markdown("**vs S&P**")
         
@@ -19411,11 +19437,13 @@ elif selected_page == "👤 Naman's Portfolio":
             try:
                 df = get_historical_price(ticker, years)
                 if df is not None and not df.empty and len(df) >= 2:
-                    start_price = df.iloc[0]['close']
-                    end_price = df.iloc[-1]['close']
-                    if start_price > 0:
-                        return round(((end_price - start_price) / start_price) * 100, 1)
-            except:
+                    price_col = 'close' if 'close' in df.columns else ('price' if 'price' in df.columns else None)
+                    if price_col:
+                        start_price = float(df.iloc[0][price_col])
+                        end_price = float(df.iloc[-1][price_col])
+                        if start_price > 0:
+                            return round(((end_price - start_price) / start_price) * 100, 1)
+            except Exception:
                 pass
             return None
         
@@ -19431,9 +19459,9 @@ elif selected_page == "👤 Naman's Portfolio":
         with hcol2:
             st.markdown("**Weight**")
         with hcol3:
-            st.markdown(f"**{timeline_years}Y Return**")
+            st.markdown("**% Return**")
         with hcol4:
-            st.markdown(f"**S&P {timeline_years}Y**")
+            st.markdown("**S&P Return**")
         with hcol5:
             st.markdown("**vs S&P**")
         
