@@ -33,6 +33,10 @@
         body {
             font-family: 'DM Sans', sans-serif;
             background: var(--dark);
+            background-image: 
+                radial-gradient(ellipse at 20% 0%, rgba(255,75,75,0.06) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(59,130,246,0.04) 0%, transparent 40%),
+                radial-gradient(ellipse at 40% 80%, rgba(34,197,94,0.03) 0%, transparent 40%);
             color: var(--white);
             overflow-x: hidden;
             -webkit-font-smoothing: antialiased;
@@ -644,103 +648,27 @@
     </div>
 </section>
 
-<!-- SNEAK PEEK — live chart previews -->
-<section class="preview-section fade-in" id="preview">
-    <div class="section-label">Sneak peek</div>
-    <h2>See it in action</h2>
-    <p>Real charts. Real AI analysis. Not a toy.</p>
-
-    <div class="preview-grid">
-
-        <!-- CANDLESTICK CHART — big featured -->
-        <div class="preview-card featured-preview">
-            <div class="preview-card-visual">
-                <canvas id="candlestick-canvas"></canvas>
-            </div>
-            <div class="preview-card-info">
-                <span class="card-tag tag-pro">PRO</span>
-                <h3>AI Chart Analysis</h3>
-                <p>Full candlestick charts with SMA 50, SMA 200, RSI, and volume. AI explains what the chart means — in plain English.</p>
-            </div>
-        </div>
-
-        <!-- PATTERN DETECTION -->
-        <div class="preview-card">
-            <div class="preview-card-visual" id="pattern-visual" style="display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; gap:12px;">
-                <div style="font-size: 40px; opacity:0; animation: fadeUp 0.5s ease-out 0.8s both;">🔍</div>
-                <div style="opacity:0; animation: fadeUp 0.5s ease-out 1.0s both;">
-                    <div style="font-family:'Space Mono',monospace; font-size:22px; font-weight:700; color:#22c55e;">BULLISH CONTINUATION</div>
-                    <div style="font-size:14px; color:var(--grey-text); margin-top:6px;">Confidence: <span style="color:#22c55e; font-weight:600;">High 🟢</span></div>
-                </div>
-                <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-top:8px; opacity:0; animation: fadeUp 0.5s ease-out 1.2s both;">
-                    <span style="background:rgba(34,197,94,0.12); color:#22c55e; padding:4px 12px; border-radius:100px; font-size:12px;">Price > SMA50</span>
-                    <span style="background:rgba(34,197,94,0.12); color:#22c55e; padding:4px 12px; border-radius:100px; font-size:12px;">RSI healthy</span>
-                    <span style="background:rgba(34,197,94,0.12); color:#22c55e; padding:4px 12px; border-radius:100px; font-size:12px;">Rising volume</span>
-                </div>
-            </div>
-            <div class="preview-card-info">
-                <span class="card-tag tag-pro">PRO</span>
-                <h3>Pattern Detection</h3>
-                <p>Rule-based + AI pattern recognition with confidence scores and key reasons.</p>
-            </div>
-        </div>
-
-        <!-- PORTFOLIO DONUT -->
-        <div class="preview-card">
-            <div class="preview-card-visual" style="display:flex; justify-content:center; align-items:center;">
-                <canvas id="donut-canvas" width="200" height="200"></canvas>
-            </div>
-            <div class="preview-card-info">
-                <span class="card-tag tag-free" style="background:rgba(34,197,94,0.15); color:var(--green-accent);">FREE</span>
-                <h3>Paper Portfolio</h3>
-                <p>Practice with fake money. See your allocations, track P&L, and get AI-graded reviews.</p>
-            </div>
-        </div>
-
-        <!-- KEY LEVELS (ULTIMATE TEASER) -->
-        <div class="preview-card featured-preview">
-            <div class="preview-card-visual">
-                <canvas id="levels-canvas"></canvas>
-            </div>
-            <div class="preview-card-info">
-                <span class="card-tag tag-ultimate">ULTIMATE</span>
-                <h3>Key Levels &amp; Trade Plan Builder</h3>
-                <p>Support/resistance zones, educational entry/exit plans, and bull/base/bear scenario simulators — institutional-grade stuff, in plain English.</p>
-            </div>
-        </div>
-
+<!-- WHO THIS IS FOR -->
+<section style="padding: 80px 24px; max-width: 900px; margin: 0 auto;" class="fade-in">
+    <div style="text-align: center; margin-bottom: 48px;">
+        <div style="font-size: 13px; color: var(--red); text-transform: uppercase; letter-spacing: 2px; font-weight: 600;">Who This Is For</div>
+        <h2 style="font-size: clamp(26px, 5vw, 42px); font-weight: 700; letter-spacing: -1px; margin-top: 12px; line-height: 1.15;">You don't need a finance degree</h2>
     </div>
-</section>
-
-<section class="how-it-works fade-in">
-    <div class="section-label">How it works</div>
-    <h2>Up and running in 2 minutes</h2>
-    <div class="step">
-        <div class="step-num">01</div>
-        <div>
-            <h3>Create a free account</h3>
-            <p>Sign up with your email. No credit card. Start exploring immediately.</p>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 24px;">
+        <div style="background: linear-gradient(135deg, rgba(34,197,94,0.08) 0%, rgba(34,197,94,0.02) 100%); border: 1px solid rgba(34,197,94,0.2); border-radius: 16px; padding: 28px; text-align: center;">
+            <div style="font-size: 48px; margin-bottom: 16px;">🌱</div>
+            <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 8px; color: var(--green-accent);">Complete Beginners</h3>
+            <p style="font-size: 14px; color: var(--grey-text); line-height: 1.6;">Never bought a stock? Perfect. We start from "What is a stock?" and build up.</p>
         </div>
-    </div>
-    <div class="step">
-        <div class="step-num">02</div>
-        <div>
-            <h3>Take the Risk Quiz</h3>
-            <p>Answer a few questions about your goals and risk comfort. Get personalized educational suggestions based on your answers.</p>
+        <div style="background: linear-gradient(135deg, rgba(59,130,246,0.08) 0%, rgba(59,130,246,0.02) 100%); border: 1px solid rgba(59,130,246,0.2); border-radius: 16px; padding: 28px; text-align: center;">
+            <div style="font-size: 48px; margin-bottom: 16px;">💼</div>
+            <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 8px; color: var(--blue-accent);">Busy Professionals</h3>
+            <p style="font-size: 14px; color: var(--grey-text); line-height: 1.6;">No time to read 10-K filings? AI summarizes what matters in seconds.</p>
         </div>
-    </div>
-    <div class="step">
-        <div class="step-num">03</div>
-        <div>
-            <h3>Analyze any stock</h3>
-            <p>Type a ticker, hit Analyze. AI breaks down the chart, technicals, and key levels — all in plain English.</p>
-        </div>
-    </div>
-    <div class="step">
-        <div class="step-num">04</div>
-        <div>
-            <h3>Open on desktop for the full experience</h3>
-            <p>Charts, deep-dives, and portfolio tools work best on a larger screen. We'll email you a direct link.</p>
+        <div style="background: linear-gradient(135deg, rgba(255,75,75,0.08) 0%, rgba(255,75,75,0.02) 100%); border: 1px solid rgba(255,75,75,0.2); border-radius: 16px; padding: 28px; text-align: center;">
+            <div style="font-size: 48px; margin-bottom: 16px;">👨‍👩‍👧</div>
+            <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 8px; color: var(--red);">Parents & Teachers</h3>
+            <p style="font-size: 14px; color: var(--grey-text); line-height: 1.6;">Teach your kids about money with simple explanations and paper trading.</p>
         </div>
     </div>
 </section>
@@ -790,13 +718,33 @@
     </div>
 </section>
 
-<!-- FINAL CTA -->
-<section class="final-cta fade-in" id="join">
-    <h2>Ready to invest smarter?</h2>
-    <p>Free to start. No credit card required.</p>
-    <a href="https://app.aistockinvesting101.com" class="btn-primary" style="max-width: 360px; margin: 0 auto;">Start Free →</a>
-    <p style="font-size: 13px; color: var(--grey-text); margin-top: 20px;">Not financial advice · Educational only · <a href="https://x.com/na_man20" target="_blank" style="color: var(--red); text-decoration: none;">@na_man20</a></p>
+<!-- FINAL CTA with human warmth -->
+<section class="final-cta fade-in" id="join" style="position: relative; overflow: hidden;">
+    <!-- Warm gradient overlay -->
+    <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: radial-gradient(ellipse at 30% 50%, rgba(255,75,75,0.08) 0%, transparent 50%), radial-gradient(ellipse at 70% 50%, rgba(59,130,246,0.06) 0%, transparent 50%); pointer-events: none;"></div>
+    
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; max-width: 1000px; margin: 0 auto; position: relative; z-index: 1;">
+        <!-- Left: Image -->
+        <div style="display: flex; justify-content: center;">
+            <img src="family.png" alt="Family learning to invest together" style="width: 100%; max-width: 400px; height: auto; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.3);">
+        </div>
+        <!-- Right: CTA content -->
+        <div style="text-align: left;">
+            <h2 style="text-align: left; margin-bottom: 16px;">Start your investing journey today</h2>
+            <p style="font-size: 16px; color: var(--grey-text); margin-bottom: 28px; text-align: left; line-height: 1.6;">Join thousands learning to invest smarter — no jargon, no overwhelm, just clarity.</p>
+            <a href="https://app.aistockinvesting101.com" class="btn-primary" style="display: inline-flex;">Start Free →</a>
+            <p style="font-size: 13px; color: var(--grey-text); margin-top: 16px; text-align: left;">Free forever · No credit card required</p>
+        </div>
+    </div>
 </section>
+
+<style>
+    @media (max-width: 768px) {
+        #join > div { grid-template-columns: 1fr !important; text-align: center !important; }
+        #join h2, #join p { text-align: center !important; }
+        #join .btn-primary { margin: 0 auto; }
+    }
+</style>
 
 <!-- FOOTER -->
 <footer>
