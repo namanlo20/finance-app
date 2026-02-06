@@ -11519,31 +11519,7 @@ if selected_page == "🏠 Dashboard":
     if st.session_state.get('show_tour', False):
         show_app_tour()
     
-    # ============= LIFESTYLE IMAGES — Social proof / aspirational =============
-    st.markdown("""
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 28px;">
-        <div style="border-radius: 16px; overflow: hidden; position: relative; height: 280px;">
-            <img src="https://aistockinvesting101.com/womancooking.png" 
-                 style="width: 100%; height: 100%; object-fit: cover; border-radius: 16px;" 
-                 alt="Investing while living your life">
-            <div style="position: absolute; bottom: 0; left: 0; right: 0; padding: 20px; 
-                        background: linear-gradient(transparent, rgba(0,0,0,0.7)); border-radius: 0 0 16px 16px;">
-                <div style="color: #FFFFFF; font-size: 15px; font-weight: 600;">Invest while living your life</div>
-                <div style="color: #E0E0E0; font-size: 12px;">Smart investing doesn't require staring at screens all day</div>
-            </div>
-        </div>
-        <div style="border-radius: 16px; overflow: hidden; position: relative; height: 280px;">
-            <img src="https://aistockinvesting101.com/mantrading.png" 
-                 style="width: 100%; height: 100%; object-fit: cover; border-radius: 16px;" 
-                 alt="AI-powered analysis at your fingertips">
-            <div style="position: absolute; bottom: 0; left: 0; right: 0; padding: 20px; 
-                        background: linear-gradient(transparent, rgba(0,0,0,0.7)); border-radius: 0 0 16px 16px;">
-                <div style="color: #FFFFFF; font-size: 15px; font-weight: 600;">AI-powered analysis at your fingertips</div>
-                <div style="color: #E0E0E0; font-size: 12px;">Get professional-level insights in plain English</div>
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    # ============= LIFESTYLE IMAGES moved to landing page =============
     
     # Unhinged comment for dashboard
     unhinged_dashboard = get_unhinged_comment("dashboard")
