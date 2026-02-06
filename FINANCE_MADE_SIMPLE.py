@@ -193,7 +193,23 @@ st.markdown("""
 @media screen and (max-width: 768px) {
     /* ============= MOBILE APP-LIKE EXPERIENCE ============= */
     
-    /* Force hide ALL horizontal blocks that are the navbar */
+    /* HIDE the horizontal nav bar completely on mobile - it's unusable */
+    .main > [data-testid="stVerticalBlock"] > [data-testid="stHorizontalBlock"]:first-of-type {
+        display: none !important;
+    }
+    
+    /* Also target by the nav button classes inside horizontal blocks */
+    .main [data-testid="stHorizontalBlock"]:has([key*="nav_"]),
+    .main [data-testid="stHorizontalBlock"]:has([key*="header_"]) {
+        display: none !important;
+    }
+    
+    /* Hide the fixed top-header bar on mobile */
+    .top-header {
+        display: none !important;
+    }
+    
+    /* Generic horizontal blocks (non-nav) should stack */
     .main [data-testid="stHorizontalBlock"] {
         flex-direction: column !important;
         gap: 0.5rem !important;
@@ -206,13 +222,19 @@ st.markdown("""
         max-width: 100% !important;
     }
     
-    /* Sidebar - clean slide-out */
+    /* Sidebar - proper slide-out overlay (not push) */
     [data-testid="stSidebar"] {
-        min-width: 85vw !important;
-        max-width: 85vw !important;
+        min-width: 80vw !important;
+        max-width: 80vw !important;
         background: #FFFFFF !important;
         box-shadow: 4px 0 20px rgba(0,0,0,0.15) !important;
-        z-index: 9999 !important;
+        z-index: 999999 !important;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        height: 100vh !important;
+        overflow-y: auto !important;
+        transition: transform 0.3s ease !important;
     }
     
     [data-testid="stSidebar"][aria-expanded="false"] {
@@ -3954,15 +3976,17 @@ MOBILE_CSS = """
         margin: 5px 0 !important;
     }
     
-    /* Hide sidebar on mobile by default */
+    /* Hide sidebar on mobile by default - use bottom nav instead */
     [data-testid="stSidebar"] {
         min-width: 0px !important;
         max-width: 0px !important;
+        transform: translateX(-100%) !important;
     }
     
     [data-testid="stSidebar"][aria-expanded="true"] {
-        min-width: 280px !important;
-        max-width: 280px !important;
+        min-width: 80vw !important;
+        max-width: 80vw !important;
+        transform: translateX(0) !important;
     }
 }
 
@@ -9212,6 +9236,21 @@ if action_param == "signup":
     if "nav_action" in st.query_params:
         del st.query_params["nav_action"]
     st.rerun()
+elif action_param == "dashboard":
+    st.session_state.selected_page = "🏠 Dashboard"
+    if "nav_action" in st.query_params:
+        del st.query_params["nav_action"]
+    st.rerun()
+elif action_param == "analyze":
+    st.session_state.selected_page = "📊 Company Analysis"
+    if "nav_action" in st.query_params:
+        del st.query_params["nav_action"]
+    st.rerun()
+elif action_param == "learn":
+    st.session_state.selected_page = "🏠 Start Here"
+    if "nav_action" in st.query_params:
+        del st.query_params["nav_action"]
+    st.rerun()
 elif action_param == "login":
     st.session_state.show_login_popup = True
     if "nav_action" in st.query_params:
@@ -9305,6 +9344,8 @@ def nav_action_changed():
 
 # Create columns for header with navigation tabs + auth buttons
 # Layout: [Dashboard] [Learn▼] [Analyze▼] [Action▼] [---spacer---] [Sign Up] [Sign In] [VIP]
+# Wrap in a container that we can hide on mobile
+st.markdown('<div class="desktop-nav-bar">', unsafe_allow_html=True)
 if st.session_state.get("is_logged_in"):
     header_cols = st.columns([1.3, 1.5, 1.8, 1.5, 1.5, 1.5, 1.3])
 else:
@@ -9417,7 +9458,123 @@ else:
             st.rerun()
 
 # Add spacing for frozen bar
+st.markdown("</div><!-- end desktop-nav-bar -->", unsafe_allow_html=True)
+st.markdown("""
+<style>
+@media screen and (max-width: 768px) {
+    .desktop-nav-bar,
+    .desktop-nav-bar + div[style*="margin-bottom: 80px"] {
+        display: none !important;
+    }
+}
+</style>
+""", unsafe_allow_html=True)
 st.markdown("<div style='margin-bottom: 80px;'></div>", unsafe_allow_html=True)
+
+# ============= MOBILE BOTTOM NAVIGATION BAR =============
+# This replaces the hidden top nav on mobile devices
+st.markdown("""
+<style>
+/* ============= MOBILE BOTTOM NAV BAR ============= */
+@media screen and (max-width: 768px) {
+    /* Hide the top nav spacer on mobile since we hide the top nav */
+    
+    /* Bottom navigation bar */
+    .mobile-bottom-nav {
+        display: flex !important;
+        position: fixed !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        z-index: 999998 !important;
+        background: #FFFFFF !important;
+        border-top: 1px solid #E5E7EB !important;
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.1) !important;
+        padding: 6px 0 env(safe-area-inset-bottom, 8px) 0 !important;
+        justify-content: space-around !important;
+        align-items: center !important;
+    }
+    
+    .mobile-bottom-nav a {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-decoration: none !important;
+        color: #6B7280 !important;
+        font-size: 10px !important;
+        font-weight: 500 !important;
+        padding: 4px 8px !important;
+        border-radius: 8px !important;
+        transition: all 0.2s ease !important;
+        min-width: 56px !important;
+    }
+    
+    .mobile-bottom-nav a.active,
+    .mobile-bottom-nav a:active {
+        color: #CC0000 !important;
+        background: rgba(255,68,68,0.08) !important;
+    }
+    
+    .mobile-bottom-nav .nav-icon {
+        font-size: 20px !important;
+        margin-bottom: 2px !important;
+    }
+    
+    .mobile-bottom-nav .nav-label {
+        font-size: 10px !important;
+        line-height: 1.2 !important;
+    }
+    
+    /* Add padding at bottom of page so content isn't hidden behind bottom nav */
+    .main .block-container {
+        padding-bottom: 80px !important;
+    }
+    
+    /* ALSO hide the top-header fixed bar on mobile (clutters the space) */
+    .top-header {
+        display: none !important;
+    }
+}
+
+/* Hide bottom nav on desktop */
+@media screen and (min-width: 769px) {
+    .mobile-bottom-nav {
+        display: none !important;
+    }
+}
+</style>
+
+<!-- Mobile Bottom Navigation -->
+<div class="mobile-bottom-nav">
+    <a href="?nav_action=dashboard" onclick="
+        window.parent.postMessage({type:'streamlit:setQueryParam', key:'selected_page', value:'🏠 Dashboard'}, '*');
+    ">
+        <span class="nav-icon">🏠</span>
+        <span class="nav-label">Home</span>
+    </a>
+    <a href="?nav_action=analyze" onclick="
+        window.parent.postMessage({type:'streamlit:setQueryParam', key:'selected_page', value:'📊 Company Analysis'}, '*');
+    ">
+        <span class="nav-icon">📊</span>
+        <span class="nav-label">Analyze</span>
+    </a>
+    <a href="?nav_action=learn" onclick="
+        window.parent.postMessage({type:'streamlit:setQueryParam', key:'selected_page', value:'🏠 Start Here'}, '*');
+    ">
+        <span class="nav-icon">📚</span>
+        <span class="nav-label">Learn</span>
+    </a>
+    <a href="?open_chat=1">
+        <span class="nav-icon">🤖</span>
+        <span class="nav-label">AI Chat</span>
+    </a>
+    <a href="?nav_action=vip">
+        <span class="nav-icon">👑</span>
+        <span class="nav-label">VIP</span>
+    </a>
+</div>
+""", unsafe_allow_html=True)
 
 # ============= FIX: AUTO-CLOSE POPOVER DROPDOWNS ON CLICK =============
 # When a user clicks a button inside a popover, close the popover immediately
