@@ -193,22 +193,7 @@ st.markdown("""
 @media screen and (max-width: 768px) {
     /* ============= MOBILE APP-LIKE EXPERIENCE ============= */
     
-    /* HIDE the entire top navigation bar on mobile */
-    .main > [data-testid="stVerticalBlock"] > [data-testid="stHorizontalBlock"]:first-of-type {
-        display: none !important;
-    }
-    
-    /* Hide the fixed top-header bar */
-    .top-header {
-        display: none !important;
-    }
-    
-    /* Hide the spacing div for the frozen top bar */
-    .main > [data-testid="stVerticalBlock"] > div[data-testid="stMarkdown"]:has(div[style*="margin-bottom: 80px"]) {
-        display: none !important;
-    }
-    
-    /* Generic horizontal blocks (non-nav) should stack */
+    /* Force hide ALL horizontal blocks that are the navbar */
     .main [data-testid="stHorizontalBlock"] {
         flex-direction: column !important;
         gap: 0.5rem !important;
@@ -221,31 +206,19 @@ st.markdown("""
         max-width: 100% !important;
     }
     
-    /* Sidebar - FULL SCREEN overlay on mobile */
+    /* Sidebar - clean slide-out */
     [data-testid="stSidebar"] {
-        min-width: 100vw !important;
-        max-width: 100vw !important;
-        width: 100vw !important;
+        min-width: 85vw !important;
+        max-width: 85vw !important;
         background: #FFFFFF !important;
-        box-shadow: none !important;
-        z-index: 999999 !important;
-        position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
-        height: 100vh !important;
-        overflow-y: auto !important;
-        transition: transform 0.3s ease !important;
+        box-shadow: 4px 0 20px rgba(0,0,0,0.15) !important;
+        z-index: 9999 !important;
     }
     
     [data-testid="stSidebar"][aria-expanded="false"] {
         min-width: 0px !important;
         width: 0px !important;
         transform: translateX(-100%) !important;
-    }
-    
-    [data-testid="stSidebar"] > div:first-child {
-        width: 100% !important;
-        padding: 20px !important;
     }
     
     /* Main content - full width, clean padding */
@@ -3981,18 +3954,15 @@ MOBILE_CSS = """
         margin: 5px 0 !important;
     }
     
-    /* Hide sidebar on mobile by default - use bottom nav instead */
+    /* Hide sidebar on mobile by default */
     [data-testid="stSidebar"] {
         min-width: 0px !important;
         max-width: 0px !important;
-        transform: translateX(-100%) !important;
     }
     
     [data-testid="stSidebar"][aria-expanded="true"] {
-        min-width: 100vw !important;
-        max-width: 100vw !important;
-        width: 100vw !important;
-        transform: translateX(0) !important;
+        min-width: 280px !important;
+        max-width: 280px !important;
     }
 }
 
@@ -9242,21 +9212,6 @@ if action_param == "signup":
     if "nav_action" in st.query_params:
         del st.query_params["nav_action"]
     st.rerun()
-elif action_param == "dashboard":
-    st.session_state.selected_page = "🏠 Dashboard"
-    if "nav_action" in st.query_params:
-        del st.query_params["nav_action"]
-    st.rerun()
-elif action_param == "analyze":
-    st.session_state.selected_page = "📊 Company Analysis"
-    if "nav_action" in st.query_params:
-        del st.query_params["nav_action"]
-    st.rerun()
-elif action_param == "learn":
-    st.session_state.selected_page = "🏠 Start Here"
-    if "nav_action" in st.query_params:
-        del st.query_params["nav_action"]
-    st.rerun()
 elif action_param == "login":
     st.session_state.show_login_popup = True
     if "nav_action" in st.query_params:
@@ -9284,13 +9239,6 @@ st.markdown(f"""
     align-items: center;
     gap: 15px;
     box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-}}
-
-/* MOBILE: Hide entire top nav area */
-@media screen and (max-width: 768px) {{
-    .top-header {{
-        display: none !important;
-    }}
 }}
 
 /* NAVIGATION BAR BUTTONS - Force text visibility */
@@ -9471,97 +9419,7 @@ else:
 # Add spacing for frozen bar
 st.markdown("<div style='margin-bottom: 80px;'></div>", unsafe_allow_html=True)
 
-# ============= MOBILE BOTTOM NAVIGATION BAR =============
-st.markdown("""
-<style>
-@media screen and (max-width: 768px) {
-    .mobile-bottom-nav {
-        display: flex !important;
-        position: fixed !important;
-        bottom: 0 !important;
-        left: 0 !important;
-        right: 0 !important;
-        z-index: 999998 !important;
-        background: #FFFFFF !important;
-        border-top: 1px solid #E5E7EB !important;
-        box-shadow: 0 -2px 10px rgba(0,0,0,0.08) !important;
-        padding: 6px 0 env(safe-area-inset-bottom, 8px) 0 !important;
-        justify-content: space-around !important;
-        align-items: center !important;
-    }
-    .mobile-bottom-nav a {
-        display: flex !important;
-        flex-direction: column !important;
-        align-items: center !important;
-        text-decoration: none !important;
-        color: #6B7280 !important;
-        font-size: 10px !important;
-        font-weight: 500 !important;
-        padding: 4px 8px !important;
-        border-radius: 8px !important;
-        min-width: 56px !important;
-    }
-    .mobile-bottom-nav a:active {
-        color: #CC0000 !important;
-        background: rgba(255,68,68,0.08) !important;
-    }
-    .mobile-bottom-nav .nav-icon { font-size: 20px !important; margin-bottom: 2px !important; }
-    .mobile-bottom-nav .nav-label { font-size: 10px !important; }
-    .main .block-container { padding-bottom: 80px !important; }
-}
-@media screen and (min-width: 769px) {
-    .mobile-bottom-nav { display: none !important; }
-}
-</style>
-<div class="mobile-bottom-nav">
-    <a href="?nav_action=dashboard">
-        <span class="nav-icon">🏠</span>
-        <span class="nav-label">Home</span>
-    </a>
-    <a href="?nav_action=analyze">
-        <span class="nav-icon">📊</span>
-        <span class="nav-label">Analyze</span>
-    </a>
-    <a href="?nav_action=learn">
-        <span class="nav-icon">📚</span>
-        <span class="nav-label">Learn</span>
-    </a>
-    <a href="?open_chat=1">
-        <span class="nav-icon">🤖</span>
-        <span class="nav-label">AI Chat</span>
-    </a>
-    <a href="?nav_action=vip">
-        <span class="nav-icon">👑</span>
-        <span class="nav-label">VIP</span>
-    </a>
-</div>
-""", unsafe_allow_html=True)
-
 # ============= FIX: AUTO-CLOSE POPOVER DROPDOWNS ON CLICK =============
-# Also: HIDE top nav bar on mobile via JS (CSS backup)
-st.markdown("""
-<script>
-(function() {
-    function hideNavOnMobile() {
-        if (window.innerWidth > 768) return;
-        // Find all horizontal blocks in main content
-        var blocks = document.querySelectorAll('.main [data-testid="stHorizontalBlock"]');
-        if (blocks.length > 0) {
-            // The first horizontal block is the nav bar
-            blocks[0].style.display = 'none';
-        }
-    }
-    // Run on load and on resize
-    hideNavOnMobile();
-    window.addEventListener('resize', hideNavOnMobile);
-    // Also run after Streamlit finishes rendering
-    var mo = new MutationObserver(function() { hideNavOnMobile(); });
-    mo.observe(document.body, {childList: true, subtree: true});
-    // Stop observing after 10s to save resources
-    setTimeout(function() { mo.disconnect(); }, 10000);
-})();
-</script>
-""", unsafe_allow_html=True)
 # When a user clicks a button inside a popover, close the popover immediately
 # instead of requiring a manual click outside
 st.markdown("""
@@ -11465,65 +11323,8 @@ if selected_page == "🏠 Dashboard":
     if st.session_state.get('show_tour', False):
         show_app_tour()
     
-    # ============= VISUAL WELCOME CARDS — Eye candy for new visitors =============
-    # Hidden on mobile for cleaner experience
-    st.markdown("""
-    <style>
-    @media screen and (max-width: 768px) {
-        .welcome-cards-grid { display: none !important; }
-    }
-    </style>
-    <div class="welcome-cards-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 28px;">
-        <!-- Card 1: Analyze -->
-        <div style="background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%); border-radius: 16px; padding: 22px 18px; text-align: center; border: 1px solid rgba(255,75,75,0.15); transition: transform 0.3s; cursor: default;">
-            <div style="font-size: 40px; margin-bottom: 8px;">📊</div>
-            <div style="font-size: 15px; font-weight: 700; color: #FFFFFF; margin-bottom: 4px;">Analyze Any Stock</div>
-            <div style="font-size: 12px; color: #9a9aad; line-height: 1.4;">Type a ticker, get instant AI-powered insights in plain English</div>
-            <div style="margin-top: 10px;">
-                <svg viewBox="0 0 160 35" style="width: 100%; height: 28px;">
-                    <path d="M0,28 Q20,26 35,20 T70,18 T105,10 T140,14 T160,6" fill="none" stroke="#22c55e" stroke-width="2" opacity="0.7"/>
-                    <path d="M0,30 Q20,28 35,24 T70,26 T105,20 T140,22 T160,16" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1" stroke-dasharray="3 3"/>
-                </svg>
-            </div>
-        </div>
-        <!-- Card 2: Learn -->
-        <div style="background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%); border-radius: 16px; padding: 22px 18px; text-align: center; border: 1px solid rgba(59,130,246,0.15); transition: transform 0.3s; cursor: default;">
-            <div style="font-size: 40px; margin-bottom: 8px;">🎓</div>
-            <div style="font-size: 15px; font-weight: 700; color: #FFFFFF; margin-bottom: 4px;">55+ Lessons</div>
-            <div style="font-size: 12px; color: #9a9aad; line-height: 1.4;">From "What is a stock?" to reading balance sheets — earn XP as you go</div>
-            <div style="margin-top: 10px; background: rgba(255,255,255,0.06); border-radius: 100px; height: 8px; overflow: hidden;">
-                <div style="background: linear-gradient(90deg, #3b82f6, #22c55e); height: 100%; width: 35%; border-radius: 100px;"></div>
-            </div>
-            <div style="font-size: 10px; color: #9a9aad; margin-top: 4px;">Your progress</div>
-        </div>
-        <!-- Card 3: Risk Quiz -->
-        <div style="background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%); border-radius: 16px; padding: 22px 18px; text-align: center; border: 1px solid rgba(255,215,0,0.15); transition: transform 0.3s; cursor: default;">
-            <div style="font-size: 40px; margin-bottom: 8px;">🧠</div>
-            <div style="font-size: 15px; font-weight: 700; color: #FFFFFF; margin-bottom: 4px;">Risk Quiz</div>
-            <div style="font-size: 12px; color: #9a9aad; line-height: 1.4;">Find out what kind of investor you are — get personalized suggestions</div>
-            <div style="display: flex; justify-content: center; gap: 6px; margin-top: 10px;">
-                <span style="background: rgba(34,197,94,0.15); color: #22c55e; padding: 3px 10px; border-radius: 100px; font-size: 10px; font-weight: 600;">Conservative</span>
-                <span style="background: rgba(255,215,0,0.15); color: #FFD700; padding: 3px 10px; border-radius: 100px; font-size: 10px; font-weight: 600;">Moderate</span>
-                <span style="background: rgba(255,68,68,0.15); color: #FF4444; padding: 3px 10px; border-radius: 100px; font-size: 10px; font-weight: 600;">Aggressive</span>
-            </div>
-        </div>
-        <!-- Card 4: Paper Portfolio -->
-        <div style="background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%); border-radius: 16px; padding: 22px 18px; text-align: center; border: 1px solid rgba(34,197,94,0.15); transition: transform 0.3s; cursor: default;">
-            <div style="font-size: 40px; margin-bottom: 8px;">💼</div>
-            <div style="font-size: 15px; font-weight: 700; color: #FFFFFF; margin-bottom: 4px;">Paper Portfolio</div>
-            <div style="font-size: 12px; color: #9a9aad; line-height: 1.4;">Practice trading with $100K fake money — zero risk, real learning</div>
-            <div style="margin-top: 10px;">
-                <svg viewBox="0 0 80 80" style="width: 52px; height: 52px; margin: 0 auto; display: block;">
-                    <circle cx="40" cy="40" r="32" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="8"/>
-                    <circle cx="40" cy="40" r="32" fill="none" stroke="#FF4B4B" stroke-width="8" stroke-dasharray="60 141" stroke-linecap="round" transform="rotate(-90 40 40)"/>
-                    <circle cx="40" cy="40" r="32" fill="none" stroke="#22c55e" stroke-width="8" stroke-dasharray="50 151" stroke-dashoffset="-60" stroke-linecap="round" transform="rotate(-90 40 40)"/>
-                    <circle cx="40" cy="40" r="32" fill="none" stroke="#3b82f6" stroke-width="8" stroke-dasharray="40 161" stroke-dashoffset="-110" stroke-linecap="round" transform="rotate(-90 40 40)"/>
-                    <text x="40" y="43" text-anchor="middle" fill="white" font-size="11" font-weight="700" font-family="monospace">+12%</text>
-                </svg>
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    # ============= VISUAL WELCOME CARDS — REMOVED =============
+    # Cards removed for cleaner dashboard experience
     
     # Unhinged comment for dashboard
     unhinged_dashboard = get_unhinged_comment("dashboard")
@@ -19363,6 +19164,19 @@ elif selected_page == "👤 Naman's Portfolio":
         
         st.caption(f"📈 Showing **{timeline_years}Y returns** vs S&P 500 (SPY: **{sp500_display}**) — adjust in sidebar Timeline")
         
+        # Column headers
+        hcol1, hcol2, hcol3, hcol4, hcol5 = st.columns([3, 1.5, 1.2, 1.5, 1])
+        with hcol1:
+            st.markdown("**Stock**")
+        with hcol2:
+            st.markdown("**Weight**")
+        with hcol3:
+            st.markdown(f"**{timeline_years}Y Return**")
+        with hcol4:
+            st.markdown(f"**S&P {timeline_years}Y**")
+        with hcol5:
+            st.markdown("**vs S&P**")
+        
         # Display ALL holdings with S&P comparison
         for i, holding in enumerate(ALL_HOLDINGS):
             logo_url = get_company_logo(holding["ticker"])
@@ -19473,6 +19287,19 @@ elif selected_page == "👤 Naman's Portfolio":
         
         st.caption(f"📈 Showing **{timeline_years}Y returns** vs S&P 500 (SPY: **{sp500_display}**) — adjust in sidebar Timeline")
         
+        # Column headers
+        hcol1, hcol2, hcol3, hcol4, hcol5 = st.columns([3, 1.5, 1.2, 1.5, 1])
+        with hcol1:
+            st.markdown("**Stock**")
+        with hcol2:
+            st.markdown("**Weight**")
+        with hcol3:
+            st.markdown(f"**{timeline_years}Y Return**")
+        with hcol4:
+            st.markdown(f"**S&P {timeline_years}Y**")
+        with hcol5:
+            st.markdown("**vs S&P**")
+        
         # Display FREE tier holdings with S&P comparison
         for i, holding in enumerate(FREE_TIER_HOLDINGS):
             logo_url = get_company_logo(holding["ticker"])
@@ -19540,29 +19367,8 @@ elif selected_page == "👤 Naman's Portfolio":
     st.markdown("## 📊 The Naman Analysis")
     st.markdown("*Detailed breakdowns of my top 3 conviction picks - visible to everyone.*")
     
-    # Pick #1: META
-    st.markdown("### 🏆 Pick #1: Meta Platforms (META) – The Digital Landlord")
-    st.markdown("""
-    **The Human Take:** People counted Meta out in 2022. They were wrong. Meta owns the most valuable "attention" on earth 
-    with 3.5 billion users. They aren't just an app company; they are an AI powerhouse. They are spending $100B on AI 
-    compute clusters—not because they're wasting money, but because they are building a wall so high that no competitor 
-    can ever climb it.
-    """)
-    
-    # META financials table
-    meta_data = {
-        "Year": ["2022", "2023", "2024"],
-        "Revenue": ["$116.6B", "$134.9B", "$164.5B"],
-        "Net Income": ["$23.2B", "$39.1B", "$62.4B"],
-        "Op Margin %": ["24.8%", "34.7%", "42.2%"],
-        "FCF": ["$50.5B", "$71.1B", "$91.3B"]
-    }
-    st.dataframe(pd.DataFrame(meta_data), use_container_width=True, hide_index=True)
-    
-    st.markdown("---")
-    
-    # Pick #2: NFLX
-    st.markdown("### 🏆 Pick #2: Netflix (NFLX) – The Predator of Streaming")
+    # Pick #1: NFLX
+    st.markdown("### 🏆 Pick #1: Netflix (NFLX) – The Predator of Streaming")
     st.markdown("""
     **The Human Take:** While everyone else is merging just to survive, Netflix is playing a different game. You hear rumors 
     about Paramount buying Warner Bros Discovery (WBD)—that's a "defensive" move because they are drowning in debt and losing 
@@ -19586,23 +19392,52 @@ elif selected_page == "👤 Naman's Portfolio":
     
     st.markdown("---")
     
-    # Pick #3: SPGI
-    st.markdown("### 🏆 Pick #3: S&P Global (SPGI) – The Financial Toll Booth")
+    # Pick #2: META
+    st.markdown("### 🏆 Pick #2: Meta Platforms (META) – The Digital Landlord")
     st.markdown("""
-    **The Human Take:** This is the ultimate "Monopoly" play. If a big company wants to borrow money, they must pay S&P Global 
-    for a credit rating. It is a legal toll booth that sits in the middle of the global financial system. 80% of their revenue 
-    is recurring—meaning they get paid every single year just for existing.
+    **The Human Take:** People counted Meta out in 2022. They were wrong. Meta owns the most valuable "attention" on earth 
+    with 3.5 billion users. They aren't just an app company; they are an AI powerhouse. They are spending $100B on AI 
+    compute clusters—not because they're wasting money, but because they are building a wall so high that no competitor 
+    can ever climb it.
     """)
     
-    # SPGI financials table
-    spgi_data = {
-        "Year": ["2021", "2022", "2023"],
-        "Revenue": ["$8.3B", "$11.2B", "$12.5B"],
-        "Net Income": ["$3.3B", "$3.5B", "$2.9B"],
-        "FCF": ["$3.6B", "$2.6B", "$3.7B"],
-        "Op Margin %": ["50.9%", "44.2%", "32.2%"]
+    # META financials table
+    meta_data = {
+        "Year": ["2022", "2023", "2024"],
+        "Revenue": ["$116.6B", "$134.9B", "$164.5B"],
+        "Net Income": ["$23.2B", "$39.1B", "$62.4B"],
+        "Op Margin %": ["24.8%", "34.7%", "42.2%"],
+        "FCF": ["$50.5B", "$71.1B", "$91.3B"]
     }
-    st.dataframe(pd.DataFrame(spgi_data), use_container_width=True, hide_index=True)
+    st.dataframe(pd.DataFrame(meta_data), use_container_width=True, hide_index=True)
+    
+    st.markdown("---")
+    
+    # Pick #3: AMZN
+    st.markdown("### 🏆 Pick #3: Amazon (AMZN) – The Margin Expansion Machine")
+    st.markdown("""
+    **The Human Take:** Amazon is the most misunderstood company on earth. For years, people looked at their thin margins and 
+    said "they don't make money." That was the plan. Bezos reinvested every dollar to build infrastructure nobody else can 
+    replicate—and now the margins are expanding rapidly. AWS alone prints $100B+ in annual revenue at 30%+ margins, 
+    and the retail side is finally turning profitable too.
+    
+    **The Strategy:** Amazon is deploying over 750,000 robots across its fulfillment network—more than any company on earth. 
+    This isn't just automation; it's a structural cost advantage that compounds every year. Every robot deployed means lower 
+    cost-per-package, fewer errors, and faster delivery. Competitors can't match this without spending a decade and tens of 
+    billions building it. Meanwhile, Amazon's operating margins went from 2% to 11% in three years and they're still climbing. 
+    Add in the AI tailwind for AWS (every company needs cloud + AI infrastructure) and you have a business that's simultaneously 
+    the backbone of internet commerce and the backbone of enterprise AI. That's a rare combination.
+    """)
+    
+    # AMZN financials table
+    amzn_data = {
+        "Year": ["2022", "2023", "2024"],
+        "Revenue": ["$514.0B", "$574.8B", "$638.0B"],
+        "Net Income": ["$-2.7B", "$30.4B", "$59.2B"],
+        "Op Margin %": ["2.4%", "6.4%", "11.0%"],
+        "FCF": ["$-11.6B", "$32.2B", "$38.2B"]
+    }
+    st.dataframe(pd.DataFrame(amzn_data), use_container_width=True, hide_index=True)
     
     # ============= BECOME A VIP CTA =============
     st.markdown("---")
