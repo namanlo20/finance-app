@@ -436,6 +436,10 @@
             .email-form .btn-primary { width: auto; white-space: nowrap; padding: 15px 28px; }
             .hero-cta-row { flex-direction: row; max-width: 480px; }
             .preview-grid { grid-template-columns: 1fr 1fr; }
+            .experience-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 639px) {
+            .experience-grid { grid-template-columns: 1fr; }
         }
         @media (min-width: 900px) {
             .feature-grid { grid-template-columns: 1fr 1fr 1fr; }
@@ -453,25 +457,46 @@
 </nav>
 
 <!-- HERO -->
-<section class="hero">
-    <div class="hero-badge"><span class="dot"></span> AI-Powered • 100% Educational</div>
-    <h1>Investing,<br><span class="red">made simple.</span></h1>
-    <p class="sub">AI-powered charts, technicals, and a personalized risk quiz — designed for people who want to learn investing, not get overwhelmed by Wall Street jargon.</p>
-    <div class="hero-cta-row">
-        <a href="https://app.aistockinvesting101.com" class="btn-primary">Start Free →</a>
-    </div>
-    <p class="hero-note">Free tier included · No credit card required</p>
-    
-    <!-- Desktop notice banner - PROMINENT -->
-    <div style="margin-top: 28px; padding: 18px 28px; background: linear-gradient(135deg, rgba(59,130,246,0.15) 0%, rgba(59,130,246,0.08) 100%); border: 2px solid rgba(59,130,246,0.4); border-radius: 14px; display: inline-flex; align-items: center; gap: 14px; animation: fadeUp 0.6s ease-out 0.5s both; max-width: 500px;">
-        <div style="font-size: 32px; flex-shrink: 0;">🖥️</div>
-        <div style="text-align: left;">
-            <div style="font-size: 15px; font-weight: 600; color: white; margin-bottom: 4px;">Best experienced on desktop</div>
-            <div style="font-size: 13px; color: var(--grey-text);">Sign up on mobile, then open on your laptop for full charts & AI analysis</div>
+<section class="hero" style="min-height: auto; padding: 120px 24px 60px;">
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; max-width: 1100px; margin: 0 auto; text-align: left;">
+        <!-- Left: Text content -->
+        <div>
+            <div class="hero-badge" style="margin-bottom: 24px;"><span class="dot"></span> AI-Powered • 100% Educational</div>
+            <h1 style="text-align: left;">Investing,<br><span class="red">made simple.</span></h1>
+            <p class="sub" style="text-align: left; margin: 20px 0 0 0;">AI-powered charts, technicals, and a personalized risk quiz — designed for people who want to learn investing, not get overwhelmed by Wall Street jargon.</p>
+            <div class="hero-cta-row" style="margin-top: 32px; justify-content: flex-start;">
+                <a href="https://app.aistockinvesting101.com" class="btn-primary">Start Free →</a>
+            </div>
+            <p class="hero-note" style="text-align: left;">Free tier included · No credit card required</p>
+            
+            <!-- Desktop notice banner - PROMINENT -->
+            <div style="margin-top: 24px; padding: 16px 20px; background: linear-gradient(135deg, rgba(59,130,246,0.15) 0%, rgba(59,130,246,0.08) 100%); border: 2px solid rgba(59,130,246,0.4); border-radius: 14px; display: flex; align-items: center; gap: 14px;">
+                <div style="font-size: 28px; flex-shrink: 0;">🖥️</div>
+                <div style="text-align: left;">
+                    <div style="font-size: 14px; font-weight: 600; color: white; margin-bottom: 2px;">Best experienced on desktop</div>
+                    <div style="font-size: 12px; color: var(--grey-text);">Sign up on mobile, open on laptop for full charts & AI</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Right: Hero image -->
+        <div style="position: relative;">
+            <img src="couple.png" alt="People learning to invest" style="width: 100%; height: auto; border-radius: 20px; box-shadow: 0 25px 50px rgba(0,0,0,0.4);">
+            <!-- Decorative glow -->
+            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80%; height: 80%; background: radial-gradient(circle, rgba(255,75,75,0.15) 0%, transparent 70%); z-index: -1; filter: blur(40px);"></div>
         </div>
     </div>
-
 </section>
+
+<!-- Mobile hero image (hidden on desktop) -->
+<style>
+    @media (max-width: 768px) {
+        .hero > div { grid-template-columns: 1fr !important; text-align: center !important; }
+        .hero h1, .hero .sub, .hero .hero-note { text-align: center !important; }
+        .hero .hero-cta-row { justify-content: center !important; }
+        .hero .hero-badge { justify-content: center; }
+    }
+</style>
 
 <!-- FEATURES — moved up right after hero -->
 <section class="features fade-in" id="features">
@@ -523,7 +548,7 @@
         <div style="font-size: 13px; color: var(--red); text-transform: uppercase; letter-spacing: 2px; font-weight: 600;">The Experience</div>
         <h2 style="font-size: clamp(24px, 5vw, 36px); font-weight: 700; letter-spacing: -1px; margin-top: 12px; line-height: 1.15;">Built for people who don't speak Wall Street</h2>
     </div>
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
+    <div class="experience-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
         
         <!-- Step 1: The Problem & Solution (Before/After) -->
         <div style="background: var(--dark-card); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 28px 24px; text-align: center;">
