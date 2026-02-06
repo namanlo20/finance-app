@@ -49,9 +49,11 @@
             display: flex; justify-content: space-between; align-items: center;
         }
         .nav-logo {
-            font-family: 'Space Mono', monospace;
-            font-size: 15px; font-weight: 700; color: var(--red);
-            letter-spacing: -0.5px;
+            display: flex; align-items: center;
+            text-decoration: none;
+        }
+        .nav-logo img {
+            height: 40px; width: auto; border-radius: 8px;
         }
         .nav-cta {
             background: var(--red); color: white;
@@ -444,19 +446,30 @@
 
 <!-- NAV -->
 <nav>
-    <div class="nav-logo">💰 Investing Made Simple</div>
+    <a href="/" class="nav-logo">
+        <img src="logo.png" alt="AI Stock Investing">
+    </a>
     <a href="https://app.aistockinvesting101.com" class="nav-cta">Join Free</a>
 </nav>
 
 <!-- HERO -->
 <section class="hero">
     <div class="hero-badge"><span class="dot"></span> AI-Powered • 100% Educational</div>
-    <h1>Stock analysis,<br><span class="red">explained simply.</span></h1>
-    <p class="sub">AI-powered charts, technicals, and a personalized risk quiz — all designed for people who want to learn investing, not get overwhelmed by it.</p>
+    <h1>Investing,<br><span class="red">made simple.</span></h1>
+    <p class="sub">AI-powered charts, technicals, and a personalized risk quiz — designed for people who want to learn investing, not get overwhelmed by Wall Street jargon.</p>
     <div class="hero-cta-row">
         <a href="https://app.aistockinvesting101.com" class="btn-primary">Start Free →</a>
     </div>
     <p class="hero-note">Free tier included · No credit card required</p>
+    
+    <!-- Desktop notice banner - PROMINENT -->
+    <div style="margin-top: 28px; padding: 18px 28px; background: linear-gradient(135deg, rgba(59,130,246,0.15) 0%, rgba(59,130,246,0.08) 100%); border: 2px solid rgba(59,130,246,0.4); border-radius: 14px; display: inline-flex; align-items: center; gap: 14px; animation: fadeUp 0.6s ease-out 0.5s both; max-width: 500px;">
+        <div style="font-size: 32px; flex-shrink: 0;">🖥️</div>
+        <div style="text-align: left;">
+            <div style="font-size: 15px; font-weight: 600; color: white; margin-bottom: 4px;">Best experienced on desktop</div>
+            <div style="font-size: 13px; color: var(--grey-text);">Sign up on mobile, then open on your laptop for full charts & AI analysis</div>
+        </div>
+    </div>
 
 </section>
 
@@ -511,10 +524,12 @@
         <h2 style="font-size: clamp(24px, 5vw, 36px); font-weight: 700; letter-spacing: -1px; margin-top: 12px; line-height: 1.15;">Built for people who don't speak Wall Street</h2>
     </div>
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
-        <!-- Visual 1: Before/After -->
+        
+        <!-- Step 1: The Problem & Solution (Before/After) -->
         <div style="background: var(--dark-card); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 28px 24px; text-align: center;">
-            <div style="font-size: 48px; margin-bottom: 16px;">😵‍💫</div>
-            <div style="font-size: 13px; font-weight: 600; color: var(--red); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Before</div>
+            <div style="font-size: 11px; font-weight: 700; color: var(--red); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 16px; opacity: 0.7;">Step 1</div>
+            <div style="font-size: 48px; margin-bottom: 12px;">😵‍💫</div>
+            <div style="font-size: 13px; font-weight: 600; color: var(--red); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Confusing jargon</div>
             <div style="background: rgba(255,255,255,0.04); border-radius: 10px; padding: 14px; margin-bottom: 16px;">
                 <div style="font-family: 'Space Mono'; font-size: 11px; color: var(--grey-text); line-height: 1.8; text-align: left;">
                     EBITDA margin compression...<br>
@@ -523,9 +538,9 @@
                     <span style="color: rgba(255,255,255,0.2);">???</span>
                 </div>
             </div>
-            <div style="font-size: 32px; margin: 8px 0;">↓</div>
-            <div style="font-size: 48px; margin-bottom: 16px;">😎</div>
-            <div style="font-size: 13px; font-weight: 600; color: var(--green-accent); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">After</div>
+            <div style="font-size: 28px; margin: 8px 0;">↓</div>
+            <div style="font-size: 48px; margin-bottom: 12px;">😎</div>
+            <div style="font-size: 13px; font-weight: 600; color: var(--green-accent); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Plain English</div>
             <div style="background: rgba(34,197,94,0.06); border: 1px solid rgba(34,197,94,0.15); border-radius: 10px; padding: 14px;">
                 <div style="font-size: 13px; color: var(--white); line-height: 1.7; text-align: left;">
                     ✅ Company makes <b>more</b> than it spends<br>
@@ -534,9 +549,11 @@
                 </div>
             </div>
         </div>
-        <!-- Visual 2: Live-feel mockup -->
+        
+        <!-- Step 2: How We Explain (AI Friend) -->
         <div style="background: var(--dark-card); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 28px 24px; text-align: center;">
-            <div style="font-size: 48px; margin-bottom: 16px;">💬</div>
+            <div style="font-size: 11px; font-weight: 700; color: var(--red); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 16px; opacity: 0.7;">Step 2</div>
+            <div style="font-size: 48px; margin-bottom: 12px;">💬</div>
             <div style="font-size: 15px; font-weight: 600; color: var(--white); margin-bottom: 16px;">AI explains like a friend</div>
             <div style="text-align: left;">
                 <div style="background: rgba(255,75,75,0.08); border-radius: 12px 12px 12px 2px; padding: 12px 14px; margin-bottom: 10px; font-size: 13px; color: var(--white); line-height: 1.5;">
@@ -550,10 +567,33 @@
                 </div>
             </div>
         </div>
-        <!-- Visual 3: Progress/Gamification -->
+        
+        <!-- Step 3: Interactive Learning (Ask AI) -->
         <div style="background: var(--dark-card); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 28px 24px; text-align: center;">
-            <div style="font-size: 48px; margin-bottom: 16px;">🏆</div>
-            <div style="font-size: 15px; font-weight: 600; color: var(--white); margin-bottom: 16px;">Learn & earn XP</div>
+            <div style="font-size: 11px; font-weight: 700; color: var(--red); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 16px; opacity: 0.7;">Step 3</div>
+            <div style="font-size: 48px; margin-bottom: 12px;">🤖</div>
+            <div style="font-size: 15px; font-weight: 600; color: var(--white); margin-bottom: 16px;">Ask anything, anytime</div>
+            <div style="text-align: left;">
+                <div style="background: rgba(255,255,255,0.04); border-radius: 12px 12px 12px 2px; padding: 12px 14px; margin-bottom: 10px; font-size: 13px; color: var(--grey-text); line-height: 1.5;">
+                    "What's a good P/E ratio for tech stocks?"
+                </div>
+                <div style="background: rgba(255,75,75,0.1); border: 1px solid rgba(255,75,75,0.2); border-radius: 12px 12px 2px 12px; padding: 12px 14px; margin-bottom: 10px; font-size: 13px; color: var(--white); line-height: 1.5; margin-left: 20px;">
+                    "Tech stocks often trade at higher P/Es (20-40+) because investors expect faster growth. Compare to peers! 📊"
+                </div>
+                <div style="background: rgba(255,255,255,0.04); border-radius: 12px 12px 12px 2px; padding: 12px 14px; font-size: 13px; color: var(--grey-text); line-height: 1.5;">
+                    "Is NVDA overvalued right now?"
+                </div>
+                <div style="background: rgba(255,75,75,0.1); border: 1px solid rgba(255,75,75,0.2); border-radius: 12px 12px 2px 12px; padding: 12px 14px; font-size: 13px; color: var(--white); line-height: 1.5; margin-left: 20px;">
+                    "Let me show you the fundamentals and what analysts think! 🔍"
+                </div>
+            </div>
+        </div>
+        
+        <!-- Step 4: Track Progress (XP & Gamification) -->
+        <div style="background: var(--dark-card); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 28px 24px; text-align: center;">
+            <div style="font-size: 11px; font-weight: 700; color: var(--red); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 16px; opacity: 0.7;">Step 4</div>
+            <div style="font-size: 48px; margin-bottom: 12px;">🏆</div>
+            <div style="font-size: 15px; font-weight: 600; color: var(--white); margin-bottom: 16px;">Track your progress</div>
             <!-- Progress bar -->
             <div style="background: rgba(255,255,255,0.06); border-radius: 100px; height: 12px; margin-bottom: 20px; overflow: hidden;">
                 <div style="background: linear-gradient(90deg, var(--red), #FFD700); height: 100%; width: 65%; border-radius: 100px; transition: width 1s;"></div>
@@ -722,15 +762,6 @@
             </ul>
             <a href="https://app.aistockinvesting101.com" class="btn-secondary" style="margin-top: 8px;">Get Started</a>
         </div>
-    </div>
-</section>
-
-<!-- DESKTOP CALLOUT -->
-<section class="desktop-callout fade-in">
-    <div class="desktop-callout-box">
-        <div class="emoji">🖥️</div>
-        <h3>Best on desktop</h3>
-        <p>Sign up here on your phone, and we'll send you a link to open on your laptop or desktop — where charts, AI analysis, and portfolio tools really shine.</p>
     </div>
 </section>
 
