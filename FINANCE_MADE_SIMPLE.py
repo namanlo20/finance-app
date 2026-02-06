@@ -193,7 +193,17 @@ st.markdown("""
 @media screen and (max-width: 768px) {
     /* ============= MOBILE APP-LIKE EXPERIENCE ============= */
     
-    /* Force hide ALL horizontal blocks that are the navbar */
+    /* HIDE the entire top navigation bar on mobile */
+    .main > [data-testid="stVerticalBlock"] > [data-testid="stHorizontalBlock"]:first-of-type {
+        display: none !important;
+    }
+    
+    /* Hide the fixed top-header bar */
+    .top-header {
+        display: none !important;
+    }
+    
+    /* Generic horizontal blocks (non-nav) should stack */
     .main [data-testid="stHorizontalBlock"] {
         flex-direction: column !important;
         gap: 0.5rem !important;
@@ -206,19 +216,31 @@ st.markdown("""
         max-width: 100% !important;
     }
     
-    /* Sidebar - clean slide-out */
+    /* Sidebar - FULL SCREEN overlay on mobile */
     [data-testid="stSidebar"] {
-        min-width: 85vw !important;
-        max-width: 85vw !important;
+        min-width: 100vw !important;
+        max-width: 100vw !important;
+        width: 100vw !important;
         background: #FFFFFF !important;
-        box-shadow: 4px 0 20px rgba(0,0,0,0.15) !important;
-        z-index: 9999 !important;
+        box-shadow: none !important;
+        z-index: 999999 !important;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        height: 100vh !important;
+        overflow-y: auto !important;
+        transition: transform 0.3s ease !important;
     }
     
     [data-testid="stSidebar"][aria-expanded="false"] {
         min-width: 0px !important;
         width: 0px !important;
         transform: translateX(-100%) !important;
+    }
+    
+    [data-testid="stSidebar"] > div:first-child {
+        width: 100% !important;
+        padding: 20px !important;
     }
     
     /* Main content - full width, clean padding */
@@ -3293,9 +3315,22 @@ def get_user_tier():
     if st.session_state.get('is_founder'):
         return "ultimate"
     
-    # Check session state for tier
+    # Check session state for tier (already loaded)
     if st.session_state.get('user_tier'):
         return st.session_state.user_tier
+    
+    # If logged in, try to fetch tier from Supabase profiles table
+    if st.session_state.get('is_logged_in') and st.session_state.get('user_id'):
+        try:
+            if SUPABASE_ENABLED:
+                result = supabase.table("profiles").select("tier").eq("id", st.session_state.user_id).single().execute()
+                if result.data and result.data.get("tier"):
+                    tier = result.data["tier"]
+                    if tier in ["pro", "ultimate"]:
+                        st.session_state.user_tier = tier
+                        return tier
+        except:
+            pass
     
     # Default to free tier
     return "free"
@@ -3475,37 +3510,46 @@ def get_stripe_customer_portal_link():
     return None
 
 def update_user_tier_after_payment(user_email, new_tier):
-    """Update user's tier in Supabase after successful Stripe payment"""
-    if not SUPABASE_URL or not SUPABASE_KEY:
+    """Update user's tier in Supabase profiles table after successful Stripe payment"""
+    if not SUPABASE_ENABLED:
         return False, "Database not configured"
     
     try:
+        # Find the user by email in auth (need user_id to update profiles)
+        # First try: update profiles directly using email match
+        # The profiles table is keyed by user id, so we need to find the user first
+        
+        # Approach: Use Supabase admin to find user by email, then update profiles
+        # For now, update via REST API matching on email in profiles
         headers = {
             "apikey": SUPABASE_KEY,
             "Authorization": f"Bearer {SUPABASE_KEY}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "Prefer": "return=minimal"
         }
         
-        # Update user metadata with new tier
-        # Note: This requires a Supabase Edge Function or webhook in production
-        # For now, this updates a 'subscriptions' table
-        data = {
-            "email": user_email.lower().strip(),
-            "tier": new_tier,
-            "subscribed_at": datetime.now().isoformat(),
-            "status": "active"
-        }
+        # Update profiles table where email matches
+        # First, we need to find the user_id from auth - use service role key
+        clean_email = user_email.lower().strip()
         
-        response = requests.post(
-            f"{SUPABASE_URL}/rest/v1/subscriptions",
+        # Try updating profiles by matching against the auth user
+        # Since profiles.id = auth.users.id, and we have email, 
+        # we update the profile that belongs to this email's user
+        response = requests.patch(
+            f"{SUPABASE_URL}/rest/v1/profiles?email=eq.{clean_email}",
             headers=headers,
-            json=data,
+            json={
+                "tier": new_tier,
+                "tier_updated_at": datetime.now().isoformat()
+            },
             timeout=10
         )
         
         if response.status_code in [200, 201, 204]:
             return True, "Tier updated"
-        return False, f"Error: {response.status_code}"
+        
+        # Fallback: If profiles doesn't have email column, log for manual update
+        return False, f"Could not update tier automatically. Status: {response.status_code}"
     except Exception as e:
         return False, str(e)
 
@@ -3954,15 +3998,18 @@ MOBILE_CSS = """
         margin: 5px 0 !important;
     }
     
-    /* Hide sidebar on mobile by default */
+    /* Hide sidebar on mobile by default - use bottom nav instead */
     [data-testid="stSidebar"] {
         min-width: 0px !important;
         max-width: 0px !important;
+        transform: translateX(-100%) !important;
     }
     
     [data-testid="stSidebar"][aria-expanded="true"] {
-        min-width: 280px !important;
-        max-width: 280px !important;
+        min-width: 100vw !important;
+        max-width: 100vw !important;
+        width: 100vw !important;
+        transform: translateX(0) !important;
     }
 }
 
@@ -6876,11 +6923,13 @@ def render_ai_chatbot():
     
     # Add logo and prominent button in sidebar
     with st.sidebar:
-        # LOGO at top of sidebar (like Apple)
+        # LOGO at top of sidebar - CENTERED
         try:
-            st.image("logo.png", width=150)
+            col_logo1, col_logo2, col_logo3 = st.columns([1, 3, 1])
+            with col_logo2:
+                st.image("logo.png", width=150)
         except:
-            st.markdown('<div style="font-weight:700; color:#FF4444; font-size:1.1rem; margin-bottom:10px;">📈 STOCKINVESTING.AI</div>', unsafe_allow_html=True)
+            st.markdown('<div style="font-weight:700; color:#FF4444; font-size:1.1rem; margin-bottom:10px; text-align:center;">📈 STOCKINVESTING.AI</div>', unsafe_allow_html=True)
         
         st.markdown("---")
         # AI Assistant button - FREE FOR ALL - BOLD, GLOWING, ATTENTION-GRABBING
@@ -9197,6 +9246,47 @@ chat_param = st.query_params.get("open_chat")
 if isinstance(chat_param, (list, tuple)):
     chat_param = chat_param[0] if chat_param else None
 
+# ============= STRIPE PAYMENT SUCCESS HANDLER =============
+payment_param = st.query_params.get("payment")
+payment_tier = st.query_params.get("tier")
+if isinstance(payment_param, (list, tuple)):
+    payment_param = payment_param[0] if payment_param else None
+if isinstance(payment_tier, (list, tuple)):
+    payment_tier = payment_tier[0] if payment_tier else None
+
+if payment_param == "success" and payment_tier in ["pro", "ultimate"]:
+    # Set tier in session state immediately
+    st.session_state.user_tier = payment_tier
+    
+    # Update in Supabase if logged in
+    if st.session_state.get('is_logged_in'):
+        user_email = st.session_state.get('user_email', '')
+        user_id = st.session_state.get('user_id', '')
+        if user_id and SUPABASE_ENABLED:
+            try:
+                supabase.table("profiles").upsert({
+                    "id": user_id,
+                    "tier": payment_tier,
+                    "tier_updated_at": datetime.now().isoformat()
+                }).execute()
+            except:
+                pass
+    
+    # Clean up query params
+    if "payment" in st.query_params:
+        del st.query_params["payment"]
+    if "tier" in st.query_params:
+        del st.query_params["tier"]
+    
+    st.session_state.payment_just_succeeded = payment_tier
+    st.rerun()
+
+# Show payment success toast if just upgraded
+if st.session_state.get('payment_just_succeeded'):
+    tier_name = st.session_state.payment_just_succeeded
+    st.toast(f"🎉 Welcome to {tier_name.title()}! Your premium features are now active.", icon="👑")
+    del st.session_state.payment_just_succeeded
+
 if chat_param == "1":
     st.session_state.chatbot_open = True
     if "open_chat" in st.query_params:
@@ -9209,6 +9299,21 @@ if action_param:
 
 if action_param == "signup":
     st.session_state.show_signup_popup = True
+    if "nav_action" in st.query_params:
+        del st.query_params["nav_action"]
+    st.rerun()
+elif action_param == "dashboard":
+    st.session_state.selected_page = "🏠 Dashboard"
+    if "nav_action" in st.query_params:
+        del st.query_params["nav_action"]
+    st.rerun()
+elif action_param == "analyze":
+    st.session_state.selected_page = "📊 Company Analysis"
+    if "nav_action" in st.query_params:
+        del st.query_params["nav_action"]
+    st.rerun()
+elif action_param == "learn":
+    st.session_state.selected_page = "🏠 Start Here"
     if "nav_action" in st.query_params:
         del st.query_params["nav_action"]
     st.rerun()
@@ -9239,6 +9344,13 @@ st.markdown(f"""
     align-items: center;
     gap: 15px;
     box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+}}
+
+/* MOBILE: Hide entire top nav area */
+@media screen and (max-width: 768px) {{
+    .top-header {{
+        display: none !important;
+    }}
 }}
 
 /* NAVIGATION BAR BUTTONS - Force text visibility */
@@ -9418,6 +9530,90 @@ else:
 
 # Add spacing for frozen bar
 st.markdown("<div style='margin-bottom: 80px;'></div>", unsafe_allow_html=True)
+
+# ============= MOBILE BOTTOM NAVIGATION BAR =============
+st.markdown("""
+<style>
+@media screen and (max-width: 768px) {
+    .mobile-bottom-nav {
+        display: flex !important;
+        position: fixed !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        z-index: 999998 !important;
+        background: #FFFFFF !important;
+        border-top: 1px solid #E5E7EB !important;
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.08) !important;
+        padding: 6px 0 env(safe-area-inset-bottom, 8px) 0 !important;
+        justify-content: space-around !important;
+        align-items: center !important;
+    }
+    .mobile-bottom-nav a {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        text-decoration: none !important;
+        color: #6B7280 !important;
+        font-size: 10px !important;
+        font-weight: 500 !important;
+        padding: 4px 8px !important;
+        border-radius: 8px !important;
+        min-width: 56px !important;
+    }
+    .mobile-bottom-nav a:active {
+        color: #CC0000 !important;
+        background: rgba(255,68,68,0.08) !important;
+    }
+    .mobile-bottom-nav .nav-icon { font-size: 20px !important; margin-bottom: 2px !important; }
+    .mobile-bottom-nav .nav-label { font-size: 10px !important; }
+    .main .block-container { padding-bottom: 80px !important; }
+}
+@media screen and (min-width: 769px) {
+    .mobile-bottom-nav { display: none !important; }
+}
+</style>
+<div class="mobile-bottom-nav">
+    <a href="?nav_action=dashboard">
+        <span class="nav-icon">🏠</span>
+        <span class="nav-label">Home</span>
+    </a>
+    <a href="?nav_action=analyze">
+        <span class="nav-icon">📊</span>
+        <span class="nav-label">Analyze</span>
+    </a>
+    <a href="?nav_action=learn">
+        <span class="nav-icon">📚</span>
+        <span class="nav-label">Learn</span>
+    </a>
+    <a href="?open_chat=1">
+        <span class="nav-icon">🤖</span>
+        <span class="nav-label">AI Chat</span>
+    </a>
+    <a href="?nav_action=vip">
+        <span class="nav-icon">👑</span>
+        <span class="nav-label">VIP</span>
+    </a>
+</div>
+""", unsafe_allow_html=True)
+
+# ============= JS: HIDE TOP NAV ON MOBILE (backup for CSS) =============
+st.markdown("""
+<script>
+(function() {
+    function hideNavOnMobile() {
+        if (window.innerWidth > 768) return;
+        var blocks = document.querySelectorAll('.main [data-testid="stHorizontalBlock"]');
+        if (blocks.length > 0) { blocks[0].style.display = 'none'; }
+    }
+    hideNavOnMobile();
+    window.addEventListener('resize', hideNavOnMobile);
+    var mo = new MutationObserver(function() { hideNavOnMobile(); });
+    mo.observe(document.body, {childList: true, subtree: true});
+    setTimeout(function() { mo.disconnect(); }, 10000);
+})();
+</script>
+""", unsafe_allow_html=True)
 
 # ============= FIX: AUTO-CLOSE POPOVER DROPDOWNS ON CLICK =============
 # When a user clicks a button inside a popover, close the popover immediately
@@ -9648,8 +9844,8 @@ st.markdown("""
     background-size: 200% 200%;
     animation: gradient-shift 15s ease infinite;
     border-radius: 20px;
-    padding: 50px 40px;
-    margin: 10px 0 30px 0;
+    padding: 30px 40px;
+    margin: 0 0 15px 0;
     position: relative;
     overflow: hidden;
     border: 2px solid #FF4444;
@@ -9660,8 +9856,8 @@ st.markdown("""
     background-size: 200% 200%;
     animation: gradient-shift 15s ease infinite;
     border-radius: 20px;
-    padding: 30px 40px;
-    margin: 10px 0 30px 0;
+    padding: 20px 40px;
+    margin: 0 0 15px 0;
     position: relative;
     overflow: hidden;
     border: 2px solid #FF4444;
@@ -19115,51 +19311,21 @@ elif selected_page == "👤 Naman's Portfolio":
         # Get timeline from sidebar for S&P comparison
         timeline_years = st.session_state.get('global_timeline', 5)
         
-        # Fetch S&P 500 return for the selected timeline
-        @st.cache_data(ttl=3600)
-        def get_sp500_return(years):
-            """Get S&P 500 % return over given years"""
+        # Calculate return using existing get_historical_price function
+        def calc_return_from_history(ticker, years):
+            """Calculate % return using the working get_historical_price function"""
             try:
-                url = f"{BASE_URL}/historical-price-eod/light?symbol=SPY&apikey={FMP_API_KEY}"
-                response = requests.get(url, timeout=15)
-                data = response.json()
-                if data and isinstance(data, list):
-                    df = pd.DataFrame(data)
-                    df['date'] = pd.to_datetime(df['date'])
-                    df = df.sort_values('date')
-                    cutoff = datetime.now() - timedelta(days=years*365)
-                    df_period = df[df['date'] >= cutoff]
-                    if len(df_period) >= 2:
-                        start_price = df_period.iloc[0]['close']
-                        end_price = df_period.iloc[-1]['close']
+                df = get_historical_price(ticker, years)
+                if df is not None and not df.empty and len(df) >= 2:
+                    start_price = df.iloc[0]['close']
+                    end_price = df.iloc[-1]['close']
+                    if start_price > 0:
                         return round(((end_price - start_price) / start_price) * 100, 1)
             except:
                 pass
             return None
         
-        # Fetch stock return for a ticker over given years
-        @st.cache_data(ttl=3600)
-        def get_stock_return(ticker, years):
-            """Get stock % return over given years"""
-            try:
-                url = f"{BASE_URL}/historical-price-eod/light?symbol={ticker}&apikey={FMP_API_KEY}"
-                response = requests.get(url, timeout=15)
-                data = response.json()
-                if data and isinstance(data, list):
-                    df = pd.DataFrame(data)
-                    df['date'] = pd.to_datetime(df['date'])
-                    df = df.sort_values('date')
-                    cutoff = datetime.now() - timedelta(days=years*365)
-                    df_period = df[df['date'] >= cutoff]
-                    if len(df_period) >= 2:
-                        start_price = df_period.iloc[0]['close']
-                        end_price = df_period.iloc[-1]['close']
-                        return round(((end_price - start_price) / start_price) * 100, 1)
-            except:
-                pass
-            return None
-        
-        sp500_return = get_sp500_return(timeline_years)
+        sp500_return = calc_return_from_history("SPY", timeline_years)
         sp500_display = f"{sp500_return:+.1f}%" if sp500_return is not None else "N/A"
         
         st.caption(f"📈 Showing **{timeline_years}Y returns** vs S&P 500 (SPY: **{sp500_display}**) — adjust in sidebar Timeline")
@@ -19180,7 +19346,7 @@ elif selected_page == "👤 Naman's Portfolio":
         # Display ALL holdings with S&P comparison
         for i, holding in enumerate(ALL_HOLDINGS):
             logo_url = get_company_logo(holding["ticker"])
-            stock_return = get_stock_return(holding["ticker"], timeline_years)
+            stock_return = calc_return_from_history(holding["ticker"], timeline_years)
             
             col1, col2, col3, col4, col5 = st.columns([3, 1.5, 1.2, 1.5, 1])
             
@@ -19239,50 +19405,21 @@ elif selected_page == "👤 Naman's Portfolio":
         # Get timeline from sidebar for S&P comparison
         timeline_years = st.session_state.get('global_timeline', 5)
         
-        # Fetch S&P 500 return for the selected timeline
-        @st.cache_data(ttl=3600)
-        def get_sp500_return_free(years):
-            """Get S&P 500 % return over given years"""
+        # Calculate return using existing get_historical_price function
+        def calc_return_from_history_free(ticker, years):
+            """Calculate % return using the working get_historical_price function"""
             try:
-                url = f"{BASE_URL}/historical-price-eod/light?symbol=SPY&apikey={FMP_API_KEY}"
-                response = requests.get(url, timeout=15)
-                data = response.json()
-                if data and isinstance(data, list):
-                    df = pd.DataFrame(data)
-                    df['date'] = pd.to_datetime(df['date'])
-                    df = df.sort_values('date')
-                    cutoff = datetime.now() - timedelta(days=years*365)
-                    df_period = df[df['date'] >= cutoff]
-                    if len(df_period) >= 2:
-                        start_price = df_period.iloc[0]['close']
-                        end_price = df_period.iloc[-1]['close']
+                df = get_historical_price(ticker, years)
+                if df is not None and not df.empty and len(df) >= 2:
+                    start_price = df.iloc[0]['close']
+                    end_price = df.iloc[-1]['close']
+                    if start_price > 0:
                         return round(((end_price - start_price) / start_price) * 100, 1)
             except:
                 pass
             return None
         
-        @st.cache_data(ttl=3600)
-        def get_stock_return_free(ticker, years):
-            """Get stock % return over given years"""
-            try:
-                url = f"{BASE_URL}/historical-price-eod/light?symbol={ticker}&apikey={FMP_API_KEY}"
-                response = requests.get(url, timeout=15)
-                data = response.json()
-                if data and isinstance(data, list):
-                    df = pd.DataFrame(data)
-                    df['date'] = pd.to_datetime(df['date'])
-                    df = df.sort_values('date')
-                    cutoff = datetime.now() - timedelta(days=years*365)
-                    df_period = df[df['date'] >= cutoff]
-                    if len(df_period) >= 2:
-                        start_price = df_period.iloc[0]['close']
-                        end_price = df_period.iloc[-1]['close']
-                        return round(((end_price - start_price) / start_price) * 100, 1)
-            except:
-                pass
-            return None
-        
-        sp500_return = get_sp500_return_free(timeline_years)
+        sp500_return = calc_return_from_history_free("SPY", timeline_years)
         sp500_display = f"{sp500_return:+.1f}%" if sp500_return is not None else "N/A"
         
         st.caption(f"📈 Showing **{timeline_years}Y returns** vs S&P 500 (SPY: **{sp500_display}**) — adjust in sidebar Timeline")
@@ -19303,7 +19440,7 @@ elif selected_page == "👤 Naman's Portfolio":
         # Display FREE tier holdings with S&P comparison
         for i, holding in enumerate(FREE_TIER_HOLDINGS):
             logo_url = get_company_logo(holding["ticker"])
-            stock_return = get_stock_return_free(holding["ticker"], timeline_years)
+            stock_return = calc_return_from_history_free(holding["ticker"], timeline_years)
             
             col1, col2, col3, col4, col5 = st.columns([3, 1.5, 1.2, 1.5, 1])
             
