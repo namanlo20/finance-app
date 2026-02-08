@@ -1216,15 +1216,15 @@ def show_newsletter_capture(location="sidebar"):
             margin: 15px 0;
             border: 1px solid #81C784;
         ">
-            <h4 style="color: #2E7D32; margin: 0 0 8px 0;">📰 Get Weekly Investing Insights</h4>
-            <p style="color: #388E3C; margin: 0; font-size: 14px;">Join 500+ investors getting smarter every week. Free forever.</p>
+            <h4 style="color: #2E7D32; margin: 0 0 8px 0;">📰 Subscribe to Substack (Free)</h4>
+            <p style="color: #388E3C; margin: 0; font-size: 14px;">Weekly stock analysis breakdowns, macro events & business insights. Free forever.</p>
         </div>
         """, unsafe_allow_html=True)
         if st.button("📬 Subscribe Free", key=f"newsletter_{location}", type="primary", use_container_width=True):
             st.markdown("[Click here to subscribe](https://namanlohia.substack.com/?r=m4i55&utm_campaign=pub-share-checklist)")
     else:
-        st.info("📰 **Free Newsletter** - Get weekly investing insights!")
-        st.link_button("Subscribe", "https://namanlohia.substack.com/?r=m4i55&utm_campaign=pub-share-checklist", use_container_width=True)
+        st.info("📰 **Subscribe to Substack** - Free weekly stock breakdowns & macro analysis!")
+        st.link_button("Subscribe (Free)", "https://namanlohia.substack.com/?r=m4i55&utm_campaign=pub-share-checklist", use_container_width=True)
 
 
 def show_share_analysis(ticker, analysis_summary=None):
@@ -1280,8 +1280,8 @@ def show_referral_program():
         <div style="display: flex; align-items: center; margin-bottom: 15px;">
             <span style="font-size: 40px; margin-right: 15px;">🎁</span>
             <div>
-                <h3 style="margin: 0; color: #E65100;">Invite Friends, Get Rewards!</h3>
-                <p style="margin: 5px 0 0 0; color: #F57C00;">Give 1 month free, get 1 month free when they upgrade</p>
+                <h3 style="margin: 0; color: #E65100;">Invite Friends, Get Extra Free Months!</h3>
+                <p style="margin: 5px 0 0 0; color: #F57C00;">Your friend gets 1 extra free month. When they upgrade, you get 1 extra free month too!</p>
             </div>
         </div>
         <div style="
@@ -3429,7 +3429,7 @@ def show_limit_warning(current, limit, feature_name):
 
 # ============= STRIPE PAYMENT FUNCTIONS =============
 def create_stripe_checkout_session(user_email, tier="pro"):
-    """Create a Stripe Checkout session for subscription"""
+    """Create a Stripe Checkout session for subscription with free trial"""
     if not STRIPE_SECRET_KEY:
         return None, "Stripe not configured"
     
@@ -3442,27 +3442,116 @@ def create_stripe_checkout_session(user_email, tier="pro"):
         if not price_id:
             return None, "Price ID not configured"
         
+        # Check if user is eligible for free trial (new users get 30 days free)
+        trial_days = get_trial_days_for_user(user_email)
+        
         # Create checkout session
-        session = stripe.checkout.Session.create(
-            payment_method_types=['card'],
-            line_items=[{
+        checkout_params = {
+            'payment_method_types': ['card'],
+            'line_items': [{
                 'price': price_id,
                 'quantity': 1,
             }],
-            mode='subscription',
-            success_url=f"https://aistockinvesting101.com?payment=success&tier={tier}",
-            cancel_url="https://aistockinvesting101.com?payment=cancelled",
-            customer_email=user_email,
-            metadata={
+            'mode': 'subscription',
+            'success_url': f"https://aistockinvesting101.com?payment=success&tier={tier}",
+            'cancel_url': "https://aistockinvesting101.com?payment=cancelled",
+            'customer_email': user_email,
+            'metadata': {
                 'tier': tier,
                 'user_email': user_email
             }
-        )
+        }
+        
+        # Add trial period if eligible
+        if trial_days > 0:
+            checkout_params['subscription_data'] = {
+                'trial_period_days': trial_days
+            }
+        
+        session = stripe.checkout.Session.create(**checkout_params)
         return session.url, "Success"
     except ImportError:
         return None, "Stripe library not installed (pip install stripe)"
     except Exception as e:
         return None, str(e)
+
+
+def get_trial_days_for_user(user_email):
+    """Calculate trial days for a user: 30 days for new users, +30 for referral bonus"""
+    base_trial = 30  # First month free for all new subscribers
+    referral_bonus = 0
+    
+    if SUPABASE_ENABLED and user_email:
+        try:
+            # Check if user has ever had a paid subscription before
+            headers = {
+                "apikey": SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+            }
+            # Check profiles for existing subscription history
+            resp = requests.get(
+                f"{SUPABASE_URL}/rest/v1/profiles?email=eq.{user_email}&select=tier,trial_used",
+                headers=headers
+            )
+            if resp.status_code == 200 and resp.json():
+                profile = resp.json()[0]
+                # If they've already used their trial, no free month
+                if profile.get('trial_used', False):
+                    base_trial = 0
+            
+            # Check if user was referred (referral gives extra 30 days)
+            resp2 = requests.get(
+                f"{SUPABASE_URL}/rest/v1/referrals?referred_email=eq.{user_email}&select=id",
+                headers=headers
+            )
+            if resp2.status_code == 200 and resp2.json():
+                referral_bonus = 30
+        except:
+            pass
+    
+    return base_trial + referral_bonus
+
+
+def mark_trial_used(user_email):
+    """Mark that a user has used their free trial"""
+    if SUPABASE_ENABLED and user_email:
+        try:
+            headers = {
+                "apikey": SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+                "Content-Type": "application/json",
+                "Prefer": "return=minimal"
+            }
+            requests.patch(
+                f"{SUPABASE_URL}/rest/v1/profiles?email=eq.{user_email}",
+                headers=headers,
+                json={"trial_used": True}
+            )
+        except:
+            pass
+
+
+def record_referral(referrer_email, referred_email):
+    """Record a referral and grant bonus trial days to referrer"""
+    if SUPABASE_ENABLED and referrer_email and referred_email:
+        try:
+            headers = {
+                "apikey": SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+                "Content-Type": "application/json",
+                "Prefer": "return=minimal"
+            }
+            requests.post(
+                f"{SUPABASE_URL}/rest/v1/referrals",
+                headers=headers,
+                json={
+                    "referrer_email": referrer_email,
+                    "referred_email": referred_email,
+                    "created_at": datetime.now().isoformat()
+                }
+            )
+        except:
+            pass
 
 def get_stripe_payment_link(tier="pro"):
     """Get the pre-configured Stripe payment link for a tier"""
@@ -7097,151 +7186,74 @@ TOUR_PAGES = [
     {
         "title": "🏠 Dashboard",
         "icon": "🏠",
-        "description": "Your personalized investing command center",
-        "features": [
-            "📌 **Pinned Watchlist** - Track your favorite stocks in real-time",
-            "📈 **Market Movers** - See what's hot (gainers) and what's not (losers)",
-            "📰 **Quick News** - Stay updated with latest market headlines",
-            "🔍 **Quick Search** - Type any company name or ticker to dive deeper"
-        ]
+        "subtitle": "Your home base",
+        "description": "Pin stocks to your watchlist, see today's market movers (gainers & losers), catch quick news headlines, and search any ticker instantly."
     },
     {
         "title": "📚 Learn Hub",
         "icon": "📚",
-        "description": "Master investing with 55+ interactive lessons",
-        "features": [
-            "🎮 **Gamified Learning** - Earn XP and badges as you progress",
-            "📊 **All Levels** - From beginner basics to advanced strategies",
-            "✅ **Quizzes** - Test your knowledge after each lesson",
-            "🏆 **Achievements** - Track your learning streak and milestones"
-        ]
+        "subtitle": "55+ interactive lessons",
+        "description": "Gamified learning from beginner to advanced. Earn XP, complete quizzes, and track your streak. No finance background needed."
     },
     {
         "title": "🎓 Finance 101",
         "icon": "🎓",
-        "description": "Bridge from lessons to real stock analysis",
-        "features": [
-            "🔗 **Theory → Practice** - Apply what you learned on real companies",
-            "📈 **Step-by-Step** - Walk through analysis of any stock",
-            "💡 **5 Key Metrics** - Understand P/E, Revenue Growth, Margins & more",
-            "🎯 **Guided Experience** - Perfect for beginners ready to analyze"
-        ]
+        "subtitle": "Theory → Practice",
+        "description": "Bridge what you learned to real stocks. Walk through P/E, revenue growth, margins & more on actual companies — step by step."
     },
     {
         "title": "🔍 Company Analysis",
         "icon": "🔍",
-        "description": "Deep dive into any stock with AI-powered insights",
-        "features": [
-            "📊 **Full Financials** - Revenue, earnings, cash flow, balance sheet",
-            "📈 **Interactive Charts** - Compare any stock vs S&P 500",
-            "🤖 **AI Explanations** - Complex metrics explained simply",
-            "🎯 **Price Targets** - See what Wall Street analysts think"
-        ]
+        "subtitle": "Deep dive any stock",
+        "description": "Full financials (revenue, earnings, cash flow), interactive charts vs S&P 500, AI explanations of complex metrics, and Wall Street price targets."
     },
     {
         "title": "⚖️ Compare Stocks",
         "icon": "⚖️",
-        "description": "Side-by-side comparison of two companies",
-        "features": [
-            "📊 **Head-to-Head** - Compare metrics side by side",
-            "📈 **Chart Overlay** - See price performance together",
-            "✅ **Winner Highlights** - Quickly see which company leads",
-            "💡 **Investment Decision Helper** - Make informed choices"
-        ]
+        "subtitle": "Head-to-head matchups",
+        "description": "Compare two companies side by side — metrics, chart overlay, and winner highlights to help you decide."
     },
     {
         "title": "📰 Market Intelligence",
         "icon": "📰",
-        "description": "Stay informed with AI-powered market insights",
-        "features": [
-            "🌡️ **VIX Fear Index** - Real-time market sentiment gauge",
-            "📅 **Earnings Calendar** - Upcoming earnings reports this week",
-            "📰 **Stock News** - Latest news for any company",
-            "🔔 **Market Alerts** - Important market-moving events"
-        ]
+        "subtitle": "Stay informed",
+        "description": "VIX fear gauge, this week's earnings calendar, stock-specific news, and market-moving alerts — all in one place."
     },
     {
         "title": "📊 Pro Checklist",
         "icon": "📊",
-        "description": "Professional-grade analysis tools",
-        "features": [
-            "📋 **Investment Checklist** - 10-point evaluation before buying",
-            "📈 **Technical Analysis** - RSI, Moving Averages, Support/Resistance",
-            "🖼️ **Chart Upload** - AI analyzes your chart screenshots",
-            "⚠️ **Risk Assessment** - Understand what could go wrong"
-        ]
+        "subtitle": "Pro tier feature",
+        "description": "10-point investment checklist, technical analysis (RSI, moving averages), AI chart screenshot analysis, and risk assessment. Requires Pro."
     },
     {
         "title": "👑 Ultimate",
         "icon": "👑",
-        "description": "Portfolio analysis and optimization",
-        "features": [
-            "📸 **Screenshot Analysis** - Upload your brokerage screenshot",
-            "🎯 **Diversification Score** - See if you're too concentrated",
-            "⚖️ **Risk Profile** - Match portfolio to your risk tolerance",
-            "💡 **AI Recommendations** - Personalized improvement suggestions"
-        ]
+        "subtitle": "Ultimate tier feature",
+        "description": "Upload brokerage screenshots for AI analysis, get diversification scores, match your risk profile, and receive personalized suggestions. Requires Ultimate."
     },
     {
         "title": "💼 Paper Portfolio",
         "icon": "💼",
-        "description": "Practice trading with $100K fake money",
-        "features": [
-            "💰 **$100,000 Starting Cash** - Risk-free paper trading",
-            "📊 **Track Performance** - See your YTD returns",
-            "🏆 **Benchmark vs SPY** - Compare against the market",
-            "👑 **Founder Portfolio** - See what the founder is buying"
-        ]
+        "subtitle": "Practice risk-free",
+        "description": "$100K fake money to paper trade. Track your returns, benchmark vs SPY, and peek at the founder's real portfolio."
     },
     {
-        "title": "🔐 Sign In / Sign Up",
-        "icon": "🔐",
-        "description": "Save your progress across devices",
-        "features": [
-            "☁️ **Cloud Sync** - Your watchlist, lessons, portfolio saved",
-            "📱 **Cross-Device** - Continue on phone, tablet, or computer",
-            "🔒 **Secure** - Industry-standard encryption",
-            "⚡ **Quick Setup** - Just email and password, no credit card"
-        ]
-    },
-    {
-        "title": "⏱️ Timeline (Left Panel)",
-        "icon": "⏱️",
-        "description": "Control how much history you see",
-        "features": [
-            "📅 **1-30 Years** - Slide to change history depth",
-            "📈 **Affects Charts** - All charts use this timeframe",
-            "📊 **Affects Metrics** - CAGR and returns calculated accordingly",
-            "💡 **Tip**: Start with 5Y for balanced view, 1Y for recent trends"
-        ]
-    },
-    {
-        "title": "🔥 Unhinged Mode",
-        "icon": "🔥",
-        "description": "Enable playful roast commentary",
-        "features": [
-            "😂 **Fun Roasts** - Witty comments about your stock picks",
-            "🎭 **Entertainment Only** - Don't take it too seriously!",
-            "🔞 **18+ Only** - Age-gated for mature humor",
-            "⚙️ **Toggle Anytime** - Turn on/off in the left sidebar"
-        ]
+        "title": "⚙️ Settings & Sidebar",
+        "icon": "⚙️",
+        "subtitle": "Left panel controls",
+        "description": "Sign in/up to sync across devices. Use the timeline slider (1-30Y) to control chart history. Toggle Unhinged Mode for fun roast commentary (18+)."
     },
     {
         "title": "👑 VIP Tiers",
         "icon": "👑",
-        "description": "Unlock premium features",
-        "features": [
-            "🆓 **Free Tier** - 3 pinned stocks, basic analysis",
-            "⭐ **Pro ($5/mo)** - 25 pins, advanced charts, AI insights",
-            "💎 **Ultimate ($10/mo)** - Unlimited, priority support",
-            "🎁 **Coming Soon** - Lifetime deals and family plans"
-        ]
+        "subtitle": "Free month for new users!",
+        "description": "Free → 3 pins, basic analysis. Pro ($5/mo) → 25 pins, advanced charts, AI insights. Ultimate ($10/mo) → unlimited + priority support. First month free for new subscribers!"
     }
 ]
 
-@st.dialog("🎯 App Tour", width="large")
+@st.dialog("🎯 App Tour", width="small")
 def show_app_tour():
-    """Interactive tour dialog showing all app features"""
+    """Interactive tour dialog showing all app features - condensed"""
     
     # Initialize tour page
     if 'tour_page' not in st.session_state:
@@ -7264,8 +7276,8 @@ def show_app_tour():
     .tour-progress {
         background: #333;
         border-radius: 10px;
-        height: 8px;
-        margin: 10px 0 20px 0;
+        height: 6px;
+        margin: 5px 0 10px 0;
     }
     .tour-progress-bar {
         background: linear-gradient(90deg, #FF4444, #FF6B6B);
@@ -7273,10 +7285,26 @@ def show_app_tour():
         height: 100%;
         transition: width 0.3s ease;
     }
-    .tour-icon {
-        font-size: 48px;
+    .tour-header {
         text-align: center;
-        margin-bottom: 10px;
+        margin-bottom: 8px;
+    }
+    .tour-header .icon {
+        font-size: 36px;
+    }
+    .tour-subtitle {
+        color: #FF6B6B !important;
+        font-size: 13px;
+        text-align: center;
+        margin: 0 0 8px 0;
+        font-style: italic;
+    }
+    .tour-desc {
+        color: #ddd !important;
+        font-size: 14px;
+        line-height: 1.5;
+        text-align: center;
+        padding: 0 10px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -7296,17 +7324,17 @@ def show_app_tour():
     # Page counter
     st.caption(f"Page {current_page + 1} of {total_pages}")
     
-    # Page content
-    st.markdown(f"<div class='tour-icon'>{page_data['icon']}</div>", unsafe_allow_html=True)
+    # Page content - condensed
+    st.markdown(f"""
+    <div class="tour-header">
+        <span class="icon">{page_data['icon']}</span>
+    </div>
+    """, unsafe_allow_html=True)
     st.markdown(f"## {page_data['title']}")
-    st.markdown(f"*{page_data['description']}*")
+    st.markdown(f"<p class='tour-subtitle'>{page_data['subtitle']}</p>", unsafe_allow_html=True)
+    st.markdown(f"<p class='tour-desc'>{page_data['description']}</p>", unsafe_allow_html=True)
     
-    st.markdown("---")
-    st.markdown("### ✨ Key Features:")
-    for feature in page_data['features']:
-        st.markdown(f"• {feature}")
-    
-    st.markdown("---")
+    st.markdown("")
     
     # Navigation buttons
     col1, col2, col3 = st.columns([1, 1, 1])
@@ -9925,8 +9953,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Hero section - CONDITIONAL based on current page
-# Dashboard gets full welcome version, other pages get simple version
+# Hero section - ONLY on Dashboard page
 if st.session_state.get('selected_page', '🏠 Dashboard') == '🏠 Dashboard':
     # FULL VERSION for Dashboard - includes welcome content
     st.markdown("""
@@ -9964,38 +9991,6 @@ if st.session_state.get('selected_page', '🏠 Dashboard') == '🏠 Dashboard':
                 <div class="welcome-feature">✅ <strong>Company Analysis</strong> - Deep dive into any stock</div>
                 <div class="welcome-feature">✅ <strong>Risk Quiz</strong> - Find your investor profile</div>
                 <div class="welcome-feature">✅ <strong>Learn</strong> - Master investing basics</div>
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-else:
-    # SIMPLE VERSION for other pages - just title, tagline, pills, and stats
-    st.markdown("""
-    <div class="hero-container-simple">
-        <h1 class="hero-title">💰 Investing Made Simple</h1>
-        <p class="hero-tagline">AI-Powered Stock Analysis for Everyone</p>
-        <div class="hero-features">
-            <span class="feature-pill">🤖 AI-Powered Insights</span>
-            <span class="feature-pill">📊 Real-Time Data</span>
-            <span class="feature-pill">🎯 Beginner Friendly</span>
-            <span class="feature-pill">📈 Pro Analytics</span>
-        </div>
-        <div class="stats-bar">
-            <div class="stat-item">
-                <div class="stat-number">10K+</div>
-                <div class="stat-label">Stocks</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-number">30Y</div>
-                <div class="stat-label">History</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-number">24/7</div>
-                <div class="stat-label">AI Help</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-number">FREE</div>
-                <div class="stat-label">To Start</div>
             </div>
         </div>
     </div>
@@ -10135,9 +10130,10 @@ with st.sidebar:
         
         st.markdown("---")
         
-        # Newsletter
-        st.markdown("**📰 Free Newsletter**")
-        st.link_button("📬 Subscribe", "https://namanlohia.substack.com/?r=m4i55&utm_campaign=pub-share-checklist", use_container_width=True)
+        # Newsletter / Substack
+        st.markdown("**📰 Subscribe to Substack**")
+        st.caption("Free weekly stock breakdowns, macro events & business analysis")
+        st.link_button("📬 Subscribe (Free)", "https://namanlohia.substack.com/?r=m4i55&utm_campaign=pub-share-checklist", use_container_width=True)
         
         st.markdown("---")
         
@@ -19656,8 +19652,9 @@ elif selected_page == "👑 Become a VIP":
         st.markdown(f"""
         <div style="background: {bg}; border: 3px solid {border_color}; border-radius: 15px; 
                     padding: 20px; text-align: center; box-shadow: {shadow};">
-            <h3 style="color: #9D4EDD; margin-bottom: 10px;">Pro</h3>
+            <h3 style="color: #9D4EDD; margin-bottom: 5px;">Pro</h3>
             <p style="color: #1a1a1a; font-size: 24px; margin: 10px 0;"><strong>$5</strong>/mo</p>
+            <p style="color: #00C853; font-size: 14px; font-weight: bold; margin: 5px 0;">🎉 First month FREE</p>
             <p style="color: #555; font-size: 14px;">Full Portfolio Access</p>
         </div>
         """, unsafe_allow_html=True)
@@ -19679,8 +19676,9 @@ elif selected_page == "👑 Become a VIP":
         st.markdown(f"""
         <div style="background: {bg}; border: 3px solid {border_color}; border-radius: 15px; 
                     padding: 20px; text-align: center; box-shadow: {shadow};">
-            <h3 style="color: #E6A800; margin-bottom: 10px;">Ultimate</h3>
+            <h3 style="color: #E6A800; margin-bottom: 5px;">Ultimate</h3>
             <p style="color: #1a1a1a; font-size: 24px; margin: 10px 0;"><strong>$10</strong>/mo</p>
+            <p style="color: #00C853; font-size: 14px; font-weight: bold; margin: 5px 0;">🎉 First month FREE</p>
             <p style="color: #555; font-size: 14px;">VIP Access + Support</p>
         </div>
         """, unsafe_allow_html=True)
@@ -19792,11 +19790,11 @@ elif selected_page == "👑 Become a VIP":
                 <h2 style="color: {'#9D4EDD' if access_tier == 'Pro' else '#E6A800'}; margin-bottom: 20px;">
                     {'⭐' if access_tier == 'Pro' else '👑'} Upgrade to {access_tier}
                 </h2>
-                <p style="color: #333; font-size: 18px; margin-bottom: 10px;">
-                    {'$5/month - Full Portfolio Access' if access_tier == 'Pro' else '$10/month - Everything + AI Stock Screener'}
+                <p style="color: #00C853; font-size: 20px; font-weight: bold; margin-bottom: 5px;">
+                    🎉 First month FREE — then {'$5' if access_tier == 'Pro' else '$10'}/month
                 </p>
                 <p style="color: #D32F2F; font-size: 16px; font-weight: bold; margin-top: 20px;">
-                    ⚠️ Please sign up / sign in first to subscribe
+                    ⚠️ Please sign up / sign in first to start your free trial
                 </p>
             </div>
             """, unsafe_allow_html=True)
@@ -19824,11 +19822,14 @@ elif selected_page == "👑 Become a VIP":
                     <h2 style="color: {'#9D4EDD' if access_tier == 'Pro' else '#E6A800'}; margin-bottom: 20px;">
                         {'⭐' if access_tier == 'Pro' else '👑'} Upgrade to {access_tier}
                     </h2>
-                    <p style="color: #333; font-size: 18px; margin-bottom: 10px;">
-                        {'$5/month - Full Portfolio Access' if access_tier == 'Pro' else '$10/month - Everything + AI Stock Screener'}
+                    <p style="color: #00C853; font-size: 20px; font-weight: bold; margin-bottom: 5px;">
+                        🎉 First month FREE — then {'$5' if access_tier == 'Pro' else '$10'}/month
                     </p>
-                    <p style="color: #666; font-size: 14px; margin-bottom: 30px;">
-                        Cancel anytime • Secure payment via Stripe
+                    <p style="color: #666; font-size: 14px; margin-bottom: 10px;">
+                        Cancel anytime • No charge for 30 days • Secure payment via Stripe
+                    </p>
+                    <p style="color: #888; font-size: 13px;">
+                        Refer a friend → both of you get an extra free month!
                     </p>
                 </div>
                 """, unsafe_allow_html=True)
@@ -19836,9 +19837,9 @@ elif selected_page == "👑 Become a VIP":
                 col1, col2, col3 = st.columns([1, 2, 1])
                 with col2:
                     if access_tier == "Pro" and pro_link:
-                        st.link_button("💳 Subscribe to Pro - $5/mo", pro_link, type="primary", use_container_width=True)
+                        st.link_button("💳 Start Free Trial — Pro", pro_link, type="primary", use_container_width=True)
                     elif access_tier == "Ultimate" and ultimate_link:
-                        st.link_button("💳 Subscribe to Ultimate - $10/mo", ultimate_link, type="primary", use_container_width=True)
+                        st.link_button("💳 Start Free Trial — Ultimate", ultimate_link, type="primary", use_container_width=True)
                     
                     st.caption("🔒 Secured by Stripe • 256-bit encryption")
             else:
