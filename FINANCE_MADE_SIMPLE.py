@@ -7262,19 +7262,16 @@ def show_app_tour():
     # Styling
     st.markdown("""
     <style>
-    [data-testid="stDialog"] {
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%) !important;
-    }
     [data-testid="stDialog"] [data-testid="stMarkdownContainer"] p,
     [data-testid="stDialog"] [data-testid="stMarkdownContainer"] li,
     [data-testid="stDialog"] label {
-        color: #FFFFFF !important;
+        color: #333 !important;
     }
     [data-testid="stDialog"] h1, [data-testid="stDialog"] h2, [data-testid="stDialog"] h3 {
         color: #FF4444 !important;
     }
     .tour-progress {
-        background: #333;
+        background: #ddd;
         border-radius: 10px;
         height: 6px;
         margin: 5px 0 10px 0;
@@ -7293,16 +7290,16 @@ def show_app_tour():
         font-size: 36px;
     }
     .tour-subtitle {
-        color: #FF6B6B !important;
+        color: #FF4444 !important;
         font-size: 13px;
         text-align: center;
         margin: 0 0 8px 0;
         font-style: italic;
     }
     .tour-desc {
-        color: #ddd !important;
+        color: #333 !important;
         font-size: 14px;
-        line-height: 1.5;
+        line-height: 1.6;
         text-align: center;
         padding: 0 10px;
     }
