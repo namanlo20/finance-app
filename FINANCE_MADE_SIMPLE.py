@@ -8085,7 +8085,7 @@ if 'homepage_stock1' not in st.session_state:
     st.session_state.homepage_stock1 = "GOOGL"
 
 if 'homepage_stock2' not in st.session_state:
-    st.session_state.homepage_stock2 = "AMC"
+    st.session_state.homepage_stock2 = "INTC"
 
 # Initialize user_profile (always exists, even if quizzes not taken)
 if 'user_profile' not in st.session_state:
@@ -8410,7 +8410,7 @@ def save_user_progress():
             "risk_quiz_results": st.session_state.get("risk_quiz_results", {}),
             "unhinged_mode": st.session_state.get("unhinged_mode", False),
             "homepage_stock1": st.session_state.get("homepage_stock1", "GOOGL"),
-            "homepage_stock2": st.session_state.get("homepage_stock2", "AMC"),
+            "homepage_stock2": st.session_state.get("homepage_stock2", "INTC"),
             # Save Basics course progress
             "completed_lessons": list(st.session_state.get("completed_lessons", set())),
             # Save Risk Quiz results
@@ -8607,7 +8607,7 @@ def save_onboarding_profile(profile_data):
                 "risk_quiz_results": st.session_state.get("risk_quiz_results", {}),
                 "unhinged_mode": st.session_state.get("unhinged_mode", False),
                 "homepage_stock1": st.session_state.get("homepage_stock1", "GOOGL"),
-                "homepage_stock2": st.session_state.get("homepage_stock2", "AMC"),
+                "homepage_stock2": st.session_state.get("homepage_stock2", "INTC"),
                 "onboarding_profile": profile_data,
                 "onboarding_completed": True
             }
