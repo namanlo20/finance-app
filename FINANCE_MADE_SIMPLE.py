@@ -6991,6 +6991,19 @@ def render_right_side_ticker():
     '''
     st.markdown(ticker_html, unsafe_allow_html=True)
 
+def clean_ai_response(text):
+    """Clean AI response - remove citation markers, fix LaTeX formatting"""
+    import re
+    # Remove citation markers like [1], [2][3], [1][2][3][5]
+    text = re.sub(r'\[\d+\]', '', text)
+    # Remove LaTeX-style $ formatting that Perplexity sometimes adds
+    text = re.sub(r'\$([^$]+)\$', r'\1', text)
+    # Remove double asterisks that didn't render (leftover markdown)
+    # Clean up extra whitespace
+    text = re.sub(r'  +', ' ', text)
+    text = re.sub(r'\n\n\n+', '\n\n', text)
+    return text.strip()
+
 def get_chatbot_response(user_message, context=None):
     """Get AI response - tries Perplexity first, then OpenAI as fallback"""
     
@@ -7047,7 +7060,7 @@ When the user asks to find stocks (like "find stocks with P/E under 12"), you MU
                 data = response.json()
                 content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
                 if content and len(content) > 50:  # Only accept substantial responses
-                    return content
+                    return clean_ai_response(content)
             print(f"[CHATBOT] Grok failed: {response.status_code} - {response.text[:200]}")
         except Exception as e:
             print(f"[CHATBOT] Grok error: {e}")
@@ -7077,7 +7090,7 @@ When the user asks to find stocks (like "find stocks with P/E under 12"), you MU
                 data = response.json()
                 content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
                 if content and len(content) > 50:
-                    return content
+                    return clean_ai_response(content)
             print(f"[CHATBOT] Perplexity failed: {response.status_code} - {response.text[:200]}")
         except Exception as e:
             print(f"[CHATBOT] Perplexity error: {e}")
@@ -7107,7 +7120,7 @@ When the user asks to find stocks (like "find stocks with P/E under 12"), you MU
                 data = response.json()
                 content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
                 if content:
-                    return content
+                    return clean_ai_response(content)
             print(f"[CHATBOT] OpenAI failed: {response.status_code} - {response.text[:200]}")
         except Exception as e:
             print(f"[CHATBOT] OpenAI error: {e}")
