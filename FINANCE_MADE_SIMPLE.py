@@ -14,6 +14,7 @@ import numpy as np
 import os
 import json
 import time
+import yfinance as yf
 
 # Build stamp for deploy verification
 BUILD_STAMP = os.getenv("RENDER_GIT_COMMIT", "")[:7] or str(int(time.time()))
@@ -5865,9 +5866,186 @@ def calculate_valuation_metrics(ticker):
     
     return metrics
 
+def _fmp_data_is_bad(df, key_columns):
+    """Check if FMP data has too many zeros/nulls to be useful"""
+    if df.empty:
+        return True
+    if len(df) <= 1:
+        return True
+    for col in key_columns:
+        if col in df.columns:
+            vals = pd.to_numeric(df[col], errors='coerce').fillna(0)
+            zero_pct = (vals == 0).sum() / len(vals)
+            if zero_pct >= 0.5:
+                return True
+    return False
+
+def _yf_income_to_fmp(ticker, period='annual', limit=5):
+    """Fetch income statement from yfinance and map to FMP column names"""
+    try:
+        t = yf.Ticker(ticker)
+        raw = t.quarterly_financials.T if period == 'quarter' else t.financials.T
+        if raw.empty:
+            return pd.DataFrame()
+        raw = raw.sort_index()
+        if period == 'quarter':
+            raw = raw.tail(limit)
+        else:
+            raw = raw.tail(limit)
+        col_map = {
+            'Total Revenue': 'revenue',
+            'Cost Of Revenue': 'costOfRevenue',
+            'Gross Profit': 'grossProfit',
+            'Operating Income': 'operatingIncome',
+            'Net Income': 'netIncome',
+            'Operating Expense': 'operatingExpenses',
+            'Research Development': 'researchAndDevelopmentExpenses',
+            'Selling General Administrative': 'sellingGeneralAndAdministrativeExpenses',
+            'Interest Expense': 'interestExpense',
+            'Income Tax Expense': 'incomeTaxExpense',
+            'EBITDA': 'ebitda',
+            'Diluted EPS': 'epsdiluted',
+            'Basic EPS': 'eps',
+            'Weighted Average Shr Out Dil': 'weightedAverageShsOutDil',
+            'Weighted Average Shr Out': 'weightedAverageShsOut',
+        }
+        rows = []
+        for dt, row in raw.iterrows():
+            r = {'date': pd.Timestamp(dt), 'symbol': ticker}
+            for yf_col, fmp_col in col_map.items():
+                for src_col in raw.columns:
+                    if yf_col.lower().replace(' ', '') in src_col.lower().replace(' ', ''):
+                        val = row.get(src_col, 0)
+                        r[fmp_col] = float(val) if pd.notna(val) else 0
+                        break
+            if 'revenue' not in r:
+                for c in raw.columns:
+                    if 'revenue' in c.lower() or 'total revenue' in c.lower():
+                        val = row.get(c, 0)
+                        r['revenue'] = float(val) if pd.notna(val) else 0
+                        break
+            if 'grossProfit' not in r and 'revenue' in r and 'costOfRevenue' in r:
+                r['grossProfit'] = r['revenue'] - r['costOfRevenue']
+            # Period label
+            if period == 'quarter':
+                q = (dt.month - 1) // 3 + 1
+                r['period'] = f"Q{q}"
+                r['calendarYear'] = str(dt.year)
+            else:
+                r['period'] = 'FY'
+                r['calendarYear'] = str(dt.year)
+            rows.append(r)
+        df = pd.DataFrame(rows)
+        if 'date' in df.columns:
+            df['date'] = pd.to_datetime(df['date'])
+            df = df.sort_values('date')
+        return df
+    except:
+        return pd.DataFrame()
+
+def _yf_balance_to_fmp(ticker, period='annual', limit=5):
+    """Fetch balance sheet from yfinance and map to FMP column names"""
+    try:
+        t = yf.Ticker(ticker)
+        raw = t.quarterly_balance_sheet.T if period == 'quarter' else t.balance_sheet.T
+        if raw.empty:
+            return pd.DataFrame()
+        raw = raw.sort_index().tail(limit)
+        col_map = {
+            'Total Assets': 'totalAssets',
+            'Total Liab': 'totalLiabilities',
+            'Total Stockholder Equity': 'totalStockholdersEquity',
+            'Stockholders Equity': 'totalStockholdersEquity',
+            'Total Current Assets': 'totalCurrentAssets',
+            'Total Current Liabilities': 'totalCurrentLiabilities',
+            'Cash': 'cashAndCashEquivalents',
+            'Cash And Cash Equivalents': 'cashAndCashEquivalents',
+            'Short Long Term Debt': 'shortTermDebt',
+            'Long Term Debt': 'longTermDebt',
+            'Total Debt': 'totalDebt',
+            'Net Debt': 'netDebt',
+            'Inventory': 'inventory',
+            'Net Receivables': 'netReceivables',
+            'Goodwill': 'goodwill',
+            'Intangible Assets': 'intangibleAssets',
+        }
+        rows = []
+        for dt, row in raw.iterrows():
+            r = {'date': pd.Timestamp(dt), 'symbol': ticker}
+            for yf_col, fmp_col in col_map.items():
+                for src_col in raw.columns:
+                    if yf_col.lower().replace(' ', '') in src_col.lower().replace(' ', ''):
+                        val = row.get(src_col, 0)
+                        r[fmp_col] = float(val) if pd.notna(val) else 0
+                        break
+            if period == 'quarter':
+                q = (dt.month - 1) // 3 + 1
+                r['period'] = f"Q{q}"
+                r['calendarYear'] = str(dt.year)
+            else:
+                r['period'] = 'FY'
+                r['calendarYear'] = str(dt.year)
+            rows.append(r)
+        df = pd.DataFrame(rows)
+        if 'date' in df.columns:
+            df['date'] = pd.to_datetime(df['date'])
+            df = df.sort_values('date')
+        return df
+    except:
+        return pd.DataFrame()
+
+def _yf_cashflow_to_fmp(ticker, period='annual', limit=5):
+    """Fetch cash flow from yfinance and map to FMP column names"""
+    try:
+        t = yf.Ticker(ticker)
+        raw = t.quarterly_cashflow.T if period == 'quarter' else t.cashflow.T
+        if raw.empty:
+            return pd.DataFrame()
+        raw = raw.sort_index().tail(limit)
+        col_map = {
+            'Operating Cash Flow': 'operatingCashFlow',
+            'Total Cash From Operating Activities': 'operatingCashFlow',
+            'Capital Expenditures': 'capitalExpenditure',
+            'Capital Expenditure': 'capitalExpenditure',
+            'Free Cash Flow': 'freeCashFlow',
+            'Dividends Paid': 'dividendsPaid',
+            'Repurchase Of Stock': 'commonStockRepurchased',
+            'Total Cash From Financing Activities': 'netCashUsedForInvestingActivites',
+            'Depreciation': 'depreciationAndAmortization',
+            'Stock Based Compensation': 'stockBasedCompensation',
+        }
+        rows = []
+        for dt, row in raw.iterrows():
+            r = {'date': pd.Timestamp(dt), 'symbol': ticker}
+            for yf_col, fmp_col in col_map.items():
+                for src_col in raw.columns:
+                    if yf_col.lower().replace(' ', '') in src_col.lower().replace(' ', ''):
+                        val = row.get(src_col, 0)
+                        r[fmp_col] = float(val) if pd.notna(val) else 0
+                        break
+            # Calculate FCF if not present
+            if 'freeCashFlow' not in r and 'operatingCashFlow' in r and 'capitalExpenditure' in r:
+                capex = abs(r['capitalExpenditure'])
+                r['freeCashFlow'] = r['operatingCashFlow'] - capex
+            if period == 'quarter':
+                q = (dt.month - 1) // 3 + 1
+                r['period'] = f"Q{q}"
+                r['calendarYear'] = str(dt.year)
+            else:
+                r['period'] = 'FY'
+                r['calendarYear'] = str(dt.year)
+            rows.append(r)
+        df = pd.DataFrame(rows)
+        if 'date' in df.columns:
+            df['date'] = pd.to_datetime(df['date'])
+            df = df.sort_values('date')
+        return df
+    except:
+        return pd.DataFrame()
+
 @st.cache_data(ttl=3600)
 def get_income_statement(ticker, period='annual', limit=5):
-    """Get income statement"""
+    """Get income statement — FMP primary, yfinance fallback"""
     url = f"{BASE_URL}/income-statement?symbol={ticker}&period={period}&limit={limit}&apikey={FMP_API_KEY}"
     try:
         response = requests.get(url, timeout=10)
@@ -5877,14 +6055,19 @@ def get_income_statement(ticker, period='annual', limit=5):
             if 'date' in df.columns:
                 df['date'] = pd.to_datetime(df['date'])
                 df = df.sort_values('date')
-            return df
+            if not _fmp_data_is_bad(df, ['revenue', 'netIncome']):
+                return df
     except:
         pass
+    # Fallback to yfinance
+    yf_df = _yf_income_to_fmp(ticker, period, limit)
+    if not yf_df.empty:
+        return yf_df
     return pd.DataFrame()
 
 @st.cache_data(ttl=3600)
 def get_balance_sheet(ticker, period='annual', limit=5):
-    """Get balance sheet"""
+    """Get balance sheet — FMP primary, yfinance fallback"""
     url = f"{BASE_URL}/balance-sheet-statement?symbol={ticker}&period={period}&limit={limit}&apikey={FMP_API_KEY}"
     try:
         response = requests.get(url, timeout=10)
@@ -5894,14 +6077,19 @@ def get_balance_sheet(ticker, period='annual', limit=5):
             if 'date' in df.columns:
                 df['date'] = pd.to_datetime(df['date'])
                 df = df.sort_values('date')
-            return df
+            if not _fmp_data_is_bad(df, ['totalAssets', 'totalStockholdersEquity']):
+                return df
     except:
         pass
+    # Fallback to yfinance
+    yf_df = _yf_balance_to_fmp(ticker, period, limit)
+    if not yf_df.empty:
+        return yf_df
     return pd.DataFrame()
 
 @st.cache_data(ttl=3600)
 def get_cash_flow(ticker, period='annual', limit=5):
-    """Get cash flow"""
+    """Get cash flow — FMP primary, yfinance fallback"""
     url = f"{BASE_URL}/cash-flow-statement?symbol={ticker}&period={period}&limit={limit}&apikey={FMP_API_KEY}"
     try:
         response = requests.get(url, timeout=10)
@@ -5911,9 +6099,14 @@ def get_cash_flow(ticker, period='annual', limit=5):
             if 'date' in df.columns:
                 df['date'] = pd.to_datetime(df['date'])
                 df = df.sort_values('date')
-            return df
+            if not _fmp_data_is_bad(df, ['operatingCashFlow', 'freeCashFlow']):
+                return df
     except:
         pass
+    # Fallback to yfinance
+    yf_df = _yf_cashflow_to_fmp(ticker, period, limit)
+    if not yf_df.empty:
+        return yf_df
     return pd.DataFrame()
 
 @st.cache_data(ttl=3600)
