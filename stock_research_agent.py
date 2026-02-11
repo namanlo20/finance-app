@@ -36,8 +36,6 @@ FMP_BASE_URL = "https://financialmodelingprep.com/api/v3"
 # OpenAI model - gpt-4o is best for function calling, gpt-3.5-turbo is cheaper
 MODEL = "gpt-4o"
 
-client = OpenAI(api_key=OPENAI_API_KEY)
-
 
 # ============================================================
 # TOOLS - These are the functions the AI agent can call
@@ -385,6 +383,7 @@ class StockResearchAgent:
     def __init__(self, model: str = MODEL, verbose: bool = False):
         self.model = model
         self.verbose = verbose
+        self.client = OpenAI(api_key=OPENAI_API_KEY)
         self.system_prompt = """You are a senior equity research analyst AI assistant built into the "Investing Made Simple" platform. Your job is to help beginner-to-intermediate investors understand stocks through clear, data-driven analysis.
 
 When a user asks about a stock or investing topic:
@@ -430,7 +429,7 @@ IMPORTANT: Do NOT make up data. Only use data from your tool calls. If a tool re
                 print(f"\n--- Agent Round {round_num + 1} ---")
             
             # Call OpenAI
-            response = client.chat.completions.create(
+            response = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
                 tools=TOOLS,
@@ -490,7 +489,7 @@ IMPORTANT: Do NOT make up data. Only use data from your tool calls. If a tool re
         max_rounds = 10
         for round_num in range(max_rounds):
             # First, non-streaming call to check for tool use
-            response = client.chat.completions.create(
+            response = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
                 tools=TOOLS,
@@ -501,7 +500,7 @@ IMPORTANT: Do NOT make up data. Only use data from your tool calls. If a tool re
             
             # If no tool calls, stream the final response
             if not message.tool_calls:
-                stream = client.chat.completions.create(
+                stream = self.client.chat.completions.create(
                     model=self.model,
                     messages=messages,
                     tools=TOOLS,
