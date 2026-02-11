@@ -7425,6 +7425,12 @@ TOUR_PAGES = [
         "description": "Upload brokerage screenshots for AI analysis, get diversification scores, match your risk profile, and receive personalized suggestions. Requires Ultimate."
     },
     {
+        "title": "🤖 AI Stock Screener",
+        "icon": "🤖",
+        "subtitle": "Ultimate tier feature",
+        "description": "Ask any stock question in plain English — 'Is NVDA overvalued?' 'Compare AAPL vs MSFT' — and our AI agent autonomously pulls financials, ratios, news & analyst targets to deliver a full research report. Like having a Wall Street analyst on call."
+    },
+    {
         "title": "💼 Paper Portfolio",
         "icon": "💼",
         "subtitle": "Practice risk-free",
@@ -18390,6 +18396,37 @@ elif selected_page == "🔍 AI Stock Screener":
                 if st.button("PLTR analysis", key="quick_pltr"):
                     st.session_state.agent_pending_query = "What's happening with Palantir? Analyze the stock."
             
+            # Show examples above chat if no history yet
+            if not st.session_state.agent_chat_history:
+                st.markdown("---")
+                st.markdown("### 💡 What You Can Ask")
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.markdown("""
+                    **Stock Analysis:**
+                    - Is NVDA overvalued right now?
+                    - Give me a bull and bear case for Tesla
+                    - What's happening with Palantir lately?
+                    
+                    **Comparisons:**
+                    - Compare AAPL vs MSFT vs GOOGL
+                    - Should I pick AMD or INTC?
+                    """)
+                with col2:
+                    st.markdown("""
+                    **Deep Dives:**
+                    - Analyze Meta's revenue growth trend
+                    - What do analysts think about AMZN?
+                    - How healthy is Apple's balance sheet?
+                    
+                    **Screening:**
+                    - Find undervalued tech stocks with P/E under 15
+                    - Show me dividend aristocrats with low debt
+                    """)
+                
+                show_data_source(source="FMP API + OpenAI GPT-4o Agent", updated_at=datetime.now())
+                st.markdown("---")
+            
             # Display chat history
             for msg in st.session_state.agent_chat_history:
                 with st.chat_message(msg["role"]):
@@ -18431,36 +18468,6 @@ elif selected_page == "🔍 AI Stock Screener":
                 if st.button("🗑️ Clear Chat", key="clear_agent_chat"):
                     st.session_state.agent_chat_history = []
                     st.rerun()
-            
-            # Show examples if no chat history
-            if not st.session_state.agent_chat_history:
-                st.markdown("---")
-                st.markdown("### 💡 What You Can Ask")
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.markdown("""
-                    **Stock Analysis:**
-                    - Is NVDA overvalued right now?
-                    - Give me a bull and bear case for Tesla
-                    - What's happening with Palantir lately?
-                    
-                    **Comparisons:**
-                    - Compare AAPL vs MSFT vs GOOGL
-                    - Should I pick AMD or INTC?
-                    """)
-                with col2:
-                    st.markdown("""
-                    **Deep Dives:**
-                    - Analyze Meta's revenue growth trend
-                    - What do analysts think about AMZN?
-                    - How healthy is Apple's balance sheet?
-                    
-                    **Screening:**
-                    - Find undervalued tech stocks with P/E under 15
-                    - Show me dividend aristocrats with low debt
-                    """)
-                
-                show_data_source(source="FMP API + OpenAI GPT-4o Agent", updated_at=datetime.now())
         
         except ImportError:
             st.error("⚠️ AI Research Agent not found. Make sure stock_research_agent.py is in the same directory as this file.")
@@ -19585,6 +19592,7 @@ elif selected_page == "👑 Become a VIP":
             "- “What traders generally do next” educational checklist\n"
             "\n"
             "**Ultimate adds:**\n"
+            "- **🤖 AI Stock Research Agent** - Ask any stock question, get a full analysis with real data!\n"
             "- **🤖 AI Assistant** - Ask stock questions in plain English, get AI answers!\n"
             "- **Historical Similar Setups** (find past periods that looked like today)\n"
             "- Outcome stats (next 5D/20D returns, drawdowns, hit rate)\n"
