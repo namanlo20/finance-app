@@ -9675,6 +9675,9 @@ with header_cols[2]:
         if st.button("📊 Market Overview", key="nav_market_overview", use_container_width=True):
             st.session_state.selected_page = "📊 Market Overview"
             st.rerun()
+        if st.button("🤖 AI Stock Screener", key="nav_ai_screener", use_container_width=True):
+            st.session_state.selected_page = "🔍 AI Stock Screener"
+            st.rerun()
 
 with header_cols[3]:
     with st.popover("📊 Pro Checklist ▼", use_container_width=True):
@@ -18020,8 +18023,6 @@ elif selected_page == "📊 Market Overview":
                         "Dividend Yield %": None,
                         "Analyst Price Target": None,
                         "Upside/Downside %": None,
-                        "AI Rating": "🔒 VIP",  # VIP placeholder
-                        "Risk Score": "🔒 VIP"  # VIP placeholder
                     }
                     
                     # Track debug info for major companies
@@ -18098,8 +18099,6 @@ elif selected_page == "📊 Market Overview":
                     "Dividend Yield %": None,
                     "Analyst Price Target": None,
                     "Upside/Downside %": None,
-                    "AI Rating": "🔒 VIP",  # VIP placeholder
-                    "Risk Score": "🔒 VIP"  # VIP placeholder
                 }
                 
                 # Track debug info for major companies
@@ -18276,10 +18275,8 @@ elif selected_page == "📊 Market Overview":
                 with col2:
                     fcf_exp = METRIC_EXPLANATIONS.get("FCF per Share", {}).get("explanation", "Free Cash Flow per share explanation coming soon.")
                     mc_exp = METRIC_EXPLANATIONS.get("Market Cap", {}).get("explanation", "Total company value explanation coming soon.")
-                    vip_exp = "🔒 AI Rating and Risk Score are VIP features. Upgrade for AI-powered insights!"
                     st.markdown(f"**FCF/Share:** {fcf_exp}")
                     st.markdown(f"**Market Cap:** {mc_exp}")
-                    st.markdown(f"**VIP Features:** {vip_exp}")
             
             st.markdown("### 🔍 Analyze a Company")
             col1, col2 = st.columns([3, 1])
@@ -18306,7 +18303,7 @@ elif selected_page == "🔍 AI Stock Screener":
     # Check tier - Ultimate only
     user_tier = get_user_tier()
     
-    # Red pill header matching the app theme
+    # Header
     st.markdown("""
     <div style="background: linear-gradient(135deg, #FF4B4B 0%, #CC0000 100%); 
                 padding: 15px 25px; 
@@ -18339,7 +18336,6 @@ elif selected_page == "🔍 AI Stock Screener":
             st.session_state.selected_page = "👑 Become a VIP"
             st.rerun()
         
-        # Show example of what they\'d get
         st.markdown("---")
         st.markdown("### 💡 What You Could Ask")
         col1, col2 = st.columns(2)
@@ -18348,7 +18344,7 @@ elif selected_page == "🔍 AI Stock Screener":
             **Stock Analysis:**
             - Is NVDA overvalued right now?
             - Give me a bull and bear case for Tesla
-            - What\'s happening with Palantir lately?
+            - What's happening with Palantir lately?
             
             **Comparisons:**
             - Compare AAPL vs MSFT vs GOOGL
@@ -18357,9 +18353,9 @@ elif selected_page == "🔍 AI Stock Screener":
         with col2:
             st.markdown("""
             **Research:**
-            - Analyze Meta\'s revenue growth trend
+            - Analyze Meta's revenue growth trend
             - What do analysts think about AMZN?
-            - How healthy is Apple\'s balance sheet?
+            - How healthy is Apple's balance sheet?
             
             **Screening:**
             - Find undervalued tech stocks
@@ -18367,8 +18363,6 @@ elif selected_page == "🔍 AI Stock Screener":
             """)
     else:
         # ============= ULTIMATE USERS: FULL AI RESEARCH AGENT =============
-        
-        # Import the agent
         try:
             from stock_research_agent import StockResearchAgent
             
@@ -18376,7 +18370,7 @@ elif selected_page == "🔍 AI Stock Screener":
             if "research_agent" not in st.session_state:
                 st.session_state.research_agent = StockResearchAgent(model="gpt-4o")
             
-            # Initialize chat history for the agent
+            # Initialize chat history
             if "agent_chat_history" not in st.session_state:
                 st.session_state.agent_chat_history = []
             
@@ -18394,7 +18388,7 @@ elif selected_page == "🔍 AI Stock Screener":
                     st.session_state.agent_pending_query = "Give me a bull case and bear case for Tesla."
             with quick_col4:
                 if st.button("PLTR analysis", key="quick_pltr"):
-                    st.session_state.agent_pending_query = "What\'s happening with Palantir? Analyze the stock."
+                    st.session_state.agent_pending_query = "What's happening with Palantir? Analyze the stock."
             
             # Display chat history
             for msg in st.session_state.agent_chat_history:
@@ -18405,7 +18399,7 @@ elif selected_page == "🔍 AI Stock Screener":
             pending_query = st.session_state.pop("agent_pending_query", None)
             
             # Chat input
-            user_query = st.chat_input("Ask anything about stocks... (e.g., \'Is NVDA overvalued?\')")
+            user_query = st.chat_input("Ask anything about stocks... (e.g., 'Is NVDA overvalued?')")
             
             # Use pending query if no direct input
             if pending_query and not user_query:
@@ -18429,7 +18423,6 @@ elif selected_page == "🔍 AI Stock Screener":
                             st.error(error_msg)
                             st.session_state.agent_chat_history.append({"role": "assistant", "content": error_msg})
                 
-                # Show disclaimer
                 show_ai_disclaimer()
             
             # Clear chat button
@@ -18439,7 +18432,7 @@ elif selected_page == "🔍 AI Stock Screener":
                     st.session_state.agent_chat_history = []
                     st.rerun()
             
-            # Show examples if no chat history yet
+            # Show examples if no chat history
             if not st.session_state.agent_chat_history:
                 st.markdown("---")
                 st.markdown("### 💡 What You Can Ask")
@@ -18449,7 +18442,7 @@ elif selected_page == "🔍 AI Stock Screener":
                     **Stock Analysis:**
                     - Is NVDA overvalued right now?
                     - Give me a bull and bear case for Tesla
-                    - What\'s happening with Palantir lately?
+                    - What's happening with Palantir lately?
                     
                     **Comparisons:**
                     - Compare AAPL vs MSFT vs GOOGL
@@ -18458,9 +18451,9 @@ elif selected_page == "🔍 AI Stock Screener":
                 with col2:
                     st.markdown("""
                     **Deep Dives:**
-                    - Analyze Meta\'s revenue growth trend
+                    - Analyze Meta's revenue growth trend
                     - What do analysts think about AMZN?
-                    - How healthy is Apple\'s balance sheet?
+                    - How healthy is Apple's balance sheet?
                     
                     **Screening:**
                     - Find undervalued tech stocks with P/E under 15
@@ -18470,8 +18463,8 @@ elif selected_page == "🔍 AI Stock Screener":
                 show_data_source(source="FMP API + OpenAI GPT-4o Agent", updated_at=datetime.now())
         
         except ImportError:
-            st.error("⚠️ AI Research Agent not found. Make sure `stock_research_agent.py` is in the same directory as this file.")
-            st.info("Upload `stock_research_agent.py` to your GitHub repo alongside this file.")
+            st.error("⚠️ AI Research Agent not found. Make sure stock_research_agent.py is in the same directory as this file.")
+            st.info("Upload stock_research_agent.py to your GitHub repo alongside this file.")
 
 elif selected_page == "📈 Financial Health":
     
