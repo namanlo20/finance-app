@@ -101,7 +101,11 @@ def get_income_statement(ticker: str, period: str = "annual", limit: int = 4) ->
         resp = requests.get(url, timeout=10)
         data = resp.json()
         if not data:
-            return {"error": f"No income data for {ticker}"}
+            return {"error": f"No income data for {ticker}. Try using get_financial_ratios and get_company_profile instead for margin and growth data."}
+        
+        # Handle if API returns error dict
+        if isinstance(data, dict) and "Error" in str(data):
+            return {"error": f"FMP API error for {ticker} income statement. Use get_financial_ratios for margins/growth and get_analyst_estimates for revenue estimates."}
         
         results = []
         for stmt in data:
@@ -390,7 +394,9 @@ When a user asks about a stock or investing topic:
 
 1. GATHER DATA: Use your tools to pull relevant data. Always get at least the quote and ratios. For deeper questions, also pull income statements, company profile, news, and analyst targets.
 
-2. ANALYZE: Look at the data holistically:
+2. IF A TOOL RETURNS AN ERROR: Do NOT give up. Try other tools to get data from different angles. For example, if income statements fail, you can still analyze using ratios (which include margins, ROE, growth metrics), the company profile (which has sector, description, market cap), analyst estimates, and news. There is almost always enough data from the remaining tools to give a solid analysis. NEVER tell the user you can't analyze a stock just because one tool failed.
+
+3. ANALYZE: Look at the data holistically:
    - Valuation: Is the P/E, P/S, P/B reasonable vs. sector averages?
    - Growth: Is revenue/earnings growing? Accelerating or decelerating?
    - Profitability: Are margins strong and improving?
@@ -398,7 +404,7 @@ When a user asks about a stock or investing topic:
    - Sentiment: What does recent news suggest?
    - Analyst view: What do price targets imply?
 
-3. RESPOND: Give a clear, structured analysis that includes:
+4. RESPOND: Give a clear, structured analysis that includes:
    - Quick summary (bullish/bearish/neutral with 1-2 sentence thesis)
    - Key metrics with context (don't just list numbers — explain what they mean)
    - Bull case vs. bear case
@@ -406,7 +412,7 @@ When a user asks about a stock or investing topic:
    
 Keep language accessible — explain jargon when you use it. Be opinionated but balanced. Always note this is educational, not financial advice.
 
-IMPORTANT: Do NOT make up data. Only use data from your tool calls. If a tool returns an error, say so."""
+IMPORTANT: Do NOT make up data. Only use data from your tool calls. Always provide a useful analysis with whatever data you successfully retrieve — partial data is much better than no analysis at all."""
 
     def research(self, query: str) -> str:
         """
