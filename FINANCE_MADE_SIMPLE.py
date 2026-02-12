@@ -6129,7 +6129,9 @@ def get_financial_ratios(ticker, period='annual', limit=5):
 @st.cache_data(ttl=3600)
 def get_historical_price(ticker, years=5):
     """Get historical prices"""
-    url = f"{BASE_URL}/historical-price-eod/light?symbol={ticker}&apikey={FMP_API_KEY}"
+    # Calculate the from date to ensure we get enough data for the requested years
+    from_date = (datetime.now() - timedelta(days=int(years * 365) + 30)).strftime('%Y-%m-%d')
+    url = f"{BASE_URL}/historical-price-eod/light?symbol={ticker}&from={from_date}&apikey={FMP_API_KEY}"
     try:
         response = requests.get(url, timeout=15)
         data = response.json()
@@ -11725,49 +11727,45 @@ if selected_page == "🏠 Dashboard":
     
     # ============= APP TOUR SECTION — BIG & BOLD =============
     if not st.session_state.get('tour_completed', False):
-        # The entire red box AND the button both trigger the tour
-        # Use a hidden button trick: clicking the red box programmatically clicks the tour button
+        # Style the red box button to look like the hero banner
         st.markdown("""
         <style>
-        .tour-hero-box {
-            background: linear-gradient(135deg, #FF4444 0%, #CC0000 60%, #FF6B6B 100%);
-            padding: 30px 28px;
-            border-radius: 18px;
-            margin-bottom: 28px;
-            text-align: center;
-            box-shadow: 0 8px 32px rgba(255,68,68,0.35);
-            border: 2px solid rgba(255,255,255,0.15);
-            position: relative;
-            overflow: hidden;
-            cursor: pointer;
-            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        /* Make the tour hero button look like the red banner */
+        div[data-testid="stVerticalBlock"] > div:has(button[key="tour_hero_btn"]) button {
+            background: linear-gradient(135deg, #FF4444 0%, #CC0000 60%, #FF6B6B 100%) !important;
+            padding: 40px 28px !important;
+            border-radius: 18px !important;
+            margin-bottom: 0px !important;
+            text-align: center !important;
+            box-shadow: 0 8px 32px rgba(255,68,68,0.35) !important;
+            border: 2px solid rgba(255,255,255,0.15) !important;
+            position: relative !important;
+            overflow: hidden !important;
+            min-height: 180px !important;
+            color: #FFFFFF !important;
+            font-size: 16px !important;
+            font-weight: 400 !important;
+            line-height: 1.6 !important;
+            white-space: pre-wrap !important;
+            transition: transform 0.15s ease, box-shadow 0.15s ease !important;
         }
-        .tour-hero-box:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 12px 40px rgba(255,68,68,0.5);
+        div[data-testid="stVerticalBlock"] > div:has(button[key="tour_hero_btn"]) button:hover {
+            transform: translateY(-2px) !important;
+            box-shadow: 0 12px 40px rgba(255,68,68,0.5) !important;
         }
-        .tour-hero-box:active {
-            transform: translateY(0px);
+        div[data-testid="stVerticalBlock"] > div:has(button[key="tour_hero_btn"]) button * {
+            color: #FFFFFF !important;
+        }
+        div[data-testid="stVerticalBlock"] > div:has(button[key="tour_hero_btn"]) button p {
+            color: #FFFFFF !important;
         }
         </style>
-        <div class="tour-hero-box" id="tour-hero-clickable" onclick="
-            // Find and click the START THE TOUR button
-            var btns = window.parent.document.querySelectorAll('button');
-            for (var i = 0; i < btns.length; i++) {
-                if (btns[i].innerText.includes('START THE TOUR')) {
-                    btns[i].click();
-                    break;
-                }
-            }
-        ">
-            <div style="position: absolute; top: -30px; right: -30px; width: 120px; height: 120px; background: rgba(255,255,255,0.08); border-radius: 50%;"></div>
-            <div style="position: absolute; bottom: -20px; left: -20px; width: 80px; height: 80px; background: rgba(255,255,255,0.05); border-radius: 50%;"></div>
-            <div style="font-size: 48px; margin-bottom: 10px;">🚀</div>
-            <h2 style="color: #FFFFFF !important; font-size: 26px; font-weight: 800; margin: 0 0 8px 0; letter-spacing: -0.5px;">New here? Start the 60-Second Tour!</h2>
-            <p style="color: rgba(255,255,255,0.9) !important; font-size: 16px; margin: 0 0 4px 0; line-height: 1.5;">Learn what each tool does — charts, analysis, portfolio & more.</p>
-            <p style="color: rgba(255,255,255,0.7) !important; font-size: 13px; margin: 0;">No account needed · Takes less than a minute</p>
-        </div>
         """, unsafe_allow_html=True)
+        
+        if st.button("🚀\n\n**New here? Start the 60-Second Tour!**\n\nLearn what each tool does — charts, analysis, portfolio & more.\n\n_No account needed · Takes less than a minute_", key="tour_hero_btn", use_container_width=True):
+            st.session_state.show_tour = True
+            st.session_state.tour_page = 0
+            st.rerun()
         
         tour_cta_col1, tour_cta_col2, tour_cta_col3 = st.columns([1, 2, 1])
         with tour_cta_col2:
