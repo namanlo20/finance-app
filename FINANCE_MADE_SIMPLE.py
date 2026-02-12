@@ -11727,31 +11727,31 @@ if selected_page == "🏠 Dashboard":
     
     # ============= APP TOUR SECTION — BIG & BOLD =============
     if not st.session_state.get('tour_completed', False):
-        # Style the red box button to look like the hero banner
+        # Style the red box button to look like a large hero banner
         st.markdown("""
         <style>
-        /* Make the tour hero button look like the red banner */
+        /* Make the tour hero button look like a BIG red banner */
         div[data-testid="stVerticalBlock"] > div:has(button[key="tour_hero_btn"]) button {
             background: linear-gradient(135deg, #FF4444 0%, #CC0000 60%, #FF6B6B 100%) !important;
-            padding: 40px 28px !important;
-            border-radius: 18px !important;
-            margin-bottom: 0px !important;
+            padding: 50px 32px !important;
+            border-radius: 20px !important;
+            margin-bottom: 10px !important;
             text-align: center !important;
-            box-shadow: 0 8px 32px rgba(255,68,68,0.35) !important;
+            box-shadow: 0 10px 40px rgba(255,68,68,0.4) !important;
             border: 2px solid rgba(255,255,255,0.15) !important;
-            position: relative !important;
             overflow: hidden !important;
-            min-height: 180px !important;
+            min-height: 220px !important;
             color: #FFFFFF !important;
-            font-size: 16px !important;
+            font-size: 17px !important;
             font-weight: 400 !important;
-            line-height: 1.6 !important;
+            line-height: 1.7 !important;
             white-space: pre-wrap !important;
             transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+            cursor: pointer !important;
         }
         div[data-testid="stVerticalBlock"] > div:has(button[key="tour_hero_btn"]) button:hover {
-            transform: translateY(-2px) !important;
-            box-shadow: 0 12px 40px rgba(255,68,68,0.5) !important;
+            transform: translateY(-3px) !important;
+            box-shadow: 0 14px 48px rgba(255,68,68,0.55) !important;
         }
         div[data-testid="stVerticalBlock"] > div:has(button[key="tour_hero_btn"]) button * {
             color: #FFFFFF !important;
@@ -11762,33 +11762,42 @@ if selected_page == "🏠 Dashboard":
         </style>
         """, unsafe_allow_html=True)
         
-        if st.button("🚀\n\n**New here? Start the 60-Second Tour!**\n\nLearn what each tool does — charts, analysis, portfolio & more.\n\n_No account needed · Takes less than a minute_", key="tour_hero_btn", use_container_width=True):
+        if st.button("🚀\n\n**New here? Start the 60-Second Tour!**\n\nLearn what each tool does — charts, analysis, portfolio & more.\n\n_No account needed · Takes less than a minute_\n\n**👆 Click anywhere on this box to begin**", key="tour_hero_btn", use_container_width=True):
             st.session_state.show_tour = True
             st.session_state.tour_page = 0
             st.rerun()
-        
-        tour_cta_col1, tour_cta_col2, tour_cta_col3 = st.columns([1, 2, 1])
-        with tour_cta_col2:
-            st.markdown("""
-            <style>
-            /* Override for the tour button specifically */
-            div[data-testid="stVerticalBlock"] > div:has(button[key="start_tour_btn"]) button,
-            button[kind="primary"] {
-                font-size: 20px !important;
-                padding: 18px 40px !important;
-                min-height: 60px !important;
-                letter-spacing: 0.5px !important;
-            }
-            </style>
-            """, unsafe_allow_html=True)
-            if st.button("🚀 START THE TOUR", key="start_tour_btn", use_container_width=True, type="primary"):
-                st.session_state.show_tour = True
-                st.session_state.tour_page = 0
-                st.rerun()
     
     # Show tour dialog if triggered
     if st.session_state.get('show_tour', False):
         show_app_tour()
+    
+    # ============= AI CHATBOT HIGHLIGHT — IMMEDIATE ATTENTION =============
+    if not st.session_state.get('chatbot_intro_dismissed', False):
+        st.markdown("""
+        <div style="
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            padding: 20px 24px;
+            border-radius: 16px;
+            margin: 8px 0 18px 0;
+            border: 2px solid rgba(33,150,243,0.4);
+            box-shadow: 0 4px 20px rgba(33,150,243,0.25);
+            display: flex;
+            align-items: center;
+            gap: 18px;
+        ">
+            <div style="font-size: 42px; flex-shrink: 0;">🤖</div>
+            <div style="flex: 1;">
+                <div style="color: #64B5F6 !important; font-size: 18px; font-weight: 700; margin-bottom: 4px;">Meet your AI Assistant!</div>
+                <div style="color: rgba(255,255,255,0.85) !important; font-size: 14px; line-height: 1.5;">
+                    Got a question? Your friendly neighborhood chatbot lives in the <strong style="color: #FF6B6B !important;">left sidebar</strong> — click the red <strong style="color: #FF6B6B !important;">🤖 AI Assistant</strong> button anytime. Ask about any stock, investing concept, or market trend. It's free & instant!
+                </div>
+            </div>
+            <div style="font-size: 28px; flex-shrink: 0;">👈</div>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("✓ Got it!", key="dismiss_chatbot_intro", type="secondary"):
+            st.session_state.chatbot_intro_dismissed = True
+            st.rerun()
     
     # ============= LIFESTYLE IMAGES moved to landing page =============
     
