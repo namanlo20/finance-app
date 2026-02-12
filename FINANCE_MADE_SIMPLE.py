@@ -7393,73 +7393,106 @@ TOUR_PAGES = [
         "title": "🏠 Dashboard",
         "icon": "🏠",
         "subtitle": "Your home base",
-        "description": "Pin stocks to your watchlist, see today's market movers (gainers & losers), catch quick news headlines, and search any ticker instantly."
+        "description": "Save stocks to your watchlist, see today's market movers (gainers & losers), catch quick news headlines, and search any ticker instantly.",
+        "nav_page": "🏠 Dashboard"
+    },
+    {
+        "title": "🏠 Start Here",
+        "icon": "🏠",
+        "subtitle": "Begin your investing journey",
+        "description": "Your guided starting point. Learn the basics of smart investing through interactive missions, and get comfortable with the platform.",
+        "nav_page": "🏠 Start Here"
+    },
+    {
+        "title": "🧠 Risk Quiz",
+        "icon": "🧠",
+        "subtitle": "Know your investor profile",
+        "description": "Take a quick quiz to find out your risk tolerance — conservative, moderate, or aggressive — and get personalized guidance.",
+        "nav_page": "🧠 Risk Quiz"
     },
     {
         "title": "📚 Learn Hub",
         "icon": "📚",
         "subtitle": "55+ interactive lessons",
-        "description": "Gamified learning from beginner to advanced. Earn XP, complete quizzes, and track your streak. No finance background needed."
+        "description": "Gamified learning from beginner to advanced. Earn XP, complete quizzes, and track your streak. No finance background needed.",
+        "nav_page": "📚 Learn Hub"
     },
     {
-        "title": "🎓 Finance 101",
-        "icon": "🎓",
-        "subtitle": "Theory → Practice",
-        "description": "Bridge what you learned to real stocks. Walk through P/E, revenue growth, margins & more on actual companies — step by step."
+        "title": "📘 Glossary",
+        "icon": "📘",
+        "subtitle": "Finance terms explained simply",
+        "description": "Look up any investing term and get a plain-English explanation. Great reference while you're learning.",
+        "nav_page": "📘 Glossary"
     },
     {
-        "title": "🔍 Company Analysis",
-        "icon": "🔍",
+        "title": "📊 Company Analysis",
+        "icon": "📊",
         "subtitle": "Deep dive any stock",
-        "description": "Full financials (revenue, earnings, cash flow), interactive charts vs S&P 500, AI explanations of complex metrics, and Wall Street price targets."
+        "description": "Full financials (revenue, earnings, cash flow), interactive charts vs S&P 500, AI explanations of complex metrics, and Wall Street price targets.",
+        "nav_page": "📊 Company Analysis"
     },
     {
-        "title": "⚖️ Compare Stocks",
-        "icon": "⚖️",
-        "subtitle": "Head-to-head matchups",
-        "description": "Compare two companies side by side — metrics, chart overlay, and winner highlights to help you decide."
+        "title": "📈 Financial Health",
+        "icon": "📈",
+        "subtitle": "Compare & evaluate stocks",
+        "description": "Check a company's financial health scores and compare two stocks side by side — metrics, chart overlay, and winner highlights.",
+        "nav_page": "📈 Financial Health"
     },
     {
         "title": "📰 Market Intelligence",
         "icon": "📰",
         "subtitle": "Stay informed",
-        "description": "VIX fear gauge, this week's earnings calendar, stock-specific news, and market-moving alerts — all in one place."
+        "description": "VIX fear gauge, this week's earnings calendar, stock-specific news, and market-moving alerts — all in one place.",
+        "nav_page": "📰 Market Intelligence"
+    },
+    {
+        "title": "📊 Market Overview",
+        "icon": "📊",
+        "subtitle": "Bird's-eye view of the market",
+        "description": "See how major indices, sectors, and asset classes are performing. Quick snapshot of what's moving today.",
+        "nav_page": "📊 Market Overview"
+    },
+    {
+        "title": "🤖 AI Stock Screener",
+        "icon": "🤖",
+        "subtitle": "Ask anything about stocks",
+        "description": "Ask any stock question in plain English — 'Is NVDA overvalued?' 'Compare AAPL vs MSFT' — and our AI agent pulls financials, ratios, news & analyst targets to deliver a full research report.",
+        "nav_page": "🔍 AI Stock Screener"
     },
     {
         "title": "📊 Pro Checklist",
         "icon": "📊",
         "subtitle": "Pro tier feature",
-        "description": "10-point investment checklist, technical analysis (RSI, moving averages), AI chart screenshot analysis, and risk assessment. Requires Pro."
+        "description": "10-point investment checklist, technical analysis (RSI, moving averages), AI chart screenshot analysis, and risk assessment. Requires Pro.",
+        "nav_page": "📊 Pro Checklist"
     },
     {
         "title": "👑 Ultimate",
         "icon": "👑",
         "subtitle": "Ultimate tier feature",
-        "description": "Upload brokerage screenshots for AI analysis, get diversification scores, match your risk profile, and receive personalized suggestions. Requires Ultimate."
-    },
-    {
-        "title": "🤖 AI Stock Screener",
-        "icon": "🤖",
-        "subtitle": "Ultimate tier feature",
-        "description": "Ask any stock question in plain English — 'Is NVDA overvalued?' 'Compare AAPL vs MSFT' — and our AI agent autonomously pulls financials, ratios, news & analyst targets to deliver a full research report. Like having a Wall Street analyst on call."
+        "description": "Upload brokerage screenshots for AI analysis, get diversification scores, match your risk profile, and receive personalized suggestions. Requires Ultimate.",
+        "nav_page": "👑 Ultimate"
     },
     {
         "title": "💼 Paper Portfolio",
         "icon": "💼",
         "subtitle": "Practice risk-free",
-        "description": "$100K fake money to paper trade. Track your returns, benchmark vs SPY, and peek at the founder's real portfolio."
+        "description": "$100K fake money to paper trade. Track your returns, benchmark vs SPY, and peek at the founder's real portfolio.",
+        "nav_page": "💼 Paper Portfolio"
     },
     {
         "title": "⚙️ Settings & Sidebar",
         "icon": "⚙️",
         "subtitle": "Left panel controls",
-        "description": "Sign in/up to sync across devices. Use the timeline slider (1-30Y) to control chart history. Toggle Unhinged Mode for fun roast commentary (18+)."
+        "description": "Sign in/up to sync across devices. Use the timeline slider (1-30Y) to control chart history. Toggle Unhinged Mode for fun roast commentary (18+).",
+        "nav_page": None
     },
     {
         "title": "👑 VIP Tiers",
         "icon": "👑",
         "subtitle": "Free month for new users!",
-        "description": "Free → 3 pins, basic analysis. Pro ($5/mo) → 25 pins, advanced charts, AI insights. Ultimate ($10/mo) → unlimited + priority support. First month free for new subscribers!"
+        "description": "Free → 3 saved stocks, basic analysis. Pro ($5/mo) → 25 saved stocks, advanced charts, AI insights. Ultimate ($10/mo) → unlimited saved stocks + priority support. First month free for new subscribers!",
+        "nav_page": "👑 Become a VIP"
     }
 ]
 
@@ -7542,6 +7575,15 @@ def show_app_tour():
     st.markdown(f"## {page_data['title']}")
     st.markdown(f"<p class='tour-subtitle'>{page_data['subtitle']}</p>", unsafe_allow_html=True)
     st.markdown(f"<p class='tour-desc'>{page_data['description']}</p>", unsafe_allow_html=True)
+    
+    # "Go to this page" navigation link
+    if page_data.get('nav_page'):
+        st.markdown("")
+        if st.button(f"🔗 Go to {page_data['title']}", use_container_width=True, key="tour_goto_page"):
+            st.session_state.selected_page = page_data['nav_page']
+            st.session_state.tour_page = 0
+            st.session_state.show_tour = False
+            st.rerun()
     
     st.markdown("")
     
@@ -11683,8 +11725,11 @@ if selected_page == "🏠 Dashboard":
     
     # ============= APP TOUR SECTION — BIG & BOLD =============
     if not st.session_state.get('tour_completed', False):
+        # The entire red box AND the button both trigger the tour
+        # Use a hidden button trick: clicking the red box programmatically clicks the tour button
         st.markdown("""
-        <div style="
+        <style>
+        .tour-hero-box {
             background: linear-gradient(135deg, #FF4444 0%, #CC0000 60%, #FF6B6B 100%);
             padding: 30px 28px;
             border-radius: 18px;
@@ -11694,6 +11739,26 @@ if selected_page == "🏠 Dashboard":
             border: 2px solid rgba(255,255,255,0.15);
             position: relative;
             overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .tour-hero-box:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 40px rgba(255,68,68,0.5);
+        }
+        .tour-hero-box:active {
+            transform: translateY(0px);
+        }
+        </style>
+        <div class="tour-hero-box" id="tour-hero-clickable" onclick="
+            // Find and click the START THE TOUR button
+            var btns = window.parent.document.querySelectorAll('button');
+            for (var i = 0; i < btns.length; i++) {
+                if (btns[i].innerText.includes('START THE TOUR')) {
+                    btns[i].click();
+                    break;
+                }
+            }
         ">
             <div style="position: absolute; top: -30px; right: -30px; width: 120px; height: 120px; background: rgba(255,255,255,0.08); border-radius: 50%;"></div>
             <div style="position: absolute; bottom: -20px; left: -20px; width: 80px; height: 80px; background: rgba(255,255,255,0.05); border-radius: 50%;"></div>
@@ -11749,12 +11814,13 @@ if selected_page == "🏠 Dashboard":
     # ============= BLOCK A: PINNED WATCHLIST =============
     st.markdown("### 📌 Pinned Watchlist")
     
-    # Add ticker input
-    col_add1, col_add2 = st.columns([3, 1])
-    with col_add1:
-        new_pin_ticker = st.text_input("Add a ticker to watch:", placeholder="e.g., AAPL, NVDA, MSFT", key="new_pin_input", label_visibility="collapsed")
-    with col_add2:
-        add_pin_clicked = st.button("➕ Pin", key="add_pin_btn", use_container_width=True)
+    # Add ticker input (form supports both Enter key and button click)
+    with st.form(key="pin_form", clear_on_submit=True):
+        col_add1, col_add2 = st.columns([3, 1])
+        with col_add1:
+            new_pin_ticker = st.text_input("Add a ticker to watch:", placeholder="e.g., AAPL, NVDA, MSFT", key="new_pin_input", label_visibility="collapsed")
+        with col_add2:
+            add_pin_clicked = st.form_submit_button("➕ Pin", use_container_width=True)
     
     # Get tier-based limit
     pin_limit = get_tier_limit("pinned_tickers")
@@ -11766,7 +11832,7 @@ if selected_page == "🏠 Dashboard":
         if tier == "free":
             st.caption(f"📌 {current_pins}/{pin_limit} tickers (Free tier)")
     
-    # Handle adding new pin
+    # Handle adding new pin (works with BOTH button click AND Enter key via form)
     if add_pin_clicked and new_pin_ticker:
         ticker_upper = new_pin_ticker.upper().strip()
         if ticker_upper and ticker_upper not in st.session_state.pinned_tickers:
@@ -16692,12 +16758,17 @@ elif selected_page == "📊 Company Analysis":
             # Stock Price Chart with Timeframe Toggles
             st.markdown(f"### {company_name} Stock Price")
             
-            # Timeframe toggles
-            timeframe_options = ["1D", "5D", "1M", "6M", "YTD", "1Y", "5Y"]
+            # Timeframe toggles - include sidebar years as an option
+            sidebar_years_label = f"Sidebar ({years}Y)"
+            timeframe_options = ["1D", "5D", "1M", "6M", "YTD", "1Y", "5Y", sidebar_years_label]
+            
+            # Default to the sidebar years option so the slider always works
+            default_index = len(timeframe_options) - 1  # Sidebar option
+            
             selected_timeframe = st.radio(
                 "Select timeframe:",
                 timeframe_options,
-                index=timeframe_options.index("1Y") if years == 1 else (timeframe_options.index("5Y") if years >= 5 else 4),
+                index=default_index,
                 horizontal=True,
                 key="price_timeframe"
             )
@@ -16712,7 +16783,12 @@ elif selected_page == "📊 Company Analysis":
                 "1Y": 365,
                 "5Y": 365 * 5
             }
-            days_to_show = timeframe_days.get(selected_timeframe, 365)
+            
+            # If sidebar option selected, use the sidebar years value
+            if selected_timeframe == sidebar_years_label:
+                days_to_show = years * 365
+            else:
+                days_to_show = timeframe_days.get(selected_timeframe, 365)
             
             # Fetch price history (use max of selected timeframe or sidebar years)
             fetch_years = max(days_to_show / 365, years)
