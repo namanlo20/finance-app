@@ -4819,6 +4819,34 @@ COMPANY_NAME_TO_TICKER = {
     "voo": "VOO", "vanguard s&p": "VOO",
     "vti": "VTI", "total market": "VTI",
     "arkk": "ARKK", "ark innovation": "ARKK", "ark": "ARKK",
+    # More commonly searched
+    "doordash": "DASH", "dash": "DASH", "door dash": "DASH",
+    "draftkings": "DKNG", "dkng": "DKNG", "draft kings": "DKNG",
+    "roblox": "RBLX", "rblx": "RBLX",
+    "rivian": "RIVN", "rivn": "RIVN",
+    "lucid": "LCID", "lcid": "LCID", "lucid motors": "LCID",
+    "sofi": "SOFI", "sofi technologies": "SOFI",
+    "affirm": "AFRM", "afrm": "AFRM",
+    "duolingo": "DUOL", "duol": "DUOL",
+    "toast": "TOST", "tost": "TOST",
+    "instacart": "CART", "cart": "CART",
+    "klaviyo": "KVYO", "kvyo": "KVYO",
+    "cava": "CAVA",
+    "celsius": "CELH", "celh": "CELH",
+    "hims": "HIMS", "hims & hers": "HIMS",
+    "reddit": "RDDT", "rddt": "RDDT",
+    "arm": "ARM", "arm holdings": "ARM",
+    "asml": "ASML",
+    "taiwan semiconductor": "TSM", "tsmc": "TSM", "tsm": "TSM",
+    "samsung": "SSNLF", "ssnlf": "SSNLF",
+    "alibaba": "BABA", "baba": "BABA",
+    "tencent": "TCEHY", "tcehy": "TCEHY",
+    "baidu": "BIDU", "bidu": "BIDU",
+    "jd": "JD", "jd.com": "JD",
+    "nio": "NIO",
+    "byd": "BYDDY", "byddy": "BYDDY",
+    "xpeng": "XPEV", "xpev": "XPEV",
+    "li auto": "LI", "li": "LI",
 }
 
 # Magnificent 7 tickers for default news
@@ -4881,64 +4909,93 @@ def resolve_company_to_ticker(query):
     # Default: return as-is (uppercase)
     return query_upper
 
+@st.cache_data(ttl=3600)
+def fmp_search_companies(query):
+    """Search FMP API for companies matching query - returns list of (ticker, name) tuples.
+    This is the SMART search - it finds ANY company by partial name match!
+    """
+    if not query or len(query) < 1:
+        return []
+    
+    try:
+        # FMP search endpoint - searches company names AND tickers
+        url = f"{BASE_URL}/search?query={query}&limit=15&apikey={FMP_API_KEY}"
+        response = requests.get(url, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            results = []
+            
+            # Priority 1: US exchanges
+            for item in data:
+                ticker = item.get('symbol', '')
+                name = item.get('name', '')
+                exchange = item.get('exchangeShortName', '')
+                if exchange in ['NYSE', 'NASDAQ', 'AMEX']:
+                    results.append((ticker, name))
+            
+            # Priority 2: ETFs
+            for item in data:
+                ticker = item.get('symbol', '')
+                name = item.get('name', '')
+                exchange = item.get('exchangeShortName', '')
+                if exchange == 'ETF' and (ticker, name) not in results:
+                    results.append((ticker, name))
+            
+            # Priority 3: Other exchanges if we don't have enough results
+            if len(results) < 5:
+                for item in data:
+                    ticker = item.get('symbol', '')
+                    name = item.get('name', '')
+                    if ticker and name and (ticker, name) not in results:
+                        results.append((ticker, name))
+            
+            return results[:10]
+    except Exception as e:
+        pass
+    return []
+
+def get_similar_suggestions(query):
+    """Get similar company/ticker suggestions using FMP search API"""
+    if not query:
+        return []
+    
+    # Just use FMP search - it searches ALL companies, not just our dictionary
+    return fmp_search_companies(query)[:5]
+
 def smart_search_ticker(search_term):
-    """Smart search - check dictionary first, then verify ticker exists via FMP API."""
+    """Smart search - Use FMP search API to find ANY company by name or ticker."""
     if not search_term:
         return None, None
     
     search_lower = search_term.lower().strip()
     search_upper = search_term.upper().strip()
     
-    # FIRST: Check our curated dictionary (handles Berkshire, Google, etc.)
+    # 1. Quick check our dictionary for common nicknames (google, berkshire, etc)
     if search_lower in COMPANY_NAME_TO_TICKER:
         ticker = COMPANY_NAME_TO_TICKER[search_lower]
         return ticker, search_term
     
-    # Check partial matches in dictionary (e.g., "berkshire" matches "berkshire hathaway")
-    for name, ticker in COMPANY_NAME_TO_TICKER.items():
-        if search_lower in name or name in search_lower:
-            return ticker, name
-    
-    # Handle class share tickers (BRKA → BRK-A)
-    import re
-    class_share_match = re.match(r'^([A-Z]{2,4})([AB])$', search_upper)
-    if class_share_match:
-        base_ticker = class_share_match.group(1)
-        share_class = class_share_match.group(2)
-        formatted_ticker = f"{base_ticker}-{share_class}"
-        quote = get_quote(formatted_ticker)
-        if quote and quote.get('price'):
-            return formatted_ticker, quote.get('name', formatted_ticker)
-    
-    # If input is 1-5 chars (looks like a ticker), verify it exists via FMP API
-    if len(search_upper) <= 5 and search_upper.isalpha():
+    # 2. If it looks like a valid ticker (1-5 letters), verify it exists
+    if len(search_upper) <= 5 and search_upper.replace('.', '').replace('-', '').isalpha():
         quote = get_quote(search_upper)
-        if quote and quote.get('symbol'):
+        if quote and quote.get('price'):
             return search_upper, quote.get('name', search_upper)
+        # Try with dash for class shares (BRK.B -> BRK-B)
+        if '.' in search_upper:
+            dash_version = search_upper.replace('.', '-')
+            quote = get_quote(dash_version)
+            if quote and quote.get('price'):
+                return dash_version, quote.get('name', dash_version)
     
-    # For longer inputs (company names), try our all_stocks dictionary
-    all_stocks = get_all_stocks()
+    # 3. USE FMP SEARCH API - This finds ANY company by partial name!
+    # This is the key - "uber" finds "Uber Technologies", "door" finds "DoorDash", etc.
+    search_results = fmp_search_companies(search_term)
+    if search_results:
+        # Return the first (best) match
+        best_ticker, best_name = search_results[0]
+        return best_ticker, best_name
     
-    # Check if exact match in dictionary
-    if search_upper in all_stocks and len(search_upper) <= 5:
-        return search_upper, all_stocks[search_upper]
-    
-    if search_upper in all_stocks:
-        return all_stocks[search_upper], search_upper
-    
-    # Only fuzzy match for LONG company name searches (not tickers)
-    if len(search_upper) > 5:
-        names = [k for k in all_stocks.keys() if len(k) > 5]
-        close_names = get_close_matches(search_upper, names, n=1, cutoff=0.6)
-        if close_names:
-            return all_stocks[close_names[0]], close_names[0]
-    
-    # Search in company names for partial match
-    for key, value in all_stocks.items():
-        if len(key) > 5 and search_upper in key:
-            return value, key
-    
-    # Return as-is - let FMP handle it
+    # 4. Fallback - return as-is
     return search_upper, search_upper
 
 @st.cache_data(ttl=300)
@@ -16594,10 +16651,36 @@ elif selected_page == "📊 Company Analysis":
     
     if search:
         ticker, company_name = smart_search_ticker(search)
-        st.session_state.selected_ticker = ticker
-        st.session_state.last_ticker = ticker  # Track last ticker for Dashboard
-        if ticker != search.upper():
-            st.success(f"Found: {company_name} ({ticker})")
+        
+        # Verify the ticker actually exists by getting a quote
+        quote_check = get_quote(ticker)
+        ticker_valid = quote_check is not None and quote_check.get('price') is not None
+        
+        if ticker_valid:
+            st.session_state.selected_ticker = ticker
+            st.session_state.last_ticker = ticker  # Track last ticker for Dashboard
+            if ticker != search.upper():
+                st.success(f"Found: {company_name} ({ticker})")
+        else:
+            # Ticker not found - show smart suggestions
+            st.warning(f"⚠️ Couldn't find '{search}' — did you mean one of these?")
+            
+            suggestions = get_similar_suggestions(search)
+            
+            if suggestions:
+                cols = st.columns(min(len(suggestions), 5))
+                for i, (sug_ticker, sug_name) in enumerate(suggestions):
+                    with cols[i]:
+                        # Truncate long names
+                        display_name = sug_name[:20] + "..." if len(sug_name) > 20 else sug_name
+                        if st.button(f"**{sug_ticker}**\n{display_name}", key=f"suggest_{sug_ticker}", use_container_width=True):
+                            st.session_state.selected_ticker = sug_ticker
+                            st.rerun()
+            else:
+                st.info("💡 Try searching for the full company name (e.g., 'DoorDash' instead of 'doordash')")
+            
+            # Still set ticker so page can try to load
+            st.session_state.selected_ticker = ticker
     else:
         ticker = st.session_state.selected_ticker
     
