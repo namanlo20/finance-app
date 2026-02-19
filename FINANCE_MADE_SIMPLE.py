@@ -4714,14 +4714,32 @@ COMPANY_NAME_TO_TICKER = {
     # Other popular stocks
     "netflix": "NFLX", "nflx": "NFLX",
     "disney": "DIS", "walt disney": "DIS", "dis": "DIS",
-    "berkshire": "BRK.B", "berkshire hathaway": "BRK.B", "brk": "BRK.B",
-    "jpmorgan": "JPM", "jp morgan": "JPM", "jpm": "JPM",
+    # Berkshire Hathaway - ALL variations
+    "berkshire": "BRK-B", "berkshire hathaway": "BRK-B", "brk": "BRK-B",
+    "brka": "BRK-A", "brk.a": "BRK-A", "brk-a": "BRK-A", "berkshire a": "BRK-A", "berkshire class a": "BRK-A",
+    "brkb": "BRK-B", "brk.b": "BRK-B", "brk-b": "BRK-B", "berkshire b": "BRK-B", "berkshire class b": "BRK-B",
+    # Banks & Finance
+    "jpmorgan": "JPM", "jp morgan": "JPM", "jpm": "JPM", "chase": "JPM",
+    "bank of america": "BAC", "bofa": "BAC", "bac": "BAC",
+    "wells fargo": "WFC", "wfc": "WFC",
+    "goldman": "GS", "goldman sachs": "GS", "gs": "GS",
+    "morgan stanley": "MS", "ms": "MS",
+    "citigroup": "C", "citi": "C",
     "visa": "V",
     "mastercard": "MA", "ma": "MA",
+    "american express": "AXP", "amex": "AXP", "axp": "AXP",
+    # Retail
     "walmart": "WMT", "wmt": "WMT",
     "costco": "COST", "cost": "COST",
+    "target": "TGT", "tgt": "TGT",
+    "home depot": "HD", "hd": "HD",
+    "lowes": "LOW", "lowe's": "LOW", "low": "LOW",
+    # Food & Beverage
     "coca-cola": "KO", "coca cola": "KO", "coke": "KO", "ko": "KO",
     "pepsi": "PEP", "pepsico": "PEP", "pep": "PEP",
+    "mcdonalds": "MCD", "mcd": "MCD", "mcdonald's": "MCD",
+    "starbucks": "SBUX", "sbux": "SBUX",
+    # Tech
     "intel": "INTC", "intc": "INTC",
     "amd": "AMD", "advanced micro devices": "AMD",
     "paypal": "PYPL", "pypl": "PYPL",
@@ -4729,16 +4747,47 @@ COMPANY_NAME_TO_TICKER = {
     "salesforce": "CRM", "crm": "CRM",
     "oracle": "ORCL", "orcl": "ORCL",
     "ibm": "IBM",
+    "cisco": "CSCO", "csco": "CSCO",
+    "qualcomm": "QCOM", "qcom": "QCOM",
+    "broadcom": "AVGO", "avgo": "AVGO",
+    "micron": "MU", "mu": "MU",
+    "servicenow": "NOW", "now": "NOW",
+    "intuit": "INTU", "intu": "INTU",
+    # Industrial & Defense
     "boeing": "BA", "ba": "BA",
+    "lockheed": "LMT", "lockheed martin": "LMT", "lmt": "LMT",
+    "raytheon": "RTX", "rtx": "RTX",
+    "caterpillar": "CAT", "cat": "CAT",
+    "3m": "MMM", "mmm": "MMM",
+    "honeywell": "HON", "hon": "HON",
+    "general electric": "GE", "ge": "GE",
+    "union pacific": "UNP", "unp": "UNP",
+    # Energy
     "chevron": "CVX", "cvx": "CVX",
-    "exxon": "XOM", "exxon mobil": "XOM", "xom": "XOM",
+    "exxon": "XOM", "exxon mobil": "XOM", "exxonmobil": "XOM", "xom": "XOM",
+    "conocophillips": "COP", "conoco": "COP", "cop": "COP",
+    "schlumberger": "SLB", "slb": "SLB",
+    # Healthcare & Pharma
     "pfizer": "PFE", "pfe": "PFE",
-    "johnson & johnson": "JNJ", "j&j": "JNJ", "jnj": "JNJ",
-    "unitedhealth": "UNH", "unh": "UNH",
-    "home depot": "HD", "hd": "HD",
-    "mcdonalds": "MCD", "mcd": "MCD",
+    "johnson & johnson": "JNJ", "j&j": "JNJ", "jnj": "JNJ", "johnson and johnson": "JNJ",
+    "unitedhealth": "UNH", "unh": "UNH", "united health": "UNH",
+    "eli lilly": "LLY", "lilly": "LLY", "lly": "LLY",
+    "merck": "MRK", "mrk": "MRK",
+    "abbvie": "ABBV", "abbv": "ABBV",
+    "bristol myers": "BMY", "bristol-myers": "BMY", "bmy": "BMY",
+    "amgen": "AMGN", "amgn": "AMGN",
+    "gilead": "GILD", "gild": "GILD",
+    "moderna": "MRNA", "mrna": "MRNA",
+    "novo nordisk": "NVO", "novo": "NVO", "nvo": "NVO",
+    # Consumer
     "nike": "NKE", "nke": "NKE",
-    "starbucks": "SBUX", "sbux": "SBUX",
+    "procter & gamble": "PG", "procter and gamble": "PG", "p&g": "PG", "pg": "PG",
+    "colgate": "CL", "colgate-palmolive": "CL", "cl": "CL",
+    # Telecom
+    "verizon": "VZ", "vz": "VZ",
+    "at&t": "T", "att": "T",
+    "t-mobile": "TMUS", "tmobile": "TMUS", "tmus": "TMUS",
+    # Growth / Tech
     "uber": "UBER",
     "airbnb": "ABNB", "abnb": "ABNB",
     "spotify": "SPOT", "spot": "SPOT",
@@ -4749,8 +4798,27 @@ COMPANY_NAME_TO_TICKER = {
     "robinhood": "HOOD", "hood": "HOOD",
     "gamestop": "GME", "gme": "GME",
     "amc": "AMC", "amc entertainment": "AMC",
-    "spy": "SPY", "s&p 500": "SPY", "s&p": "SPY",
-    "qqq": "QQQ", "nasdaq": "QQQ",
+    "shopify": "SHOP", "shop": "SHOP",
+    "square": "SQ", "block": "SQ", "sq": "SQ",
+    "roku": "ROKU", "roku": "ROKU",
+    "crowdstrike": "CRWD", "crwd": "CRWD",
+    "datadog": "DDOG", "ddog": "DDOG",
+    "cloudflare": "NET", "net": "NET",
+    "twilio": "TWLO", "twlo": "TWLO",
+    "docusign": "DOCU", "docu": "DOCU",
+    "okta": "OKTA", "okta": "OKTA",
+    "zscaler": "ZS", "zs": "ZS",
+    "mongodb": "MDB", "mdb": "MDB",
+    "splunk": "SPLK", "splk": "SPLK",
+    "elastic": "ESTC", "estc": "ESTC",
+    # ETFs
+    "spy": "SPY", "s&p 500": "SPY", "s&p": "SPY", "sp500": "SPY",
+    "qqq": "QQQ", "nasdaq": "QQQ", "nasdaq 100": "QQQ",
+    "dia": "DIA", "dow jones": "DIA", "dow": "DIA",
+    "iwm": "IWM", "russell 2000": "IWM", "russell": "IWM",
+    "voo": "VOO", "vanguard s&p": "VOO",
+    "vti": "VTI", "total market": "VTI",
+    "arkk": "ARKK", "ark innovation": "ARKK", "ark": "ARKK",
 }
 
 # Magnificent 7 tickers for default news
@@ -4767,21 +4835,38 @@ def resolve_company_to_ticker(query):
     if query_lower in COMPANY_NAME_TO_TICKER:
         return COMPANY_NAME_TO_TICKER[query_lower]
     
-    # Check if it's already a valid ticker (uppercase)
-    # Support tickers with dots (BRK.B) and dashes (BRK-B)
     query_upper = query.strip().upper()
+    
+    # Handle class share tickers without separator (BRKA → BRK-A, BRKB → BRK-B)
+    import re
+    class_share_match = re.match(r'^([A-Z]{2,4})([AB])$', query_upper)
+    if class_share_match:
+        base_ticker = class_share_match.group(1)
+        share_class = class_share_match.group(2)
+        formatted_ticker = f"{base_ticker}-{share_class}"
+        # Verify it exists via quote
+        quote = get_quote(formatted_ticker)
+        if quote and quote.get('price'):
+            return formatted_ticker
+    
+    # Support tickers with dots (BRK.B) and dashes (BRK-B)
     query_clean = query_upper.replace('.', '').replace('-', '')
     
     # Valid ticker patterns: 1-5 letters, optionally followed by .X or -X (class shares)
-    # Examples: AAPL, MSFT, BRK.B, BRK-B, RDS.A
     if len(query_clean) <= 6 and query_clean.isalpha():
-        normalized = query_upper.replace('-', '.')
+        # Try dash format first (FMP prefers this)
+        normalized = query_upper.replace('.', '-')
         try:
-            all_stocks = get_all_stocks()
-            # Only accept as ticker if it actually exists
-            if normalized in all_stocks:
+            quote = get_quote(normalized)
+            if quote and quote.get('price'):
                 return normalized
-            # Otherwise resolve as company name (Dolby -> DLB)
+            
+            # Try original format
+            quote = get_quote(query_upper)
+            if quote and quote.get('price'):
+                return query_upper
+            
+            # Search for company name
             ticker, _ = smart_search_ticker(query)
             return ticker
         except Exception:
@@ -4793,26 +4878,45 @@ def resolve_company_to_ticker(query):
         if query_lower in name or name in query_lower:
             return ticker
     
-    # Default: return as-is (uppercase), normalize dashes to dots
-    return query_upper.replace('-', '.')
+    # Default: return as-is (uppercase)
+    return query_upper
 
 def smart_search_ticker(search_term):
-    """Smart search - ALWAYS verify ticker exists via FMP API first. No fuzzy matching for short inputs."""
+    """Smart search - check dictionary first, then verify ticker exists via FMP API."""
     if not search_term:
         return None, None
     
+    search_lower = search_term.lower().strip()
     search_upper = search_term.upper().strip()
     
-    # CRITICAL: If input is 1-5 chars (looks like a ticker), verify it exists via FMP API
-    # This prevents AMC from becoming AMZN
+    # FIRST: Check our curated dictionary (handles Berkshire, Google, etc.)
+    if search_lower in COMPANY_NAME_TO_TICKER:
+        ticker = COMPANY_NAME_TO_TICKER[search_lower]
+        return ticker, search_term
+    
+    # Check partial matches in dictionary (e.g., "berkshire" matches "berkshire hathaway")
+    for name, ticker in COMPANY_NAME_TO_TICKER.items():
+        if search_lower in name or name in search_lower:
+            return ticker, name
+    
+    # Handle class share tickers (BRKA → BRK-A)
+    import re
+    class_share_match = re.match(r'^([A-Z]{2,4})([AB])$', search_upper)
+    if class_share_match:
+        base_ticker = class_share_match.group(1)
+        share_class = class_share_match.group(2)
+        formatted_ticker = f"{base_ticker}-{share_class}"
+        quote = get_quote(formatted_ticker)
+        if quote and quote.get('price'):
+            return formatted_ticker, quote.get('name', formatted_ticker)
+    
+    # If input is 1-5 chars (looks like a ticker), verify it exists via FMP API
     if len(search_upper) <= 5 and search_upper.isalpha():
-        # Check if this ticker exists in FMP
         quote = get_quote(search_upper)
         if quote and quote.get('symbol'):
-            # Valid ticker - return it as-is
             return search_upper, quote.get('name', search_upper)
     
-    # For longer inputs (company names), try our dictionary
+    # For longer inputs (company names), try our all_stocks dictionary
     all_stocks = get_all_stocks()
     
     # Check if exact match in dictionary
