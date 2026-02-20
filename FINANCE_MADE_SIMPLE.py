@@ -9980,6 +9980,30 @@ st.markdown("<div style='margin-bottom: 80px;'></div>", unsafe_allow_html=True)
 st.markdown("""
 <style>
 @media screen and (max-width: 768px) {
+    /* Mobile popover improvements - make it a full-width modal that's easy to tap */
+    [data-baseweb="popover"] {
+        position: fixed !important;
+        left: 10px !important;
+        right: 10px !important;
+        top: auto !important;
+        bottom: 80px !important;
+        width: calc(100% - 20px) !important;
+        max-width: none !important;
+        transform: none !important;
+        border-radius: 16px !important;
+        box-shadow: 0 -4px 20px rgba(0,0,0,0.2) !important;
+    }
+    [data-baseweb="popover"] > div {
+        max-height: 60vh !important;
+        overflow-y: auto !important;
+    }
+    /* Make popover buttons larger for touch */
+    [data-baseweb="popover"] button {
+        min-height: 52px !important;
+        font-size: 16px !important;
+        margin: 4px 0 !important;
+    }
+    
     .mobile-bottom-nav {
         display: flex !important;
         position: fixed !important;
@@ -10066,37 +10090,69 @@ st.markdown("""
 st.markdown("""
 <script>
 (function() {
-    // Close any open popovers by clicking the document body
+    // Close any open popovers
     function closePopovers() {
-        // Click the body to dismiss popover overlay
+        // Find and click any popover close buttons or overlays
+        var overlays = document.querySelectorAll('[data-baseweb="popover"]');
+        overlays.forEach(function(overlay) {
+            // Try to find the actual popover content and hide it
+            overlay.style.display = 'none';
+        });
+        
+        // Also click the body to dismiss
         document.body.click();
-        // Also try pressing Escape
-        document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', code: 'Escape', keyCode: 27, bubbles: true}));
+        
+        // Press Escape key
+        document.dispatchEvent(new KeyboardEvent('keydown', {
+            key: 'Escape', 
+            code: 'Escape', 
+            keyCode: 27, 
+            bubbles: true
+        }));
+        
+        // Find and click any backdrop/overlay elements
+        var backdrops = document.querySelectorAll('[data-baseweb="layer"]');
+        backdrops.forEach(function(backdrop) {
+            backdrop.click();
+        });
     }
 
-    // Watch for clicks on buttons inside popovers
+    // Watch for ANY click on buttons inside popovers
     document.addEventListener('click', function(e) {
         var btn = e.target.closest('button');
         if (!btn) return;
+        
         // Check if this button is inside a popover
         var popover = btn.closest('[data-baseweb="popover"]');
         if (popover) {
-            // Small delay then force close
-            setTimeout(closePopovers, 80);
+            // Immediately close, then again after a delay
+            closePopovers();
+            setTimeout(closePopovers, 50);
+            setTimeout(closePopovers, 150);
+        }
+    }, true);
+    
+    // Also close when touching outside on mobile
+    document.addEventListener('touchend', function(e) {
+        var popover = document.querySelector('[data-baseweb="popover"]');
+        if (popover && !popover.contains(e.target)) {
+            closePopovers();
         }
     }, true);
 
-    // MutationObserver: watch for new popovers and attach close-on-click
+    // MutationObserver: watch for new popovers
     var observer = new MutationObserver(function(mutations) {
         mutations.forEach(function(m) {
             m.addedNodes.forEach(function(node) {
                 if (node.nodeType === 1) {
-                    // If a popover was added, watch buttons inside it
                     var popovers = node.querySelectorAll ? node.querySelectorAll('[data-baseweb="popover"]') : [];
                     popovers.forEach(function(pop) {
+                        // Auto-attach close handlers to all buttons in popover
                         pop.querySelectorAll('button').forEach(function(btn) {
                             btn.addEventListener('click', function() {
-                                setTimeout(closePopovers, 80);
+                                closePopovers();
+                                setTimeout(closePopovers, 50);
+                                setTimeout(closePopovers, 150);
                             });
                         });
                     });
