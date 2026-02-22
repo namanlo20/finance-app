@@ -618,10 +618,22 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Initialize selected page
+# Initialize selected page - CHECK URL FIRST to persist on refresh
 if 'selected_page' not in st.session_state:
-    st.session_state.selected_page = "🏠 Dashboard"
+    # Check if page is in URL query params (persists on refresh)
+    url_page = st.query_params.get("page")
+    if url_page:
+        st.session_state.selected_page = url_page
+    else:
+        st.session_state.selected_page = "🏠 Dashboard"
+
 selected_page = st.session_state.selected_page
+
+# Sync selected_page to URL so refresh stays on same page
+if st.session_state.selected_page:
+    current_url_page = st.query_params.get("page")
+    if current_url_page != st.session_state.selected_page:
+        st.query_params["page"] = st.session_state.selected_page
 
 # Fix button text visibility + NAV dropdown width (single, valid CSS block)
 st.markdown(
@@ -16702,7 +16714,8 @@ elif selected_page == "📊 Company Analysis":
     search = st.text_input(
         "🔍 Search by Company Name or Ticker:",
         st.session_state.selected_ticker,
-        help="Try: Apple, AAPL, Microsoft, TSLA, etc."
+        help="Try: Apple, AAPL, Microsoft, TSLA, etc.",
+        key="company_search_input"
     )
     
     if search:
@@ -16713,8 +16726,16 @@ elif selected_page == "📊 Company Analysis":
         ticker_valid = quote_check is not None and quote_check.get('price') is not None
         
         if ticker_valid:
-            st.session_state.selected_ticker = ticker
-            st.session_state.last_ticker = ticker  # Track last ticker for Dashboard
+            # Check if ticker actually changed - if so, rerun to load new data
+            old_ticker = st.session_state.get('selected_ticker', '')
+            if ticker != old_ticker:
+                st.session_state.selected_ticker = ticker
+                st.session_state.last_ticker = ticker
+                st.rerun()  # Force reload with new ticker
+            else:
+                st.session_state.selected_ticker = ticker
+                st.session_state.last_ticker = ticker
+            
             if ticker != search.upper():
                 st.success(f"Found: {company_name} ({ticker})")
         else:
@@ -18832,7 +18853,13 @@ elif selected_page == "📈 Financial Health":
     
     if ratio_search:
         ticker, company_name = smart_search_ticker(ratio_search)
-        st.session_state.selected_ticker = ticker
+        # Check if ticker changed - if so, rerun
+        old_ticker = st.session_state.get('selected_ticker', '')
+        if ticker != old_ticker:
+            st.session_state.selected_ticker = ticker
+            st.rerun()
+        else:
+            st.session_state.selected_ticker = ticker
     else:
         ticker = st.session_state.selected_ticker
         company_name = ticker
