@@ -7441,83 +7441,102 @@ def render_ai_chatbot():
 
 # ============= WELCOME POPUP =============
 def show_welcome_popup():
-    """Show welcome popup for first-time users - dismisses on X click or after 10 seconds, never returns until refresh"""
+    """Show welcome popup for first-time users - once dismissed, NEVER shows again (uses localStorage)"""
     # Initialize session state
     if 'welcome_seen' not in st.session_state:
         st.session_state.welcome_seen = False
     
-    # Check if popup was dismissed via query param (auto-dismiss via meta refresh)
-    # Note: st.query_params.get() may return a list in some Streamlit versions
+    # Check if popup was dismissed via query param
     dismiss_param = st.query_params.get("dismiss_welcome")
     if isinstance(dismiss_param, (list, tuple)):
         dismiss_param = dismiss_param[0] if dismiss_param else None
     
     if dismiss_param == "1":
         st.session_state.welcome_seen = True
-        # Remove the query param (guard against KeyError)
         if "dismiss_welcome" in st.query_params:
             del st.query_params["dismiss_welcome"]
-        st.rerun()
+        return  # Don't rerun, just don't show popup
     
-    # Only show popup if not seen
-    if not st.session_state.welcome_seen:
-        # CSS for popup overlay and styling + HTML with form-based X button
-        st.markdown('''
-        <style>
-        .welcome-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.9);
-            z-index: 10000;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+    # Check localStorage on page load - if already seen, mark as seen
+    # This JS checks localStorage and hides popup if user has seen it before
+    st.markdown('''
+    <script>
+    (function() {
+        if (localStorage.getItem('finance_welcome_seen') === 'true') {
+            // Hide any welcome overlay immediately
+            var overlay = document.querySelector('.welcome-overlay');
+            if (overlay) overlay.style.display = 'none';
+            
+            // Also set a flag for Streamlit to read
+            var style = document.createElement('style');
+            style.textContent = '.welcome-overlay { display: none !important; }';
+            document.head.appendChild(style);
         }
-        .welcome-popup {
-            background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%);
-            border: 2px solid #2196F3;
-            border-radius: 20px;
-            padding: 40px;
-            max-width: 500px;
-            text-align: center;
-            position: relative;
-        }
-        .welcome-popup h1,
-        .welcome-popup p,
-        .welcome-popup li,
-        .welcome-popup ul,
-        .welcome-popup strong {
-            color: #1a1a2e !important;
-        }
-        .welcome-close-form {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            margin: 0;
-            padding: 0;
-        }
-        .welcome-close-btn {
-            background: #FF4444;
-            border: 2px solid #FF4444;
-            color: #FFFFFF !important;
-            font-size: 20px;
-            width: 35px;
-            height: 35px;
-            border-radius: 50%;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.3s ease;
-            padding: 0;
-            line-height: 1;
-        }
-        .welcome-close-btn:hover {
-            background: #CC0000;
-            color: #FFFFFF !important;
+    })();
+    </script>
+    ''', unsafe_allow_html=True)
+    
+    # If session says seen, don't show
+    if st.session_state.welcome_seen:
+        return
+    
+    # Show popup with localStorage persistence
+    st.markdown('''
+    <style>
+    .welcome-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.9);
+        z-index: 10000;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    .welcome-popup {
+        background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%);
+        border: 2px solid #2196F3;
+        border-radius: 20px;
+        padding: 40px;
+        max-width: 500px;
+        text-align: center;
+        position: relative;
+    }
+    .welcome-popup h1,
+    .welcome-popup p,
+    .welcome-popup li,
+    .welcome-popup ul,
+    .welcome-popup strong {
+        color: #1a1a2e !important;
+    }
+    .welcome-close-form {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        margin: 0;
+        padding: 0;
+    }
+    .welcome-close-btn {
+        background: #FF4444;
+        border: 2px solid #FF4444;
+        color: #FFFFFF !important;
+        font-size: 20px;
+        width: 35px;
+        height: 35px;
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+        padding: 0;
+        line-height: 1;
+    }
+    .welcome-close-btn:hover {
+        background: #CC0000;
+        color: #FFFFFF !important;
         }
         .welcome-start-form {
             margin-top: 20px;
@@ -7538,14 +7557,36 @@ def show_welcome_popup():
             box-shadow: 0 0 20px rgba(255, 68, 68, 0.5);
         }
         </style>
-        <!-- Auto-dismiss after 10 seconds using meta refresh (no JS needed, works in same tab) -->
-        <meta http-equiv="refresh" content="10;url=?dismiss_welcome=1">
+        <!-- Auto-dismiss after 10 seconds - also sets localStorage -->
+        <script>
+        (function() {
+            // Check if already seen
+            if (localStorage.getItem('finance_welcome_seen') === 'true') {
+                var overlay = document.querySelector('.welcome-overlay');
+                if (overlay) overlay.style.display = 'none';
+                return;
+            }
+            
+            // Auto-dismiss after 10 seconds
+            setTimeout(function() {
+                localStorage.setItem('finance_welcome_seen', 'true');
+                var overlay = document.querySelector('.welcome-overlay');
+                if (overlay) overlay.style.display = 'none';
+            }, 10000);
+            
+            // Set localStorage when any dismiss button is clicked
+            document.addEventListener('click', function(e) {
+                var btn = e.target.closest('.welcome-close-btn, .welcome-start-btn');
+                if (btn) {
+                    localStorage.setItem('finance_welcome_seen', 'true');
+                }
+            });
+        })();
+        </script>
         <div class="welcome-overlay">
             <div class="welcome-popup">
-                <!-- X button using HTML form GET submit (works in same tab, no JS needed) -->
-                <form class="welcome-close-form" method="get">
-                    <button class="welcome-close-btn" type="submit" name="dismiss_welcome" value="1">×</button>
-                </form>
+                <!-- X button - sets localStorage and hides -->
+                <button class="welcome-close-btn" onclick="localStorage.setItem('finance_welcome_seen','true'); this.closest('.welcome-overlay').style.display='none';">×</button>
                 <h1>Welcome to Investing Made Simple!</h1>
                 <p>We've upgraded your experience:</p>
                 <ul>
@@ -7554,10 +7595,8 @@ def show_welcome_popup():
                     <li><strong>Simpler Metrics:</strong> Hover over any number for a 'Sweet & Simple' explanation.</li>
                     <li><strong>Live Updates:</strong> Watch the top ticker for real-time prices.</li>
                 </ul>
-                <!-- Let's Get Started button using HTML form GET submit -->
-                <form class="welcome-start-form" method="get">
-                    <button class="welcome-start-btn" type="submit" name="dismiss_welcome" value="1">Let's Get Started</button>
-                </form>
+                <!-- Let's Get Started button - sets localStorage and hides -->
+                <button class="welcome-start-btn" onclick="localStorage.setItem('finance_welcome_seen','true'); this.closest('.welcome-overlay').style.display='none';">Let's Get Started</button>
             </div>
         </div>
         ''', unsafe_allow_html=True)
