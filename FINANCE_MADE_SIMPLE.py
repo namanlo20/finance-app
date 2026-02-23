@@ -4341,18 +4341,20 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
             text=title,
             font=dict(size=18, color='#1a1a2e', family='Arial Black'),
             x=0.5,
-            xanchor='center'
+            xanchor='center',
+            y=0.95,
+            yanchor='top'
         ),
         xaxis_title=period_label,
         yaxis_title=yaxis_title,
         barmode='group',
         hovermode='x unified',
-        height=450,
+        height=480,
         showlegend=True,
         legend=dict(
             orientation="h", 
-            yanchor="bottom", 
-            y=1.02, 
+            yanchor="top", 
+            y=-0.12,  # Legend BELOW the chart
             xanchor="center", 
             x=0.5,
             bgcolor='rgba(255,255,255,0.8)',
@@ -4365,7 +4367,7 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
         xaxis_showgrid=False,
         plot_bgcolor='rgba(250,250,250,0.5)',
         paper_bgcolor='white',
-        margin=dict(t=80, b=60, l=60, r=40),
+        margin=dict(t=60, b=80, l=60, r=40),  # More bottom margin for legend
         bargap=0.15,
         bargroupgap=0.1
     )
