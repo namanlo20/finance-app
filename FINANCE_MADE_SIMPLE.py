@@ -7455,33 +7455,17 @@ def show_welcome_popup():
         st.session_state.welcome_seen = True
         if "dismiss_welcome" in st.query_params:
             del st.query_params["dismiss_welcome"]
-        return  # Don't rerun, just don't show popup
-    
-    # Check localStorage on page load - if already seen, mark as seen
-    # This JS checks localStorage and hides popup if user has seen it before
-    st.markdown('''
-    <script>
-    (function() {
-        if (localStorage.getItem('finance_welcome_seen') === 'true') {
-            // Hide any welcome overlay immediately
-            var overlay = document.querySelector('.welcome-overlay');
-            if (overlay) overlay.style.display = 'none';
-            
-            // Also set a flag for Streamlit to read
-            var style = document.createElement('style');
-            style.textContent = '.welcome-overlay { display: none !important; }';
-            document.head.appendChild(style);
-        }
-    })();
-    </script>
-    ''', unsafe_allow_html=True)
+        return
     
     # If session says seen, don't show
     if st.session_state.welcome_seen:
         return
     
-    # Show popup with localStorage persistence
-    st.markdown('''
+    # Use st.components.v1.html for proper script execution
+    import streamlit.components.v1 as components
+    
+    # Check localStorage and show popup if not seen - all in one HTML component
+    components.html("""
     <style>
     .welcome-overlay {
         position: fixed;
@@ -7494,6 +7478,7 @@ def show_welcome_popup():
         display: flex;
         justify-content: center;
         align-items: center;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
     .welcome-popup {
         background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%);
@@ -7501,105 +7486,77 @@ def show_welcome_popup():
         border-radius: 20px;
         padding: 40px;
         max-width: 500px;
+        width: 90%;
         text-align: center;
         position: relative;
+        color: #1a1a2e;
     }
-    .welcome-popup h1,
-    .welcome-popup p,
-    .welcome-popup li,
-    .welcome-popup ul,
-    .welcome-popup strong {
-        color: #1a1a2e !important;
-    }
-    .welcome-close-form {
+    .welcome-popup h1 { color: #1a1a2e; font-size: 24px; margin-bottom: 15px; }
+    .welcome-popup p { color: #1a1a2e; margin-bottom: 15px; }
+    .welcome-popup ul { text-align: left; color: #1a1a2e; padding-left: 20px; }
+    .welcome-popup li { margin-bottom: 8px; color: #1a1a2e; }
+    .welcome-close-btn {
         position: absolute;
         top: 15px;
         right: 15px;
-        margin: 0;
-        padding: 0;
-    }
-    .welcome-close-btn {
         background: #FF4444;
-        border: 2px solid #FF4444;
-        color: #FFFFFF !important;
+        border: none;
+        color: #FFFFFF;
         font-size: 20px;
         width: 35px;
         height: 35px;
         border-radius: 50%;
         cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.3s ease;
-        padding: 0;
-        line-height: 1;
     }
-    .welcome-close-btn:hover {
-        background: #CC0000;
-        color: #FFFFFF !important;
-        }
-        .welcome-start-form {
-            margin-top: 20px;
-        }
-        .welcome-start-btn {
-            background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%);
-            border: none;
-            color: #FFFFFF;
-            font-size: 18px;
-            font-weight: bold;
-            padding: 15px 40px;
-            border-radius: 30px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        .welcome-start-btn:hover {
-            transform: scale(1.05);
-            box-shadow: 0 0 20px rgba(255, 68, 68, 0.5);
-        }
-        </style>
-        <!-- Auto-dismiss after 10 seconds - also sets localStorage -->
-        <script>
-        (function() {
-            // Check if already seen
-            if (localStorage.getItem('finance_welcome_seen') === 'true') {
-                var overlay = document.querySelector('.welcome-overlay');
-                if (overlay) overlay.style.display = 'none';
-                return;
-            }
-            
-            // Auto-dismiss after 10 seconds
-            setTimeout(function() {
-                localStorage.setItem('finance_welcome_seen', 'true');
-                var overlay = document.querySelector('.welcome-overlay');
-                if (overlay) overlay.style.display = 'none';
-            }, 10000);
-            
-            // Set localStorage when any dismiss button is clicked
-            document.addEventListener('click', function(e) {
-                var btn = e.target.closest('.welcome-close-btn, .welcome-start-btn');
-                if (btn) {
-                    localStorage.setItem('finance_welcome_seen', 'true');
-                }
-            });
-        })();
-        </script>
-        <div class="welcome-overlay">
-            <div class="welcome-popup">
-                <!-- X button - sets localStorage and hides -->
-                <button class="welcome-close-btn" onclick="localStorage.setItem('finance_welcome_seen','true'); this.closest('.welcome-overlay').style.display='none';">×</button>
-                <h1>Welcome to Investing Made Simple!</h1>
-                <p>We've upgraded your experience:</p>
-                <ul>
-                    <li><strong>Market Mood:</strong> Check the speedometer to see if the market is fearful or greedy.</li>
-                    <li><strong>Easy Search:</strong> Type 'Apple' or 'Tesla'—no need to memorize tickers!</li>
-                    <li><strong>Simpler Metrics:</strong> Hover over any number for a 'Sweet & Simple' explanation.</li>
-                    <li><strong>Live Updates:</strong> Watch the top ticker for real-time prices.</li>
-                </ul>
-                <!-- Let's Get Started button - sets localStorage and hides -->
-                <button class="welcome-start-btn" onclick="localStorage.setItem('finance_welcome_seen','true'); this.closest('.welcome-overlay').style.display='none';">Let's Get Started</button>
-            </div>
+    .welcome-start-btn {
+        background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%);
+        color: #FFFFFF;
+        border: none;
+        padding: 15px 40px;
+        font-size: 18px;
+        font-weight: bold;
+        border-radius: 30px;
+        cursor: pointer;
+        margin-top: 20px;
+    }
+    .hidden { display: none !important; }
+    </style>
+    
+    <div class="welcome-overlay" id="welcomeOverlay">
+        <div class="welcome-popup">
+            <button class="welcome-close-btn" onclick="dismissWelcome()">×</button>
+            <h1>Welcome to Investing Made Simple!</h1>
+            <p>We've upgraded your experience:</p>
+            <ul>
+                <li><strong>Market Mood:</strong> Check the speedometer to see if the market is fearful or greedy.</li>
+                <li><strong>Easy Search:</strong> Type 'Apple' or 'Tesla'—no need to memorize tickers!</li>
+                <li><strong>Simpler Metrics:</strong> Hover over any number for a 'Sweet & Simple' explanation.</li>
+                <li><strong>Live Updates:</strong> Watch the top ticker for real-time prices.</li>
+            </ul>
+            <button class="welcome-start-btn" onclick="dismissWelcome()">Let's Get Started</button>
         </div>
-        ''', unsafe_allow_html=True)
+    </div>
+    
+    <script>
+    (function() {
+        // Check if already seen
+        if (localStorage.getItem('finance_welcome_seen') === 'true') {
+            document.getElementById('welcomeOverlay').classList.add('hidden');
+            return;
+        }
+        
+        // Auto-dismiss after 10 seconds
+        setTimeout(function() {
+            dismissWelcome();
+        }, 10000);
+    })();
+    
+    function dismissWelcome() {
+        localStorage.setItem('finance_welcome_seen', 'true');
+        document.getElementById('welcomeOverlay').classList.add('hidden');
+    }
+    </script>
+    """, height=0)
 
 # ============= APP TOUR DIALOG =============
 TOUR_PAGES = [
@@ -10226,7 +10183,7 @@ render_right_side_ticker()
 render_ai_chatbot()
 
 # ============= WELCOME POPUP FOR FIRST-TIME USERS =============
-show_welcome_popup()
+# show_welcome_popup()  # DISABLED - causing display issues
 
 # ============= AUTH POPUPS - ONLY ONE AT A TIME =============
 if st.session_state.get('show_login_popup', False) and not st.session_state.get('show_signup_popup', False):
