@@ -72,6 +72,16 @@ st.markdown("""
 # PERMANENT LIGHT MODE - FORCE WHITE BACKGROUND + BLACK TEXT
 st.markdown("""
 <style>
+/* Hide Streamlit header anchor links */
+.stMarkdown h1 a, .stMarkdown h2 a, .stMarkdown h3 a,
+.stMarkdown h4 a, .stMarkdown h5 a, .stMarkdown h6 a,
+[data-testid="stMarkdownContainer"] h1 a,
+[data-testid="stMarkdownContainer"] h2 a,
+[data-testid="stMarkdownContainer"] h3 a,
+[data-testid="stMarkdownContainer"] h4 a {
+    display: none !important;
+}
+
 /* Force light theme */
 .stApp {
     background-color: #FFFFFF !important;
