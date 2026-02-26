@@ -11934,6 +11934,672 @@ button:has(p:contains("👑")) p {
 </style>
 """, unsafe_allow_html=True)
 
+
+# ============= BASICS PAGE =============
+# IMPORTANT: This page is fully accessible WITHOUT authentication
+# Progress is stored in session_state for logged-out users
+# Progress is persisted to Supabase only for logged-in users
+# COMPLETE LEARN HUB IMPLEMENTATION
+# This replaces lines 7343-8025 in the main file
+
+# =============================================================================
+# LESSON VISUAL COMPONENTS - Rich interactive visuals for each lesson
+# =============================================================================
+
+def render_lesson_visual(lesson_id: str):
+    """Render rich visual content for each lesson"""
+    
+    # B1: Market Mechanics
+    if lesson_id == "B1":
+        st.markdown("### 🎯 How Stock Prices Move")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.markdown("""<div style="background: linear-gradient(135deg, #e8f5e9, #c8e6c9); padding: 20px; border-radius: 15px; text-align: center;">
+                <div style="font-size: 40px;">📈</div>
+                <div style="font-size: 18px; font-weight: bold; color: #2e7d32;">More Buyers</div>
+                <div style="font-size: 14px; color: #1b5e20;">Demand > Supply</div>
+                <div style="font-size: 24px; font-weight: bold; color: #2e7d32; margin-top: 10px;">Price ↑</div>
+            </div>""", unsafe_allow_html=True)
+        with col2:
+            st.markdown("""<div style="background: linear-gradient(135deg, #fff3e0, #ffe0b2); padding: 20px; border-radius: 15px; text-align: center;">
+                <div style="font-size: 40px;">⚖️</div>
+                <div style="font-size: 18px; font-weight: bold; color: #e65100;">Balanced</div>
+                <div style="font-size: 14px; color: #bf360c;">Demand = Supply</div>
+                <div style="font-size: 24px; font-weight: bold; color: #e65100; margin-top: 10px;">Price →</div>
+            </div>""", unsafe_allow_html=True)
+        with col3:
+            st.markdown("""<div style="background: linear-gradient(135deg, #ffebee, #ffcdd2); padding: 20px; border-radius: 15px; text-align: center;">
+                <div style="font-size: 40px;">📉</div>
+                <div style="font-size: 18px; font-weight: bold; color: #c62828;">More Sellers</div>
+                <div style="font-size: 14px; color: #b71c1c;">Supply > Demand</div>
+                <div style="font-size: 24px; font-weight: bold; color: #c62828; margin-top: 10px;">Price ↓</div>
+            </div>""", unsafe_allow_html=True)
+        
+        st.markdown("""<div style="background: #e3f2fd; padding: 20px; border-radius: 15px; margin-top: 20px;">
+            <div style="font-size: 18px; font-weight: bold; color: #1565c0;">💡 Key Insight</div>
+            <div style="margin-top: 10px;"><strong>Stock = Ownership:</strong> When you buy 1 share of Apple, you own a tiny piece of a $3 trillion company.<br><br>
+            <strong>Price = Agreement:</strong> Every trade has a buyer AND a seller. The price is where they agreed to transact.</div>
+        </div>""", unsafe_allow_html=True)
+    
+    # B2: Compounding + Time Horizon
+    elif lesson_id == "B2":
+        st.markdown("### 🚀 The Magic of Compound Growth")
+        initial = 10000
+        years = 30
+        rates = [0, 0.05, 0.07, 0.10]
+        labels = ['0% (Mattress)', '5% (Bonds)', '7% (Balanced)', '10% (Stocks)']
+        colors = ['#9e9e9e', '#64b5f6', '#4caf50', '#9c27b0']
+        
+        fig = go.Figure()
+        for rate, label, color in zip(rates, labels, colors):
+            values = [initial * ((1 + rate) ** y) for y in range(years + 1)]
+            fig.add_trace(go.Scatter(x=list(range(years + 1)), y=values, name=label, line=dict(color=color, width=3)))
+        
+        fig.update_layout(title=f"$10,000 Over 30 Years at Different Returns", xaxis_title="Years", yaxis_title="Value ($)", height=400, hovermode='x unified')
+        st.plotly_chart(fig, use_container_width=True)
+        
+        final_10pct = initial * ((1 + 0.10) ** years)
+        st.markdown(f"""<div style="background: linear-gradient(135deg, #e8f5e9, #c8e6c9); padding: 25px; border-radius: 15px; text-align: center;">
+            <div style="font-size: 20px; font-weight: bold; color: #2e7d32;">💡 At 10% for 30 years, $10,000 becomes:</div>
+            <div style="font-size: 48px; font-weight: bold; color: #1b5e20;">${final_10pct:,.0f}</div>
+        </div>""", unsafe_allow_html=True)
+    
+    # B3: Index Funds vs Single Stocks
+    elif lesson_id == "B3":
+        st.markdown("### 🎯 Diversification in Action")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("""<div style="background: linear-gradient(135deg, #ffebee, #ffcdd2); padding: 25px; border-radius: 15px; text-align: center; height: 280px;">
+                <div style="font-size: 50px;">🎯</div>
+                <div style="font-size: 22px; font-weight: bold; color: #c62828; margin: 15px 0;">Single Stock</div>
+                <div style="font-size: 60px; margin: 10px 0;">1</div>
+                <div style="font-size: 16px; color: #b71c1c;">company</div>
+                <div style="background: #f44336; color: white; padding: 10px; border-radius: 10px; margin-top: 15px;">⚠️ Can go to ZERO</div>
+            </div>""", unsafe_allow_html=True)
+        with col2:
+            st.markdown("""<div style="background: linear-gradient(135deg, #e8f5e9, #c8e6c9); padding: 25px; border-radius: 15px; text-align: center; height: 280px;">
+                <div style="font-size: 50px;">📦</div>
+                <div style="font-size: 22px; font-weight: bold; color: #2e7d32; margin: 15px 0;">S&P 500 Index</div>
+                <div style="font-size: 60px; margin: 10px 0;">500</div>
+                <div style="font-size: 16px; color: #1b5e20;">companies</div>
+                <div style="background: #4caf50; color: white; padding: 10px; border-radius: 10px; margin-top: 15px;">✅ Built-in diversification</div>
+            </div>""", unsafe_allow_html=True)
+    
+    # B4: ETFs 101
+    elif lesson_id == "B4":
+        st.markdown("### 📦 What's Inside an ETF?")
+        st.markdown("""<div style="display: flex; align-items: center; justify-content: center; gap: 30px; margin: 30px 0; flex-wrap: wrap;">
+            <div style="background: linear-gradient(135deg, #667eea, #764ba2); padding: 30px; border-radius: 20px; text-align: center; color: white; min-width: 180px;">
+                <div style="font-size: 14px; opacity: 0.8;">1 Share of</div>
+                <div style="font-size: 36px; font-weight: bold;">SPY</div>
+                <div style="font-size: 14px; opacity: 0.9;">S&P 500 ETF</div>
+            </div>
+            <div style="font-size: 40px; color: #ccc;">=</div>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
+                <div style="background: #e3f2fd; padding: 10px 15px; border-radius: 8px; font-weight: 600; text-align: center;">AAPL</div>
+                <div style="background: #e8f5e9; padding: 10px 15px; border-radius: 8px; font-weight: 600; text-align: center;">MSFT</div>
+                <div style="background: #fff3e0; padding: 10px 15px; border-radius: 8px; font-weight: 600; text-align: center;">GOOGL</div>
+                <div style="background: #fce4ec; padding: 10px 15px; border-radius: 8px; font-weight: 600; text-align: center;">AMZN</div>
+                <div style="background: #f3e5f5; padding: 10px 15px; border-radius: 8px; font-weight: 600; text-align: center;">NVDA</div>
+                <div style="background: #e1f5fe; padding: 10px 15px; border-radius: 8px; font-weight: 600; text-align: center;">META</div>
+                <div style="background: #f5f5f5; padding: 10px 15px; border-radius: 8px; text-align: center; color: #666; grid-column: span 3;">+ 494 more companies</div>
+            </div>
+        </div>""", unsafe_allow_html=True)
+        
+        st.markdown("### 📊 Popular ETFs")
+        etf_cols = st.columns(4)
+        etfs = [("SPY", "S&P 500", "0.09%", "500"), ("QQQ", "Nasdaq 100", "0.20%", "100"), ("VTI", "Total US", "0.03%", "4000+"), ("VT", "Total World", "0.07%", "9500+")]
+        for i, (ticker, name, expense, holdings) in enumerate(etfs):
+            with etf_cols[i]:
+                st.metric(ticker, name)
+                st.caption(f"Expense: {expense} | {holdings} stocks")
+    
+    # B5: What Diversification Really Means
+    elif lesson_id == "B5":
+        st.markdown("### 🥚 Don't Put All Your Eggs in One Basket")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("**❌ NOT Diversified (5 tech stocks):**")
+            fig1 = go.Figure(data=[go.Pie(labels=['Apple', 'Microsoft', 'Google', 'Amazon', 'Meta'], values=[30, 25, 20, 15, 10], marker_colors=['#ff6b6b', '#ff8787', '#ffa3a3', '#ffbfbf', '#ffd9d9'], hole=0.4)])
+            fig1.update_layout(height=250, margin=dict(t=20, b=20, l=20, r=20), showlegend=False)
+            st.plotly_chart(fig1, use_container_width=True)
+        with col2:
+            st.markdown("**✅ Diversified (different assets):**")
+            fig2 = go.Figure(data=[go.Pie(labels=['US Stocks', 'International', 'Bonds', 'Real Estate'], values=[40, 25, 25, 10], marker_colors=['#4caf50', '#2196f3', '#ff9800', '#9c27b0'], hole=0.4)])
+            fig2.update_layout(height=250, margin=dict(t=20, b=20, l=20, r=20), showlegend=False)
+            st.plotly_chart(fig2, use_container_width=True)
+    
+    # B6: Sector ETFs vs Broad Market
+    elif lesson_id == "B6":
+        st.markdown("### 🏗️ Broad vs Sector ETFs")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("""<div style="background: linear-gradient(135deg, #e8f5e9, #c8e6c9); padding: 25px; border-radius: 15px; text-align: center;">
+                <div style="font-size: 20px; font-weight: bold; color: #2e7d32;">🌍 Broad Market ETF</div>
+                <div style="font-size: 14px; margin: 10px 0;">All sectors included</div>
+                <div style="background: #2e7d32; color: white; padding: 10px; border-radius: 10px; margin-top: 15px;">✅ Auto-diversified</div>
+            </div>""", unsafe_allow_html=True)
+        with col2:
+            st.markdown("""<div style="background: linear-gradient(135deg, #fff3e0, #ffe0b2); padding: 25px; border-radius: 15px; text-align: center;">
+                <div style="font-size: 20px; font-weight: bold; color: #e65100;">🎯 Sector ETF</div>
+                <div style="font-size: 14px; margin: 10px 0;">One sector only</div>
+                <div style="background: #e65100; color: white; padding: 10px; border-radius: 10px; margin-top: 15px;">⚠️ Concentrated bet</div>
+            </div>""", unsafe_allow_html=True)
+    
+    # B7: Why Fees Matter
+    elif lesson_id == "B7":
+        st.markdown("### 💸 The Hidden Cost of Fees")
+        investment = 100000
+        years = 30
+        fees = [0.03, 0.20, 0.50, 1.00]
+        labels = ['0.03% (VTI)', '0.20% (QQQ)', '0.50% (Active)', '1.00% (High Fee)']
+        colors = ['#4caf50', '#8bc34a', '#ff9800', '#f44336']
+        annual_return = 0.08
+        
+        results = [investment * ((1 + annual_return - fee/100) ** years) for fee in fees]
+        
+        fig = go.Figure(data=[go.Bar(x=labels, y=results, marker_color=colors, text=[f"${r:,.0f}" for r in results], textposition='outside')])
+        fig.update_layout(title=f"${investment:,} over {years} years at 8% return", yaxis_title="Final Value ($)", height=400, showlegend=False)
+        st.plotly_chart(fig, use_container_width=True)
+        
+        fee_cost = results[0] - results[3]
+        st.markdown(f"""<div style="background: linear-gradient(135deg, #ffebee, #ffcdd2); padding: 25px; border-radius: 15px; text-align: center;">
+            <div style="font-size: 18px; color: #c62828;">Cost of 1% vs 0.03% fee over 30 years:</div>
+            <div style="font-size: 48px; font-weight: bold; color: #c62828;">${fee_cost:,.0f}</div>
+        </div>""", unsafe_allow_html=True)
+    
+    # B8: Rebalancing Basics
+    elif lesson_id == "B8":
+        st.markdown("### ⚖️ Keeping Your Portfolio on Target")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("**🎯 Target: 70/30**")
+            fig1 = go.Figure(data=[go.Pie(labels=['Stocks', 'Bonds'], values=[70, 30], marker_colors=['#4caf50', '#2196f3'], hole=0.4)])
+            fig1.update_layout(height=200, margin=dict(t=10, b=10, l=10, r=10), showlegend=False)
+            st.plotly_chart(fig1, use_container_width=True)
+        with col2:
+            st.markdown("**📈 After rally: 85/15 (drifted!)**")
+            fig2 = go.Figure(data=[go.Pie(labels=['Stocks', 'Bonds'], values=[85, 15], marker_colors=['#ff9800', '#90caf9'], hole=0.4)])
+            fig2.update_layout(height=200, margin=dict(t=10, b=10, l=10, r=10), showlegend=False)
+            st.plotly_chart(fig2, use_container_width=True)
+        st.info("**Solution:** Rebalance by selling some stocks and buying bonds to get back to 70/30")
+    
+    # B9: Risk vs Reward
+    elif lesson_id == "B9":
+        st.markdown("### ⚖️ The Risk-Return Tradeoff")
+        assets = [("Savings", 1, "#4caf50"), ("Gov Bonds", 2, "#8bc34a"), ("Corp Bonds", 3, "#cddc39"), ("S&P 500", 5, "#ff9800"), ("Individual Stocks", 7, "#ff5722"), ("Crypto/Options", 10, "#f44336")]
+        fig = go.Figure(data=[go.Bar(x=[a[0] for a in assets], y=[a[1] for a in assets], marker_color=[a[2] for a in assets])])
+        fig.update_layout(title="Risk Level (1=Safest, 10=Riskiest)", yaxis_title="Risk Level", height=350)
+        st.plotly_chart(fig, use_container_width=True)
+        st.markdown("""<div style="background: #e3f2fd; padding: 20px; border-radius: 15px; text-align: center;">
+            <strong>Golden Rule:</strong> Higher potential returns = Higher potential losses. No free lunch!</div>""", unsafe_allow_html=True)
+    
+    # B10: Volatility Explained
+    elif lesson_id == "B10":
+        st.markdown("### 📊 What Volatility Looks Like")
+        np.random.seed(42)
+        days = 252
+        low_vol = [100]
+        high_vol = [100]
+        for _ in range(days - 1):
+            low_vol.append(low_vol[-1] * (1 + np.random.normal(0.0003, 0.005)))
+            high_vol.append(high_vol[-1] * (1 + np.random.normal(0.0004, 0.025)))
+        
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(y=low_vol, name="Low Vol (Bonds)", line=dict(color='#4caf50', width=2)))
+        fig.add_trace(go.Scatter(y=high_vol, name="High Vol (Stocks)", line=dict(color='#f44336', width=2)))
+        fig.update_layout(title="Same Period, Different Rides", xaxis_title="Days", yaxis_title="Value ($100 start)", height=350)
+        st.plotly_chart(fig, use_container_width=True)
+    
+    # B11: Why Timing Is Hard
+    elif lesson_id == "B11":
+        st.markdown("### ⏱️ Missing the Best Days Hurts")
+        st.markdown("""<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin: 20px 0;">
+            <div style="text-align: center; padding: 15px; background: #e8f5e9; border-radius: 10px;">
+                <div style="font-size: 14px; color: #666;">Stayed Invested</div>
+                <div style="font-size: 24px; font-weight: bold; color: #2e7d32;">$175,000</div>
+            </div>
+            <div style="text-align: center; padding: 15px; background: #fff3e0; border-radius: 10px;">
+                <div style="font-size: 14px; color: #666;">Missed 10 Best Days</div>
+                <div style="font-size: 24px; font-weight: bold; color: #e65100;">$80,000</div>
+            </div>
+            <div style="text-align: center; padding: 15px; background: #ffebee; border-radius: 10px;">
+                <div style="font-size: 14px; color: #666;">Missed 20 Best Days</div>
+                <div style="font-size: 24px; font-weight: bold; color: #c62828;">$44,000</div>
+            </div>
+            <div style="text-align: center; padding: 15px; background: #fce4ec; border-radius: 10px;">
+                <div style="font-size: 14px; color: #666;">Missed 30 Best Days</div>
+                <div style="font-size: 24px; font-weight: bold; color: #880e4f;">$26,000</div>
+            </div>
+        </div>""", unsafe_allow_html=True)
+        st.info("**Time IN the market beats timING the market.** The best days often come right after the worst days.")
+    
+    # B12: Drawdowns
+    elif lesson_id == "B12":
+        st.markdown("### 📉 The Recovery Math Problem")
+        st.markdown("""<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin: 20px 0;">
+            <div style="background: #e8f5e9; padding: 20px; border-radius: 15px; text-align: center;">
+                <div style="font-size: 14px;">Lose <span style="font-size: 24px; font-weight: bold; color: #2e7d32;">10%</span></div>
+                <div style="font-size: 14px; margin-top: 10px;">Need <span style="font-weight: bold;">+11%</span> to recover</div>
+            </div>
+            <div style="background: #fff3e0; padding: 20px; border-radius: 15px; text-align: center;">
+                <div style="font-size: 14px;">Lose <span style="font-size: 24px; font-weight: bold; color: #e65100;">25%</span></div>
+                <div style="font-size: 14px; margin-top: 10px;">Need <span style="font-weight: bold;">+33%</span> to recover</div>
+            </div>
+            <div style="background: #ffebee; padding: 20px; border-radius: 15px; text-align: center;">
+                <div style="font-size: 14px;">Lose <span style="font-size: 24px; font-weight: bold; color: #c62828;">50%</span></div>
+                <div style="font-size: 14px; margin-top: 10px;">Need <span style="font-weight: bold;">+100%</span> to recover</div>
+            </div>
+            <div style="background: #fce4ec; padding: 20px; border-radius: 15px; text-align: center;">
+                <div style="font-size: 14px;">Lose <span style="font-size: 24px; font-weight: bold; color: #880e4f;">75%</span></div>
+                <div style="font-size: 14px; margin-top: 10px;">Need <span style="font-weight: bold;">+300%</span> to recover</div>
+            </div>
+        </div>""", unsafe_allow_html=True)
+    
+    # B13: Emotional Traps
+    elif lesson_id == "B13":
+        st.markdown("### 🧠 The Emotional Investing Cycle")
+        st.markdown("""<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin: 20px 0;">
+            <div style="text-align: center; padding: 15px; background: #ffebee; border-radius: 10px; flex: 1; min-width: 120px;">
+                <div style="font-size: 30px;">😰</div>
+                <div style="font-size: 14px; font-weight: bold; color: #c62828;">PANIC</div>
+                <div style="font-size: 11px;">Market Bottom</div>
+                <div style="font-size: 11px; color: #666;">You SELL here</div>
+            </div>
+            <div style="font-size: 24px;">→</div>
+            <div style="text-align: center; padding: 15px; background: #fff3e0; border-radius: 10px; flex: 1; min-width: 120px;">
+                <div style="font-size: 30px;">😐</div>
+                <div style="font-size: 14px; font-weight: bold; color: #e65100;">DOUBT</div>
+                <div style="font-size: 11px;">Recovery Starts</div>
+                <div style="font-size: 11px; color: #666;">You WATCH</div>
+            </div>
+            <div style="font-size: 24px;">→</div>
+            <div style="text-align: center; padding: 15px; background: #e8f5e9; border-radius: 10px; flex: 1; min-width: 120px;">
+                <div style="font-size: 30px;">🤑</div>
+                <div style="font-size: 14px; font-weight: bold; color: #2e7d32;">GREED</div>
+                <div style="font-size: 11px;">Market Peak</div>
+                <div style="font-size: 11px; color: #666;">You BUY here</div>
+            </div>
+        </div>""", unsafe_allow_html=True)
+    
+    # B14: How Stocks Make Money
+    elif lesson_id == "B14":
+        st.markdown("### 💰 Two Ways Stocks Make You Money")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("""<div style="background: linear-gradient(135deg, #e8f5e9, #c8e6c9); padding: 25px; border-radius: 15px; text-align: center;">
+                <div style="font-size: 50px;">📈</div>
+                <div style="font-size: 20px; font-weight: bold; color: #2e7d32;">Capital Appreciation</div>
+                <div style="font-size: 14px; margin-top: 10px;">Buy at $100, sell at $150 = $50 profit</div>
+                <div style="background: #2e7d32; color: white; padding: 10px; border-radius: 10px; margin-top: 15px;">Most returns come here</div>
+            </div>""", unsafe_allow_html=True)
+        with col2:
+            st.markdown("""<div style="background: linear-gradient(135deg, #e3f2fd, #bbdefb); padding: 25px; border-radius: 15px; text-align: center;">
+                <div style="font-size: 50px;">💵</div>
+                <div style="font-size: 20px; font-weight: bold; color: #1565c0;">Dividends</div>
+                <div style="font-size: 14px; margin-top: 10px;">Company pays you cash quarterly</div>
+                <div style="background: #1565c0; color: white; padding: 10px; border-radius: 10px; margin-top: 15px;">Income while you hold</div>
+            </div>""", unsafe_allow_html=True)
+    
+    # B15: Dividends Explained
+    elif lesson_id == "B15":
+        st.markdown("### 💸 Dividend Yield Explained")
+        st.markdown("""<div style="background: #fff; border: 3px solid #1565c0; border-radius: 15px; padding: 25px; text-align: center;">
+            <div style="font-size: 20px; font-weight: bold; color: #1565c0;">Dividend Yield = Annual Dividend ÷ Stock Price</div>
+            <div style="font-size: 16px; margin-top: 15px;">Stock at $100 paying $3/year = <strong>3% yield</strong></div>
+        </div>""", unsafe_allow_html=True)
+        st.info("**Pro tip:** Reinvest your dividends to let compounding work its magic!")
+    
+    # I1: Income Statement
+    elif lesson_id == "I1":
+        st.markdown("### 📊 The Income Statement Breakdown")
+        fig = go.Figure(go.Waterfall(
+            orientation="v", measure=["absolute", "relative", "relative", "relative", "total"],
+            x=["Revenue", "COGS", "OpEx", "Taxes", "Net Income"],
+            y=[100, -40, -30, -7, 23], text=["$100B", "-$40B", "-$30B", "-$7B", "$23B"], textposition="outside",
+            connector={"line": {"color": "#ccc"}}, increasing={"marker": {"color": "#4caf50"}}, decreasing={"marker": {"color": "#f44336"}}, totals={"marker": {"color": "#2196f3"}}
+        ))
+        fig.update_layout(title="How Revenue Becomes Profit", height=350, showlegend=False)
+        st.plotly_chart(fig, use_container_width=True)
+    
+    # I2: Balance Sheet
+    elif lesson_id == "I2":
+        st.markdown("### ⚖️ The Balance Sheet Equation")
+        st.markdown("""<div style="background: #fff; border: 3px solid #1565c0; border-radius: 15px; padding: 25px; text-align: center;">
+            <div style="font-size: 24px; font-weight: bold; color: #1565c0;">Assets = Liabilities + Equity</div>
+            <div style="font-size: 14px; color: #666; margin-top: 10px;">What they OWN = What they OWE + Shareholders' stake</div>
+        </div>""", unsafe_allow_html=True)
+    
+    # I3: Cash Flow Statement
+    elif lesson_id == "I3":
+        st.markdown("### 💵 The Three Cash Flows")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.markdown("""<div style="background: #e8f5e9; padding: 20px; border-radius: 15px; text-align: center;">
+                <div style="font-size: 18px; font-weight: bold; color: #2e7d32;">CFO</div>
+                <div style="font-size: 13px;">Operating Cash Flow</div>
+                <div style="font-size: 12px; color: #2e7d32; margin-top: 10px;">✅ Should be positive</div>
+            </div>""", unsafe_allow_html=True)
+        with col2:
+            st.markdown("""<div style="background: #fff3e0; padding: 20px; border-radius: 15px; text-align: center;">
+                <div style="font-size: 18px; font-weight: bold; color: #e65100;">CFI</div>
+                <div style="font-size: 13px;">Investing Cash Flow</div>
+                <div style="font-size: 12px; color: #e65100; margin-top: 10px;">Usually negative (investing)</div>
+            </div>""", unsafe_allow_html=True)
+        with col3:
+            st.markdown("""<div style="background: #fce4ec; padding: 20px; border-radius: 15px; text-align: center;">
+                <div style="font-size: 18px; font-weight: bold; color: #c2185b;">CFF</div>
+                <div style="font-size: 13px;">Financing Cash Flow</div>
+                <div style="font-size: 12px; color: #c2185b; margin-top: 10px;">Debt & dividends</div>
+            </div>""", unsafe_allow_html=True)
+    
+    # I4: Margins Explained
+    elif lesson_id == "I4":
+        st.markdown("### 📊 Margins by Industry")
+        companies = ['Software', 'Retail', 'Manufacturing']
+        gross = [75, 25, 35]
+        operating = [35, 5, 12]
+        
+        fig = go.Figure()
+        fig.add_trace(go.Bar(x=companies, y=gross, name='Gross Margin', marker_color='#4caf50'))
+        fig.add_trace(go.Bar(x=companies, y=operating, name='Operating Margin', marker_color='#2196f3'))
+        fig.update_layout(title="Margins Vary by Industry", yaxis_title="Margin (%)", barmode='group', height=300)
+        st.plotly_chart(fig, use_container_width=True)
+    
+    # I5: Free Cash Flow Basics
+    elif lesson_id == "I5":
+        st.markdown("### 💰 Free Cash Flow = Real Money")
+        st.markdown("""<div style="background: #e8f5e9; border: 3px solid #4caf50; border-radius: 15px; padding: 25px; text-align: center;">
+            <div style="font-size: 18px; font-weight: bold; color: #2e7d32;">FCF = Operating Cash Flow − CapEx</div>
+            <div style="font-size: 14px; margin-top: 10px;">This is the cash left after maintaining the business.</div>
+        </div>""", unsafe_allow_html=True)
+    
+    # I6: Moats Explained
+    elif lesson_id == "I6":
+        st.markdown("### 🏰 Types of Economic Moats")
+        moats = [("🏷️", "Brand", "Coca-Cola, Apple", "#e8f5e9"), ("🔗", "Network", "Visa, Meta", "#e3f2fd"), ("🔒", "Switching", "Microsoft, Salesforce", "#fff3e0"), ("💰", "Cost", "Walmart, Costco", "#fce4ec")]
+        cols = st.columns(4)
+        for i, (icon, name, ex, color) in enumerate(moats):
+            with cols[i]:
+                st.markdown(f"""<div style="background: {color}; padding: 20px; border-radius: 15px; text-align: center;">
+                    <div style="font-size: 24px;">{icon}</div>
+                    <div style="font-size: 14px; font-weight: bold;">{name}</div>
+                    <div style="font-size: 11px; color: #666; margin-top: 5px;">{ex}</div>
+                </div>""", unsafe_allow_html=True)
+    
+    # I7: Pricing Power
+    elif lesson_id == "I7":
+        st.markdown("### 💪 The Ultimate Test: Can They Raise Prices?")
+        st.markdown("""<div style="background: #e8f5e9; padding: 20px; border-radius: 15px;">
+            <strong>Pricing power</strong> = ability to raise prices without losing customers.<br><br>
+            Examples: Apple (loyal fans), Starbucks (habit), Netflix (content library)
+        </div>""", unsafe_allow_html=True)
+    
+    # I8: Unit Economics
+    elif lesson_id == "I8":
+        st.markdown("### 📊 Unit Economics Basics")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("""<div style="background: #ffebee; padding: 20px; border-radius: 15px; text-align: center;">
+                <div style="font-size: 16px; font-weight: bold; color: #c62828;">CAC</div>
+                <div style="font-size: 13px;">Customer Acquisition Cost</div>
+                <div style="font-size: 12px; color: #666; margin-top: 5px;">How much to get 1 customer</div>
+            </div>""", unsafe_allow_html=True)
+        with col2:
+            st.markdown("""<div style="background: #e8f5e9; padding: 20px; border-radius: 15px; text-align: center;">
+                <div style="font-size: 16px; font-weight: bold; color: #2e7d32;">LTV</div>
+                <div style="font-size: 13px;">Lifetime Value</div>
+                <div style="font-size: 12px; color: #666; margin-top: 5px;">How much they're worth</div>
+            </div>""", unsafe_allow_html=True)
+        st.info("**Rule of thumb:** LTV should be at least 3x CAC for a healthy business")
+    
+    # I9: Management Quality
+    elif lesson_id == "I9":
+        st.markdown("### 👔 Evaluating Management")
+        checks = ["✅ Insider ownership (skin in the game)", "✅ Capital allocation track record", "✅ Clear, honest communication", "✅ Reasonable compensation", "❌ Excessive stock dilution", "❌ Frequent strategy pivots"]
+        for c in checks:
+            st.markdown(c)
+    
+    # I10: Scalability & Operating Leverage
+    elif lesson_id == "I10":
+        st.markdown("### 📈 Operating Leverage")
+        st.markdown("""<div style="background: #e3f2fd; padding: 20px; border-radius: 15px;">
+            <strong>High fixed costs + growing revenue = margins expand rapidly</strong><br><br>
+            Software is the best example: once built, each new customer is nearly pure profit.
+        </div>""", unsafe_allow_html=True)
+    
+    # V1: Valuation Intro
+    elif lesson_id == "V1":
+        st.markdown("### 💵 What Is a Company Worth?")
+        st.info("**Valuation** = Price you pay for future cash flows. Always ask: What do I GET vs what do I PAY?")
+    
+    # V2: P/E Ratio
+    elif lesson_id == "V2":
+        st.markdown("### 📊 P/E Ratio: Context Matters")
+        examples = [("Utility", 12, "Stable"), ("Bank", 10, "Cyclical"), ("Tech", 25, "Growth"), ("Hypergrowth", 100, "Expensive?")]
+        cols = st.columns(4)
+        for i, (name, pe, note) in enumerate(examples):
+            with cols[i]:
+                st.metric(name, f"P/E: {pe}", note)
+    
+    # V3: P/S Ratio
+    elif lesson_id == "V3":
+        st.markdown("### 📊 P/S Ratio: For Unprofitable Companies")
+        st.info("When there's no earnings (P/E doesn't work), use Price-to-Sales. Lower P/S = potentially cheaper.")
+    
+    # V4: EV/EBITDA
+    elif lesson_id == "V4":
+        st.markdown("### 🏢 Enterprise Value / EBITDA")
+        st.markdown("""<div style="background: #e3f2fd; padding: 20px; border-radius: 15px;">
+            <strong>EV = Market Cap + Debt - Cash</strong><br><br>
+            This tells you what it would REALLY cost to buy the whole company (debt included).
+        </div>""", unsafe_allow_html=True)
+    
+    # V5: FCF Yield
+    elif lesson_id == "V5":
+        st.markdown("### 💰 Free Cash Flow Yield")
+        st.markdown("""<div style="background: #e8f5e9; padding: 20px; border-radius: 15px;">
+            <strong>FCF Yield = Free Cash Flow / Market Cap</strong><br><br>
+            Higher FCF yield = potentially more value for your money.
+        </div>""", unsafe_allow_html=True)
+    
+    # V6: Valuation vs Growth
+    elif lesson_id == "V6":
+        st.markdown("### 🎯 The PEG Ratio")
+        st.markdown("""<div style="background: #fff3e0; padding: 20px; border-radius: 15px;">
+            <strong>PEG = P/E ÷ Growth Rate</strong><br><br>
+            PEG of 1 = fair value for growth. Under 1 = potentially cheap.
+        </div>""", unsafe_allow_html=True)
+    
+    # A1: Position Sizing
+    elif lesson_id == "A1":
+        st.markdown("### 📏 How Much to Put in Each Stock")
+        st.markdown("""<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
+            <div style="background: #e8f5e9; padding: 20px; border-radius: 15px; text-align: center;">
+                <div style="font-size: 24px; font-weight: bold;">1-3%</div>
+                <div style="font-size: 14px;">Speculative</div>
+            </div>
+            <div style="background: #fff3e0; padding: 20px; border-radius: 15px; text-align: center;">
+                <div style="font-size: 24px; font-weight: bold;">3-5%</div>
+                <div style="font-size: 14px;">Normal</div>
+            </div>
+            <div style="background: #e3f2fd; padding: 20px; border-radius: 15px; text-align: center;">
+                <div style="font-size: 24px; font-weight: bold;">5-10%</div>
+                <div style="font-size: 14px;">High conviction</div>
+            </div>
+        </div>""", unsafe_allow_html=True)
+    
+    # A2: Correlation Traps
+    elif lesson_id == "A2":
+        st.markdown("### 🔗 Correlation Traps")
+        st.warning("5 tech stocks isn't diversified — they all move together. True diversification means owning things that DON'T correlate.")
+    
+    # A3: Portfolio Risk Budgeting
+    elif lesson_id == "A3":
+        st.markdown("### 📊 Risk Budgeting")
+        st.info("Think of risk like a budget. Your risky bets should be SIZED smaller so no single loss destroys you.")
+    
+    # A4: Drawdowns & Recovery Math
+    elif lesson_id == "A4":
+        st.markdown("### 📉 The Brutal Math of Recovery")
+        render_lesson_visual("B12")  # Reuse B12 visual
+    
+    # A5: Volatility Drag
+    elif lesson_id == "A5":
+        st.markdown("### 📉 Why Volatility Hurts Returns")
+        st.markdown("""<div style="background: #ffebee; padding: 20px; border-radius: 15px; text-align: center;">
+            <div style="font-size: 18px;">Lose 50%, then gain 50% = <strong>Still down 25%!</strong></div>
+            <div style="font-size: 14px; margin-top: 10px; color: #666;">This is volatility drag. Smoother returns compound better.</div>
+        </div>""", unsafe_allow_html=True)
+    
+    # A6: Concentration vs Diversification
+    elif lesson_id == "A6":
+        st.markdown("### 🎯 The Concentration Debate")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("""<div style="background: #fff3e0; padding: 20px; border-radius: 15px;">
+                <div style="font-size: 16px; font-weight: bold; color: #e65100;">Concentration</div>
+                <div style="font-size: 13px; margin-top: 10px;">✅ Builds wealth (if right)<br>❌ Can destroy wealth (if wrong)</div>
+            </div>""", unsafe_allow_html=True)
+        with col2:
+            st.markdown("""<div style="background: #e8f5e9; padding: 20px; border-radius: 15px;">
+                <div style="font-size: 16px; font-weight: bold; color: #2e7d32;">Diversification</div>
+                <div style="font-size: 13px; margin-top: 10px;">✅ Protects wealth<br>✅ Smoother ride</div>
+            </div>""", unsafe_allow_html=True)
+    
+    # A7: Tail Risk
+    elif lesson_id == "A7":
+        st.markdown("### 🦢 Black Swan Events")
+        st.warning("Rare, extreme events that 'shouldn't happen' but do: 2008, COVID, etc. Always have a plan for the unplannable.")
+    
+    # A8: Scenario Thinking
+    elif lesson_id == "A8":
+        st.markdown("### 🤔 Think in Scenarios")
+        st.markdown("""<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
+            <div style="background: #e8f5e9; padding: 15px; border-radius: 10px; text-align: center;">
+                <div style="font-size: 14px; font-weight: bold;">Bull Case</div>
+                <div style="font-size: 12px; color: #666;">What if everything goes right?</div>
+            </div>
+            <div style="background: #fff3e0; padding: 15px; border-radius: 10px; text-align: center;">
+                <div style="font-size: 14px; font-weight: bold;">Base Case</div>
+                <div style="font-size: 12px; color: #666;">Most likely outcome</div>
+            </div>
+            <div style="background: #ffebee; padding: 15px; border-radius: 10px; text-align: center;">
+                <div style="font-size: 14px; font-weight: bold;">Bear Case</div>
+                <div style="font-size: 12px; color: #666;">What if things go wrong?</div>
+            </div>
+        </div>""", unsafe_allow_html=True)
+    
+    # BE1: Loss Aversion
+    elif lesson_id == "BE1":
+        st.markdown("### 😰 Losses Hurt More")
+        st.markdown("""<div style="background: #ffebee; padding: 25px; border-radius: 15px; text-align: center;">
+            <div style="font-size: 20px;">Losing $100 feels <strong>2x WORSE</strong> than gaining $100 feels good</div>
+            <div style="font-size: 14px; margin-top: 15px; color: #666;">This is why we panic sell at bottoms.</div>
+        </div>""", unsafe_allow_html=True)
+    
+    # BE2: FOMO
+    elif lesson_id == "BE2":
+        st.markdown("### 📢 FOMO: Fear of Missing Out")
+        st.warning("When everyone is talking about a stock, you're probably late. The easy money has been made.")
+    
+    # BE3: Overconfidence
+    elif lesson_id == "BE3":
+        st.markdown("### 🦸 Overconfidence Bias")
+        st.markdown("""<div style="background: #fff3e0; padding: 20px; border-radius: 15px;">
+            After a few wins, we think we're geniuses. Then we concentrate too much and get humbled.<br><br>
+            <strong>Stay humble. Stay diversified.</strong>
+        </div>""", unsafe_allow_html=True)
+    
+    # BE4: Recency Bias
+    elif lesson_id == "BE4":
+        st.markdown("### 🔄 Recency Bias")
+        st.info("We assume recent trends continue forever. If stocks went up last year, we think they'll go up next year. Not always true.")
+    
+    # BE5: Decision Journaling
+    elif lesson_id == "BE5":
+        st.markdown("### 📓 Keep a Decision Journal")
+        st.markdown("""<div style="background: #e3f2fd; padding: 20px; border-radius: 15px;">
+            <strong>Before you buy, write down:</strong>
+            <ul style="margin-top: 10px;">
+                <li>Why am I buying?</li>
+                <li>What would make me sell?</li>
+                <li>What's my time horizon?</li>
+            </ul>
+            Review quarterly to learn from mistakes.
+        </div>""", unsafe_allow_html=True)
+    
+    # R1: Weak Company Checklist
+    elif lesson_id == "R1":
+        st.markdown("### 🚨 Red Flags to Watch")
+        flags = ["Revenue declining YoY", "Negative free cash flow", "Debt growing faster than earnings", "Insiders selling aggressively", "Margins compressing"]
+        for flag in flags:
+            st.checkbox(f"⚠️ {flag}", key=f"r1_visual_{flag[:10]}")
+    
+    # R2: When to Sell
+    elif lesson_id == "R2":
+        st.markdown("### 📤 Good vs Bad Reasons to Sell")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("""<div style="background: #e8f5e9; padding: 20px; border-radius: 15px;">
+                <div style="font-size: 16px; font-weight: bold; color: #2e7d32;">✅ Good Reasons</div>
+                <div style="font-size: 13px; margin-top: 10px;">• Thesis broke<br>• Better opportunity<br>• Position too large<br>• Reached target</div>
+            </div>""", unsafe_allow_html=True)
+        with col2:
+            st.markdown("""<div style="background: #ffebee; padding: 20px; border-radius: 15px;">
+                <div style="font-size: 16px; font-weight: bold; color: #c62828;">❌ Bad Reasons</div>
+                <div style="font-size: 13px; margin-top: 10px;">• Down 20% alone<br>• Scary headlines<br>• Bored of it<br>• Someone on TV said so</div>
+            </div>""", unsafe_allow_html=True)
+    
+    # CM1-CM5: Company Metrics
+    elif lesson_id == "CM1":
+        st.markdown("### 💵 FCF Per Share Growth")
+        st.info("Growing free cash flow per share = more cash for each share you own. This drives long-term returns.")
+    
+    elif lesson_id == "CM2":
+        st.markdown("### 📈 Operating Margin Trends")
+        st.markdown("""<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+            <div style="background: #e8f5e9; padding: 20px; border-radius: 15px; text-align: center;">
+                <div style="font-size: 16px; font-weight: bold; color: #2e7d32;">📈 Expanding Margins</div>
+                <div style="font-size: 13px; margin-top: 10px;">Company becoming more efficient</div>
+            </div>
+            <div style="background: #ffebee; padding: 20px; border-radius: 15px; text-align: center;">
+                <div style="font-size: 16px; font-weight: bold; color: #c62828;">📉 Compressing Margins</div>
+                <div style="font-size: 13px; margin-top: 10px;">Pricing pressure or rising costs</div>
+            </div>
+        </div>""", unsafe_allow_html=True)
+    
+    elif lesson_id == "CM3":
+        st.markdown("### 📊 Return on Invested Capital (ROIC)")
+        st.markdown("""<div style="background: #e3f2fd; padding: 20px; border-radius: 15px;">
+            <strong>ROIC = Operating Profit / Invested Capital</strong><br><br>
+            Measures how well a company turns invested dollars into profit. Higher = better capital allocation.
+        </div>""", unsafe_allow_html=True)
+    
+    elif lesson_id == "CM4":
+        st.markdown("### 🚀 Revenue Growth")
+        st.info("Revenue growth is the fuel for everything else. Without it, there's no profit growth, no stock appreciation.")
+    
+    elif lesson_id == "CM5":
+        st.markdown("### 📊 Valuation in Context")
+        st.markdown("""<div style="background: #fff3e0; padding: 20px; border-radius: 15px;">
+            Always compare valuation to:
+            <ol style="margin-top: 10px;">
+                <li>The company's own history</li>
+                <li>Industry peers</li>
+                <li>Growth rate</li>
+            </ol>
+            Never look at P/E or P/S in isolation!
+        </div>""", unsafe_allow_html=True)
+    
+    # Default for any other lesson
+    else:
+        pass  # No visual for lessons not explicitly handled
+
+# =============================================================================
+# END LESSON VISUAL COMPONENTS
+# =============================================================================
+
 # ============= DASHBOARD: PREMIUM HOME BASE =============
 if selected_page == "🏠 Dashboard":
     
@@ -12972,670 +13638,6 @@ elif selected_page == "🏠 Start Here":
     st.markdown("---")
     st.caption("💡 **Tip:** Use the Timeline picker in the sidebar to see how these metrics change over different time periods!")
 
-# ============= BASICS PAGE =============
-# IMPORTANT: This page is fully accessible WITHOUT authentication
-# Progress is stored in session_state for logged-out users
-# Progress is persisted to Supabase only for logged-in users
-# COMPLETE LEARN HUB IMPLEMENTATION
-# This replaces lines 7343-8025 in the main file
-
-# =============================================================================
-# LESSON VISUAL COMPONENTS - Rich interactive visuals for each lesson
-# =============================================================================
-
-def render_lesson_visual(lesson_id: str):
-    """Render rich visual content for each lesson"""
-    
-    # B1: Market Mechanics
-    if lesson_id == "B1":
-        st.markdown("### 🎯 How Stock Prices Move")
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.markdown("""<div style="background: linear-gradient(135deg, #e8f5e9, #c8e6c9); padding: 20px; border-radius: 15px; text-align: center;">
-                <div style="font-size: 40px;">📈</div>
-                <div style="font-size: 18px; font-weight: bold; color: #2e7d32;">More Buyers</div>
-                <div style="font-size: 14px; color: #1b5e20;">Demand > Supply</div>
-                <div style="font-size: 24px; font-weight: bold; color: #2e7d32; margin-top: 10px;">Price ↑</div>
-            </div>""", unsafe_allow_html=True)
-        with col2:
-            st.markdown("""<div style="background: linear-gradient(135deg, #fff3e0, #ffe0b2); padding: 20px; border-radius: 15px; text-align: center;">
-                <div style="font-size: 40px;">⚖️</div>
-                <div style="font-size: 18px; font-weight: bold; color: #e65100;">Balanced</div>
-                <div style="font-size: 14px; color: #bf360c;">Demand = Supply</div>
-                <div style="font-size: 24px; font-weight: bold; color: #e65100; margin-top: 10px;">Price →</div>
-            </div>""", unsafe_allow_html=True)
-        with col3:
-            st.markdown("""<div style="background: linear-gradient(135deg, #ffebee, #ffcdd2); padding: 20px; border-radius: 15px; text-align: center;">
-                <div style="font-size: 40px;">📉</div>
-                <div style="font-size: 18px; font-weight: bold; color: #c62828;">More Sellers</div>
-                <div style="font-size: 14px; color: #b71c1c;">Supply > Demand</div>
-                <div style="font-size: 24px; font-weight: bold; color: #c62828; margin-top: 10px;">Price ↓</div>
-            </div>""", unsafe_allow_html=True)
-        
-        st.markdown("""<div style="background: #e3f2fd; padding: 20px; border-radius: 15px; margin-top: 20px;">
-            <div style="font-size: 18px; font-weight: bold; color: #1565c0;">💡 Key Insight</div>
-            <div style="margin-top: 10px;"><strong>Stock = Ownership:</strong> When you buy 1 share of Apple, you own a tiny piece of a $3 trillion company.<br><br>
-            <strong>Price = Agreement:</strong> Every trade has a buyer AND a seller. The price is where they agreed to transact.</div>
-        </div>""", unsafe_allow_html=True)
-    
-    # B2: Compounding + Time Horizon
-    elif lesson_id == "B2":
-        st.markdown("### 🚀 The Magic of Compound Growth")
-        initial = 10000
-        years = 30
-        rates = [0, 0.05, 0.07, 0.10]
-        labels = ['0% (Mattress)', '5% (Bonds)', '7% (Balanced)', '10% (Stocks)']
-        colors = ['#9e9e9e', '#64b5f6', '#4caf50', '#9c27b0']
-        
-        fig = go.Figure()
-        for rate, label, color in zip(rates, labels, colors):
-            values = [initial * ((1 + rate) ** y) for y in range(years + 1)]
-            fig.add_trace(go.Scatter(x=list(range(years + 1)), y=values, name=label, line=dict(color=color, width=3)))
-        
-        fig.update_layout(title=f"$10,000 Over 30 Years at Different Returns", xaxis_title="Years", yaxis_title="Value ($)", height=400, hovermode='x unified')
-        st.plotly_chart(fig, use_container_width=True)
-        
-        final_10pct = initial * ((1 + 0.10) ** years)
-        st.markdown(f"""<div style="background: linear-gradient(135deg, #e8f5e9, #c8e6c9); padding: 25px; border-radius: 15px; text-align: center;">
-            <div style="font-size: 20px; font-weight: bold; color: #2e7d32;">💡 At 10% for 30 years, $10,000 becomes:</div>
-            <div style="font-size: 48px; font-weight: bold; color: #1b5e20;">${final_10pct:,.0f}</div>
-        </div>""", unsafe_allow_html=True)
-    
-    # B3: Index Funds vs Single Stocks
-    elif lesson_id == "B3":
-        st.markdown("### 🎯 Diversification in Action")
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown("""<div style="background: linear-gradient(135deg, #ffebee, #ffcdd2); padding: 25px; border-radius: 15px; text-align: center; height: 280px;">
-                <div style="font-size: 50px;">🎯</div>
-                <div style="font-size: 22px; font-weight: bold; color: #c62828; margin: 15px 0;">Single Stock</div>
-                <div style="font-size: 60px; margin: 10px 0;">1</div>
-                <div style="font-size: 16px; color: #b71c1c;">company</div>
-                <div style="background: #f44336; color: white; padding: 10px; border-radius: 10px; margin-top: 15px;">⚠️ Can go to ZERO</div>
-            </div>""", unsafe_allow_html=True)
-        with col2:
-            st.markdown("""<div style="background: linear-gradient(135deg, #e8f5e9, #c8e6c9); padding: 25px; border-radius: 15px; text-align: center; height: 280px;">
-                <div style="font-size: 50px;">📦</div>
-                <div style="font-size: 22px; font-weight: bold; color: #2e7d32; margin: 15px 0;">S&P 500 Index</div>
-                <div style="font-size: 60px; margin: 10px 0;">500</div>
-                <div style="font-size: 16px; color: #1b5e20;">companies</div>
-                <div style="background: #4caf50; color: white; padding: 10px; border-radius: 10px; margin-top: 15px;">✅ Built-in diversification</div>
-            </div>""", unsafe_allow_html=True)
-    
-    # B4: ETFs 101
-    elif lesson_id == "B4":
-        st.markdown("### 📦 What's Inside an ETF?")
-        st.markdown("""<div style="display: flex; align-items: center; justify-content: center; gap: 30px; margin: 30px 0; flex-wrap: wrap;">
-            <div style="background: linear-gradient(135deg, #667eea, #764ba2); padding: 30px; border-radius: 20px; text-align: center; color: white; min-width: 180px;">
-                <div style="font-size: 14px; opacity: 0.8;">1 Share of</div>
-                <div style="font-size: 36px; font-weight: bold;">SPY</div>
-                <div style="font-size: 14px; opacity: 0.9;">S&P 500 ETF</div>
-            </div>
-            <div style="font-size: 40px; color: #ccc;">=</div>
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
-                <div style="background: #e3f2fd; padding: 10px 15px; border-radius: 8px; font-weight: 600; text-align: center;">AAPL</div>
-                <div style="background: #e8f5e9; padding: 10px 15px; border-radius: 8px; font-weight: 600; text-align: center;">MSFT</div>
-                <div style="background: #fff3e0; padding: 10px 15px; border-radius: 8px; font-weight: 600; text-align: center;">GOOGL</div>
-                <div style="background: #fce4ec; padding: 10px 15px; border-radius: 8px; font-weight: 600; text-align: center;">AMZN</div>
-                <div style="background: #f3e5f5; padding: 10px 15px; border-radius: 8px; font-weight: 600; text-align: center;">NVDA</div>
-                <div style="background: #e1f5fe; padding: 10px 15px; border-radius: 8px; font-weight: 600; text-align: center;">META</div>
-                <div style="background: #f5f5f5; padding: 10px 15px; border-radius: 8px; text-align: center; color: #666; grid-column: span 3;">+ 494 more companies</div>
-            </div>
-        </div>""", unsafe_allow_html=True)
-        
-        st.markdown("### 📊 Popular ETFs")
-        etf_cols = st.columns(4)
-        etfs = [("SPY", "S&P 500", "0.09%", "500"), ("QQQ", "Nasdaq 100", "0.20%", "100"), ("VTI", "Total US", "0.03%", "4000+"), ("VT", "Total World", "0.07%", "9500+")]
-        for i, (ticker, name, expense, holdings) in enumerate(etfs):
-            with etf_cols[i]:
-                st.metric(ticker, name)
-                st.caption(f"Expense: {expense} | {holdings} stocks")
-    
-    # B5: What Diversification Really Means
-    elif lesson_id == "B5":
-        st.markdown("### 🥚 Don't Put All Your Eggs in One Basket")
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown("**❌ NOT Diversified (5 tech stocks):**")
-            fig1 = go.Figure(data=[go.Pie(labels=['Apple', 'Microsoft', 'Google', 'Amazon', 'Meta'], values=[30, 25, 20, 15, 10], marker_colors=['#ff6b6b', '#ff8787', '#ffa3a3', '#ffbfbf', '#ffd9d9'], hole=0.4)])
-            fig1.update_layout(height=250, margin=dict(t=20, b=20, l=20, r=20), showlegend=False)
-            st.plotly_chart(fig1, use_container_width=True)
-        with col2:
-            st.markdown("**✅ Diversified (different assets):**")
-            fig2 = go.Figure(data=[go.Pie(labels=['US Stocks', 'International', 'Bonds', 'Real Estate'], values=[40, 25, 25, 10], marker_colors=['#4caf50', '#2196f3', '#ff9800', '#9c27b0'], hole=0.4)])
-            fig2.update_layout(height=250, margin=dict(t=20, b=20, l=20, r=20), showlegend=False)
-            st.plotly_chart(fig2, use_container_width=True)
-    
-    # B6: Sector ETFs vs Broad Market
-    elif lesson_id == "B6":
-        st.markdown("### 🏗️ Broad vs Sector ETFs")
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown("""<div style="background: linear-gradient(135deg, #e8f5e9, #c8e6c9); padding: 25px; border-radius: 15px; text-align: center;">
-                <div style="font-size: 20px; font-weight: bold; color: #2e7d32;">🌍 Broad Market ETF</div>
-                <div style="font-size: 14px; margin: 10px 0;">All sectors included</div>
-                <div style="background: #2e7d32; color: white; padding: 10px; border-radius: 10px; margin-top: 15px;">✅ Auto-diversified</div>
-            </div>""", unsafe_allow_html=True)
-        with col2:
-            st.markdown("""<div style="background: linear-gradient(135deg, #fff3e0, #ffe0b2); padding: 25px; border-radius: 15px; text-align: center;">
-                <div style="font-size: 20px; font-weight: bold; color: #e65100;">🎯 Sector ETF</div>
-                <div style="font-size: 14px; margin: 10px 0;">One sector only</div>
-                <div style="background: #e65100; color: white; padding: 10px; border-radius: 10px; margin-top: 15px;">⚠️ Concentrated bet</div>
-            </div>""", unsafe_allow_html=True)
-    
-    # B7: Why Fees Matter
-    elif lesson_id == "B7":
-        st.markdown("### 💸 The Hidden Cost of Fees")
-        investment = 100000
-        years = 30
-        fees = [0.03, 0.20, 0.50, 1.00]
-        labels = ['0.03% (VTI)', '0.20% (QQQ)', '0.50% (Active)', '1.00% (High Fee)']
-        colors = ['#4caf50', '#8bc34a', '#ff9800', '#f44336']
-        annual_return = 0.08
-        
-        results = [investment * ((1 + annual_return - fee/100) ** years) for fee in fees]
-        
-        fig = go.Figure(data=[go.Bar(x=labels, y=results, marker_color=colors, text=[f"${r:,.0f}" for r in results], textposition='outside')])
-        fig.update_layout(title=f"${investment:,} over {years} years at 8% return", yaxis_title="Final Value ($)", height=400, showlegend=False)
-        st.plotly_chart(fig, use_container_width=True)
-        
-        fee_cost = results[0] - results[3]
-        st.markdown(f"""<div style="background: linear-gradient(135deg, #ffebee, #ffcdd2); padding: 25px; border-radius: 15px; text-align: center;">
-            <div style="font-size: 18px; color: #c62828;">Cost of 1% vs 0.03% fee over 30 years:</div>
-            <div style="font-size: 48px; font-weight: bold; color: #c62828;">${fee_cost:,.0f}</div>
-        </div>""", unsafe_allow_html=True)
-    
-    # B8: Rebalancing Basics
-    elif lesson_id == "B8":
-        st.markdown("### ⚖️ Keeping Your Portfolio on Target")
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown("**🎯 Target: 70/30**")
-            fig1 = go.Figure(data=[go.Pie(labels=['Stocks', 'Bonds'], values=[70, 30], marker_colors=['#4caf50', '#2196f3'], hole=0.4)])
-            fig1.update_layout(height=200, margin=dict(t=10, b=10, l=10, r=10), showlegend=False)
-            st.plotly_chart(fig1, use_container_width=True)
-        with col2:
-            st.markdown("**📈 After rally: 85/15 (drifted!)**")
-            fig2 = go.Figure(data=[go.Pie(labels=['Stocks', 'Bonds'], values=[85, 15], marker_colors=['#ff9800', '#90caf9'], hole=0.4)])
-            fig2.update_layout(height=200, margin=dict(t=10, b=10, l=10, r=10), showlegend=False)
-            st.plotly_chart(fig2, use_container_width=True)
-        st.info("**Solution:** Rebalance by selling some stocks and buying bonds to get back to 70/30")
-    
-    # B9: Risk vs Reward
-    elif lesson_id == "B9":
-        st.markdown("### ⚖️ The Risk-Return Tradeoff")
-        assets = [("Savings", 1, "#4caf50"), ("Gov Bonds", 2, "#8bc34a"), ("Corp Bonds", 3, "#cddc39"), ("S&P 500", 5, "#ff9800"), ("Individual Stocks", 7, "#ff5722"), ("Crypto/Options", 10, "#f44336")]
-        fig = go.Figure(data=[go.Bar(x=[a[0] for a in assets], y=[a[1] for a in assets], marker_color=[a[2] for a in assets])])
-        fig.update_layout(title="Risk Level (1=Safest, 10=Riskiest)", yaxis_title="Risk Level", height=350)
-        st.plotly_chart(fig, use_container_width=True)
-        st.markdown("""<div style="background: #e3f2fd; padding: 20px; border-radius: 15px; text-align: center;">
-            <strong>Golden Rule:</strong> Higher potential returns = Higher potential losses. No free lunch!</div>""", unsafe_allow_html=True)
-    
-    # B10: Volatility Explained
-    elif lesson_id == "B10":
-        st.markdown("### 📊 What Volatility Looks Like")
-        np.random.seed(42)
-        days = 252
-        low_vol = [100]
-        high_vol = [100]
-        for _ in range(days - 1):
-            low_vol.append(low_vol[-1] * (1 + np.random.normal(0.0003, 0.005)))
-            high_vol.append(high_vol[-1] * (1 + np.random.normal(0.0004, 0.025)))
-        
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(y=low_vol, name="Low Vol (Bonds)", line=dict(color='#4caf50', width=2)))
-        fig.add_trace(go.Scatter(y=high_vol, name="High Vol (Stocks)", line=dict(color='#f44336', width=2)))
-        fig.update_layout(title="Same Period, Different Rides", xaxis_title="Days", yaxis_title="Value ($100 start)", height=350)
-        st.plotly_chart(fig, use_container_width=True)
-    
-    # B11: Why Timing Is Hard
-    elif lesson_id == "B11":
-        st.markdown("### ⏱️ Missing the Best Days Hurts")
-        st.markdown("""<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin: 20px 0;">
-            <div style="text-align: center; padding: 15px; background: #e8f5e9; border-radius: 10px;">
-                <div style="font-size: 14px; color: #666;">Stayed Invested</div>
-                <div style="font-size: 24px; font-weight: bold; color: #2e7d32;">$175,000</div>
-            </div>
-            <div style="text-align: center; padding: 15px; background: #fff3e0; border-radius: 10px;">
-                <div style="font-size: 14px; color: #666;">Missed 10 Best Days</div>
-                <div style="font-size: 24px; font-weight: bold; color: #e65100;">$80,000</div>
-            </div>
-            <div style="text-align: center; padding: 15px; background: #ffebee; border-radius: 10px;">
-                <div style="font-size: 14px; color: #666;">Missed 20 Best Days</div>
-                <div style="font-size: 24px; font-weight: bold; color: #c62828;">$44,000</div>
-            </div>
-            <div style="text-align: center; padding: 15px; background: #fce4ec; border-radius: 10px;">
-                <div style="font-size: 14px; color: #666;">Missed 30 Best Days</div>
-                <div style="font-size: 24px; font-weight: bold; color: #880e4f;">$26,000</div>
-            </div>
-        </div>""", unsafe_allow_html=True)
-        st.info("**Time IN the market beats timING the market.** The best days often come right after the worst days.")
-    
-    # B12: Drawdowns
-    elif lesson_id == "B12":
-        st.markdown("### 📉 The Recovery Math Problem")
-        st.markdown("""<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin: 20px 0;">
-            <div style="background: #e8f5e9; padding: 20px; border-radius: 15px; text-align: center;">
-                <div style="font-size: 14px;">Lose <span style="font-size: 24px; font-weight: bold; color: #2e7d32;">10%</span></div>
-                <div style="font-size: 14px; margin-top: 10px;">Need <span style="font-weight: bold;">+11%</span> to recover</div>
-            </div>
-            <div style="background: #fff3e0; padding: 20px; border-radius: 15px; text-align: center;">
-                <div style="font-size: 14px;">Lose <span style="font-size: 24px; font-weight: bold; color: #e65100;">25%</span></div>
-                <div style="font-size: 14px; margin-top: 10px;">Need <span style="font-weight: bold;">+33%</span> to recover</div>
-            </div>
-            <div style="background: #ffebee; padding: 20px; border-radius: 15px; text-align: center;">
-                <div style="font-size: 14px;">Lose <span style="font-size: 24px; font-weight: bold; color: #c62828;">50%</span></div>
-                <div style="font-size: 14px; margin-top: 10px;">Need <span style="font-weight: bold;">+100%</span> to recover</div>
-            </div>
-            <div style="background: #fce4ec; padding: 20px; border-radius: 15px; text-align: center;">
-                <div style="font-size: 14px;">Lose <span style="font-size: 24px; font-weight: bold; color: #880e4f;">75%</span></div>
-                <div style="font-size: 14px; margin-top: 10px;">Need <span style="font-weight: bold;">+300%</span> to recover</div>
-            </div>
-        </div>""", unsafe_allow_html=True)
-    
-    # B13: Emotional Traps
-    elif lesson_id == "B13":
-        st.markdown("### 🧠 The Emotional Investing Cycle")
-        st.markdown("""<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin: 20px 0;">
-            <div style="text-align: center; padding: 15px; background: #ffebee; border-radius: 10px; flex: 1; min-width: 120px;">
-                <div style="font-size: 30px;">😰</div>
-                <div style="font-size: 14px; font-weight: bold; color: #c62828;">PANIC</div>
-                <div style="font-size: 11px;">Market Bottom</div>
-                <div style="font-size: 11px; color: #666;">You SELL here</div>
-            </div>
-            <div style="font-size: 24px;">→</div>
-            <div style="text-align: center; padding: 15px; background: #fff3e0; border-radius: 10px; flex: 1; min-width: 120px;">
-                <div style="font-size: 30px;">😐</div>
-                <div style="font-size: 14px; font-weight: bold; color: #e65100;">DOUBT</div>
-                <div style="font-size: 11px;">Recovery Starts</div>
-                <div style="font-size: 11px; color: #666;">You WATCH</div>
-            </div>
-            <div style="font-size: 24px;">→</div>
-            <div style="text-align: center; padding: 15px; background: #e8f5e9; border-radius: 10px; flex: 1; min-width: 120px;">
-                <div style="font-size: 30px;">🤑</div>
-                <div style="font-size: 14px; font-weight: bold; color: #2e7d32;">GREED</div>
-                <div style="font-size: 11px;">Market Peak</div>
-                <div style="font-size: 11px; color: #666;">You BUY here</div>
-            </div>
-        </div>""", unsafe_allow_html=True)
-    
-    # B14: How Stocks Make Money
-    elif lesson_id == "B14":
-        st.markdown("### 💰 Two Ways Stocks Make You Money")
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown("""<div style="background: linear-gradient(135deg, #e8f5e9, #c8e6c9); padding: 25px; border-radius: 15px; text-align: center;">
-                <div style="font-size: 50px;">📈</div>
-                <div style="font-size: 20px; font-weight: bold; color: #2e7d32;">Capital Appreciation</div>
-                <div style="font-size: 14px; margin-top: 10px;">Buy at $100, sell at $150 = $50 profit</div>
-                <div style="background: #2e7d32; color: white; padding: 10px; border-radius: 10px; margin-top: 15px;">Most returns come here</div>
-            </div>""", unsafe_allow_html=True)
-        with col2:
-            st.markdown("""<div style="background: linear-gradient(135deg, #e3f2fd, #bbdefb); padding: 25px; border-radius: 15px; text-align: center;">
-                <div style="font-size: 50px;">💵</div>
-                <div style="font-size: 20px; font-weight: bold; color: #1565c0;">Dividends</div>
-                <div style="font-size: 14px; margin-top: 10px;">Company pays you cash quarterly</div>
-                <div style="background: #1565c0; color: white; padding: 10px; border-radius: 10px; margin-top: 15px;">Income while you hold</div>
-            </div>""", unsafe_allow_html=True)
-    
-    # B15: Dividends Explained
-    elif lesson_id == "B15":
-        st.markdown("### 💸 Dividend Yield Explained")
-        st.markdown("""<div style="background: #fff; border: 3px solid #1565c0; border-radius: 15px; padding: 25px; text-align: center;">
-            <div style="font-size: 20px; font-weight: bold; color: #1565c0;">Dividend Yield = Annual Dividend ÷ Stock Price</div>
-            <div style="font-size: 16px; margin-top: 15px;">Stock at $100 paying $3/year = <strong>3% yield</strong></div>
-        </div>""", unsafe_allow_html=True)
-        st.info("**Pro tip:** Reinvest your dividends to let compounding work its magic!")
-    
-    # I1: Income Statement
-    elif lesson_id == "I1":
-        st.markdown("### 📊 The Income Statement Breakdown")
-        fig = go.Figure(go.Waterfall(
-            orientation="v", measure=["absolute", "relative", "relative", "relative", "total"],
-            x=["Revenue", "COGS", "OpEx", "Taxes", "Net Income"],
-            y=[100, -40, -30, -7, 23], text=["$100B", "-$40B", "-$30B", "-$7B", "$23B"], textposition="outside",
-            connector={"line": {"color": "#ccc"}}, increasing={"marker": {"color": "#4caf50"}}, decreasing={"marker": {"color": "#f44336"}}, totals={"marker": {"color": "#2196f3"}}
-        ))
-        fig.update_layout(title="How Revenue Becomes Profit", height=350, showlegend=False)
-        st.plotly_chart(fig, use_container_width=True)
-    
-    # I2: Balance Sheet
-    elif lesson_id == "I2":
-        st.markdown("### ⚖️ The Balance Sheet Equation")
-        st.markdown("""<div style="background: #fff; border: 3px solid #1565c0; border-radius: 15px; padding: 25px; text-align: center;">
-            <div style="font-size: 24px; font-weight: bold; color: #1565c0;">Assets = Liabilities + Equity</div>
-            <div style="font-size: 14px; color: #666; margin-top: 10px;">What they OWN = What they OWE + Shareholders' stake</div>
-        </div>""", unsafe_allow_html=True)
-    
-    # I3: Cash Flow Statement
-    elif lesson_id == "I3":
-        st.markdown("### 💵 The Three Cash Flows")
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.markdown("""<div style="background: #e8f5e9; padding: 20px; border-radius: 15px; text-align: center;">
-                <div style="font-size: 18px; font-weight: bold; color: #2e7d32;">CFO</div>
-                <div style="font-size: 13px;">Operating Cash Flow</div>
-                <div style="font-size: 12px; color: #2e7d32; margin-top: 10px;">✅ Should be positive</div>
-            </div>""", unsafe_allow_html=True)
-        with col2:
-            st.markdown("""<div style="background: #fff3e0; padding: 20px; border-radius: 15px; text-align: center;">
-                <div style="font-size: 18px; font-weight: bold; color: #e65100;">CFI</div>
-                <div style="font-size: 13px;">Investing Cash Flow</div>
-                <div style="font-size: 12px; color: #e65100; margin-top: 10px;">Usually negative (investing)</div>
-            </div>""", unsafe_allow_html=True)
-        with col3:
-            st.markdown("""<div style="background: #fce4ec; padding: 20px; border-radius: 15px; text-align: center;">
-                <div style="font-size: 18px; font-weight: bold; color: #c2185b;">CFF</div>
-                <div style="font-size: 13px;">Financing Cash Flow</div>
-                <div style="font-size: 12px; color: #c2185b; margin-top: 10px;">Debt & dividends</div>
-            </div>""", unsafe_allow_html=True)
-    
-    # I4: Margins Explained
-    elif lesson_id == "I4":
-        st.markdown("### 📊 Margins by Industry")
-        companies = ['Software', 'Retail', 'Manufacturing']
-        gross = [75, 25, 35]
-        operating = [35, 5, 12]
-        
-        fig = go.Figure()
-        fig.add_trace(go.Bar(x=companies, y=gross, name='Gross Margin', marker_color='#4caf50'))
-        fig.add_trace(go.Bar(x=companies, y=operating, name='Operating Margin', marker_color='#2196f3'))
-        fig.update_layout(title="Margins Vary by Industry", yaxis_title="Margin (%)", barmode='group', height=300)
-        st.plotly_chart(fig, use_container_width=True)
-    
-    # I5: Free Cash Flow Basics
-    elif lesson_id == "I5":
-        st.markdown("### 💰 Free Cash Flow = Real Money")
-        st.markdown("""<div style="background: #e8f5e9; border: 3px solid #4caf50; border-radius: 15px; padding: 25px; text-align: center;">
-            <div style="font-size: 18px; font-weight: bold; color: #2e7d32;">FCF = Operating Cash Flow − CapEx</div>
-            <div style="font-size: 14px; margin-top: 10px;">This is the cash left after maintaining the business.</div>
-        </div>""", unsafe_allow_html=True)
-    
-    # I6: Moats Explained
-    elif lesson_id == "I6":
-        st.markdown("### 🏰 Types of Economic Moats")
-        moats = [("🏷️", "Brand", "Coca-Cola, Apple", "#e8f5e9"), ("🔗", "Network", "Visa, Meta", "#e3f2fd"), ("🔒", "Switching", "Microsoft, Salesforce", "#fff3e0"), ("💰", "Cost", "Walmart, Costco", "#fce4ec")]
-        cols = st.columns(4)
-        for i, (icon, name, ex, color) in enumerate(moats):
-            with cols[i]:
-                st.markdown(f"""<div style="background: {color}; padding: 20px; border-radius: 15px; text-align: center;">
-                    <div style="font-size: 24px;">{icon}</div>
-                    <div style="font-size: 14px; font-weight: bold;">{name}</div>
-                    <div style="font-size: 11px; color: #666; margin-top: 5px;">{ex}</div>
-                </div>""", unsafe_allow_html=True)
-    
-    # I7: Pricing Power
-    elif lesson_id == "I7":
-        st.markdown("### 💪 The Ultimate Test: Can They Raise Prices?")
-        st.markdown("""<div style="background: #e8f5e9; padding: 20px; border-radius: 15px;">
-            <strong>Pricing power</strong> = ability to raise prices without losing customers.<br><br>
-            Examples: Apple (loyal fans), Starbucks (habit), Netflix (content library)
-        </div>""", unsafe_allow_html=True)
-    
-    # I8: Unit Economics
-    elif lesson_id == "I8":
-        st.markdown("### 📊 Unit Economics Basics")
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown("""<div style="background: #ffebee; padding: 20px; border-radius: 15px; text-align: center;">
-                <div style="font-size: 16px; font-weight: bold; color: #c62828;">CAC</div>
-                <div style="font-size: 13px;">Customer Acquisition Cost</div>
-                <div style="font-size: 12px; color: #666; margin-top: 5px;">How much to get 1 customer</div>
-            </div>""", unsafe_allow_html=True)
-        with col2:
-            st.markdown("""<div style="background: #e8f5e9; padding: 20px; border-radius: 15px; text-align: center;">
-                <div style="font-size: 16px; font-weight: bold; color: #2e7d32;">LTV</div>
-                <div style="font-size: 13px;">Lifetime Value</div>
-                <div style="font-size: 12px; color: #666; margin-top: 5px;">How much they're worth</div>
-            </div>""", unsafe_allow_html=True)
-        st.info("**Rule of thumb:** LTV should be at least 3x CAC for a healthy business")
-    
-    # I9: Management Quality
-    elif lesson_id == "I9":
-        st.markdown("### 👔 Evaluating Management")
-        checks = ["✅ Insider ownership (skin in the game)", "✅ Capital allocation track record", "✅ Clear, honest communication", "✅ Reasonable compensation", "❌ Excessive stock dilution", "❌ Frequent strategy pivots"]
-        for c in checks:
-            st.markdown(c)
-    
-    # I10: Scalability & Operating Leverage
-    elif lesson_id == "I10":
-        st.markdown("### 📈 Operating Leverage")
-        st.markdown("""<div style="background: #e3f2fd; padding: 20px; border-radius: 15px;">
-            <strong>High fixed costs + growing revenue = margins expand rapidly</strong><br><br>
-            Software is the best example: once built, each new customer is nearly pure profit.
-        </div>""", unsafe_allow_html=True)
-    
-    # V1: Valuation Intro
-    elif lesson_id == "V1":
-        st.markdown("### 💵 What Is a Company Worth?")
-        st.info("**Valuation** = Price you pay for future cash flows. Always ask: What do I GET vs what do I PAY?")
-    
-    # V2: P/E Ratio
-    elif lesson_id == "V2":
-        st.markdown("### 📊 P/E Ratio: Context Matters")
-        examples = [("Utility", 12, "Stable"), ("Bank", 10, "Cyclical"), ("Tech", 25, "Growth"), ("Hypergrowth", 100, "Expensive?")]
-        cols = st.columns(4)
-        for i, (name, pe, note) in enumerate(examples):
-            with cols[i]:
-                st.metric(name, f"P/E: {pe}", note)
-    
-    # V3: P/S Ratio
-    elif lesson_id == "V3":
-        st.markdown("### 📊 P/S Ratio: For Unprofitable Companies")
-        st.info("When there's no earnings (P/E doesn't work), use Price-to-Sales. Lower P/S = potentially cheaper.")
-    
-    # V4: EV/EBITDA
-    elif lesson_id == "V4":
-        st.markdown("### 🏢 Enterprise Value / EBITDA")
-        st.markdown("""<div style="background: #e3f2fd; padding: 20px; border-radius: 15px;">
-            <strong>EV = Market Cap + Debt - Cash</strong><br><br>
-            This tells you what it would REALLY cost to buy the whole company (debt included).
-        </div>""", unsafe_allow_html=True)
-    
-    # V5: FCF Yield
-    elif lesson_id == "V5":
-        st.markdown("### 💰 Free Cash Flow Yield")
-        st.markdown("""<div style="background: #e8f5e9; padding: 20px; border-radius: 15px;">
-            <strong>FCF Yield = Free Cash Flow / Market Cap</strong><br><br>
-            Higher FCF yield = potentially more value for your money.
-        </div>""", unsafe_allow_html=True)
-    
-    # V6: Valuation vs Growth
-    elif lesson_id == "V6":
-        st.markdown("### 🎯 The PEG Ratio")
-        st.markdown("""<div style="background: #fff3e0; padding: 20px; border-radius: 15px;">
-            <strong>PEG = P/E ÷ Growth Rate</strong><br><br>
-            PEG of 1 = fair value for growth. Under 1 = potentially cheap.
-        </div>""", unsafe_allow_html=True)
-    
-    # A1: Position Sizing
-    elif lesson_id == "A1":
-        st.markdown("### 📏 How Much to Put in Each Stock")
-        st.markdown("""<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
-            <div style="background: #e8f5e9; padding: 20px; border-radius: 15px; text-align: center;">
-                <div style="font-size: 24px; font-weight: bold;">1-3%</div>
-                <div style="font-size: 14px;">Speculative</div>
-            </div>
-            <div style="background: #fff3e0; padding: 20px; border-radius: 15px; text-align: center;">
-                <div style="font-size: 24px; font-weight: bold;">3-5%</div>
-                <div style="font-size: 14px;">Normal</div>
-            </div>
-            <div style="background: #e3f2fd; padding: 20px; border-radius: 15px; text-align: center;">
-                <div style="font-size: 24px; font-weight: bold;">5-10%</div>
-                <div style="font-size: 14px;">High conviction</div>
-            </div>
-        </div>""", unsafe_allow_html=True)
-    
-    # A2: Correlation Traps
-    elif lesson_id == "A2":
-        st.markdown("### 🔗 Correlation Traps")
-        st.warning("5 tech stocks isn't diversified — they all move together. True diversification means owning things that DON'T correlate.")
-    
-    # A3: Portfolio Risk Budgeting
-    elif lesson_id == "A3":
-        st.markdown("### 📊 Risk Budgeting")
-        st.info("Think of risk like a budget. Your risky bets should be SIZED smaller so no single loss destroys you.")
-    
-    # A4: Drawdowns & Recovery Math
-    elif lesson_id == "A4":
-        st.markdown("### 📉 The Brutal Math of Recovery")
-        render_lesson_visual("B12")  # Reuse B12 visual
-    
-    # A5: Volatility Drag
-    elif lesson_id == "A5":
-        st.markdown("### 📉 Why Volatility Hurts Returns")
-        st.markdown("""<div style="background: #ffebee; padding: 20px; border-radius: 15px; text-align: center;">
-            <div style="font-size: 18px;">Lose 50%, then gain 50% = <strong>Still down 25%!</strong></div>
-            <div style="font-size: 14px; margin-top: 10px; color: #666;">This is volatility drag. Smoother returns compound better.</div>
-        </div>""", unsafe_allow_html=True)
-    
-    # A6: Concentration vs Diversification
-    elif lesson_id == "A6":
-        st.markdown("### 🎯 The Concentration Debate")
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown("""<div style="background: #fff3e0; padding: 20px; border-radius: 15px;">
-                <div style="font-size: 16px; font-weight: bold; color: #e65100;">Concentration</div>
-                <div style="font-size: 13px; margin-top: 10px;">✅ Builds wealth (if right)<br>❌ Can destroy wealth (if wrong)</div>
-            </div>""", unsafe_allow_html=True)
-        with col2:
-            st.markdown("""<div style="background: #e8f5e9; padding: 20px; border-radius: 15px;">
-                <div style="font-size: 16px; font-weight: bold; color: #2e7d32;">Diversification</div>
-                <div style="font-size: 13px; margin-top: 10px;">✅ Protects wealth<br>✅ Smoother ride</div>
-            </div>""", unsafe_allow_html=True)
-    
-    # A7: Tail Risk
-    elif lesson_id == "A7":
-        st.markdown("### 🦢 Black Swan Events")
-        st.warning("Rare, extreme events that 'shouldn't happen' but do: 2008, COVID, etc. Always have a plan for the unplannable.")
-    
-    # A8: Scenario Thinking
-    elif lesson_id == "A8":
-        st.markdown("### 🤔 Think in Scenarios")
-        st.markdown("""<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
-            <div style="background: #e8f5e9; padding: 15px; border-radius: 10px; text-align: center;">
-                <div style="font-size: 14px; font-weight: bold;">Bull Case</div>
-                <div style="font-size: 12px; color: #666;">What if everything goes right?</div>
-            </div>
-            <div style="background: #fff3e0; padding: 15px; border-radius: 10px; text-align: center;">
-                <div style="font-size: 14px; font-weight: bold;">Base Case</div>
-                <div style="font-size: 12px; color: #666;">Most likely outcome</div>
-            </div>
-            <div style="background: #ffebee; padding: 15px; border-radius: 10px; text-align: center;">
-                <div style="font-size: 14px; font-weight: bold;">Bear Case</div>
-                <div style="font-size: 12px; color: #666;">What if things go wrong?</div>
-            </div>
-        </div>""", unsafe_allow_html=True)
-    
-    # BE1: Loss Aversion
-    elif lesson_id == "BE1":
-        st.markdown("### 😰 Losses Hurt More")
-        st.markdown("""<div style="background: #ffebee; padding: 25px; border-radius: 15px; text-align: center;">
-            <div style="font-size: 20px;">Losing $100 feels <strong>2x WORSE</strong> than gaining $100 feels good</div>
-            <div style="font-size: 14px; margin-top: 15px; color: #666;">This is why we panic sell at bottoms.</div>
-        </div>""", unsafe_allow_html=True)
-    
-    # BE2: FOMO
-    elif lesson_id == "BE2":
-        st.markdown("### 📢 FOMO: Fear of Missing Out")
-        st.warning("When everyone is talking about a stock, you're probably late. The easy money has been made.")
-    
-    # BE3: Overconfidence
-    elif lesson_id == "BE3":
-        st.markdown("### 🦸 Overconfidence Bias")
-        st.markdown("""<div style="background: #fff3e0; padding: 20px; border-radius: 15px;">
-            After a few wins, we think we're geniuses. Then we concentrate too much and get humbled.<br><br>
-            <strong>Stay humble. Stay diversified.</strong>
-        </div>""", unsafe_allow_html=True)
-    
-    # BE4: Recency Bias
-    elif lesson_id == "BE4":
-        st.markdown("### 🔄 Recency Bias")
-        st.info("We assume recent trends continue forever. If stocks went up last year, we think they'll go up next year. Not always true.")
-    
-    # BE5: Decision Journaling
-    elif lesson_id == "BE5":
-        st.markdown("### 📓 Keep a Decision Journal")
-        st.markdown("""<div style="background: #e3f2fd; padding: 20px; border-radius: 15px;">
-            <strong>Before you buy, write down:</strong>
-            <ul style="margin-top: 10px;">
-                <li>Why am I buying?</li>
-                <li>What would make me sell?</li>
-                <li>What's my time horizon?</li>
-            </ul>
-            Review quarterly to learn from mistakes.
-        </div>""", unsafe_allow_html=True)
-    
-    # R1: Weak Company Checklist
-    elif lesson_id == "R1":
-        st.markdown("### 🚨 Red Flags to Watch")
-        flags = ["Revenue declining YoY", "Negative free cash flow", "Debt growing faster than earnings", "Insiders selling aggressively", "Margins compressing"]
-        for flag in flags:
-            st.checkbox(f"⚠️ {flag}", key=f"r1_visual_{flag[:10]}")
-    
-    # R2: When to Sell
-    elif lesson_id == "R2":
-        st.markdown("### 📤 Good vs Bad Reasons to Sell")
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown("""<div style="background: #e8f5e9; padding: 20px; border-radius: 15px;">
-                <div style="font-size: 16px; font-weight: bold; color: #2e7d32;">✅ Good Reasons</div>
-                <div style="font-size: 13px; margin-top: 10px;">• Thesis broke<br>• Better opportunity<br>• Position too large<br>• Reached target</div>
-            </div>""", unsafe_allow_html=True)
-        with col2:
-            st.markdown("""<div style="background: #ffebee; padding: 20px; border-radius: 15px;">
-                <div style="font-size: 16px; font-weight: bold; color: #c62828;">❌ Bad Reasons</div>
-                <div style="font-size: 13px; margin-top: 10px;">• Down 20% alone<br>• Scary headlines<br>• Bored of it<br>• Someone on TV said so</div>
-            </div>""", unsafe_allow_html=True)
-    
-    # CM1-CM5: Company Metrics
-    elif lesson_id == "CM1":
-        st.markdown("### 💵 FCF Per Share Growth")
-        st.info("Growing free cash flow per share = more cash for each share you own. This drives long-term returns.")
-    
-    elif lesson_id == "CM2":
-        st.markdown("### 📈 Operating Margin Trends")
-        st.markdown("""<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
-            <div style="background: #e8f5e9; padding: 20px; border-radius: 15px; text-align: center;">
-                <div style="font-size: 16px; font-weight: bold; color: #2e7d32;">📈 Expanding Margins</div>
-                <div style="font-size: 13px; margin-top: 10px;">Company becoming more efficient</div>
-            </div>
-            <div style="background: #ffebee; padding: 20px; border-radius: 15px; text-align: center;">
-                <div style="font-size: 16px; font-weight: bold; color: #c62828;">📉 Compressing Margins</div>
-                <div style="font-size: 13px; margin-top: 10px;">Pricing pressure or rising costs</div>
-            </div>
-        </div>""", unsafe_allow_html=True)
-    
-    elif lesson_id == "CM3":
-        st.markdown("### 📊 Return on Invested Capital (ROIC)")
-        st.markdown("""<div style="background: #e3f2fd; padding: 20px; border-radius: 15px;">
-            <strong>ROIC = Operating Profit / Invested Capital</strong><br><br>
-            Measures how well a company turns invested dollars into profit. Higher = better capital allocation.
-        </div>""", unsafe_allow_html=True)
-    
-    elif lesson_id == "CM4":
-        st.markdown("### 🚀 Revenue Growth")
-        st.info("Revenue growth is the fuel for everything else. Without it, there's no profit growth, no stock appreciation.")
-    
-    elif lesson_id == "CM5":
-        st.markdown("### 📊 Valuation in Context")
-        st.markdown("""<div style="background: #fff3e0; padding: 20px; border-radius: 15px;">
-            Always compare valuation to:
-            <ol style="margin-top: 10px;">
-                <li>The company's own history</li>
-                <li>Industry peers</li>
-                <li>Growth rate</li>
-            </ol>
-            Never look at P/E or P/S in isolation!
-        </div>""", unsafe_allow_html=True)
-    
-    # Default for any other lesson
-    else:
-        pass  # No visual for lessons not explicitly handled
-
-# =============================================================================
-# END LESSON VISUAL COMPONENTS
-# =============================================================================
 
 elif selected_page == "📚 Learn Hub":
     """
