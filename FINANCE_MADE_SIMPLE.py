@@ -4307,7 +4307,7 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
     x_labels = [format_fiscal_period(row, period_type) for _, row in df_sorted.iterrows()]
     
     fig = go.Figure()
-    colors = ['#00D9FF', '#FFD700', '#9D4EDD']
+    colors = ['#00D9FF', '#FFD700', '#9D4EDD']  # Cyan, Gold, Purple - original palette
     growth_rates = {}
     
     for idx, metric in enumerate(metrics):
@@ -4325,10 +4325,14 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
                 x=x_labels,
                 y=values,
                 name=display_name,
-                marker_color=colors[idx % len(colors)],
+                marker=dict(
+                    color=colors[idx % len(colors)],
+                    line=dict(width=0),
+                    cornerradius=4
+                ),
                 text=[format_value_label(val) for val in values],
                 textposition='outside',
-                textfont=dict(size=10)
+                textfont=dict(size=11, color='#64748B', family='Inter, system-ui, sans-serif')
             ))
     
     all_values = []
@@ -4344,18 +4348,17 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
         padding = value_range * 0.25
         y_range_max = max_val + padding
         y_range_min = min_val - padding if min_val < 0 else 0
-        fig.update_layout(yaxis=dict(range=[y_range_min, y_range_max]))
     
     fig.update_layout(
         title=dict(
             text=title,
-            font=dict(size=18, color='#1a1a2e', family='Arial Black'),
+            font=dict(size=17, color='#1E293B', family='Inter, system-ui, sans-serif'),
             x=0.5,
             xanchor='center',
-            y=0.95,
+            y=0.97,
             yanchor='top'
         ),
-        xaxis_title=period_label,
+        xaxis_title=None,
         yaxis_title=yaxis_title,
         barmode='group',
         hovermode='x unified',
@@ -4364,27 +4367,42 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
         legend=dict(
             orientation="h", 
             yanchor="top", 
-            y=-0.12,  # Legend BELOW the chart
+            y=-0.15,
             xanchor="center", 
             x=0.5,
-            bgcolor='rgba(255,255,255,0.8)',
-            bordercolor='rgba(0,0,0,0.1)',
-            borderwidth=1
+            bgcolor='rgba(0,0,0,0)',
+            borderwidth=0,
+            font=dict(size=12, color='#64748B', family='Inter, system-ui, sans-serif'),
+            itemsizing='constant'
         ),
-        yaxis_showgrid=True,
-        yaxis_gridwidth=1,
-        yaxis_gridcolor='rgba(200,200,200,0.5)',
-        xaxis_showgrid=False,
-        plot_bgcolor='rgba(250,250,250,0.5)',
+        yaxis=dict(
+            showgrid=False,
+            zeroline=True,
+            zerolinewidth=1.5,
+            zerolinecolor='rgba(148,163,184,0.4)',
+            showline=False,
+            tickfont=dict(size=11, color='#94A3B8', family='Inter, system-ui, sans-serif'),
+            title_font=dict(size=12, color='#94A3B8', family='Inter, system-ui, sans-serif'),
+            range=[y_range_min, y_range_max] if all_values else None
+        ),
+        xaxis=dict(
+            showgrid=False,
+            showline=False,
+            tickfont=dict(size=12, color='#475569', family='Inter, system-ui, sans-serif'),
+        ),
+        plot_bgcolor='rgba(0,0,0,0)',
         paper_bgcolor='white',
-        margin=dict(t=60, b=80, l=60, r=40),  # More bottom margin for legend
-        bargap=0.15,
-        bargroupgap=0.1
+        margin=dict(t=50, b=70, l=60, r=30),
+        bargap=0.25,
+        bargroupgap=0.08,
+        hoverlabel=dict(
+            bgcolor='#1E293B',
+            font_size=12,
+            font_family='Inter, system-ui, sans-serif',
+            font_color='white',
+            bordercolor='rgba(0,0,0,0)'
+        )
     )
-    
-    # Add subtle border effect
-    fig.update_xaxes(showline=True, linewidth=1, linecolor='rgba(0,0,0,0.1)')
-    fig.update_yaxes(showline=True, linewidth=1, linecolor='rgba(0,0,0,0.1)')
     
     return fig, growth_rates
 
@@ -4412,10 +4430,10 @@ def create_ratio_trend_chart(df, metric_name, metric_column, title, sector=None)
         y=values,
         mode='lines+markers',
         name=metric_name,
-        line=dict(color='#00D9FF', width=3),
-        marker=dict(size=8),
+        line=dict(color='#00D9FF', width=2.5, shape='spline'),
+        marker=dict(size=6, color='#00D9FF', line=dict(width=2, color='white')),
         fill='tozeroy',
-        fillcolor='rgba(0, 217, 255, 0.2)'
+        fillcolor='rgba(0, 217, 255, 0.08)'
     ))
     
     # Add S&P 500 benchmark line
@@ -4462,24 +4480,55 @@ def create_ratio_trend_chart(df, metric_name, metric_column, title, sector=None)
     # Add growth annotation
     if len(values) >= 2 and values[0] != 0:
         growth = ((values[-1] - values[0]) / abs(values[0])) * 100
+        annotation_color = '#10B981' if growth >= 0 else '#EF4444'
         fig.add_annotation(
             x=df_reversed['date'].iloc[-1],
             y=values[-1],
-            text=f"Growth: {growth:+.1f}%",
+            text=f"{growth:+.1f}%",
             showarrow=True,
-            arrowhead=2,
-            bgcolor='rgba(0, 217, 255, 0.8)',
-            font=dict(color='white')
+            arrowhead=0,
+            arrowwidth=1.5,
+            arrowcolor=annotation_color,
+            bgcolor=annotation_color,
+            bordercolor=annotation_color,
+            borderwidth=0,
+            borderpad=5,
+            font=dict(color='white', size=11, family='Inter, system-ui, sans-serif')
         )
     
     fig.update_layout(
-        title=title,
-        xaxis_title='Period',
+        title=dict(
+            text=title,
+            font=dict(size=16, color='#1E293B', family='Inter, system-ui, sans-serif'),
+            x=0.5, xanchor='center'
+        ),
+        xaxis_title=None,
         yaxis_title=f'{metric_name} ({y_suffix})' if y_suffix else metric_name,
         height=400,
         hovermode='x unified',
         showlegend=True,
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        legend=dict(
+            orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
+            bgcolor='rgba(0,0,0,0)', borderwidth=0,
+            font=dict(size=11, color='#64748B', family='Inter, system-ui, sans-serif')
+        ),
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='white',
+        margin=dict(t=50, b=40, l=55, r=25),
+        xaxis=dict(
+            showgrid=False, showline=False,
+            tickfont=dict(size=11, color='#94A3B8', family='Inter, system-ui, sans-serif')
+        ),
+        yaxis=dict(
+            showgrid=False,
+            showline=False,
+            tickfont=dict(size=11, color='#94A3B8', family='Inter, system-ui, sans-serif'),
+            title_font=dict(size=12, color='#94A3B8', family='Inter, system-ui, sans-serif')
+        ),
+        hoverlabel=dict(
+            bgcolor='#1E293B', font_size=12, font_family='Inter, system-ui, sans-serif',
+            font_color='white', bordercolor='rgba(0,0,0,0)'
+        )
     )
     
     return fig
@@ -6952,29 +7001,47 @@ def create_four_scenarios_chart(results, ticker):
         name='Amount Invested',
         x=names,
         y=invested,
-        marker_color='rgba(150, 150, 150, 0.5)',
+        marker=dict(color='rgba(148, 163, 184, 0.3)', line=dict(width=0), cornerradius=4),
         text=[f'${v:,.0f}' for v in invested],
-        textposition='inside'
+        textposition='inside',
+        textfont=dict(color='#64748B', family='Inter, system-ui, sans-serif')
     ))
     
     fig.add_trace(go.Bar(
         name='Final Value',
         x=names,
         y=final_values,
-        marker_color=colors,
+        marker=dict(color=colors, line=dict(width=0), cornerradius=4),
         text=[f'${v:,.0f}' for v in final_values],
-        textposition='outside'
+        textposition='outside',
+        textfont=dict(color='#475569', family='Inter, system-ui, sans-serif')
     ))
     
     fig.update_layout(
-        title=f"Four Scenarios: $100 Investment Comparison ({results['timeline_years']} Years)",
-        xaxis_title="Investment Strategy",
+        title=dict(
+            text=f"Four Scenarios: $100 Investment Comparison ({results['timeline_years']} Years)",
+            font=dict(size=16, color='#1E293B', family='Inter, system-ui, sans-serif'),
+            x=0.5, xanchor='center'
+        ),
+        xaxis_title=None,
         yaxis_title="Value ($)",
         barmode='group',
         height=450,
         showlegend=True,
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        hovermode='x unified'
+        legend=dict(
+            orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
+            bgcolor='rgba(0,0,0,0)', borderwidth=0,
+            font=dict(size=11, color='#64748B', family='Inter, system-ui, sans-serif')
+        ),
+        hovermode='x unified',
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='white',
+        margin=dict(t=50, b=40, l=55, r=25),
+        bargap=0.25,
+        xaxis=dict(showgrid=False, showline=False, tickfont=dict(size=11, color='#475569', family='Inter, system-ui, sans-serif')),
+        yaxis=dict(showgrid=True, gridwidth=1, gridcolor='rgba(226,232,240,0.6)', griddash='dot', showline=False,
+                   tickfont=dict(size=11, color='#94A3B8', family='Inter, system-ui, sans-serif')),
+        hoverlabel=dict(bgcolor='#1E293B', font_size=12, font_family='Inter, system-ui, sans-serif', font_color='white', bordercolor='rgba(0,0,0,0)')
     )
     
     return fig
