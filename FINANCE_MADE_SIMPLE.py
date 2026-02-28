@@ -7942,7 +7942,7 @@ def do_logout():
         pass
     
     # Clear all auth-related session state
-    for k in ["user_id", "user_email", "is_logged_in", "is_founder", "first_name"]:
+    for k in ["user_id", "user_email", "is_logged_in", "is_founder", "first_name", "user_tier"]:
         st.session_state.pop(k, None)
     st.rerun()
 
@@ -8015,12 +8015,18 @@ def login_dialog():
                     st.session_state.user_email = res.user.email
                     st.session_state.is_logged_in = True
                     
-                    # Fetch first name from profiles table
+                    # Fetch first name and tier from profiles table
                     try:
-                        profile = supabase.table("profiles").select("first_name").eq("id", uid).single().execute()
+                        profile = supabase.table("profiles").select("first_name, tier").eq("id", uid).single().execute()
                         st.session_state.first_name = (profile.data or {}).get("first_name") or ""
+                        profile_tier = (profile.data or {}).get("tier") or "free"
+                        if profile_tier in ["pro", "ultimate"]:
+                            st.session_state.user_tier = profile_tier
+                        else:
+                            st.session_state.user_tier = "free"
                     except:
                         st.session_state.first_name = ""
+                        st.session_state.user_tier = "free"
                     
                     # Fallback if missing
                     if not st.session_state.first_name:
@@ -8143,7 +8149,8 @@ def signup_dialog():
                             # Save first name to profiles table
                             supabase.table("profiles").upsert({
                                 "id": uid,
-                                "first_name": first_name
+                                "first_name": first_name,
+                                "tier": "free"
                             }).execute()
                             
                             if response.session:
@@ -8152,6 +8159,7 @@ def signup_dialog():
                                 st.session_state.user_email = email
                                 st.session_state.first_name = first_name
                                 st.session_state.is_logged_in = True
+                                st.session_state.user_tier = "free"
                                 
                                 # Founder flag
                                 FOUNDER_EMAIL = (os.getenv("FOUNDER_EMAIL") or "").strip().lower()
@@ -8812,6 +8820,8 @@ def rebuild_portfolio_from_trades(transactions):
 # Read from environment variables for security (set in Render dashboard)
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY")
+# Alias so both names work — many functions reference SUPABASE_KEY
+SUPABASE_KEY = SUPABASE_ANON_KEY
 
 # Initialize Supabase client only if credentials are available
 if SUPABASE_URL and SUPABASE_ANON_KEY:
@@ -10198,10 +10208,12 @@ render_ai_chatbot()
 # show_welcome_popup()  # DISABLED - causing display issues
 
 # ============= AUTH POPUPS - ONLY ONE AT A TIME =============
-if st.session_state.get('show_login_popup', False) and not st.session_state.get('show_signup_popup', False):
-    login_dialog()
-elif st.session_state.get('show_signup_popup', False) and not st.session_state.get('show_login_popup', False):
+if st.session_state.get('show_signup_popup', False):
+    # Signup takes priority — clear login flag to avoid conflict
+    st.session_state.show_login_popup = False
     signup_dialog()
+elif st.session_state.get('show_login_popup', False):
+    login_dialog()
 
 # ============= UPDATE PROFILE MODAL =============
 if st.session_state.get('show_update_profile', False):
@@ -20830,10 +20842,10 @@ elif selected_page == "👑 Become a VIP":
             col1, col2, col3 = st.columns([1, 2, 1])
             with col2:
                 if st.button("📝 Sign Up First", key="vip_signup_first", type="primary", use_container_width=True):
-                    st.session_state.show_signup = True
+                    st.session_state.show_signup_popup = True
                     st.rerun()
                 if st.button("🏛️ Sign In", key="vip_signin_first", use_container_width=True):
-                    st.session_state.show_login = True
+                    st.session_state.show_login_popup = True
                     st.rerun()
         else:
             # User IS logged in - show payment options
