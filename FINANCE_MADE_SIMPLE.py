@@ -8092,8 +8092,20 @@ def login_dialog():
                         else:
                             st.session_state.user_tier = "free"
                     except:
+                        # Profile doesn't exist yet (RLS blocked during signup) - create it now
                         st.session_state.first_name = ""
                         st.session_state.user_tier = "free"
+                        try:
+                            first_from_meta = (res.user.user_metadata or {}).get("first_name", "")
+                            supabase.table("profiles").upsert({
+                                "id": uid,
+                                "first_name": first_from_meta,
+                                "tier": "free"
+                            }).execute()
+                            if first_from_meta:
+                                st.session_state.first_name = first_from_meta
+                        except:
+                            pass
                     
                     # Fallback if missing
                     if not st.session_state.first_name:
@@ -8214,11 +8226,37 @@ def signup_dialog():
                         if response.user:
                             uid = response.user.id
                             # Save first name to profiles table
-                            supabase.table("profiles").upsert({
-                                "id": uid,
-                                "first_name": first_name,
-                                "tier": "free"
-                            }).execute()
+                            # Use REST API with service_role key to bypass RLS
+                            profile_saved = False
+                            try:
+                                supabase.table("profiles").upsert({
+                                    "id": uid,
+                                    "first_name": first_name,
+                                    "tier": "free"
+                                }).execute()
+                                profile_saved = True
+                            except Exception as profile_err:
+                                # RLS policy may block direct insert - try REST API with service key
+                                try:
+                                    import requests as _req
+                                    svc_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+                                    if svc_key and SUPABASE_URL:
+                                        _req.post(
+                                            f"{SUPABASE_URL}/rest/v1/profiles",
+                                            headers={
+                                                "apikey": svc_key,
+                                                "Authorization": f"Bearer {svc_key}",
+                                                "Content-Type": "application/json",
+                                                "Prefer": "resolution=merge-duplicates"
+                                            },
+                                            json={"id": uid, "first_name": first_name, "tier": "free"}
+                                        )
+                                        profile_saved = True
+                                    else:
+                                        # No service key - profile will be created on first login via trigger
+                                        profile_saved = False
+                                except Exception:
+                                    profile_saved = False
                             
                             if response.session:
                                 # Email verification disabled - log in immediately
@@ -8248,6 +8286,11 @@ def signup_dialog():
                         error_msg = str(e)
                         if "already registered" in error_msg.lower():
                             st.error("❌ This email is already registered. Please sign in instead.")
+                        elif "rate limit" in error_msg.lower() or "rate_limit" in error_msg.lower() or "429" in error_msg:
+                            st.error("⏳ Too many attempts. Please wait a few minutes and try again.")
+                        elif "row-level security" in error_msg.lower() or "42501" in error_msg:
+                            # RLS error but user was likely created - tell them to sign in
+                            st.warning("✅ Your account may have been created. Please try signing in with your email and password.")
                         else:
                             st.error(f"❌ Error: {error_msg}")
                 else:
@@ -9866,6 +9909,11 @@ elif action_param == "vip":
     if "nav_action" in st.query_params:
         del st.query_params["nav_action"]
     st.rerun()
+elif action_param == "deep_dives":
+    st.session_state.selected_page = "🎬 Company Deep Dives"
+    if "nav_action" in st.query_params:
+        del st.query_params["nav_action"]
+    st.rerun()
 
 # Top header with auth buttons (conditional based on login status)
 st.markdown(f"""
@@ -9980,6 +10028,9 @@ with header_cols[1]:
             st.rerun()
         if st.button("📘 Glossary", key="nav_glossary", use_container_width=True):
             st.session_state.selected_page = "📘 Glossary"
+            st.rerun()
+        if st.button("🎬 Company Deep Dives", key="nav_deep_dives", use_container_width=True):
+            st.session_state.selected_page = "🎬 Company Deep Dives"
             st.rerun()
 
 with header_cols[2]:
@@ -17241,6 +17292,136 @@ elif selected_page == "📘 Glossary":
         """)
     
     #REMOVED: render_ai_coach("Finance 101", ticker=None, facts=None)
+
+
+elif selected_page == "🎬 Company Deep Dives":
+    
+    st.header("🎬 Company Deep Dives")
+    st.markdown("Real analysis on real companies — by Naman.")
+    
+    st.markdown("---")
+    
+    # Video categories
+    DEEP_DIVE_VIDEOS = {
+        "deep_dives": {
+            "label": "🔍 Full Deep Dives",
+            "description": "Complete company analysis — financials, moat, valuation, and verdict.",
+            "videos": []
+        },
+        "quick_takes": {
+            "label": "⚡ Quick Takes",
+            "description": "Short-form opinions and observations on stocks in the news.",
+            "videos": []
+        },
+        "earnings": {
+            "label": "📊 Earnings Breakdowns",
+            "description": "What the numbers actually said — and what the market missed.",
+            "videos": []
+        }
+    }
+    
+    # Category filter
+    cat_options = ["All"] + [v["label"] for v in DEEP_DIVE_VIDEOS.values()]
+    selected_cat = st.radio("Filter by type:", cat_options, horizontal=True, key="dd_cat_filter")
+    
+    st.markdown("---")
+    
+    # Check if any videos exist yet
+    total_videos = sum(len(v["videos"]) for v in DEEP_DIVE_VIDEOS.values())
+    
+    if total_videos == 0:
+        # Coming soon state
+        st.markdown("""
+        <div style="text-align: center; padding: 60px 20px;">
+            <div style="font-size: 64px; margin-bottom: 20px;">🎬</div>
+            <h2 style="margin-bottom: 10px;">Coming Soon</h2>
+            <p style="color: #888; font-size: 16px; max-width: 500px; margin: 0 auto;">
+                I'm building out company analysis videos — full deep dives, quick takes on trending stocks, 
+                and earnings breakdowns. Subscribe to the newsletter to get notified when the first one drops.
+            </p>
+            <br>
+            <p style="color: #888; font-size: 14px;">
+                📧 <strong>Newsletter:</strong> Get alerts at 
+                <a href="https://aistockinvesting101.com" target="_blank">aistockinvesting101.com</a>
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # What to expect section
+        st.markdown("---")
+        st.markdown("### What to expect")
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.markdown("""
+            <div style="background: linear-gradient(135deg, #1a5276 0%, #2980b9 100%); 
+                        padding: 24px; border-radius: 12px; text-align: center; min-height: 180px;">
+                <div style="font-size: 36px; margin-bottom: 12px;">🔍</div>
+                <div style="font-weight: bold; font-size: 16px; color: white; margin-bottom: 8px;">Full Deep Dives</div>
+                <div style="font-size: 13px; color: rgba(255,255,255,0.85);">
+                    Complete breakdowns — revenue, margins, moat, valuation, and whether I'd buy it.
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        with col2:
+            st.markdown("""
+            <div style="background: linear-gradient(135deg, #7b2d8e 0%, #a855f7 100%); 
+                        padding: 24px; border-radius: 12px; text-align: center; min-height: 180px;">
+                <div style="font-size: 36px; margin-bottom: 12px;">⚡</div>
+                <div style="font-weight: bold; font-size: 16px; color: white; margin-bottom: 8px;">Quick Takes</div>
+                <div style="font-size: 13px; color: rgba(255,255,255,0.85);">
+                    Short opinions on stocks making headlines. What I think and why.
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        with col3:
+            st.markdown("""
+            <div style="background: linear-gradient(135deg, #b45309 0%, #f59e0b 100%); 
+                        padding: 24px; border-radius: 12px; text-align: center; min-height: 180px;">
+                <div style="font-size: 36px; margin-bottom: 12px;">📊</div>
+                <div style="font-weight: bold; font-size: 16px; color: white; margin-bottom: 8px;">Earnings Breakdowns</div>
+                <div style="font-size: 13px; color: rgba(255,255,255,0.85);">
+                    After big earnings reports — what the numbers said and what the market missed.
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    else:
+        # Display videos when they exist
+        for cat_key, cat_data in DEEP_DIVE_VIDEOS.items():
+            if selected_cat != "All" and selected_cat != cat_data["label"]:
+                continue
+            if not cat_data["videos"]:
+                continue
+            
+            st.markdown(f"### {cat_data['label']}")
+            st.caption(cat_data["description"])
+            
+            # Display videos in a grid (2 per row)
+            videos = cat_data["videos"]
+            for i in range(0, len(videos), 2):
+                cols = st.columns(2)
+                for j, col in enumerate(cols):
+                    if i + j < len(videos):
+                        video = videos[i + j]
+                        with col:
+                            # Video card
+                            st.markdown(f"""
+                            <div style="border: 1px solid #333; border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+                                <div style="font-weight: bold; font-size: 16px; margin-bottom: 4px;">{video.get('title', 'Untitled')}</div>
+                                <div style="color: #888; font-size: 13px; margin-bottom: 8px;">{video.get('date', '')} &bull; {video.get('duration', '')}</div>
+                                <div style="font-size: 14px; margin-bottom: 12px;">{video.get('description', '')}</div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                            if video.get("youtube_url"):
+                                st.video(video["youtube_url"])
+                            if video.get("ticker"):
+                                if st.button(f"📊 Analyze {video['ticker']}", key=f"dd_analyze_{video['ticker']}_{i+j}", use_container_width=True):
+                                    st.session_state.selected_page = "📊 Company Analysis"
+                                    st.session_state['ticker_input'] = video['ticker']
+                                    st.rerun()
+            
+            st.markdown("---")
 
 
 elif selected_page == "🧠 Risk Quiz":
