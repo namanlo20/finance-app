@@ -7682,6 +7682,13 @@ TOUR_PAGES = [
         "nav_page": "📊 Company Analysis"
     },
     {
+        "title": "🎬 Company Deep Dives",
+        "icon": "🎬",
+        "subtitle": "Video analysis by Naman",
+        "description": "Watch full company breakdowns, quick takes on trending stocks, and earnings reactions — real analysis on real companies, explained simply.",
+        "nav_page": "🎬 Company Deep Dives"
+    },
+    {
         "title": "📈 Financial Health",
         "icon": "📈",
         "subtitle": "Compare & evaluate stocks",
@@ -10003,11 +10010,11 @@ def nav_action_changed():
         st.session_state.selected_page = val
 
 # Create columns for header with navigation tabs + auth buttons
-# Layout: [Dashboard] [Learn▼] [Analyze▼] [Action▼] [---spacer---] [Sign Up] [Sign In] [VIP]
+# Layout: [Dashboard] [Learn▼] [Analyze▼] [Action▼] [---spacer---] [Auth] [VIP]
 if st.session_state.get("is_logged_in"):
-    header_cols = st.columns([1.3, 1.5, 1.8, 1.5, 1.5, 1.5, 1.3])
+    header_cols = st.columns([1.2, 1.4, 1.7, 1.4, 0.6, 1.6, 1.4])
 else:
-    header_cols = st.columns([1.3, 1.5, 1.8, 1.5, 0.8, 1.2, 1.2, 1.5])
+    header_cols = st.columns([1.2, 1.4, 1.7, 1.4, 0.4, 1.1, 1.1, 1.4])
 
 # Navigation tabs on the LEFT
 with header_cols[0]:
@@ -10029,9 +10036,6 @@ with header_cols[1]:
         if st.button("📘 Glossary", key="nav_glossary", use_container_width=True):
             st.session_state.selected_page = "📘 Glossary"
             st.rerun()
-        if st.button("🎬 Company Deep Dives", key="nav_deep_dives", use_container_width=True):
-            st.session_state.selected_page = "🎬 Company Deep Dives"
-            st.rerun()
 
 with header_cols[2]:
     with st.popover("📊 Company Analysis ▼", use_container_width=True):
@@ -10049,6 +10053,9 @@ with header_cols[2]:
             st.rerun()
         if st.button("🤖 AI Stock Screener", key="nav_ai_screener", use_container_width=True):
             st.session_state.selected_page = "🔍 AI Stock Screener"
+            st.rerun()
+        if st.button("🎬 Company Deep Dives", key="nav_deep_dives", use_container_width=True):
+            st.session_state.selected_page = "🎬 Company Deep Dives"
             st.rerun()
 
 with header_cols[3]:
