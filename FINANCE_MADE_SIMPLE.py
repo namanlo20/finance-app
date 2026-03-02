@@ -1397,7 +1397,7 @@ if st.session_state.theme == 'dark':
     .main { background: #000000 !important; padding-top: 10px !important; }
     .stApp { background: #000000 !important; }
     [data-testid="stAppViewContainer"] { background: #000000 !important; padding-top: 10px !important; }
-    [data-testid="stHeader"] { background: #000000 !important; display: none !important; }
+    [data-testid="stHeader"] { background: #000000 !important; height: 0 !important; min-height: 0 !important; overflow: hidden !important; }
     [data-testid="stSidebar"] { background: #0a0a0a !important; padding-top: 10px !important; }
     
     /* CRITICAL: Force white text on dark background */
@@ -1938,7 +1938,7 @@ else:
     .main { background: #FFFFFF !important; padding-top: 10px !important; }
     .stApp { background: #FFFFFF !important; }
     [data-testid="stAppViewContainer"] { background: #FFFFFF !important; padding-top: 10px !important; }
-    [data-testid="stHeader"] { background: #FFFFFF !important; display: none !important; }
+    [data-testid="stHeader"] { background: #FFFFFF !important; height: 0 !important; min-height: 0 !important; overflow: hidden !important; }
     [data-testid="stSidebar"] { background: #F5F5F5 !important; padding-top: 10px !important; }
     
     /* Reduce Streamlit element spacing */
