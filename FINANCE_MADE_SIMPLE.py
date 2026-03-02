@@ -16589,35 +16589,37 @@ elif selected_page == "📚 Learn Hub":
 
     # Non-blocking setup nudge
     
-    # Header
-    st.markdown("# 📖 Learn Hub")
-    st.caption("*Educational only. Not financial advice.*")
-    
-    # Progress row
-    total_lessons = len(LEARN_HUB_LESSONS)
-    completed_count = len(st.session_state.learn_completed_lessons)
-    
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("Completed", f"{completed_count}/{total_lessons}")
-    with col2:
-        st.metric("XP", st.session_state.learn_xp_total)
-    with col3:
-        st.metric("Badges", len(st.session_state.learn_badges))
-    with col4:
-        streak = st.session_state.learn_streak_days
-        st.metric("Streak", f"{streak} days" if streak > 0 else "—")
-    
-    # Show badges
-    if st.session_state.learn_badges:
-        st.markdown("**🏆 Badges:**")
-        badge_chips = " ".join([
-            f'<span style="background:#333; padding:5px 10px; border-radius:20px; margin:2px; display:inline-block;">{BADGES[b]["name"]}</span>'
-            for b in st.session_state.learn_badges if b in BADGES
-        ])
-        st.markdown(badge_chips, unsafe_allow_html=True)
-    
-    st.markdown("---")
+    # Only show Learn Hub header/stats when browsing (not viewing a lesson)
+    if not st.session_state.learn_selected_lesson_id:
+        # Header
+        st.markdown("# 📖 Learn Hub")
+        st.caption("*Educational only. Not financial advice.*")
+        
+        # Progress row
+        total_lessons = len(LEARN_HUB_LESSONS)
+        completed_count = len(st.session_state.learn_completed_lessons)
+        
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Completed", f"{completed_count}/{total_lessons}")
+        with col2:
+            st.metric("XP", st.session_state.learn_xp_total)
+        with col3:
+            st.metric("Badges", len(st.session_state.learn_badges))
+        with col4:
+            streak = st.session_state.learn_streak_days
+            st.metric("Streak", f"{streak} days" if streak > 0 else "—")
+        
+        # Show badges
+        if st.session_state.learn_badges:
+            st.markdown("**🏆 Badges:**")
+            badge_chips = " ".join([
+                f'<span style="background:#333; padding:5px 10px; border-radius:20px; margin:2px; display:inline-block;">{BADGES[b]["name"]}</span>'
+                for b in st.session_state.learn_badges if b in BADGES
+            ])
+            st.markdown(badge_chips, unsafe_allow_html=True)
+        
+        st.markdown("---")
     
     if st.session_state.learn_selected_lesson_id:
         selected_lesson_id = st.session_state.learn_selected_lesson_id
