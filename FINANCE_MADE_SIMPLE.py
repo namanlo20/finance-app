@@ -14214,7 +14214,7 @@ elif selected_page == "📚 Learn Hub":
                   'explanation': 'Bid/ask spread can reduce your effective return.'}],
         'apply_action': {'type': 'none'},
         'xp': 10,
-        'video_url': ''},
+        'video_url': 'https://youtu.be/-tCMJeYJANY'},
  'B5': {'id': 'B5',
         'level': 'Beginner',
         'theme': 'ETFs & Diversification',
