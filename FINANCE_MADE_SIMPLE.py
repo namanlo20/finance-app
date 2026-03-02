@@ -10009,6 +10009,48 @@ def nav_action_changed():
     if val:
         st.session_state.selected_page = val
 
+# ============= HERO BANNER =============
+st.markdown("""
+<div style="
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 40%, #0f3460 70%, #e94560 100%);
+    border-radius: 12px;
+    padding: 28px 40px;
+    margin: -10px 0 16px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: relative;
+    overflow: hidden;
+">
+    <div style="position:absolute;top:-20px;right:80px;width:120px;height:120px;border-radius:50%;background:rgba(233,69,96,0.15);"></div>
+    <div style="position:absolute;bottom:-30px;right:200px;width:80px;height:80px;border-radius:50%;background:rgba(15,52,96,0.4);"></div>
+    <div style="position:absolute;top:10px;left:50%;width:60px;height:60px;border-radius:50%;background:rgba(233,69,96,0.08);"></div>
+    <div style="z-index:1;">
+        <div style="font-size:32px;font-weight:800;color:#FFFFFF;letter-spacing:1px;line-height:1.2;">
+            INVESTING MADE SIMPLE
+        </div>
+        <div style="font-size:14px;color:rgba(255,255,255,0.7);margin-top:6px;letter-spacing:2px;">
+            LEARN · ANALYZE · INVEST WITH CONFIDENCE
+        </div>
+    </div>
+    <div style="display:flex;gap:12px;z-index:1;">
+        <div style="background:rgba(255,255,255,0.1);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:12px 20px;text-align:center;">
+            <div style="font-size:22px;font-weight:800;color:#e94560;">51</div>
+            <div style="font-size:10px;color:rgba(255,255,255,0.6);letter-spacing:1px;">LESSONS</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.1);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:12px 20px;text-align:center;">
+            <div style="font-size:22px;font-weight:800;color:#FFAB00;">FREE</div>
+            <div style="font-size:10px;color:rgba(255,255,255,0.6);letter-spacing:1px;">FOREVER</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.1);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:12px 20px;text-align:center;">
+            <div style="font-size:22px;font-weight:800;color:#00E676;">AI</div>
+            <div style="font-size:10px;color:rgba(255,255,255,0.6);letter-spacing:1px;">POWERED</div>
+        </div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+
 # Create columns for header with navigation tabs + auth buttons
 # Layout: [Dashboard] [Learn▼] [Analyze▼] [Action▼] [---spacer---] [Auth] [VIP]
 if st.session_state.get("is_logged_in"):
