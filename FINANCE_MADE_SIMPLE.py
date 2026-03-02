@@ -10014,38 +10014,19 @@ st.markdown("""
 <div style="
     background: linear-gradient(135deg, #1a1a2e 0%, #16213e 40%, #0f3460 70%, #e94560 100%);
     border-radius: 12px;
-    padding: 28px 40px;
-    margin: -10px 0 16px 0;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    padding: 24px 40px;
+    margin: -10px 0 12px 0;
+    text-align: center;
     position: relative;
     overflow: hidden;
 ">
     <div style="position:absolute;top:-20px;right:80px;width:120px;height:120px;border-radius:50%;background:rgba(233,69,96,0.15);"></div>
-    <div style="position:absolute;bottom:-30px;right:200px;width:80px;height:80px;border-radius:50%;background:rgba(15,52,96,0.4);"></div>
-    <div style="position:absolute;top:10px;left:50%;width:60px;height:60px;border-radius:50%;background:rgba(233,69,96,0.08);"></div>
-    <div style="z-index:1;">
-        <div style="font-size:32px;font-weight:800;color:#FFFFFF;letter-spacing:1px;line-height:1.2;">
-            INVESTING MADE SIMPLE
-        </div>
-        <div style="font-size:14px;color:rgba(255,255,255,0.7);margin-top:6px;letter-spacing:2px;">
-            LEARN · ANALYZE · INVEST WITH CONFIDENCE
-        </div>
+    <div style="position:absolute;bottom:-30px;left:100px;width:80px;height:80px;border-radius:50%;background:rgba(15,52,96,0.4);"></div>
+    <div style="font-size:32px;font-weight:800;color:#FFFFFF;letter-spacing:2px;line-height:1.2;z-index:1;position:relative;">
+        INVESTING MADE SIMPLE
     </div>
-    <div style="display:flex;gap:12px;z-index:1;">
-        <div style="background:rgba(255,255,255,0.1);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:12px 20px;text-align:center;">
-            <div style="font-size:22px;font-weight:800;color:#e94560;">51</div>
-            <div style="font-size:10px;color:rgba(255,255,255,0.6);letter-spacing:1px;">LESSONS</div>
-        </div>
-        <div style="background:rgba(255,255,255,0.1);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:12px 20px;text-align:center;">
-            <div style="font-size:22px;font-weight:800;color:#FFAB00;">FREE</div>
-            <div style="font-size:10px;color:rgba(255,255,255,0.6);letter-spacing:1px;">FOREVER</div>
-        </div>
-        <div style="background:rgba(255,255,255,0.1);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.15);border-radius:10px;padding:12px 20px;text-align:center;">
-            <div style="font-size:22px;font-weight:800;color:#00E676;">AI</div>
-            <div style="font-size:10px;color:rgba(255,255,255,0.6);letter-spacing:1px;">POWERED</div>
-        </div>
+    <div style="font-size:13px;color:rgba(255,255,255,0.7);margin-top:6px;letter-spacing:3px;z-index:1;position:relative;">
+        LEARN · ANALYZE · INVEST WITH CONFIDENCE
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -16627,7 +16608,6 @@ elif selected_page == "📚 Learn Hub":
         if selected_lesson_id in LEARN_HUB_LESSONS:
             lesson = LEARN_HUB_LESSONS[selected_lesson_id]
             
-            st.markdown("---")
             st.markdown(f"# 📚 {lesson['title']}")
             st.markdown(f"**{lesson['level']} | {lesson['time_min']} minutes | {', '.join(lesson['topics'])}**")
             
@@ -16635,7 +16615,6 @@ elif selected_page == "📚 Learn Hub":
                 st.session_state.learn_selected_lesson_id = None
                 st.rerun()
             
-            st.markdown("---")
             
 
             # Create 2-column layout: content on left, video on right
@@ -16644,13 +16623,7 @@ elif selected_page == "📚 Learn Hub":
             with left_col:
                 # Why it matters
                 st.markdown("### 💡 Why It Matters")
-                st.info(lesson['why_it_matters'])
-
-                # Rich visual content for this lesson
-                st.markdown("### 🎨 Visual Explainer")
-                render_lesson_visual(selected_lesson_id)
-                
-                st.markdown("---")
+                st.info(lesson['why_it_matters'])                
 
                 # Quick interactive (keep it light — no walls of text)
                 st.markdown("### 🎮 Quick Interactive")
