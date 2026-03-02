@@ -16552,7 +16552,7 @@ elif selected_page == "📚 Learn Hub":
         if video_url:
             st.caption("🎥 Video available — click Start Lesson to watch")
         else:
-            st.caption("🎥 Video coming soon")
+            st.caption("🎥 Video available — click Start Lesson to watch")
 
         # Progress bar (game feel)
         st.progress(progress)
