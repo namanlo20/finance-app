@@ -13787,14 +13787,6 @@ elif selected_page == "🏠 Start Here":
 
 
 elif selected_page == "📚 Learn Hub":
-    """
-    📖 LEARN HUB - Complete Learning System
-    - 55 total lessons (15 original + 40 new)
-    - XP & Badge system
-    - Progress tracking (session + Supabase)
-    - Quiz engine
-    - Personalized recommendations
-    """
     
     # Page popup removed - user requested no popups except welcome
     
@@ -16516,9 +16508,9 @@ elif selected_page == "📚 Learn Hub":
         st.markdown(f"**Why it matters:** {lesson['why_it_matters']}")
         video_url = (lesson.get("video_url") or "").strip()
         if video_url:
-            st.caption("🎥 Video: ready (will appear in the right-side slot when you add it)")
+            st.caption("🎥 Video available — click Start Lesson to watch")
         else:
-            st.caption("🎥 Video: coming soon (right-side slot)")
+            st.caption("🎥 Video coming soon")
 
         # Progress bar (game feel)
         st.progress(progress)
@@ -16554,7 +16546,6 @@ elif selected_page == "📚 Learn Hub":
     # ============= UI RENDERING =============
 
     # Non-blocking setup nudge
-    render_setup_nudge()
     
     # Header
     st.markdown("# 📖 Learn Hub")
