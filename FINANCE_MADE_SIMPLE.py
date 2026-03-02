@@ -1941,6 +1941,13 @@ else:
     [data-testid="stHeader"] { background: #FFFFFF !important; display: none !important; }
     [data-testid="stSidebar"] { background: #F5F5F5 !important; padding-top: 10px !important; }
     
+    /* Reduce Streamlit element spacing */
+    .element-container { margin-bottom: 0 !important; }
+    [data-testid="stVerticalBlock"] > div { gap: 0.25rem !important; }
+    .stMarkdown { margin-bottom: 0 !important; padding-bottom: 0 !important; }
+    [data-testid="stMetric"] { padding: 10px !important; }
+    hr { margin: 0.25rem 0 !important; }
+    
     /* CRITICAL: Force black text on white background - EVERYWHERE */
     html, body, .stApp, [data-testid="stAppViewContainer"], 
     [data-testid="stSidebar"], p, span, div, label, li, td, th,
@@ -13223,33 +13230,43 @@ if selected_page == "🏠 Dashboard":
             if mquote:
                 mprice = mquote.get('price', 0)
                 
-                # Calculate YTD return (same method as Paper Portfolio SPY benchmark)
+                # Calculate YTD return using quote price (real-time) vs Jan 1 price
                 ytd_return = 0.0
                 try:
-                    hist_data = get_historical_price(mticker, 0.5)  # ~6 months to ensure YTD data
-                    if not hist_data.empty and len(hist_data) > 1:
+                    # Get the YTD change directly from quote if available
+                    ytd_pct = mquote.get('yearToDatePriceReturnPercentage') or mquote.get('ytdReturn')
+                    if ytd_pct and ytd_pct != 0:
+                        ytd_return = float(ytd_pct)
+                    else:
+                        # Fallback: get first trading day of year price
                         current_year = datetime.now().year
-                        hist_data['year'] = hist_data['date'].dt.year
-                        ytd_data = hist_data[hist_data['year'] == current_year]
-                        
-                        if len(ytd_data) >= 2:
-                            price_col = 'close' if 'close' in ytd_data.columns else 'price'
-                            start_price = ytd_data[price_col].iloc[0]
-                            end_price = ytd_data[price_col].iloc[-1]
-                            
-                            if start_price > 0:
-                                ytd_return = ((end_price - start_price) / start_price) * 100
+                        jan1 = f"{current_year}-01-01"
+                        jan15 = f"{current_year}-01-15"
+                        url_ytd = f"{BASE_URL}/historical-price-eod/light?symbol={mticker}&from={jan1}&to={jan15}&apikey={FMP_API_KEY}"
+                        resp_ytd = requests.get(url_ytd, timeout=10)
+                        ytd_data = resp_ytd.json()
+                        if ytd_data and isinstance(ytd_data, list) and len(ytd_data) > 0:
+                            # Sort by date, take earliest
+                            ytd_data_sorted = sorted(ytd_data, key=lambda x: x.get('date', ''))
+                            start_price = ytd_data_sorted[0].get('close', 0)
+                            if start_price > 0 and mprice > 0:
+                                ytd_return = ((mprice - start_price) / start_price) * 100
                 except:
                     pass
                 
                 mcolor = "#22c55e" if ytd_return > 0 else "#ef4444" if ytd_return < 0 else "#888"
+                
+                # Daily change from quote API (most reliable)
+                daily_chg = mquote.get('changesPercentage', 0) or 0
+                daily_color = "#22c55e" if daily_chg > 0 else "#ef4444" if daily_chg < 0 else "#888"
                 
                 st.markdown(f"""
                 <div style="background: rgba(128,128,128,0.1); padding: 15px; border-radius: 10px; text-align: center;">
                     <div style="font-size: 12px; color: #888;">{mname}</div>
                     <div style="font-size: 14px; color: #666;">{mticker}</div>
                     <div style="font-size: 20px; font-weight: bold;">${mprice:.2f}</div>
-                    <div style="color: {mcolor}; font-size: 16px; font-weight: bold;">{ytd_return:+.2f}% YTD</div>
+                    <div style="color: {daily_color}; font-size: 14px; font-weight: bold;">{daily_chg:+.2f}% today</div>
+                    <div style="color: {mcolor}; font-size: 13px;">{ytd_return:+.2f}% YTD</div>
                 </div>
                 """, unsafe_allow_html=True)
             else:
