@@ -93,6 +93,9 @@ st.markdown("""
 
 [data-testid="stHeader"] {
     background-color: #FFFFFF !important;
+    height: 0px !important;
+    min-height: 0px !important;
+    padding: 0 !important;
 }
 
 .main {
@@ -101,6 +104,7 @@ st.markdown("""
 
 .block-container {
     background-color: #FFFFFF !important;
+    padding-top: 1rem !important;
 }
 
 /* Sidebar light gray */
@@ -1948,6 +1952,11 @@ else:
     .element-container, .stRadio label, .stSelectbox label,
     .stTextInput label, .stSlider label, .stCheckbox label {
         color: #000000 !important;
+    }
+    
+    /* Exception: Hero banner text stays white */
+    .hero-banner-text p, .hero-banner-text div, .hero-banner-text span {
+        color: inherit !important;
     }
     
     /* Sidebar text MUST be dark */
@@ -10011,23 +10020,23 @@ def nav_action_changed():
 
 # ============= HERO BANNER =============
 st.markdown("""
-<div style="
+<div class="hero-banner-text" style="
     background: linear-gradient(135deg, #1a1a2e 0%, #16213e 40%, #0f3460 70%, #e94560 100%);
     border-radius: 12px;
-    padding: 24px 40px;
-    margin: -10px 0 12px 0;
+    padding: 20px 40px;
+    margin: 0 0 8px 0;
     text-align: center;
     position: relative;
     overflow: hidden;
 ">
     <div style="position:absolute;top:-20px;right:80px;width:120px;height:120px;border-radius:50%;background:rgba(233,69,96,0.15);"></div>
     <div style="position:absolute;bottom:-30px;left:100px;width:80px;height:80px;border-radius:50%;background:rgba(15,52,96,0.4);"></div>
-    <div style="font-size:32px;font-weight:800;color:#FFFFFF;letter-spacing:2px;line-height:1.2;z-index:1;position:relative;">
+    <p style="font-size:30px;font-weight:800;color:#FFFFFF !important;letter-spacing:2px;margin:0;z-index:1;position:relative;">
         INVESTING MADE SIMPLE
-    </div>
-    <div style="font-size:13px;color:rgba(255,255,255,0.7);margin-top:6px;letter-spacing:3px;z-index:1;position:relative;">
-        LEARN · ANALYZE · INVEST WITH CONFIDENCE
-    </div>
+    </p>
+    <p style="font-size:12px;color:#BBBBBB !important;margin:4px 0 0 0;letter-spacing:3px;z-index:1;position:relative;">
+        LEARN &middot; ANALYZE &middot; INVEST WITH CONFIDENCE
+    </p>
 </div>
 """, unsafe_allow_html=True)
 
