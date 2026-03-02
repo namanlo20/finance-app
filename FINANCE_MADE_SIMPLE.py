@@ -93,10 +93,6 @@ st.markdown("""
 
 [data-testid="stHeader"] {
     background-color: #FFFFFF !important;
-    height: 0px !important;
-    min-height: 0px !important;
-    padding: 0 !important;
-    visibility: hidden !important;
 }
 
 .main {
@@ -105,7 +101,6 @@ st.markdown("""
 
 .block-container {
     background-color: #FFFFFF !important;
-    padding-top: 0.5rem !important;
 }
 
 /* Sidebar light gray */
@@ -261,7 +256,7 @@ st.markdown("""
     
     /* Main content - full width, clean padding */
     .main .block-container {
-        padding: 0.75rem 1rem !important;
+        padding: 0.25rem 1rem !important;
         max-width: 100% !important;
         overflow-x: hidden !important;
     }
@@ -1399,11 +1394,11 @@ if st.session_state.theme == 'dark':
     st.markdown("""
     <style>
     /* DARK MODE - Pure Black Background with White Text */
-    .main { background: #000000 !important; padding-top: 80px !important; }
+    .main { background: #000000 !important; padding-top: 10px !important; }
     .stApp { background: #000000 !important; }
-    [data-testid="stAppViewContainer"] { background: #000000 !important; padding-top: 80px !important; }
-    [data-testid="stHeader"] { background: #000000 !important; }
-    [data-testid="stSidebar"] { background: #0a0a0a !important; padding-top: 80px !important; }
+    [data-testid="stAppViewContainer"] { background: #000000 !important; padding-top: 10px !important; }
+    [data-testid="stHeader"] { background: #000000 !important; display: none !important; }
+    [data-testid="stSidebar"] { background: #0a0a0a !important; padding-top: 10px !important; }
     
     /* CRITICAL: Force white text on dark background */
     html, body, .stApp, [data-testid="stAppViewContainer"], 
@@ -1940,11 +1935,11 @@ else:
     st.markdown("""
     <style>
     /* LIGHT MODE - White Background with Black Text */
-    .main { background: #FFFFFF !important; padding-top: 80px !important; }
+    .main { background: #FFFFFF !important; padding-top: 10px !important; }
     .stApp { background: #FFFFFF !important; }
-    [data-testid="stAppViewContainer"] { background: #FFFFFF !important; padding-top: 80px !important; }
-    [data-testid="stHeader"] { background: #FFFFFF !important; }
-    [data-testid="stSidebar"] { background: #F5F5F5 !important; padding-top: 80px !important; }
+    [data-testid="stAppViewContainer"] { background: #FFFFFF !important; padding-top: 10px !important; }
+    [data-testid="stHeader"] { background: #FFFFFF !important; display: none !important; }
+    [data-testid="stSidebar"] { background: #F5F5F5 !important; padding-top: 10px !important; }
     
     /* CRITICAL: Force black text on white background - EVERYWHERE */
     html, body, .stApp, [data-testid="stAppViewContainer"], 
@@ -1953,13 +1948,6 @@ else:
     .element-container, .stRadio label, .stSelectbox label,
     .stTextInput label, .stSlider label, .stCheckbox label {
         color: #000000 !important;
-    }
-    
-    /* OVERRIDE: Banner text must be white */
-    [data-testid="stMarkdownContainer"] div[style*="linear-gradient"] p,
-    [data-testid="stMarkdownContainer"] div[style*="linear-gradient"] div,
-    [data-testid="stMarkdownContainer"] div[style*="linear-gradient"] span {
-        color: inherit !important;
     }
     
     /* Sidebar text MUST be dark */
@@ -10023,21 +10011,18 @@ def nav_action_changed():
 
 # ============= HERO BANNER =============
 st.markdown("""
-<div style="
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 40%, #0f3460 70%, #e94560 100%);
+<style>#ims-banner *{color:inherit!important;}</style>
+<div id="ims-banner" style="
+    background: linear-gradient(135deg, #DBEAFE 0%, #BFDBFE 50%, #93C5FD 100%);
     border-radius: 12px;
-    padding: 24px 40px;
-    margin: -10px 0 12px 0;
+    padding: 18px 40px;
+    margin: 0 0 6px 0;
     text-align: center;
-    position: relative;
-    overflow: hidden;
 ">
-    <div style="position:absolute;top:-20px;right:80px;width:120px;height:120px;border-radius:50%;background:rgba(233,69,96,0.15);"></div>
-    <div style="position:absolute;bottom:-30px;left:100px;width:80px;height:80px;border-radius:50%;background:rgba(15,52,96,0.4);"></div>
-    <div style="font-size:32px;font-weight:800;color:#FFFFFF;letter-spacing:2px;line-height:1.2;z-index:1;position:relative;">
+    <div style="font-size:28px;font-weight:800;color:#1E3A5F;letter-spacing:2px;">
         INVESTING MADE SIMPLE
     </div>
-    <div style="font-size:13px;color:rgba(255,255,255,0.7);margin-top:6px;letter-spacing:3px;z-index:1;position:relative;">
+    <div style="font-size:11px;color:#4A6D8C;margin-top:3px;letter-spacing:3px;">
         LEARN · ANALYZE · INVEST WITH CONFIDENCE
     </div>
 </div>
