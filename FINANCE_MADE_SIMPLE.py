@@ -639,6 +639,9 @@ if 'selected_page' not in st.session_state:
 
 selected_page = st.session_state.selected_page
 
+# Analytics: track page views
+track_page_view(selected_page)
+
 # Sync selected_page to URL so refresh stays on same page
 if st.session_state.selected_page:
     current_url_page = st.query_params.get("page")
@@ -2835,7 +2838,7 @@ Rules:
                 content = content.replace("```json", "").replace("```", "").strip()
                 try:
                     return json.loads(content)
-                except:
+                except Exception:
                     # If not valid JSON, wrap in answer format
                     return {"answer": [content[:500]], "lessons": [], "receipts": []}
         except Exception as e:
@@ -2864,7 +2867,7 @@ Rules:
                 content = content.replace("```json", "").replace("```", "").strip()
                 try:
                     return json.loads(content)
-                except:
+                except Exception:
                     return {"answer": [content[:500]], "lessons": [], "receipts": []}
         except Exception as e:
             print(f"[AI Coach] OpenAI error: {e}")
@@ -3359,7 +3362,7 @@ def get_user_tier():
                     if tier in ["pro", "ultimate"]:
                         st.session_state.user_tier = tier
                         return tier
-        except:
+        except Exception:
             pass
     
     # Default to free tier
@@ -3536,7 +3539,7 @@ def get_trial_days_for_user(user_email):
             )
             if resp2.status_code == 200 and resp2.json():
                 referral_bonus = 30
-        except:
+        except Exception:
             pass
     
     return base_trial + referral_bonus
@@ -3557,7 +3560,7 @@ def mark_trial_used(user_email):
                 headers=headers,
                 json={"trial_used": True}
             )
-        except:
+        except Exception:
             pass
 
 
@@ -3580,7 +3583,7 @@ def record_referral(referrer_email, referred_email):
                     "created_at": datetime.now().isoformat()
                 }
             )
-        except:
+        except Exception:
             pass
 
 def get_stripe_payment_link(tier="pro"):
@@ -3623,7 +3626,7 @@ def get_stripe_customer_portal_link():
                     return_url="https://aistockinvesting101.com"
                 )
                 return session.url
-        except:
+        except Exception:
             pass
     
     return None
@@ -3665,6 +3668,7 @@ def update_user_tier_after_payment(user_email, new_tier):
         )
         
         if response.status_code in [200, 201, 204]:
+            track_upgrade("free", new_tier)
             return True, "Tier updated"
         
         # Fallback: If profiles doesn't have email column, log for manual update
@@ -3849,7 +3853,7 @@ def track_event(event_name, properties=None):
             }
             encoded = base64.b64encode(json.dumps(data).encode()).decode()
             requests.get(f"https://api.mixpanel.com/track?data={encoded}", timeout=2)
-        except:
+        except Exception:
             pass
     
     # PostHog tracking
@@ -3869,7 +3873,7 @@ def track_event(event_name, properties=None):
                 },
                 timeout=2
             )
-        except:
+        except Exception:
             pass
     
     # Also store locally in session
@@ -3983,7 +3987,7 @@ def get_waitlist_count():
             count = response.headers.get('content-range', '').split('/')[-1]
             return int(count) if count.isdigit() else 127
         return 127
-    except:
+    except Exception:
         return 127
 
 def track_feature_usage(feature_name, ticker=None):
@@ -4228,7 +4232,7 @@ def calculate_cagr(start_value, end_value, years):
     try:
         cagr = (((end_value / start_value) ** (1 / years)) - 1) * 100
         return cagr
-    except:
+    except Exception:
         return None
 
 def calculate_growth_rate(df, column, years=None):
@@ -4296,7 +4300,7 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
                 else:
                     quarter = (month - 1) // 3 + 1
                     return f"Q{quarter} {year}"
-        except:
+        except Exception:
             pass
         return str(row.get('date', 'Unknown'))
     
@@ -4371,7 +4375,6 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
         y_range_min = min_val - padding if min_val < 0 else 0
 
     # Build constellation dots as scatter shapes
-    import random
     random.seed(42)
     constellation_shapes = []
     constellation_traces = []
@@ -4717,7 +4720,7 @@ def calculate_debt_to_equity(balance_df):
             return total_debt / equity
         
         return 0
-    except:
+    except Exception:
         return 0
 
 def calculate_quick_ratio(balance_df):
@@ -4736,7 +4739,7 @@ def calculate_quick_ratio(balance_df):
             return (current_assets - inventory) / current_liabilities
         
         return 0
-    except:
+    except Exception:
         return 0
 
 def get_industry_benchmark(sector, metric):
@@ -4854,7 +4857,7 @@ def get_all_stocks():
                 stocks[symbol] = stock['name']
                 stocks[name] = symbol
         return stocks
-    except:
+    except Exception:
         return {
             "AAPL": "Apple Inc.", "APPLE": "AAPL", "MSFT": "Microsoft", "MICROSOFT": "MSFT",
             "GOOGL": "Alphabet", "GOOGLE": "GOOGL", "AMZN": "Amazon", "AMAZON": "AMZN",
@@ -5168,7 +5171,7 @@ def get_quote(ticker):
         response = requests.get(url, timeout=10)
         data = response.json()
         return data[0] if data and len(data) > 0 else None
-    except:
+    except Exception:
         return None
 
 @st.cache_data(ttl=1800)
@@ -5179,7 +5182,7 @@ def get_profile(ticker):
         response = requests.get(url, timeout=10)
         data = response.json()
         return data[0] if data and len(data) > 0 else None
-    except:
+    except Exception:
         return None
 
 def get_dividend_yield(ticker, price):
@@ -5381,7 +5384,8 @@ def call_perplexity_json(prompt: str, max_tokens: int = 2000, temperature: float
                     if result:
                         return result
         except Exception as e:
-            print(f"[DEBUG] Perplexity Exception: {str(e)}")
+            pass
+            # print(f"[DEBUG] Perplexity Exception: {str(e)}")
     
     # TRY GROK AS FALLBACK
     grok_api_key = os.environ.get('GROK_API_KEY', '')
@@ -5411,7 +5415,8 @@ def call_perplexity_json(prompt: str, max_tokens: int = 2000, temperature: float
                     if result:
                         return result
         except Exception as e:
-            print(f"[DEBUG] Grok Exception: {str(e)}")
+            pass
+            # print(f"[DEBUG] Grok Exception: {str(e)}")
     
     # TRY OPENAI AS LAST FALLBACK
     openai_api_key = os.environ.get('OPENAI_API_KEY', '')
@@ -5440,7 +5445,8 @@ def call_perplexity_json(prompt: str, max_tokens: int = 2000, temperature: float
                 if content:
                     return json.loads(content)
         except Exception as e:
-            print(f"[DEBUG] OpenAI Exception: {str(e)}")
+            pass
+            # print(f"[DEBUG] OpenAI Exception: {str(e)}")
     
     return None
 
@@ -5536,13 +5542,13 @@ def call_openai_json(prompt: str, max_tokens: int = 2000, temperature: float = 0
         response = requests.post(openai_url, headers=openai_headers, json=openai_payload, timeout=30)
         
         # DEBUG: Log response status
-        print(f"[DEBUG] OpenAI API Status: {response.status_code}")
+        # print(f"[DEBUG] OpenAI API Status: {response.status_code}")
         
         if response.status_code == 200:
             content = response.json().get('choices', [{}])[0].get('message', {}).get('content', '')
             
             # DEBUG: Log content received
-            print(f"[DEBUG] OpenAI content received: {len(content) if content else 0} chars")
+            # print(f"[DEBUG] OpenAI content received: {len(content) if content else 0} chars")
             
             if not content:
                 return None
@@ -5551,16 +5557,16 @@ def call_openai_json(prompt: str, max_tokens: int = 2000, temperature: float = 0
             try:
                 return json.loads(content)
             except json.JSONDecodeError as e:
-                print(f"[DEBUG] OpenAI JSON parse error: {str(e)}")
+                # print(f"[DEBUG] OpenAI JSON parse error: {str(e)}")
                 return None
         
         # Non-200 response
-        print(f"[DEBUG] OpenAI API Error: Status {response.status_code}")
-        print(f"[DEBUG] Response: {response.text[:500]}")
+        # print(f"[DEBUG] OpenAI API Error: Status {response.status_code}")
+        # print(f"[DEBUG] Response: {response.text[:500]}")
         return None
     
     except Exception as e:
-        print(f"[DEBUG] OpenAI Exception: {str(e)}")
+        # print(f"[DEBUG] OpenAI Exception: {str(e)}")
         return None
 
 
@@ -5639,12 +5645,12 @@ Rules:
         
         response = requests.post(openai_url, headers=openai_headers, json=openai_payload, timeout=60)
         
-        print(f"[DEBUG] OpenAI Vision Status: {response.status_code}")
+        # print(f"[DEBUG] OpenAI Vision Status: {response.status_code}")
         
         if response.status_code == 200:
             content = response.json().get('choices', [{}])[0].get('message', {}).get('content', '')
             
-            print(f"[DEBUG] Vision content: {len(content) if content else 0} chars")
+            # print(f"[DEBUG] Vision content: {len(content) if content else 0} chars")
             
             if not content:
                 return None
@@ -5663,11 +5669,11 @@ Rules:
                 
                 return json.loads(content)
             except json.JSONDecodeError as e:
-                print(f"[DEBUG] Vision JSON parse error: {str(e)}")
+                # print(f"[DEBUG] Vision JSON parse error: {str(e)}")
                 return None
         
-        print(f"[DEBUG] Vision API Error: {response.status_code}")
-        print(f"[DEBUG] Response: {response.text[:500]}")
+        # print(f"[DEBUG] Vision API Error: {response.status_code}")
+        # print(f"[DEBUG] Response: {response.text[:500]}")
         
         # Fallback to Grok if OpenAI fails (Grok also supports vision)
         grok_api_key = os.environ.get('GROK_API_KEY', '')
@@ -5704,12 +5710,13 @@ Rules:
                             grok_content = grok_content[:-3]
                         return json.loads(grok_content.strip())
             except Exception as grok_e:
-                print(f"[DEBUG] Grok Vision fallback failed: {str(grok_e)}")
+                pass
+                # print(f"[DEBUG] Grok Vision fallback failed: {str(grok_e)}")
         
         return None
     
     except Exception as e:
-        print(f"[DEBUG] Vision Exception: {str(e)}")
+        # print(f"[DEBUG] Vision Exception: {str(e)}")
         return None
 
 
@@ -5820,7 +5827,7 @@ def get_analyst_estimates(ticker):
             if data and len(data) > 0:
                 # Return the most recent estimate (usually next quarter)
                 return data[0]
-    except:
+    except Exception:
         pass
     return None
 
@@ -5834,7 +5841,7 @@ def get_earnings_surprises(ticker, limit=4):
             data = response.json()
             if data and len(data) > 0:
                 return data[:limit]
-    except:
+    except Exception:
         pass
     return None
 
@@ -5850,7 +5857,7 @@ def get_treasury_rates():
             data = response.json()
             if data and len(data) > 0:
                 rates['10Y'] = data[0].get('yield', 0)
-    except:
+    except Exception:
         rates['10Y'] = 0
     
     try:
@@ -5860,7 +5867,7 @@ def get_treasury_rates():
             data = response.json()
             if data and len(data) > 0:
                 rates['2Y'] = data[0].get('yield', 0)
-    except:
+    except Exception:
         rates['2Y'] = 0
     
     try:
@@ -5870,7 +5877,7 @@ def get_treasury_rates():
             data = response.json()
             if data and len(data) > 0:
                 rates['30Y'] = data[0].get('yield', 0)
-    except:
+    except Exception:
         rates['30Y'] = 0
     
     return rates
@@ -5906,7 +5913,7 @@ def get_sp500_performance():
                     latest_price = df[price_col].iloc[-1]
                     annual_return = ((latest_price - start_price) / start_price) * 100
                     return annual_return
-    except:
+    except Exception:
         pass
     
     try:
@@ -5930,7 +5937,7 @@ def get_sp500_performance():
                     
                     ytd_return = ((latest_price - start_price) / start_price) * 100
                     return ytd_return
-    except:
+    except Exception:
         pass
     
     return 0
@@ -5944,7 +5951,7 @@ def get_price_target_summary(ticker):
         if response.status_code == 200:
             data = response.json()
             return data[0] if data and len(data) > 0 else None
-    except:
+    except Exception:
         pass
     return None
 
@@ -5958,7 +5965,7 @@ def get_price_target_consensus(ticker):
             data = response.json()
             if data and len(data) > 0:
                 return data[0]
-    except:
+    except Exception:
         pass
     return None
 
@@ -6000,7 +6007,7 @@ def get_ai_price_target(ticker, company_name):
             if match:
                 price_str = match.group(1).replace(',', '')
                 return float(price_str)
-    except:
+    except Exception:
         pass
     return None
 
@@ -6014,7 +6021,7 @@ def get_shares_float(ticker):
             data = response.json()
             if data and len(data) > 0:
                 return data[0]
-    except:
+    except Exception:
         pass
     return {}
 
@@ -6028,7 +6035,7 @@ def get_ratios_ttm(ticker):
             data = response.json()
             if data and len(data) > 0:
                 return data[0]
-    except:
+    except Exception:
         pass
     
     url2 = f"{BASE_URL}/ratios-ttm/{ticker}?apikey={FMP_API_KEY}"
@@ -6038,7 +6045,7 @@ def get_ratios_ttm(ticker):
             data = response.json()
             if data and len(data) > 0:
                 return data[0]
-    except:
+    except Exception:
         pass
     
     return {}
@@ -6053,7 +6060,7 @@ def get_key_metrics_ttm(ticker):
             data = response.json()
             if data and len(data) > 0:
                 return data[0]
-    except:
+    except Exception:
         pass
     return {}
 
@@ -6067,7 +6074,7 @@ def get_enterprise_values(ticker):
             data = response.json()
             if data and len(data) > 0:
                 return data[0]
-    except:
+    except Exception:
         pass
     return {}
 
@@ -6081,7 +6088,7 @@ def get_financial_growth(ticker):
             data = response.json()
             if data and len(data) > 0:
                 return data[0]
-    except:
+    except Exception:
         pass
     return {}
 
@@ -6158,7 +6165,7 @@ def calculate_valuation_metrics(ticker):
                                     cash_val = balance_df['cashAndCashEquivalents'].iloc[-1]
                                     cash = cash_val if pd.notna(cash_val) else 0
                                 ev = market_cap + total_debt - cash
-                            except:
+                            except Exception:
                                 pass
                         
                         if ev > 0:
@@ -6263,7 +6270,7 @@ def _yf_income_to_fmp(ticker, period='annual', limit=5):
             df['date'] = pd.to_datetime(df['date'])
             df = df.sort_values('date')
         return df
-    except:
+    except Exception:
         return pd.DataFrame()
 
 def _yf_balance_to_fmp(ticker, period='annual', limit=5):
@@ -6314,7 +6321,7 @@ def _yf_balance_to_fmp(ticker, period='annual', limit=5):
             df['date'] = pd.to_datetime(df['date'])
             df = df.sort_values('date')
         return df
-    except:
+    except Exception:
         return pd.DataFrame()
 
 def _yf_cashflow_to_fmp(ticker, period='annual', limit=5):
@@ -6363,7 +6370,7 @@ def _yf_cashflow_to_fmp(ticker, period='annual', limit=5):
             df['date'] = pd.to_datetime(df['date'])
             df = df.sort_values('date')
         return df
-    except:
+    except Exception:
         return pd.DataFrame()
 
 @st.cache_data(ttl=3600)
@@ -6380,7 +6387,7 @@ def get_income_statement(ticker, period='annual', limit=5):
                 df = df.sort_values('date')
             if not _fmp_data_is_bad(df, ['revenue', 'netIncome']):
                 return df
-    except:
+    except Exception:
         pass
     # Fallback to yfinance
     yf_df = _yf_income_to_fmp(ticker, period, limit)
@@ -6402,7 +6409,7 @@ def get_balance_sheet(ticker, period='annual', limit=5):
                 df = df.sort_values('date')
             if not _fmp_data_is_bad(df, ['totalAssets', 'totalStockholdersEquity']):
                 return df
-    except:
+    except Exception:
         pass
     # Fallback to yfinance
     yf_df = _yf_balance_to_fmp(ticker, period, limit)
@@ -6424,7 +6431,7 @@ def get_cash_flow(ticker, period='annual', limit=5):
                 df = df.sort_values('date')
             if not _fmp_data_is_bad(df, ['operatingCashFlow', 'freeCashFlow']):
                 return df
-    except:
+    except Exception:
         pass
     # Fallback to yfinance
     yf_df = _yf_cashflow_to_fmp(ticker, period, limit)
@@ -6445,7 +6452,7 @@ def get_financial_ratios(ticker, period='annual', limit=5):
                 df['date'] = pd.to_datetime(df['date'])
                 df = df.sort_values('date')
             return df
-    except:
+    except Exception:
         pass
     return pd.DataFrame()
 
@@ -6465,7 +6472,7 @@ def get_historical_price(ticker, years=5):
             cutoff = datetime.now() - timedelta(days=years*365)
             df = df[df['date'] >= cutoff]
             return df
-    except:
+    except Exception:
         pass
     return pd.DataFrame()
 
@@ -6489,7 +6496,7 @@ def get_historical_ohlc(ticker, years=5):
                 cutoff = datetime.now() - timedelta(days=years*365)
                 df = df[df['date'] >= cutoff]
                 return df
-    except:
+    except Exception:
         pass
     
     return pd.DataFrame()
@@ -6502,7 +6509,7 @@ def get_price_target(ticker):
         response = requests.get(url, timeout=10)
         data = response.json()
         return data[0] if data and len(data) > 0 else None
-    except:
+    except Exception:
         return None
 
 def get_eps_ttm(ticker, income_df):
@@ -6533,7 +6540,7 @@ def get_eps_ttm(ticker, income_df):
                     return eps
         
         return 0
-    except:
+    except Exception:
         return 0
 
 def get_shares_outstanding(ticker, quote, shares_float_data):
@@ -6603,12 +6610,12 @@ def calculate_fcf_per_share(ticker, cash_df, quote):
                     fcf_per_share = data[0].get('freeCashFlowPerShare', 0)
                     if fcf_per_share and fcf_per_share != 0:
                         return fcf_per_share
-        except:
+        except Exception:
             pass
         
         return 0
         
-    except:
+    except Exception:
         return 0
 
 def get_pe_ratio(ticker, quote, ratios_ttm, income_df):
@@ -6761,7 +6768,7 @@ def build_ai_context(user_tier="free", risk_profile=None, time_horizon=5, ticker
     try:
         # This will work at runtime when the function is available
         market_sentiment_data = get_global_market_sentiment()
-    except:
+    except Exception:
         market_sentiment_data = {"score": 50, "label": "Neutral (Steady)", "color": "#FFFF44"}
     
     context = {
@@ -6911,7 +6918,7 @@ Use ranges, not exact predictions. This is educational analysis, not financial a
             json_match = re.search(r'\{[\s\S]*\}', response)
             if json_match:
                 return json.loads(json_match.group())
-        except:
+        except Exception:
             pass
     
     return None
@@ -6943,7 +6950,7 @@ Use educational language. This is not financial advice."""
             json_match = re.search(r'\{[\s\S]*\}', response)
             if json_match:
                 return json.loads(json_match.group())
-        except:
+        except Exception:
             pass
     
     return None
@@ -6970,7 +6977,7 @@ def get_historical_adjusted_prices(ticker, years=10):
                     df['price'] = df['close']
                 return df
         return pd.DataFrame()
-    except:
+    except Exception:
         return pd.DataFrame()
 
 def calculate_four_scenarios(ticker, years=5, base_amount=100):
@@ -7198,7 +7205,7 @@ def get_live_ticker_data():
                         "change_pct": quote.get("changesPercentage", 0)
                     })
         return ticker_data
-    except:
+    except Exception:
         return [
             {"symbol": "AAPL", "price": 185.50, "change_pct": 1.2},
             {"symbol": "MSFT", "price": 378.25, "change_pct": -0.5},
@@ -7533,25 +7540,46 @@ def render_ai_chatbot():
         
         # Handle form submission
         if send_btn and user_input and user_input.strip():
-            # Add user message
-            st.session_state.chat_messages.append({"role": "user", "content": user_input.strip()})
+            # --- AI query limit enforcement ---
+            from datetime import date as _date
+            today_str = str(_date.today())
+            if st.session_state.get("ai_query_date") != today_str:
+                st.session_state.ai_query_date = today_str
+                st.session_state.ai_query_count = 0
+            ai_limit = get_tier_limit("ai_queries_per_day") or 5
+            if st.session_state.get("ai_query_count", 0) >= ai_limit:
+                tier = get_user_tier()
+                if tier == "free":
+                    st.warning(f"⚡ You've used your {ai_limit} free AI questions today. Upgrade to Pro for 50/day.")
+                else:
+                    st.warning(f"You've reached your {ai_limit} AI questions for today. Resets at midnight.")
+            else:
+                # Add user message
+                st.session_state.chat_messages.append({"role": "user", "content": user_input.strip()})
+
+                # Trim chat history to last 50 messages to avoid memory leak
+                if len(st.session_state.chat_messages) > 50:
+                    st.session_state.chat_messages = st.session_state.chat_messages[-50:]
+
+                # Get AI response
+                context = {
+                    "current_page": st.session_state.get("selected_page", "Home"),
+                    "selected_ticker": st.session_state.get("selected_ticker", None),
+                    "unhinged_mode": st.session_state.get("unhinged_mode", False)
+                }
+
+                # Show response immediately in the dialog
+                with st.spinner("🔍 Searching & thinking..."):
+                    response = get_chatbot_response(user_input.strip(), context)
+
+                # Increment query counter
+                st.session_state.ai_query_count = st.session_state.get("ai_query_count", 0) + 1
+
+                # Add AI response
+                st.session_state.chat_messages.append({"role": "assistant", "content": response})
             
-            # Get AI response
-            context = {
-                "current_page": st.session_state.get("selected_page", "Home"),
-                "selected_ticker": st.session_state.get("selected_ticker", None),
-                "unhinged_mode": st.session_state.get("unhinged_mode", False)
-            }
-            
-            # Show response immediately in the dialog
-            with st.spinner("🔍 Searching & thinking..."):
-                response = get_chatbot_response(user_input.strip(), context)
-            
-            # Add AI response
-            st.session_state.chat_messages.append({"role": "assistant", "content": response})
-            
-            # Display the new response immediately
-            st.markdown(f'<div style="background: rgba(33,150,243,0.15); padding: 10px 15px; border-radius: 10px; margin: 8px 0; color: #333;"><strong>🤖 AI:</strong> {response}</div>', unsafe_allow_html=True)
+                # Display the new response immediately
+                st.markdown(f'<div style="background: rgba(33,150,243,0.15); padding: 10px 15px; border-radius: 10px; margin: 8px 0; color: #333;"><strong>🤖 AI:</strong> {response}</div>', unsafe_allow_html=True)
             
             # Note: NOT calling st.rerun() to keep dialog open
         
@@ -7566,7 +7594,7 @@ def render_ai_chatbot():
             col_logo1, col_logo2, col_logo3 = st.columns([1, 3, 1])
             with col_logo2:
                 st.image("logo.png", width=150)
-        except:
+        except Exception:
             st.markdown('<div style="font-weight:700; color:#FF4444; font-size:1.1rem; margin-bottom:10px; text-align:center;">📈 STOCKINVESTING.AI</div>', unsafe_allow_html=True)
         
         st.markdown("---")
@@ -8101,7 +8129,7 @@ def do_logout():
     try:
         if SUPABASE_ENABLED:
             supabase.auth.sign_out()
-    except:
+    except Exception:
         pass
     
     # Clear all auth-related session state
@@ -8187,7 +8215,7 @@ def login_dialog():
                             st.session_state.user_tier = profile_tier
                         else:
                             st.session_state.user_tier = "free"
-                    except:
+                    except Exception:
                         # Profile doesn't exist yet (RLS blocked during signup) - create it now
                         st.session_state.first_name = ""
                         st.session_state.user_tier = "free"
@@ -8200,7 +8228,7 @@ def login_dialog():
                             }).execute()
                             if first_from_meta:
                                 st.session_state.first_name = first_from_meta
-                        except:
+                        except Exception:
                             pass
                     
                     # Fallback if missing
@@ -8367,6 +8395,7 @@ def signup_dialog():
                                 st.session_state.is_founder = (email or "").strip().lower() == FOUNDER_EMAIL
                                 
                                 save_user_progress()
+                                track_signup("email")
                                 st.success("✅ Account created successfully!")
                                 st.balloons()
                             else:
@@ -8417,7 +8446,7 @@ def calculate_coffee_investment(ticker, weekly_amount, years=5):
             future_value += weekly_amount * ((1 + avg_weekly_return) ** weeks_remaining)
         
         return total_invested, future_value
-    except:
+    except Exception:
         return None, None
 
 def render_coffee_calculator(ticker, stock_name):
@@ -8565,7 +8594,7 @@ def get_global_market_sentiment():
                     spy_data = spy_data.sort_values('date')
                     price_20d_ago = spy_data['price'].iloc[-20]
                     momentum_20d = ((current_price - price_20d_ago) / price_20d_ago) * 100
-            except:
+            except Exception:
                 pass
             
             # Combined score: 50% today's move, 50% momentum
@@ -8603,7 +8632,8 @@ def get_global_market_sentiment():
                 "spy_price": round(current_price, 2)
             }
     except Exception as e:
-        print(f"[DEBUG] Market sentiment error: {e}")
+        pass
+        # print(f"[DEBUG] Market sentiment error: {e}")
     
     # Fallback to neutral if data unavailable
     return {
@@ -8868,7 +8898,7 @@ def validate_and_insert_trade(user_id, portfolio_type, action, ticker, shares, p
         
     except Exception as e:
         # Database failed, but continue with session state
-        print(f"[DEBUG] Database save failed (will use session state): {str(e)}")
+        # print(f"[DEBUG] Database save failed (will use session state): {str(e)}")
         db_saved = False
     
     # ============= UPDATE SESSION STATE (ALWAYS) =============
@@ -8971,7 +9001,7 @@ def load_trades_from_db(user_id, portfolio_type='user'):
             # Table doesn't exist - this is expected for new setups
             return []
         # Only show error for unexpected issues
-        print(f"[DEBUG] Trades loading: {str(e)}")
+        # print(f"[DEBUG] Trades loading: {str(e)}")
         return []
 
 
@@ -9269,7 +9299,7 @@ def save_onboarding_profile(profile_data):
                 "state": json.dumps(state_data),
                 "updated_at": datetime.now().isoformat()
             }).execute()
-        except:
+        except Exception:
             pass
 
 def build_user_profile():
@@ -9320,7 +9350,7 @@ def build_user_profile():
     if st.session_state.get("is_logged_in", False):
         try:
             save_user_progress()
-        except:
+        except Exception:
             pass  # Silent fallback
     
     return user_profile
@@ -9376,7 +9406,7 @@ def get_stock_volatility_tier(ticker):
             }
             
             return (tier, method)
-    except:
+    except Exception:
         pass
     
     # Fallback to market cap proxy
@@ -9402,7 +9432,7 @@ def get_stock_volatility_tier(ticker):
             }
             
             return (tier, method)
-    except:
+    except Exception:
         pass
     
     # If neither works, return unknown
@@ -9657,7 +9687,7 @@ def render_setup_nudge():
                 if st.session_state.get('is_logged_in', False):
                     try:
                         save_user_progress()
-                    except:
+                    except Exception:
                         pass
                 st.rerun()
 
@@ -9733,7 +9763,7 @@ def onboarding_quiz_dialog():
             if st.session_state.get('is_logged_in', False):
                 try:
                     save_user_progress()
-                except:
+                except Exception:
                     pass
             st.rerun()
 
@@ -9854,7 +9884,7 @@ def get_stock_logo_url(ticker):
         profile = get_profile(ticker)
         if profile and 'image' in profile:
             return profile['image']
-    except:
+    except Exception:
         pass
     return None
 
@@ -9947,7 +9977,7 @@ if payment_param == "success" and payment_tier in ["pro", "ultimate"]:
                     "tier": payment_tier,
                     "tier_updated_at": datetime.now().isoformat()
                 }).execute()
-            except:
+            except Exception:
                 pass
     
     # Clean up query params
@@ -10920,7 +10950,7 @@ def render_technical_quick_guide(price_data, ticker):
                 xaxis_title=None, yaxis_title="Price"
             )
             st.plotly_chart(fig_sma50, use_container_width=True)
-        except:
+        except Exception:
             st.caption("— Chart not available")
         
         st.markdown("---")
@@ -10957,7 +10987,7 @@ def render_technical_quick_guide(price_data, ticker):
                 st.plotly_chart(fig_sma200, use_container_width=True)
             else:
                 st.caption("— Not enough data for SMA 200 example (need 200+ days)")
-        except:
+        except Exception:
             st.caption("— Chart not available")
         
         st.markdown("---")
@@ -10987,7 +11017,7 @@ def render_technical_quick_guide(price_data, ticker):
                 xaxis_title=None, yaxis_title="RSI", yaxis=dict(range=[0, 100])
             )
             st.plotly_chart(fig_rsi, use_container_width=True)
-        except:
+        except Exception:
             st.caption("— Chart not available")
         
         st.markdown("---")
@@ -11011,7 +11041,7 @@ def render_technical_quick_guide(price_data, ticker):
                 st.plotly_chart(fig_vol, use_container_width=True)
             else:
                 st.caption("— Volume data not available")
-        except:
+        except Exception:
             st.caption("— Chart not available")
         
         st.markdown("---")
@@ -11054,7 +11084,7 @@ def render_technical_quick_guide(price_data, ticker):
                 xaxis_title=None, yaxis_title="Price"
             )
             st.plotly_chart(fig_support, use_container_width=True)
-        except:
+        except Exception:
             st.caption("— Chart not available")
         
         st.markdown("---")
@@ -11097,7 +11127,7 @@ def render_technical_quick_guide(price_data, ticker):
                 xaxis_title=None, yaxis_title="Price"
             )
             st.plotly_chart(fig_resistance, use_container_width=True)
-        except:
+        except Exception:
             st.caption("— Chart not available")
 
 
@@ -13333,7 +13363,7 @@ if selected_page == "🏠 Dashboard":
                             start_price = ytd_data_sorted[0].get('close', 0)
                             if start_price > 0 and mprice > 0:
                                 ytd_return = ((mprice - start_price) / start_price) * 100
-                except:
+                except Exception:
                     pass
                 
                 mcolor = "#22c55e" if ytd_return > 0 else "#ef4444" if ytd_return < 0 else "#888"
@@ -13979,7 +14009,8 @@ elif selected_page == "📚 Learn Hub":
                 st.session_state.learn_last_completed_date = stats.get('last_completed_date')
         
         except Exception as e:
-            print(f"[DEBUG] Learn Hub DB load error: {e}")
+            pass
+            # print(f"[DEBUG] Learn Hub DB load error: {e}")
             # Fail-soft: continue with session state
     
     def save_learn_progress_to_db(lesson_id, score):
@@ -14036,7 +14067,8 @@ elif selected_page == "📚 Learn Hub":
             supabase.table('user_learning_stats').upsert(stats_data).execute()
         
         except Exception as e:
-            print(f"[DEBUG] Learn Hub DB save error: {e}")
+            pass
+            # print(f"[DEBUG] Learn Hub DB save error: {e}")
 
     
     # ============= VIDEO DATA LOADING =============
@@ -14052,7 +14084,7 @@ elif selected_page == "📚 Learn Hub":
                 return {row["lesson_id"]: row["video_url"] for row in response.data}
             return {}
         except Exception as e:
-            print(f"[DEBUG] Lesson videos load error: {e}")
+            # print(f"[DEBUG] Lesson videos load error: {e}")
             return {}
     
     # Initialize video map in session state
@@ -14086,7 +14118,7 @@ elif selected_page == "📚 Learn Hub":
             return True
         except Exception as e:
             st.error(f"❌ Failed to save video: {str(e)}")
-            print(f"[DEBUG] Video save error: {e}")
+            # print(f"[DEBUG] Video save error: {e}")
             return False
     
     def render_video_panel(lesson_id: str, is_founder: bool):
@@ -17652,7 +17684,7 @@ elif selected_page == "🧠 Risk Quiz":
             if st.session_state.get('is_logged_in', False):
                 try:
                     save_user_progress()
-                except:
+                except Exception:
                     pass  # Silent fallback to session state
             
             st.rerun()
@@ -17732,7 +17764,7 @@ elif selected_page == "🧠 Risk Quiz":
                     try:
                         save_user_progress()
                         st.success("✅ Results saved to your account!")
-                    except:
+                    except Exception:
                         st.warning("⚠️ Could not save to account, but results are stored in this session.")
                 else:
                     st.info("💡 Create an account to save your results permanently across devices.")
@@ -17849,7 +17881,7 @@ elif selected_page == "📊 Company Analysis":
                             price = quote.get('price', 0)
                             change = quote.get('changesPercentage', 0)
                             st.metric("Price", f"${price:.2f}", f"{change:+.2f}%")
-                    except:
+                    except Exception:
                         pass
                     
                     if st.button(f"📊 Analyze {stock_ticker}", key=f"starter_{stock_ticker}"):
@@ -17900,7 +17932,7 @@ elif selected_page == "📊 Company Analysis":
                             st.info(f"📅 **Next Earnings**\n{date_obj.strftime('%b %d, %Y')}\n({days_until} days)")
                         else:
                             st.caption(f"Last earnings: {date_obj.strftime('%b %d, %Y')}")
-                    except:
+                    except Exception:
                         pass
         
         description = profile.get('description', '')
@@ -18067,7 +18099,7 @@ elif selected_page == "📊 Company Analysis":
                                 st.metric("10-Year", f"{latest['year10']:.2f}%")
                         
                         st.caption(f"💡 Earn {latest.get('year10', 4):.2f}% risk-free with treasuries!")
-            except:
+            except Exception:
                 # Fallback if API fails
                 st.metric("10-Year Treasury", "~4.25%")
                 st.caption("Risk-free baseline return")
@@ -19463,7 +19495,7 @@ elif selected_page == "📊 Market Overview":
                                     if current_price and current_price > 0:
                                         upside_pct = ((target_price - current_price) / current_price) * 100
                                         row["Upside/Downside %"] = upside_pct
-                        except:
+                        except Exception:
                             pass  # Fail soft
                         
                         # Get additional metrics (P/E, P/S, FCF)
@@ -19484,7 +19516,7 @@ elif selected_page == "📊 Market Overview":
                             div_yield = get_dividend_yield(ticker_sym, row["Price"])
                             if div_yield:
                                 row["Dividend Yield %"] = div_yield
-                        except:
+                        except Exception:
                             pass  # Keep None values
                     
                     rows.append(row)
@@ -19539,7 +19571,7 @@ elif selected_page == "📊 Market Overview":
                                 if current_price and current_price > 0:
                                     upside_pct = ((target_price - current_price) / current_price) * 100
                                     row["Upside/Downside %"] = upside_pct
-                    except:
+                    except Exception:
                         pass  # Fail soft
                     
                     # Get additional metrics (P/E, P/S, FCF)
@@ -19560,7 +19592,7 @@ elif selected_page == "📊 Market Overview":
                         div_yield = get_dividend_yield(ticker_sym, row["Price"])
                         if div_yield:
                             row["Dividend Yield %"] = div_yield
-                    except:
+                    except Exception:
                         pass  # Keep None values
                 
                 rows.append(row)
@@ -20333,13 +20365,13 @@ Keep each bullet to ONE line. Be concise."""
                 )
                 
                 # Log response for debugging
-                print(f"[DEBUG] Perplexity response ({model_name}): status={response.status_code}")
+                # print(f"[DEBUG] Perplexity response ({model_name}): status={response.status_code}")
                 
                 if response.status_code == 200:
                     data = response.json()
                     content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
                     if content and len(content) > 50:
-                        print(f"[DEBUG] Success with model: {model_name}")
+                        # print(f"[DEBUG] Success with model: {model_name}")
                         return content, None
                     else:
                         last_error = f"Empty response from {model_name}"
@@ -20349,19 +20381,19 @@ Keep each bullet to ONE line. Be concise."""
                     try:
                         error_data = response.json()
                         last_error = f"{model_name}: {response.status_code} - {error_data}"
-                    except:
+                    except Exception:
                         last_error = f"{model_name}: HTTP {response.status_code}"
                     
-                    print(f"[DEBUG] {last_error}")
+                    # print(f"[DEBUG] {last_error}")
                     continue
                     
             except requests.exceptions.Timeout:
                 last_error = f"{model_name}: Request timeout"
-                print(f"[DEBUG] {last_error}")
+                # print(f"[DEBUG] {last_error}")
                 continue
             except Exception as e:
                 last_error = f"{model_name}: {str(e)}"
-                print(f"[DEBUG] {last_error}")
+                # print(f"[DEBUG] {last_error}")
                 continue
         
         # All models failed
@@ -22946,7 +22978,7 @@ elif selected_page == "👑 Ultimate":
                             future_5d = ((df.loc[date_idx:].iloc[5]["close"] / df.loc[date_idx]["close"]) - 1) * 100 if i + 5 < len(df) else None
                             future_20d = ((df.loc[date_idx:].iloc[20]["close"] / df.loc[date_idx]["close"]) - 1) * 100 if i + 20 < len(df) else None
                             future_60d = ((df.loc[date_idx:].iloc[60]["close"] / df.loc[date_idx]["close"]) - 1) * 100 if i + 60 < len(df) else None
-                        except:
+                        except Exception:
                             future_5d = future_20d = future_60d = None
                         
                         similar_dates.append({
@@ -23414,7 +23446,7 @@ CRITICAL REQUIREMENTS:
                                             profile_data = profile_resp.json()
                                             if profile_data and len(profile_data) > 0:
                                                 sector = profile_data[0].get('sector', 'Unknown')
-                                    except:
+                                    except Exception:
                                         pass
                                     
                                     weight = holding.get('weight') or 0
@@ -23625,7 +23657,7 @@ CRITICAL RULES:
                                     profile_data = profile_resp.json()
                                     if profile_data and len(profile_data) > 0:
                                         sector = profile_data[0].get('sector', 'Unknown')
-                            except:
+                            except Exception:
                                 pass
                             
                             normalized_holdings.append({
