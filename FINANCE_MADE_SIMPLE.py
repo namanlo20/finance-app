@@ -4252,7 +4252,8 @@ def calculate_growth_rate(df, column, years=None):
 
 def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_title="Amount ($)", period_type='annual'):
     """Create financial chart with y-axis padding and return growth rates
-    Uses FMP's fiscal period/calendarYear for proper fiscal year labeling"""
+    Uses FMP's fiscal period/calendarYear for proper fiscal year labeling
+    Visual style: dark space/constellation background with gradient bars"""
     if df.empty:
         return None, {}
     
@@ -4274,30 +4275,22 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
     def format_fiscal_period(row, period_type):
         """Format using FMP's period and calendarYear fields for accurate fiscal labeling"""
         try:
-            # Try to use FMP's fiscal period fields first
             if 'period' in row.index and 'calendarYear' in row.index:
                 period = row.get('period', '')
                 cal_year = row.get('calendarYear', '')
-                
                 if period and cal_year:
-                    # For annual reports
                     if period_type == 'annual' or period == 'FY':
                         return f"FY {cal_year}"
                     else:
-                        # For quarterly - use the period as-is (Q1, Q2, Q3, Q4)
                         return f"{period} {cal_year}"
-            
-            # Fallback to date-based calculation
             date_val = row.get('date', None)
             if date_val is not None:
                 if isinstance(date_val, str):
                     date_obj = pd.to_datetime(date_val)
                 else:
                     date_obj = date_val
-                
                 year = date_obj.year
                 month = date_obj.month
-                
                 if period_type == 'annual':
                     return f"FY {year}"
                 else:
@@ -4307,39 +4300,61 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
             pass
         return str(row.get('date', 'Unknown'))
     
-    # Sort by date ASCENDING (oldest first: 2023 -> 2024 -> 2025)
+    # Sort by date ASCENDING (oldest first)
     df_sorted = df.sort_values('date', ascending=True).reset_index(drop=True)
-    
-    # Format x-axis labels using fiscal period data
     x_labels = [format_fiscal_period(row, period_type) for _, row in df_sorted.iterrows()]
     
+    # Color scheme matching the image exactly
+    # OCF = cyan-to-blue gradient, CapEx = gold, FCF = purple gradient
+    METRIC_COLORS = {
+        0: {'pos': '#00E5FF', 'neg': '#FF6B6B'},   # Cyan (Operating Cash Flow)
+        1: {'pos': '#FFD700', 'neg': '#FF6B6B'},   # Gold (CapEx)
+        2: {'pos': '#BF5FFF', 'neg': '#FF6B6B'},   # Purple (Free Cash Flow)
+    }
+
+    # Background colors
+    BG_SPACE = '#0A0A1A'       # Near-black space background
+    BG_PLOT = '#0D0D20'        # Slightly lighter plot area
+    ZERO_LINE = 'rgba(255,255,255,0.25)'
+    TEXT_BRIGHT = '#FFFFFF'
+    TEXT_DIM = 'rgba(255,255,255,0.55)'
+    GRID_COLOR = 'rgba(255,255,255,0.04)'
+
     fig = go.Figure()
-    colors = ['#00D9FF', '#FFD700', '#9D4EDD']  # Cyan, Gold, Purple - original palette
     growth_rates = {}
     
     for idx, metric in enumerate(metrics):
         if metric in df_sorted.columns:
             values = df_sorted[metric].values
-            # Growth rate: compare newest (last) to oldest (first)
             if len(values) >= 2 and values[0] != 0:
                 growth_rate = ((values[-1] - values[0]) / abs(values[0])) * 100
                 growth_rates[metric] = growth_rate
             
-            # Use proper display name from METRIC_DISPLAY_NAMES
             display_name = METRIC_DISPLAY_NAMES.get(metric, metric.replace('_', ' ').title())
-            
+            c = METRIC_COLORS.get(idx % 3, METRIC_COLORS[0])
+            bar_color_list = [c['pos'] if v >= 0 else c['neg'] for v in values]
+
             fig.add_trace(go.Bar(
                 x=x_labels,
                 y=values,
                 name=display_name,
                 marker=dict(
-                    color=colors[idx % len(colors)],
+                    color=bar_color_list,
                     line=dict(width=0),
-                    cornerradius=4
+                    cornerradius=5,
+                    opacity=0.88,
                 ),
                 text=[format_value_label(val) for val in values],
                 textposition='outside',
-                textfont=dict(size=11, color='#64748B', family='Inter, system-ui, sans-serif')
+                textfont=dict(
+                    size=11,
+                    color=TEXT_BRIGHT,
+                    family='Inter, system-ui, sans-serif'
+                ),
+                hovertemplate=(
+                    f'<b>{display_name}</b><br>'
+                    '%{text}<extra></extra>'
+                ),
             ))
     
     all_values = []
@@ -4350,16 +4365,79 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
     if all_values:
         max_val = max(all_values)
         min_val = min(all_values)
-        # Add 25% padding above and below so negative values (like CapEx) are fully visible
         value_range = max_val - min_val if max_val != min_val else abs(max_val) * 0.5 or 1
-        padding = value_range * 0.25
+        padding = value_range * 0.28
         y_range_max = max_val + padding
         y_range_min = min_val - padding if min_val < 0 else 0
-    
+
+    # Build constellation dots as scatter shapes
+    import random
+    random.seed(42)
+    constellation_shapes = []
+    constellation_traces = []
+
+    # Star dots scattered across paper coords
+    star_positions = [
+        (0.05, 0.75), (0.12, 0.45), (0.08, 0.20), (0.18, 0.88),
+        (0.25, 0.60), (0.32, 0.30), (0.22, 0.10), (0.38, 0.78),
+        (0.45, 0.50), (0.42, 0.15), (0.55, 0.85), (0.60, 0.40),
+        (0.65, 0.12), (0.70, 0.68), (0.75, 0.35), (0.80, 0.90),
+        (0.85, 0.55), (0.90, 0.22), (0.95, 0.72), (0.88, 0.08),
+        (0.15, 0.65), (0.50, 0.25), (0.72, 0.80), (0.35, 0.42),
+        (0.62, 0.58), (0.48, 0.70), (0.28, 0.82), (0.78, 0.18),
+    ]
+    # Lines connecting some stars (constellation effect)
+    constellation_lines = [
+        (0, 1), (1, 2), (3, 4), (4, 5), (6, 7),
+        (8, 9), (10, 11), (12, 13), (14, 15), (16, 17),
+        (18, 19), (20, 7), (21, 8), (22, 15), (23, 4),
+        (24, 11), (25, 26), (27, 14),
+    ]
+
+    for (x1_idx, x2_idx) in constellation_lines:
+        if x1_idx < len(star_positions) and x2_idx < len(star_positions):
+            sx1, sy1 = star_positions[x1_idx]
+            sx2, sy2 = star_positions[x2_idx]
+            constellation_shapes.append(dict(
+                type='line',
+                xref='paper', yref='paper',
+                x0=sx1, y0=sy1, x1=sx2, y1=sy2,
+                line=dict(color='rgba(140,100,220,0.18)', width=0.8),
+                layer='below'
+            ))
+
+    for (sx, sy) in star_positions:
+        # Vary dot sizes slightly
+        r = random.choice([2, 2, 3, 3, 3, 4])
+        constellation_shapes.append(dict(
+            type='circle',
+            xref='paper', yref='paper',
+            x0=sx - 0.003, y0=sy - 0.008,
+            x1=sx + 0.003, y1=sy + 0.008,
+            fillcolor='rgba(180,140,255,0.7)',
+            line=dict(width=0),
+            layer='below'
+        ))
+
+    # Purple glow blobs (ambient light from the image)
+    glow_shapes = [
+        dict(type='circle', xref='paper', yref='paper',
+             x0=0.28, y0=0.55, x1=0.48, y1=0.95,
+             fillcolor='rgba(100,40,180,0.12)', line=dict(width=0), layer='below'),
+        dict(type='circle', xref='paper', yref='paper',
+             x0=0.55, y0=0.60, x1=0.75, y1=0.95,
+             fillcolor='rgba(80,30,160,0.10)', line=dict(width=0), layer='below'),
+        dict(type='circle', xref='paper', yref='paper',
+             x0=-0.05, y0=0.30, x1=0.20, y1=0.70,
+             fillcolor='rgba(60,20,120,0.10)', line=dict(width=0), layer='below'),
+    ]
+
+    all_shapes = glow_shapes + constellation_shapes
+
     fig.update_layout(
         title=dict(
-            text=title,
-            font=dict(size=17, color='#1E293B', family='Inter, system-ui, sans-serif'),
+            text=f'<b>{title}</b>',
+            font=dict(size=18, color=TEXT_BRIGHT, family='Inter, system-ui, sans-serif'),
             x=0.5,
             xanchor='center',
             y=0.97,
@@ -4369,46 +4447,50 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
         yaxis_title=yaxis_title,
         barmode='group',
         hovermode='x unified',
-        height=480,
+        height=500,
         showlegend=True,
         legend=dict(
-            orientation="h", 
-            yanchor="top", 
-            y=-0.15,
-            xanchor="center", 
+            orientation="h",
+            yanchor="top",
+            y=-0.13,
+            xanchor="center",
             x=0.5,
             bgcolor='rgba(0,0,0,0)',
             borderwidth=0,
-            font=dict(size=12, color='#64748B', family='Inter, system-ui, sans-serif'),
+            font=dict(size=13, color=TEXT_DIM, family='Inter, system-ui, sans-serif'),
             itemsizing='constant'
         ),
         yaxis=dict(
-            showgrid=False,
+            showgrid=True,
+            gridcolor=GRID_COLOR,
+            gridwidth=1,
             zeroline=True,
             zerolinewidth=1.5,
-            zerolinecolor='rgba(148,163,184,0.4)',
+            zerolinecolor=ZERO_LINE,
             showline=False,
-            tickfont=dict(size=11, color='#94A3B8', family='Inter, system-ui, sans-serif'),
-            title_font=dict(size=12, color='#94A3B8', family='Inter, system-ui, sans-serif'),
-            range=[y_range_min, y_range_max] if all_values else None
+            tickfont=dict(size=11, color=TEXT_DIM, family='Inter, system-ui, sans-serif'),
+            title_font=dict(size=12, color=TEXT_DIM, family='Inter, system-ui, sans-serif'),
+            range=[y_range_min, y_range_max] if all_values else None,
         ),
         xaxis=dict(
             showgrid=False,
             showline=False,
-            tickfont=dict(size=12, color='#475569', family='Inter, system-ui, sans-serif'),
+            tickfont=dict(size=13, color=TEXT_DIM, family='Inter, system-ui, sans-serif'),
+            tickangle=0,
         ),
-        plot_bgcolor='rgba(0,0,0,0)',
-        paper_bgcolor='white',
-        margin=dict(t=50, b=70, l=60, r=30),
-        bargap=0.25,
-        bargroupgap=0.08,
+        plot_bgcolor=BG_PLOT,
+        paper_bgcolor=BG_SPACE,
+        margin=dict(t=55, b=80, l=70, r=30),
+        bargap=0.22,
+        bargroupgap=0.06,
+        shapes=all_shapes,
         hoverlabel=dict(
-            bgcolor='#1E293B',
-            font_size=12,
+            bgcolor='#1A1A35',
+            font_size=13,
             font_family='Inter, system-ui, sans-serif',
-            font_color='white',
-            bordercolor='rgba(0,0,0,0)'
-        )
+            font_color=TEXT_BRIGHT,
+            bordercolor='rgba(140,100,255,0.5)',
+        ),
     )
     
     return fig, growth_rates
