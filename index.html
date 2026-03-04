@@ -461,7 +461,7 @@
 </nav>
 
 <!-- HERO -->
-<section class="hero" style="min-height: auto; padding: 120px 24px 60px;">
+<section class="hero" style="min-height: auto; padding: 120px 24px 60px; position: relative; overflow: hidden;">
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; max-width: 1100px; margin: 0 auto; text-align: left;">
         <!-- Left: Text content -->
         <div>
@@ -483,14 +483,173 @@
             </div>
         </div>
         
-        <!-- Right: Hero image -->
+        <!-- Right: Animated Live Chart Panel -->
         <div style="position: relative;">
-            <img src="couple.png" alt="People learning to invest" style="width: 100%; height: auto; border-radius: 20px; box-shadow: 0 25px 50px rgba(0,0,0,0.4);">
-            <!-- Decorative glow -->
-            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80%; height: 80%; background: radial-gradient(circle, rgba(255,75,75,0.15) 0%, transparent 70%); z-index: -1; filter: blur(40px);"></div>
+            <div style="background: #12121a; border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; overflow: hidden; box-shadow: 0 25px 60px rgba(0,0,0,0.5);">
+                <div style="padding: 14px 18px 10px; border-bottom: 1px solid rgba(255,255,255,0.06); display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div id="hSym" style="font-weight: 700; font-size: 15px; color: #f0ece8;">NVDA</div>
+                        <div style="font-size: 11px; color: rgba(255,255,255,0.35); margin-top: 1px;">NASDAQ · Live</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div id="hPrice" style="font-size: 20px; font-weight: 800; color: #f0ece8;">$875.40</div>
+                        <div id="hChg" style="font-size: 12px; font-weight: 600; color: #4ade80; margin-top: 1px;">&#9650; +2.34%</div>
+                    </div>
+                </div>
+                <div style="display: flex; border-bottom: 1px solid rgba(255,255,255,0.06); overflow-x: auto;">
+                    <button class="htab active" onclick="hSwitch(this,'NVDA')" style="padding:8px 14px;font-size:11px;font-weight:700;color:#FF4B4B;background:none;border:none;border-bottom:2px solid #FF4B4B;cursor:pointer;white-space:nowrap;transition:all .2s;">NVDA</button>
+                    <button class="htab" onclick="hSwitch(this,'TSLA')" style="padding:8px 14px;font-size:11px;font-weight:600;color:rgba(255,255,255,0.4);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;transition:all .2s;">TSLA</button>
+                    <button class="htab" onclick="hSwitch(this,'GOOGL')" style="padding:8px 14px;font-size:11px;font-weight:600;color:rgba(255,255,255,0.4);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;transition:all .2s;">GOOGL</button>
+                    <button class="htab" onclick="hSwitch(this,'META')" style="padding:8px 14px;font-size:11px;font-weight:600;color:rgba(255,255,255,0.4);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;transition:all .2s;">META</button>
+                    <button class="htab" onclick="hSwitch(this,'AMZN')" style="padding:8px 14px;font-size:11px;font-weight:600;color:rgba(255,255,255,0.4);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;transition:all .2s;">AMZN</button>
+                    <button class="htab" onclick="hSwitch(this,'PLTR')" style="padding:8px 14px;font-size:11px;font-weight:600;color:rgba(255,255,255,0.4);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;transition:all .2s;">PLTR</button>
+                </div>
+                <div style="position:relative; height: 260px; background: #0f0f18;">
+                    <canvas id="hCanvas" style="width:100%;height:100%;display:block;"></canvas>
+                </div>
+                <div style="display:flex; border-top:1px solid rgba(255,255,255,0.06);">
+                    <div style="flex:1; padding:10px 14px; border-right:1px solid rgba(255,255,255,0.06);">
+                        <div style="font-size:10px;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:.06em;">High</div>
+                        <div id="hHi" style="font-size:13px;font-weight:600;color:#f0ece8;margin-top:2px;">-</div>
+                    </div>
+                    <div style="flex:1; padding:10px 14px; border-right:1px solid rgba(255,255,255,0.06);">
+                        <div style="font-size:10px;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:.06em;">Low</div>
+                        <div id="hLo" style="font-size:13px;font-weight:600;color:#f0ece8;margin-top:2px;">-</div>
+                    </div>
+                    <div style="flex:1; padding:10px 14px; border-right:1px solid rgba(255,255,255,0.06);">
+                        <div style="font-size:10px;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:.06em;">Open</div>
+                        <div id="hOpen" style="font-size:13px;font-weight:600;color:#f0ece8;margin-top:2px;">-</div>
+                    </div>
+                    <div style="flex:1; padding:10px 14px;">
+                        <div style="font-size:10px;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:.06em;">Vol</div>
+                        <div id="hVol" style="font-size:13px;font-weight:600;color:#f0ece8;margin-top:2px;">42.1M</div>
+                    </div>
+                </div>
+            </div>
+            <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:80%;height:80%;background:radial-gradient(circle,rgba(255,75,75,0.15) 0%,transparent 70%);z-index:-1;filter:blur(40px);"></div>
         </div>
     </div>
 </section>
+
+<style>
+.hero-rocket { position:absolute; pointer-events:none; animation:hrocket linear forwards; opacity:0; z-index:1; }
+@keyframes hrocket {
+    0%  { opacity:0; transform:translate(0,0) rotate(-40deg) scale(.8); }
+    8%  { opacity:.75; }
+    90% { opacity:.4; }
+    100%{ opacity:0; transform:translate(var(--rx),var(--ry)) rotate(-40deg) scale(1.1); }
+}
+.hero-pt { position:absolute; border-radius:50%; pointer-events:none; animation:hpt ease-in-out infinite; z-index:1; }
+@keyframes hpt { 0%,100%{transform:translateY(0);opacity:.12;} 50%{transform:translateY(-16px);opacity:.3;} }
+</style>
+
+<script>
+(function(){
+    var STOCKS={NVDA:{base:875.40,vol:'42.1M'},TSLA:{base:248.30,vol:'89.3M'},GOOGL:{base:173.20,vol:'21.5M'},META:{base:510.75,vol:'15.8M'},AMZN:{base:192.80,vol:'34.2M'},PLTR:{base:24.60,vol:'67.4M'}};
+    var sym='NVDA',candles=[],scrollX=0,raf;
+    var canvas=document.getElementById('hCanvas');
+    var ctx=canvas?canvas.getContext('2d'):null;
+
+    function resize(){
+        if(!canvas)return;
+        var dpr=window.devicePixelRatio||1;
+        canvas.width=canvas.parentElement.offsetWidth*dpr;
+        canvas.height=canvas.parentElement.offsetHeight*dpr;
+        ctx.scale(dpr,dpr);
+    }
+    function gen(n,base){
+        var p=base,cs=[];
+        for(var i=0;i<n;i++){var o=p,mv=(Math.random()-.47)*(base*.013),c=p+mv,h=Math.max(o,c)+Math.random()*base*.004,l=Math.min(o,c)-Math.random()*base*.004;cs.push({o:o,c:c,h:h,l:l});p=c;}
+        return cs;
+    }
+    function draw(){
+        if(!canvas||!ctx)return;
+        var W=canvas.offsetWidth,H=canvas.offsetHeight;
+        if(!W||!H)return;
+        ctx.clearRect(0,0,W,H);
+        var all=candles.flatMap(function(c){return[c.h,c.l];});
+        var minP=Math.min.apply(null,all)*.998,maxP=Math.max.apply(null,all)*1.002,rng=maxP-minP||1,n=candles.length;
+        var cw=(W/n)*.55,gap=(W/n)*.45;
+        ctx.strokeStyle='rgba(255,255,255,0.04)';ctx.lineWidth=1;
+        for(var g=1;g<=4;g++){var gy=(H/5)*g;ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(W,gy);ctx.stroke();}
+        candles.forEach(function(c,i){
+            var x=(i/n)*W+gap/2+scrollX;
+            if(x+cw<0||x>W)return;
+            var up=c.c>=c.o,col=up?'#4ade80':'#FF4444';
+            var yH=H-((c.h-minP)/rng)*H,yL=H-((c.l-minP)/rng)*H,yO=H-((c.o-minP)/rng)*H,yC=H-((c.c-minP)/rng)*H;
+            ctx.strokeStyle=col;ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(x+cw/2,yH);ctx.lineTo(x+cw/2,yL);ctx.stroke();
+            ctx.fillStyle=col;ctx.fillRect(x,Math.min(yO,yC),cw,Math.max(Math.abs(yC-yO),2));
+        });
+        var last=candles[candles.length-1];
+        if(last){
+            var ly=H-((last.c-minP)/rng)*H;
+            ctx.strokeStyle='rgba(255,75,75,0.4)';ctx.lineWidth=1;ctx.setLineDash([4,6]);
+            ctx.beginPath();ctx.moveTo(0,ly);ctx.lineTo(W,ly);ctx.stroke();ctx.setLineDash([]);
+            ctx.fillStyle='rgba(255,75,75,.85)';ctx.fillRect(W-68,ly-9,66,18);
+            ctx.fillStyle='white';ctx.font='10px sans-serif';ctx.textAlign='right';
+            ctx.fillText('$'+last.c.toFixed(2),W-5,ly+4);ctx.textAlign='left';
+        }
+    }
+    function hud(price){
+        var el=document.getElementById('hPrice'),ce=document.getElementById('hChg'),hi=document.getElementById('hHi'),lo=document.getElementById('hLo'),op=document.getElementById('hOpen');
+        if(el)el.textContent='$'+price.toFixed(2);
+        var pct=(price-(candles[0]?candles[0].o:price))/(candles[0]?candles[0].o:price)*100;
+        if(ce){ce.textContent=(pct>=0?'\u25b2 +':'\u25bc ')+Math.abs(pct).toFixed(2)+'%';ce.style.color=pct>=0?'#4ade80':'#FF4444';}
+        var ps=candles.map(function(c){return c.c;});
+        if(hi)hi.textContent='$'+Math.max.apply(null,ps).toFixed(2);
+        if(lo)lo.textContent='$'+Math.min.apply(null,ps).toFixed(2);
+        if(op)op.textContent='$'+(candles[0]?candles[0].o.toFixed(2):'-');
+    }
+    function tick(){
+        scrollX-=.35;
+        var step=canvas.offsetWidth/candles.length;
+        if(Math.abs(scrollX)>=step){
+            scrollX=0;
+            var prev=candles[candles.length-1].c,base=STOCKS[sym].base,mv=(Math.random()-.47)*(base*.013),nc=prev+mv;
+            candles.push({o:prev,c:nc,h:Math.max(prev,nc)+Math.random()*base*.004,l:Math.min(prev,nc)-Math.random()*base*.004});
+            if(candles.length>80)candles.shift();
+            hud(nc);
+        }
+        draw();raf=requestAnimationFrame(tick);
+    }
+    function load(s){
+        sym=s;candles=gen(60,STOCKS[s].base);scrollX=0;
+        var se=document.getElementById('hSym'),ve=document.getElementById('hVol');
+        if(se)se.textContent=s;if(ve)ve.textContent=STOCKS[s].vol;
+        hud(candles[candles.length-1].c);
+    }
+    window.hSwitch=function(el,s){
+        document.querySelectorAll('.htab').forEach(function(t){t.style.color='rgba(255,255,255,0.4)';t.style.borderBottomColor='transparent';t.style.fontWeight='600';});
+        el.style.color='#FF4B4B';el.style.borderBottomColor='#FF4B4B';el.style.fontWeight='700';
+        if(raf)cancelAnimationFrame(raf);load(s);raf=requestAnimationFrame(tick);
+    };
+    function init(){resize();load('NVDA');raf=requestAnimationFrame(tick);}
+    window.addEventListener('resize',resize);
+    if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(init,80);});
+    else setTimeout(init,80);
+
+    // Rockets — appended to hero so they don't cover other sections
+    var heroEl = document.querySelector('.hero');
+    function spawnRocket(){
+        if(!heroEl) return;
+        var r=document.createElement('div');r.className='hero-rocket';
+        r.textContent=['🚀','📈','💹','⬆️'][Math.floor(Math.random()*4)];
+        var sx=5+Math.random()*45,sy=40+Math.random()*45,dx=(Math.random()-.5)*120,dy=-(100+Math.random()*160),dur=3500+Math.random()*3000;
+        r.style.cssText='left:'+sx+'%;top:'+sy+'%;--rx:'+dx+'px;--ry:'+dy+'px;animation-duration:'+dur+'ms;animation-delay:'+(Math.random()*600)+'ms;font-size:'+(14+Math.random()*9)+'px;';
+        heroEl.appendChild(r);setTimeout(function(){r.remove();},dur+1000);
+    }
+    setInterval(spawnRocket,2000);
+
+    // Particles — also scoped to hero
+    for(var i=0;i<10;i++){
+        if(!heroEl) break;
+        var pt=document.createElement('div');pt.className='hero-pt';
+        var sz=2+Math.random()*3;
+        pt.style.cssText='width:'+sz+'px;height:'+sz+'px;left:'+(Math.random()*100)+'%;top:'+(Math.random()*100)+'%;background:'+(Math.random()>.5?'rgba(255,75,75,.6)':'rgba(74,222,128,.5)')+';animation-duration:'+(3+Math.random()*5)+'s;animation-delay:'+(Math.random()*4)+'s;';
+        heroEl.appendChild(pt);
+    }
+})();
+</script>
 
 <!-- Mobile hero image (hidden on desktop) -->
 <style>
