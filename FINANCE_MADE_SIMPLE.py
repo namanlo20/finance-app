@@ -640,7 +640,10 @@ if 'selected_page' not in st.session_state:
 selected_page = st.session_state.selected_page
 
 # Analytics: track page views
-track_page_view(selected_page)
+try:
+    track_page_view(selected_page)
+except NameError:
+    pass
 
 # Sync selected_page to URL so refresh stays on same page
 if st.session_state.selected_page:
