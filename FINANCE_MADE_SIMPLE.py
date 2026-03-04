@@ -10631,138 +10631,553 @@ section[data-testid="stSidebar"] .stMarkdown * {
 # ============= STUNNING HERO SECTION =============
 st.markdown("""
 <style>
-@keyframes gradient-shift {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-}
-.hero-container {
-    background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 50%, #E8F5E9 100%);
-    background-size: 200% 200%;
-    animation: gradient-shift 15s ease infinite;
-    border-radius: 20px;
-    padding: 30px 40px;
-    margin: 0 0 15px 0;
-    position: relative;
-    overflow: hidden;
-    border: 2px solid #FF4444;
-    text-align: center;
-}
+/* ── HERO WRAPPER ── */
 .hero-container-simple {
-    background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 50%, #E8F5E9 100%);
-    background-size: 200% 200%;
-    animation: gradient-shift 15s ease infinite;
     border-radius: 20px;
     padding: 20px 40px;
     margin: 0 0 15px 0;
-    position: relative;
-    overflow: hidden;
     border: 2px solid #FF4444;
     text-align: center;
+    background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 50%, #E8F5E9 100%);
 }
-.hero-container::before {
+
+/* ── ANIMATED HERO ── */
+.hero-animated-wrapper {
+    position: relative;
+    border-radius: 24px;
+    overflow: hidden;
+    margin: 0 0 18px 0;
+    border: 1.5px solid rgba(255,68,68,0.35);
+    background: linear-gradient(135deg, #0f0b10 0%, #160d10 60%, #0d0f18 100%);
+    min-height: 320px;
+}
+
+/* Radial glow */
+.hero-animated-wrapper::before {
     content: '';
     position: absolute;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
-    background: radial-gradient(circle, rgba(255,68,68,0.05) 0%, transparent 50%);
+    bottom: -80px; left: -80px;
+    width: 420px; height: 420px;
+    background: radial-gradient(circle, rgba(204,0,0,0.18) 0%, transparent 65%);
     pointer-events: none;
+    z-index: 0;
 }
-.hero-title {
-    font-size: 3.2rem;
-    font-weight: 800;
-    background: linear-gradient(135deg, #CC0000 0%, #FF4444 50%, #CC0000 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    margin: 0 0 15px 0;
-    line-height: 1.2;
+
+/* Dot grid */
+.hero-animated-wrapper::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(rgba(255,255,255,0.06) 1px, transparent 1px);
+    background-size: 28px 28px;
+    pointer-events: none;
+    z-index: 0;
 }
-.hero-tagline {
-    font-size: 1.3rem;
-    color: #333;
-    margin-bottom: 25px;
-}
-.hero-features {
+
+.hero-inner {
+    position: relative;
+    z-index: 2;
     display: flex;
-    gap: 15px;
-    flex-wrap: wrap;
-    justify-content: center;
-    margin-top: 20px;
+    align-items: stretch;
+    gap: 0;
+    min-height: 320px;
 }
-.feature-pill {
-    background: #FFFFFF;
-    border: 2px solid #FF4444;
-    border-radius: 50px;
-    padding: 10px 20px;
-    color: #CC0000;
-    font-size: 0.9rem;
-    font-weight: 600;
-    box-shadow: 0 2px 8px rgba(255,68,68,0.2);
-}
-.stats-bar {
+
+/* ── LEFT CONTENT ── */
+.hero-left-content {
+    flex: 1 1 55%;
+    padding: 36px 36px 28px 36px;
     display: flex;
+    flex-direction: column;
     justify-content: center;
-    gap: 60px;
-    margin-top: 30px;
-    padding-top: 25px;
-    border-top: 2px solid rgba(255,68,68,0.2);
 }
-.stat-item { text-align: center; }
-.stat-number { font-size: 2rem; font-weight: 700; color: #CC0000; }
-.stat-label { font-size: 0.8rem; color: #555; text-transform: uppercase; letter-spacing: 1px; }
-.welcome-feature { 
-    text-align: left; 
-    margin: 5px 0; 
-    color: #333; 
+
+.hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    background: rgba(255,68,68,0.12);
+    border: 1px solid rgba(255,68,68,0.35);
+    border-radius: 100px;
+    padding: 5px 13px;
+    font-size: 12px;
+    color: #FF6B6B;
+    margin-bottom: 18px;
+    width: fit-content;
+}
+.hero-badge-dot {
+    width: 6px; height: 6px;
+    background: #FF4444;
+    border-radius: 50%;
+    animation: hero-blink 2s ease-in-out infinite;
+}
+@keyframes hero-blink {
+    0%,100%{opacity:1} 50%{opacity:0.2}
+}
+
+.hero-title-dark {
+    font-size: clamp(2rem, 3.5vw, 3rem);
+    font-weight: 900;
+    line-height: 1.1;
+    margin: 0 0 14px 0;
+    color: #f0ece8;
+    letter-spacing: -0.5px;
+}
+.hero-title-dark .accent { color: #FF4444; }
+
+.hero-tagline-dark {
     font-size: 1rem;
+    color: rgba(240,236,232,0.6);
+    margin-bottom: 22px;
+    line-height: 1.6;
+    max-width: 420px;
+}
+
+.hero-pills-dark {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+}
+.hero-pill-dark {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 100px;
+    padding: 7px 15px;
+    color: #e0dbd6;
+    font-size: 0.82rem;
+    font-weight: 500;
+}
+
+.hero-stats-dark {
+    display: flex;
+    gap: 32px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(255,68,68,0.18);
+}
+.hero-stat-dark { text-align: left; }
+.hero-stat-num { font-size: 1.6rem; font-weight: 800; color: #FF4444; line-height: 1; }
+.hero-stat-lbl { font-size: 0.7rem; color: rgba(240,236,232,0.45); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 3px; }
+
+.hero-features-dark {
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255,68,68,0.18);
+}
+.hero-feature-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 24px;
+}
+.hero-feature-item {
+    color: rgba(240,236,232,0.75);
+    font-size: 0.88rem;
+}
+.hero-feature-item strong { color: #f0ece8; }
+
+/* ── RIGHT CHART PANEL ── */
+.hero-right-panel {
+    flex: 0 0 45%;
+    position: relative;
+    border-left: 1px solid rgba(255,255,255,0.06);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.hero-chart-header {
+    padding: 14px 18px 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+}
+.hero-chart-sym {
+    font-weight: 700;
+    font-size: 15px;
+    color: #f0ece8;
+}
+.hero-chart-sub {
+    font-size: 11px;
+    color: rgba(240,236,232,0.4);
+    margin-top: 1px;
+}
+.hero-chart-price {
+    font-size: 18px;
+    font-weight: 800;
+    color: #f0ece8;
+    text-align: right;
+}
+.hero-chart-chg { font-size: 12px; font-weight: 600; text-align: right; margin-top: 1px; }
+.hero-chart-chg.up   { color: #4ade80; }
+.hero-chart-chg.down { color: #FF4444; }
+
+/* Stock tabs */
+.hero-stock-tabs {
+    display: flex;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    flex-shrink: 0;
+}
+.hero-stock-tab {
+    padding: 8px 14px;
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(240,236,232,0.4);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    background: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+}
+.hero-stock-tab.active {
+    color: #FF4444;
+    border-bottom-color: #FF4444;
+}
+
+.hero-canvas-wrap {
+    flex: 1;
+    position: relative;
+    min-height: 160px;
+}
+#heroStockCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.hero-chart-footer {
+    display: flex;
+    gap: 18px;
+    padding: 10px 18px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    flex-shrink: 0;
+}
+.hero-chart-stat { display: flex; flex-direction: column; gap: 1px; }
+.hero-chart-stat-lbl { font-size: 10px; color: rgba(240,236,232,0.35); text-transform: uppercase; letter-spacing: 0.06em; }
+.hero-chart-stat-val { font-size: 13px; font-weight: 600; color: #f0ece8; }
+
+/* Floating rockets */
+.hero-rocket {
+    position: absolute;
+    pointer-events: none;
+    font-size: 18px;
+    animation: rocket-up linear infinite;
+    opacity: 0;
+    z-index: 3;
+}
+@keyframes rocket-up {
+    0%   { opacity: 0;   transform: translate(0,0) rotate(-40deg) scale(0.8); }
+    8%   { opacity: 0.8; }
+    90%  { opacity: 0.4; }
+    100% { opacity: 0;   transform: translate(var(--rx),var(--ry)) rotate(-40deg) scale(1.1); }
+}
+
+/* Particles */
+.hero-particle {
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+    animation: particle-drift ease-in-out infinite;
+    z-index: 1;
+}
+@keyframes particle-drift {
+    0%,100% { transform: translateY(0);   opacity: 0.12; }
+    50%      { transform: translateY(-18px); opacity: 0.3; }
+}
+
+/* Mobile collapse */
+@media (max-width: 768px) {
+    .hero-inner { flex-direction: column; }
+    .hero-right-panel { border-left: none; border-top: 1px solid rgba(255,255,255,0.06); min-height: 220px; }
+    .hero-left-content { padding: 20px 18px 16px; }
+    .hero-stats-dark { gap: 18px; flex-wrap: wrap; }
 }
 </style>
 """, unsafe_allow_html=True)
 
 # Hero section - ONLY on Dashboard page
 if st.session_state.get('selected_page', '🏠 Dashboard') == '🏠 Dashboard':
-    # FULL VERSION for Dashboard - includes welcome content
     st.markdown("""
-    <div class="hero-container">
-        <h1 class="hero-title">💰 Investing Made Simple</h1>
-        <p class="hero-tagline">AI-Powered Stock Analysis for Everyone</p>
-        <div class="hero-features">
-            <span class="feature-pill">🤖 AI-Powered Insights</span>
-            <span class="feature-pill">📊 Real-Time Data</span>
-            <span class="feature-pill">🎯 Beginner Friendly</span>
-            <span class="feature-pill">📈 Pro Analytics</span>
+    <div class="hero-animated-wrapper">
+
+      <!-- floating particles -->
+      <div class="hero-particle" style="width:3px;height:3px;background:rgba(255,68,68,0.7);left:8%;top:30%;animation-duration:4.1s;"></div>
+      <div class="hero-particle" style="width:2px;height:2px;background:rgba(74,222,128,0.6);left:22%;top:65%;animation-duration:5.3s;animation-delay:1.2s;"></div>
+      <div class="hero-particle" style="width:4px;height:4px;background:rgba(255,68,68,0.4);left:38%;top:20%;animation-duration:3.8s;animation-delay:0.5s;"></div>
+      <div class="hero-particle" style="width:2px;height:2px;background:rgba(74,222,128,0.5);left:52%;top:78%;animation-duration:6.1s;animation-delay:2s;"></div>
+      <div class="hero-particle" style="width:3px;height:3px;background:rgba(255,68,68,0.5);left:70%;top:40%;animation-duration:4.7s;animation-delay:0.8s;"></div>
+
+      <div class="hero-inner">
+
+        <!-- ── LEFT ── -->
+        <div class="hero-left-content">
+          <div class="hero-badge">
+            <span class="hero-badge-dot"></span>
+            AI-Powered &middot; 100% Educational
+          </div>
+
+          <h1 class="hero-title-dark">
+            💰 Investing,<br><span class="accent">made simple.</span>
+          </h1>
+
+          <p class="hero-tagline-dark">
+            AI-Powered Stock Analysis for Everyone — no jargon, just clarity.
+          </p>
+
+          <div class="hero-pills-dark">
+            <span class="hero-pill-dark">🤖 AI-Powered Insights</span>
+            <span class="hero-pill-dark">📊 Real-Time Data</span>
+            <span class="hero-pill-dark">🎯 Beginner Friendly</span>
+            <span class="hero-pill-dark">📈 Pro Analytics</span>
+          </div>
+
+          <div class="hero-stats-dark">
+            <div class="hero-stat-dark"><div class="hero-stat-num">10K+</div><div class="hero-stat-lbl">Stocks</div></div>
+            <div class="hero-stat-dark"><div class="hero-stat-num">30Y</div><div class="hero-stat-lbl">History</div></div>
+            <div class="hero-stat-dark"><div class="hero-stat-num">24/7</div><div class="hero-stat-lbl">AI Help</div></div>
+            <div class="hero-stat-dark"><div class="hero-stat-num">FREE</div><div class="hero-stat-lbl">To Start</div></div>
+          </div>
+
+          <div class="hero-features-dark">
+            <p style="color:rgba(240,236,232,0.5);font-size:0.85rem;margin:0 0 10px 0;">Your personal stock research assistant.</p>
+            <div class="hero-feature-row">
+              <div class="hero-feature-item">✅ <strong>Dashboard</strong> — Pin stocks to track</div>
+              <div class="hero-feature-item">✅ <strong>Company Analysis</strong> — Deep dive any stock</div>
+              <div class="hero-feature-item">✅ <strong>Risk Quiz</strong> — Find your investor profile</div>
+              <div class="hero-feature-item">✅ <strong>Learn</strong> — Master investing basics</div>
+            </div>
+          </div>
         </div>
-        <div class="stats-bar">
-            <div class="stat-item">
-                <div class="stat-number">10K+</div>
-                <div class="stat-label">Stocks</div>
+
+        <!-- ── RIGHT: LIVE CHART PANEL ── -->
+        <div class="hero-right-panel">
+          <div class="hero-chart-header">
+            <div>
+              <div class="hero-chart-sym" id="heroSym">NVDA</div>
+              <div class="hero-chart-sub">NASDAQ · Live</div>
             </div>
-            <div class="stat-item">
-                <div class="stat-number">30Y</div>
-                <div class="stat-label">History</div>
+            <div>
+              <div class="hero-chart-price" id="heroPrice">$875.40</div>
+              <div class="hero-chart-chg up" id="heroChg">▲ +2.34%</div>
             </div>
-            <div class="stat-item">
-                <div class="stat-number">24/7</div>
-                <div class="stat-label">AI Help</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-number">FREE</div>
-                <div class="stat-label">To Start</div>
-            </div>
+          </div>
+
+          <!-- Stock selector tabs -->
+          <div class="hero-stock-tabs">
+            <button class="hero-stock-tab active" onclick="heroSwitchStock(this,'NVDA',875.40,true)">NVDA</button>
+            <button class="hero-stock-tab" onclick="heroSwitchStock(this,'TSLA',248.30,false)">TSLA</button>
+            <button class="hero-stock-tab" onclick="heroSwitchStock(this,'GOOGL',173.20,false)">GOOGL</button>
+            <button class="hero-stock-tab" onclick="heroSwitchStock(this,'META',510.75,true)">META</button>
+            <button class="hero-stock-tab" onclick="heroSwitchStock(this,'AMZN',192.80,true)">AMZN</button>
+            <button class="hero-stock-tab" onclick="heroSwitchStock(this,'PLTR',24.60,true)">PLTR</button>
+          </div>
+
+          <div class="hero-canvas-wrap">
+            <canvas id="heroStockCanvas"></canvas>
+          </div>
+
+          <div class="hero-chart-footer">
+            <div class="hero-chart-stat"><span class="hero-chart-stat-lbl">Volume</span><span class="hero-chart-stat-val" id="heroVol">42.1M</span></div>
+            <div class="hero-chart-stat"><span class="hero-chart-stat-lbl">High</span><span class="hero-chart-stat-val" id="heroHi">—</span></div>
+            <div class="hero-chart-stat"><span class="hero-chart-stat-lbl">Low</span><span class="hero-chart-stat-val" id="heroLo">—</span></div>
+            <div class="hero-chart-stat"><span class="hero-chart-stat-lbl">Open</span><span class="hero-chart-stat-val" id="heroOpen">—</span></div>
+          </div>
         </div>
-        <div style="margin-top: 25px; padding-top: 20px; border-top: 2px solid rgba(255,68,68,0.2);">
-            <p style="color: #555; font-size: 1rem; margin-bottom: 15px;">Your personal stock research assistant. No jargon, just clarity.</p>
-            <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 20px;">
-                <div class="welcome-feature">✅ <strong>Dashboard</strong> - Pin stocks to track</div>
-                <div class="welcome-feature">✅ <strong>Company Analysis</strong> - Deep dive into any stock</div>
-                <div class="welcome-feature">✅ <strong>Risk Quiz</strong> - Find your investor profile</div>
-                <div class="welcome-feature">✅ <strong>Learn</strong> - Master investing basics</div>
-            </div>
-        </div>
-    </div>
+
+      </div><!-- /hero-inner -->
+    </div><!-- /hero-animated-wrapper -->
+
+    <script>
+    (function(){
+      // ── Stock configs ──
+      var STOCKS = {
+        NVDA:  { base: 875.40, vol: '42.1M', up: true  },
+        TSLA:  { base: 248.30, vol: '89.3M', up: false },
+        GOOGL: { base: 173.20, vol: '21.5M', up: false },
+        META:  { base: 510.75, vol: '15.8M', up: true  },
+        AMZN:  { base: 192.80, vol: '34.2M', up: true  },
+        PLTR:  { base:  24.60, vol: '67.4M', up: true  },
+      };
+
+      var activeSym = 'NVDA';
+      var candles = [];
+      var scrollX = 0;
+      var raf;
+      var canvas = document.getElementById('heroStockCanvas');
+      var ctx = canvas ? canvas.getContext('2d') : null;
+
+      function resize() {
+        if (!canvas) return;
+        var wrap = canvas.parentElement;
+        var dpr = window.devicePixelRatio || 1;
+        canvas.width  = wrap.offsetWidth  * dpr;
+        canvas.height = wrap.offsetHeight * dpr;
+        ctx.scale(dpr, dpr);
+      }
+
+      function genCandles(n, base) {
+        var p = base, cs = [];
+        for (var i = 0; i < n; i++) {
+          var o = p;
+          var mv = (Math.random() - 0.47) * (base * 0.012);
+          var c = p + mv;
+          var h = Math.max(o,c) + Math.random() * base * 0.004;
+          var l = Math.min(o,c) - Math.random() * base * 0.004;
+          cs.push({o:o, c:c, h:h, l:l});
+          p = c;
+        }
+        return cs;
+      }
+
+      function drawChart() {
+        if (!canvas || !ctx) return;
+        var W = canvas.offsetWidth, H = canvas.offsetHeight;
+        if (!W || !H) return;
+        ctx.clearRect(0, 0, W, H);
+
+        var all = candles.flatMap(function(c){ return [c.h, c.l]; });
+        var minP = Math.min.apply(null, all) * 0.998;
+        var maxP = Math.max.apply(null, all) * 1.002;
+        var rng  = maxP - minP || 1;
+        var n    = candles.length;
+        var cw   = (W / n) * 0.55;
+        var gap  = (W / n) * 0.45;
+
+        // Grid lines
+        ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+        ctx.lineWidth = 1;
+        for (var g = 1; g <= 4; g++) {
+          var gy = (H/5)*g;
+          ctx.beginPath(); ctx.moveTo(0,gy); ctx.lineTo(W,gy); ctx.stroke();
+        }
+
+        // Candles
+        candles.forEach(function(c, i) {
+          var x = (i/n)*W + gap/2 + scrollX;
+          if (x+cw < 0 || x > W) return;
+          var up = c.c >= c.o;
+          var col = up ? '#4ade80' : '#FF4444';
+          var yH = H - ((c.h-minP)/rng)*H;
+          var yL = H - ((c.l-minP)/rng)*H;
+          var yO = H - ((c.o-minP)/rng)*H;
+          var yC = H - ((c.c-minP)/rng)*H;
+          ctx.strokeStyle = col; ctx.lineWidth = 1.5;
+          ctx.beginPath(); ctx.moveTo(x+cw/2,yH); ctx.lineTo(x+cw/2,yL); ctx.stroke();
+          ctx.fillStyle = col;
+          ctx.fillRect(x, Math.min(yO,yC), cw, Math.max(Math.abs(yC-yO),2));
+        });
+
+        // Price dashed line
+        var last = candles[candles.length-1];
+        if (last) {
+          var ly = H - ((last.c-minP)/rng)*H;
+          ctx.strokeStyle = 'rgba(255,68,68,0.4)';
+          ctx.lineWidth = 1; ctx.setLineDash([4,6]);
+          ctx.beginPath(); ctx.moveTo(0,ly); ctx.lineTo(W,ly); ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.fillStyle='rgba(255,68,68,0.8)';
+          ctx.fillRect(W-68, ly-9, 66, 18);
+          ctx.fillStyle='white'; ctx.font='10px sans-serif'; ctx.textAlign='right';
+          ctx.fillText('$'+last.c.toFixed(2), W-5, ly+4);
+        }
+      }
+
+      function tick() {
+        scrollX -= 0.35;
+        var step = (canvas.offsetWidth / candles.length) * 1.0;
+        if (Math.abs(scrollX) >= step) {
+          scrollX = 0;
+          var prev = candles[candles.length-1].c;
+          var sym  = STOCKS[activeSym];
+          var mv   = (Math.random()-0.47)*(sym.base*0.012);
+          var nc   = prev+mv;
+          var nh   = Math.max(prev,nc) + Math.random()*sym.base*0.004;
+          var nl   = Math.min(prev,nc) - Math.random()*sym.base*0.004;
+          candles.push({o:prev,c:nc,h:nh,l:nl});
+          if (candles.length > 80) candles.shift();
+          updateHeader(nc);
+        }
+        drawChart();
+        raf = requestAnimationFrame(tick);
+      }
+
+      function updateHeader(price) {
+        var sym   = STOCKS[activeSym];
+        var start = candles[0].o;
+        var pct   = (price-start)/start*100;
+        var pel   = document.getElementById('heroPrice');
+        var cel   = document.getElementById('heroChg');
+        var hEl   = document.getElementById('heroHi');
+        var lEl   = document.getElementById('heroLo');
+        var oEl   = document.getElementById('heroOpen');
+        if (pel) pel.textContent = '$'+price.toFixed(2);
+        if (cel) {
+          cel.textContent = (pct>=0?'▲ +':'▼ ')+pct.toFixed(2)+'%';
+          cel.className   = 'hero-chart-chg '+(pct>=0?'up':'down');
+        }
+        var prices = candles.map(function(c){return c.c;});
+        if (hEl) hEl.textContent = '$'+Math.max.apply(null,prices).toFixed(2);
+        if (lEl) lEl.textContent = '$'+Math.min.apply(null,prices).toFixed(2);
+        if (oEl) oEl.textContent = '$'+candles[0].o.toFixed(2);
+      }
+
+      function loadStock(sym) {
+        activeSym = sym;
+        candles = genCandles(60, STOCKS[sym].base);
+        scrollX = 0;
+        var sEl = document.getElementById('heroSym');
+        var vEl = document.getElementById('heroVol');
+        if (sEl) sEl.textContent = sym;
+        if (vEl) vEl.textContent = STOCKS[sym].vol;
+        updateHeader(candles[candles.length-1].c);
+      }
+
+      window.heroSwitchStock = function(el, sym) {
+        document.querySelectorAll('.hero-stock-tab').forEach(function(t){ t.classList.remove('active'); });
+        el.classList.add('active');
+        if (raf) cancelAnimationFrame(raf);
+        loadStock(sym);
+        raf = requestAnimationFrame(tick);
+      };
+
+      // Init
+      function init() {
+        if (!canvas) return;
+        resize();
+        loadStock('NVDA');
+        raf = requestAnimationFrame(tick);
+      }
+      window.addEventListener('resize', function(){ resize(); });
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+      } else {
+        setTimeout(init, 100);
+      }
+
+      // ── ROCKETS ──
+      var wrapper = document.querySelector('.hero-animated-wrapper');
+      function spawnRocket() {
+        if (!wrapper) return;
+        var r = document.createElement('div');
+        r.className = 'hero-rocket';
+        var emojis = ['🚀','📈','💹','⬆️'];
+        r.textContent = emojis[Math.floor(Math.random()*emojis.length)];
+        var sx = 5 + Math.random()*50; // only left half so it doesn't cover chart
+        var sy = 60 + Math.random()*30;
+        var dx = (Math.random()-0.5)*120;
+        var dy = -(120 + Math.random()*180);
+        var dur = 3500 + Math.random()*3000;
+        r.style.cssText = 'left:'+sx+'%;top:'+sy+'%;--rx:'+dx+'px;--ry:'+dy+'px;animation-duration:'+dur+'ms;animation-delay:'+Math.random()*800+'ms;font-size:'+(14+Math.random()*8)+'px;';
+        wrapper.appendChild(r);
+        setTimeout(function(){ r.remove(); }, dur+900);
+      }
+      setInterval(spawnRocket, 2000);
+
+    })();
+    </script>
     """, unsafe_allow_html=True)
 
 
