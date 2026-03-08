@@ -5266,7 +5266,7 @@ def get_revenue_growth(ticker):
 # Fallback logos for stocks with missing or problematic logos
 # Using reliable sources with PNG format
 FALLBACK_LOGOS = {
-    # These logos have known issues with FMP - using alternatives
+    # TradingView SVG logos - highly reliable
     "PLTR": "https://s3-symbol-logo.tradingview.com/palantir--big.svg",
     "BRK.B": "https://s3-symbol-logo.tradingview.com/berkshire-hathaway--big.svg",
     "BRK-B": "https://s3-symbol-logo.tradingview.com/berkshire-hathaway--big.svg",
@@ -5275,6 +5275,29 @@ FALLBACK_LOGOS = {
     "META": "https://s3-symbol-logo.tradingview.com/meta-platforms--big.svg",
     "AMZN": "https://s3-symbol-logo.tradingview.com/amazon--big.svg",
     "TSLA": "https://s3-symbol-logo.tradingview.com/tesla--big.svg",
+    # Naman portfolio tickers
+    "NFLX": "https://s3-symbol-logo.tradingview.com/netflix--big.svg",
+    "SPGI": "https://s3-symbol-logo.tradingview.com/s-p-global--big.svg",
+    "MCO": "https://s3-symbol-logo.tradingview.com/moodys--big.svg",
+    "PANW": "https://s3-symbol-logo.tradingview.com/palo-alto-networks--big.svg",
+    "MSFT": "https://s3-symbol-logo.tradingview.com/microsoft--big.svg",
+    "HOOD": "https://s3-symbol-logo.tradingview.com/robinhood--big.svg",
+    "NVDA": "https://s3-symbol-logo.tradingview.com/nvidia--big.svg",
+    "AVGO": "https://s3-symbol-logo.tradingview.com/broadcom--big.svg",
+    "CRWD": "https://s3-symbol-logo.tradingview.com/crowdstrike--big.svg",
+    "ASML": "https://s3-symbol-logo.tradingview.com/asml--big.svg",
+    "CRM": "https://s3-symbol-logo.tradingview.com/salesforce--big.svg",
+    # Common additional tickers
+    "AAPL": "https://s3-symbol-logo.tradingview.com/apple--big.svg",
+    "GOOGL": "https://s3-symbol-logo.tradingview.com/alphabet--big.svg",
+    "JPM": "https://s3-symbol-logo.tradingview.com/jpmorgan-chase--big.svg",
+    "V": "https://s3-symbol-logo.tradingview.com/visa--big.svg",
+    "MA": "https://s3-symbol-logo.tradingview.com/mastercard--big.svg",
+    "AMD": "https://s3-symbol-logo.tradingview.com/advanced-micro-devices--big.svg",
+    "INTC": "https://s3-symbol-logo.tradingview.com/intel--big.svg",
+    "COIN": "https://s3-symbol-logo.tradingview.com/coinbase--big.svg",
+    "SPY": "https://s3-symbol-logo.tradingview.com/amex/spy--big.svg",
+    "QQQ": "https://s3-symbol-logo.tradingview.com/invesco--big.svg",
 }
 
 @st.cache_data(ttl=86400)
@@ -5780,14 +5803,20 @@ def get_weekly_earnings_fmp():
                     if len(symbol) > 5:
                         continue
                     
-                    # Get actual market cap from quote
-                    quote = get_quote(symbol)
-                    market_cap = 0
-                    if quote:
-                        market_cap = quote.get('marketCap', 0) or 0
+                    # Use hardcoded market cap tiers to avoid per-symbol API calls (major speedup)
+                    _MEGA_CAP = {"AAPL","MSFT","NVDA","GOOGL","GOOG","AMZN","META","TSLA","BRK.A","BRK.B","LLY","V","JPM","UNH","XOM","AVGO","MA","JNJ","PG","COST","HD","MRK","ABBV","BAC","KO","ORCL","CVX","AMD","WMT","NFLX","DIS","CSCO","ABT","MCD","CRM","GE","PEP","T","VZ","QCOM","TMO","AMGN","INTU","NKE","CAT","IBM","AMAT","TXN","NOW","PLTR","GS","MS","WFC","SPGI","BLK","AXP","UPS","HON","BA","RTX","PFE","BKNG","PANW","SQ","UBER","LYFT","COIN","SNOW","CRWD","ZM","SHOP","ADBE","INTC","MU","LRCX","KLAC","MRVL","FICO","MCO","CME"}
+                    _LARGE_CAP = {"SBUX","F","GM","GD","LMT","ISRG","SYK","MDT","ZTS","CI","CVS","AIG","MET","PRU","AON","MMC","TRV","CB","HIG","WBA","DLTR","TGT","LOW","EBAY","ETSY","PINS","SNAP","TWTR","DASH","RBLX","ABNB","RIVN","LCID","NIO","BIDU","JD","BABA","TSM","ASML","SAP","TM","SONY","SMCI","DELL","HPE","HPQ","WDC","STX","NTAP","PSTG","NET","ZS","OKTA","DDOG","MDB","ESTC","TEAM","ATLASSIAN"}
                     
-                    # Only include companies with market cap > $10B (big companies)
-                    if market_cap > 10000000000:  # $10B+
+                    if symbol in _MEGA_CAP:
+                        market_cap = 500_000_000_000
+                    elif symbol in _LARGE_CAP:
+                        market_cap = 50_000_000_000
+                    elif len(symbol) <= 4:
+                        market_cap = 15_000_000_000  # Assume mid-large for short tickers
+                    else:
+                        market_cap = 0
+                    
+                    if market_cap > 10_000_000_000:
                         all_earnings.append({
                             'symbol': symbol,
                             'company_name': symbol,
@@ -12818,6 +12847,992 @@ def render_lesson_visual(lesson_id: str):
 # =============================================================================
 # END LESSON VISUAL COMPONENTS
 # =============================================================================
+
+# ============================================================
+# FEATURE: STRESS TEST PORTFOLIO (#3)
+# ============================================================
+
+# Historical crash scenarios with real market data
+CRASH_SCENARIOS = {
+    "2008 Financial Crisis": {
+        "period": "Sep 2008 – Mar 2009",
+        "icon": "🏦",
+        "sp500_drop": -56.8,
+        "duration_months": 6,
+        "recovery_months": 49,
+        "color": "#FF4444",
+        "description": "Lehman Brothers collapsed, housing market imploded. Worst crash since the Great Depression.",
+        "sector_impacts": {
+            "Financials": -83, "Real Estate": -72, "Consumer Discretionary": -65,
+            "Industrials": -60, "Materials": -58, "Energy": -55,
+            "Technology": -52, "Health Care": -36, "Consumer Staples": -30,
+            "Utilities": -29, "Telecom": -40,
+        },
+        "beta_multiplier": 1.0,
+    },
+    "COVID Crash 2020": {
+        "period": "Feb – Mar 2020",
+        "icon": "🦠",
+        "sp500_drop": -33.9,
+        "duration_months": 1.5,
+        "recovery_months": 5,
+        "color": "#FF8C00",
+        "description": "Global pandemic panic. Fastest bear market in history — but also the fastest recovery.",
+        "sector_impacts": {
+            "Energy": -58, "Financials": -45, "Industrials": -43,
+            "Real Estate": -38, "Consumer Discretionary": -36, "Materials": -34,
+            "Technology": -26, "Communication Services": -28, "Health Care": -14,
+            "Consumer Staples": -12, "Utilities": -20,
+        },
+        "beta_multiplier": 1.0,
+    },
+    "Dot-Com Bust 2000": {
+        "period": "Mar 2000 – Oct 2002",
+        "icon": "💻",
+        "sp500_drop": -49.1,
+        "duration_months": 30,
+        "recovery_months": 84,
+        "color": "#9D4EDD",
+        "description": "Tech bubble popped. Nasdaq fell 78%. Recovery took 7 years. Tech stocks were annihilated.",
+        "sector_impacts": {
+            "Technology": -82, "Communication Services": -70, "Consumer Discretionary": -50,
+            "Industrials": -35, "Financials": -30, "Materials": -28,
+            "Energy": -10, "Health Care": -22, "Consumer Staples": -15,
+            "Utilities": -30, "Real Estate": -10,
+        },
+        "beta_multiplier": 1.0,
+    },
+    "2022 Rate Hike Crash": {
+        "period": "Jan – Oct 2022",
+        "icon": "📈",
+        "sp500_drop": -25.4,
+        "duration_months": 9,
+        "recovery_months": 18,
+        "color": "#FF6B35",
+        "description": "Fed hiked rates at fastest pace since 1980 to fight 9% inflation. Growth stocks crushed.",
+        "sector_impacts": {
+            "Communication Services": -42, "Consumer Discretionary": -38, "Technology": -35,
+            "Real Estate": -30, "Financials": -20, "Materials": -15,
+            "Industrials": -12, "Health Care": -8, "Consumer Staples": -5,
+            "Energy": +59, "Utilities": -1,
+        },
+        "beta_multiplier": 1.0,
+    },
+    "Flash Crash 2010": {
+        "period": "May 6, 2010",
+        "icon": "⚡",
+        "sp500_drop": -9.2,
+        "duration_months": 0.03,
+        "recovery_months": 0.1,
+        "color": "#FFD700",
+        "description": "Market fell 9% in 36 minutes due to algorithmic trading cascade. Recovered same day.",
+        "sector_impacts": {
+            "Technology": -10, "Financials": -11, "Consumer Discretionary": -9,
+            "Industrials": -9, "Materials": -8, "Energy": -8,
+            "Health Care": -7, "Consumer Staples": -6, "Utilities": -5,
+            "Real Estate": -8, "Communication Services": -8,
+        },
+        "beta_multiplier": 1.0,
+    },
+}
+
+# Sector mapping for common tickers
+TICKER_SECTOR_MAP = {
+    # Technology
+    "AAPL": "Technology", "MSFT": "Technology", "NVDA": "Technology",
+    "AMD": "Technology", "INTC": "Technology", "QCOM": "Technology",
+    "AVGO": "Technology", "TXN": "Technology", "MU": "Technology",
+    "AMAT": "Technology", "LRCX": "Technology", "KLAC": "Technology",
+    # Communication Services
+    "GOOGL": "Communication Services", "GOOG": "Communication Services",
+    "META": "Communication Services", "NFLX": "Communication Services",
+    "DIS": "Communication Services", "CMCSA": "Communication Services",
+    "T": "Telecom", "VZ": "Telecom",
+    # Consumer Discretionary
+    "AMZN": "Consumer Discretionary", "TSLA": "Consumer Discretionary",
+    "NKE": "Consumer Discretionary", "MCD": "Consumer Discretionary",
+    "SBUX": "Consumer Discretionary", "HD": "Consumer Discretionary",
+    # Financials
+    "JPM": "Financials", "BAC": "Financials", "WFC": "Financials",
+    "GS": "Financials", "MS": "Financials", "BRK.B": "Financials",
+    "V": "Financials", "MA": "Financials", "AXP": "Financials",
+    # Health Care
+    "JNJ": "Health Care", "UNH": "Health Care", "PFE": "Health Care",
+    "ABBV": "Health Care", "MRK": "Health Care", "LLY": "Health Care",
+    # Consumer Staples
+    "PG": "Consumer Staples", "KO": "Consumer Staples", "PEP": "Consumer Staples",
+    "WMT": "Consumer Staples", "COST": "Consumer Staples",
+    # Energy
+    "XOM": "Energy", "CVX": "Energy", "COP": "Energy", "SLB": "Energy",
+    # Industrials
+    "BA": "Industrials", "CAT": "Industrials", "GE": "Industrials",
+    "HON": "Industrials", "UPS": "Industrials", "FDX": "Industrials",
+    # ETFs (treat as broad market)
+    "SPY": "ETF", "QQQ": "ETF", "IWM": "ETF", "VOO": "ETF",
+    "VTI": "ETF", "DIA": "ETF", "ARKK": "ETF",
+    # Crypto-adjacent
+    "COIN": "Technology", "MSTR": "Technology",
+    # PLTR
+    "PLTR": "Technology",
+}
+
+def get_ticker_sector(ticker, profile=None):
+    """Get sector for ticker from hardcoded map or FMP profile"""
+    t = ticker.upper()
+    if t in TICKER_SECTOR_MAP:
+        return TICKER_SECTOR_MAP[t]
+    if profile and profile.get("sector"):
+        return profile["sector"]
+    return "Technology"  # Default fallback
+
+def estimate_crash_impact(ticker, sector, scenario, current_value, beta=1.0):
+    """Estimate portfolio impact for a ticker in a given crash scenario"""
+    scenario_data = CRASH_SCENARIOS[scenario]
+    sector_drop = scenario_data["sector_impacts"].get(sector, scenario_data["sp500_drop"])
+
+    # Beta adjustment: high-beta stocks fall more, low-beta less
+    # Clamp beta between 0.3 and 2.5
+    beta = max(0.3, min(2.5, beta))
+    adjusted_drop = sector_drop * beta
+
+    # Cap at -95% (nothing goes to zero in our model) and +70% (2022 energy)
+    adjusted_drop = max(-95, min(70, adjusted_drop))
+
+    dollar_impact = current_value * (adjusted_drop / 100)
+    new_value = current_value + dollar_impact
+    return adjusted_drop, dollar_impact, new_value
+
+
+@st.cache_data(ttl=3600)
+def get_ticker_beta(ticker):
+    """Fetch beta from FMP profile"""
+    try:
+        url = f"{BASE_URL}/profile?symbol={ticker}&apikey={FMP_API_KEY}"
+        response = requests.get(url, timeout=10)
+        data = response.json()
+        if data and len(data) > 0:
+            return float(data[0].get("beta") or 1.0)
+    except Exception:
+        pass
+    return 1.0
+
+
+def render_stress_test_page():
+    """Full stress test portfolio page"""
+    st.markdown("## 💥 Stress Test Your Portfolio")
+    st.caption("*See how your paper portfolio would have performed in the worst market crashes in history.*")
+
+    # Tier gate - Pro+
+    if not show_premium_gate("Portfolio Stress Test", required_tier="pro"):
+        st.markdown("""
+        <div style='background:rgba(255,75,75,0.08);border:1px solid rgba(255,75,75,0.2);
+        border-radius:12px;padding:20px;margin-top:16px;'>
+        <b>🔓 What you'll unlock:</b><br><br>
+        • See your portfolio value in 2008, COVID, dot-com crash and more<br>
+        • Per-stock breakdown showing which position would hurt most<br>
+        • Recovery timeline — how long until you'd break even<br>
+        • AI plain-English explanation of why your portfolio is vulnerable<br>
+        </div>
+        """, unsafe_allow_html=True)
+        return
+
+    # Get current portfolio
+    portfolio = st.session_state.get("portfolio", [])
+    cash = st.session_state.get("cash", STARTING_CASH)
+
+    if not portfolio:
+        st.info("📭 Your paper portfolio is empty. Make some trades first, then come back to stress test it!")
+        if st.button("→ Go to Paper Portfolio", key="stress_goto_portfolio"):
+            st.session_state.selected_page = "💼 Paper Portfolio"
+            st.rerun()
+        return
+
+    # Build current portfolio values
+    with st.spinner("📊 Fetching current prices & beta values..."):
+        positions = []
+        total_invested = 0
+        for pos in portfolio:
+            ticker = pos["ticker"].upper()
+            shares = pos["shares"]
+            avg_price = pos["avg_price"]
+            quote = get_quote(ticker)
+            current_price = quote.get("price", avg_price) if quote else avg_price
+            current_value = shares * current_price
+            cost_basis = shares * avg_price
+            beta = get_ticker_beta(ticker)
+            profile = get_profile(ticker)
+            sector = get_ticker_sector(ticker, profile)
+            positions.append({
+                "ticker": ticker, "shares": shares,
+                "avg_price": avg_price, "current_price": current_price,
+                "current_value": current_value, "cost_basis": cost_basis,
+                "beta": beta, "sector": sector,
+            })
+            total_invested += current_value
+
+    total_portfolio_value = total_invested + cash
+
+    # ── Current Portfolio Summary ──────────────────────────────
+    st.markdown("### 📊 Current Portfolio")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Total Value", f"${total_portfolio_value:,.0f}")
+    with col2:
+        st.metric("Invested", f"${total_invested:,.0f}")
+    with col3:
+        st.metric("Cash (safe)", f"${cash:,.0f}")
+
+    # ── Scenario Selector ─────────────────────────────────────
+    st.markdown("---")
+    st.markdown("### 🌪️ Choose a Crash Scenario")
+
+    scenario_cols = st.columns(len(CRASH_SCENARIOS))
+    selected_scenario = st.session_state.get("stress_scenario", list(CRASH_SCENARIOS.keys())[0])
+
+    for i, (name, data) in enumerate(CRASH_SCENARIOS.items()):
+        with scenario_cols[i]:
+            active = selected_scenario == name
+            border = f"2px solid {data['color']}" if active else "1px solid rgba(255,255,255,0.1)"
+            bg = f"rgba(255,255,255,0.06)" if active else "rgba(255,255,255,0.02)"
+            st.markdown(f"""
+            <div style='background:{bg};border:{border};border-radius:12px;
+            padding:12px 8px;text-align:center;margin-bottom:4px;'>
+                <div style='font-size:24px'>{data["icon"]}</div>
+                <div style='font-size:11px;font-weight:700;color:{data["color"]};
+                margin:4px 0 2px;'>{name.split(" ")[0] + " " + name.split(" ")[-1]}</div>
+                <div style='font-size:18px;font-weight:800;color:{data["color"]};'>
+                {data["sp500_drop"]:+.1f}%</div>
+                <div style='font-size:10px;color:rgba(255,255,255,0.4);'>{data["period"]}</div>
+            </div>
+            """, unsafe_allow_html=True)
+            if st.button(f"Select", key=f"stress_sel_{i}", use_container_width=True):
+                st.session_state.stress_scenario = name
+                st.rerun()
+
+    st.markdown("---")
+
+    # ── Run the stress test ───────────────────────────────────
+    scenario = CRASH_SCENARIOS[selected_scenario]
+    st.markdown(f"### {scenario['icon']} {selected_scenario} — What Would Happen?")
+    st.caption(scenario["description"])
+
+    # Calculate impacts
+    scenario_positions = []
+    total_crash_value = cash  # Cash is always safe
+    total_crash_loss = 0
+
+    for pos in positions:
+        pct_drop, dollar_impact, new_value = estimate_crash_impact(
+            pos["ticker"], pos["sector"], selected_scenario,
+            pos["current_value"], pos["beta"]
+        )
+        scenario_positions.append({**pos, "pct_drop": pct_drop,
+                                    "dollar_impact": dollar_impact, "new_value": new_value})
+        total_crash_value += new_value
+        total_crash_loss += dollar_impact
+
+    total_crash_pct = (total_crash_loss / total_portfolio_value * 100) if total_portfolio_value > 0 else 0
+
+    # ── Big impact numbers ────────────────────────────────────
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        st.metric("Portfolio Before", f"${total_portfolio_value:,.0f}")
+    with c2:
+        st.metric("Portfolio After Crash", f"${total_crash_value:,.0f}",
+                  delta=f"${total_crash_loss:,.0f}", delta_color="inverse")
+    with c3:
+        st.metric("Total Loss", f"${abs(total_crash_loss):,.0f}",
+                  delta=f"{total_crash_pct:.1f}%", delta_color="inverse")
+    with c4:
+        recovery = scenario["recovery_months"]
+        if recovery < 12:
+            rec_str = f"{recovery:.0f} months"
+        else:
+            rec_str = f"{recovery/12:.1f} years"
+        st.metric("Historical Recovery", rec_str)
+
+    # ── Visual bar: before vs after ───────────────────────────
+    st.markdown("<br>", unsafe_allow_html=True)
+    bar_pct = max(5, int((total_crash_value / total_portfolio_value) * 100))
+    loss_pct_display = 100 - bar_pct
+    st.markdown(f"""
+    <div style='margin:8px 0 4px;font-size:13px;color:rgba(255,255,255,0.5);'>
+        Portfolio value after crash
+    </div>
+    <div style='background:rgba(255,255,255,0.06);border-radius:100px;height:28px;
+    overflow:hidden;position:relative;'>
+        <div style='background:linear-gradient(90deg,{scenario["color"]},{scenario["color"]}aa);
+        height:100%;width:{bar_pct}%;border-radius:100px;
+        display:flex;align-items:center;padding-left:12px;
+        font-size:12px;font-weight:700;color:white;white-space:nowrap;'>
+            ${total_crash_value:,.0f} ({bar_pct}% remains)
+        </div>
+    </div>
+    <div style='text-align:right;font-size:11px;color:{scenario["color"]};margin-top:4px;'>
+        💸 {loss_pct_display}% lost — ${abs(total_crash_loss):,.0f}
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── Per-stock breakdown ───────────────────────────────────
+    st.markdown("---")
+    st.markdown("#### 📋 Position-by-Position Breakdown")
+    st.caption("Estimates based on historical sector performance + each stock's beta (volatility vs market).")
+
+    # Sort by biggest loss
+    scenario_positions.sort(key=lambda x: x["dollar_impact"])
+
+    for pos in scenario_positions:
+        color = "#FF4444" if pos["pct_drop"] < 0 else "#22c55e"
+        badge_bg = "rgba(255,68,68,0.12)" if pos["pct_drop"] < 0 else "rgba(34,197,94,0.12)"
+
+        c1, c2, c3, c4, c5 = st.columns([2, 2, 2, 2, 2])
+        with c1:
+            st.markdown(f"**{pos['ticker']}**  \n<span style='font-size:11px;color:rgba(255,255,255,0.4);'>{pos['sector']}</span>", unsafe_allow_html=True)
+        with c2:
+            st.markdown(f"<span style='font-size:13px;'>Value now: **${pos['current_value']:,.0f}**</span>", unsafe_allow_html=True)
+        with c3:
+            st.markdown(f"<span style='font-size:13px;color:{color};'>After crash: **${pos['new_value']:,.0f}**</span>", unsafe_allow_html=True)
+        with c4:
+            st.markdown(f"""<span style='background:{badge_bg};color:{color};
+            padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700;'>
+            {pos['pct_drop']:+.1f}%</span>""", unsafe_allow_html=True)
+        with c5:
+            st.markdown(f"<span style='font-size:12px;color:rgba(255,255,255,0.4);'>β = {pos['beta']:.2f}</span>", unsafe_allow_html=True)
+
+    # Cash row
+    st.markdown(f"""
+    <div style='display:flex;gap:12px;align-items:center;padding:8px 0;
+    border-top:1px solid rgba(255,255,255,0.06);margin-top:8px;'>
+    <span style='color:rgba(255,255,255,0.6);font-weight:600;'>💵 Cash</span>
+    <span style='color:#22c55e;font-size:13px;'>Safe — ${cash:,.0f} unchanged</span>
+    <span style='background:rgba(34,197,94,0.12);color:#22c55e;
+    padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700;'>+0.0%</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── AI Plain-English Analysis ─────────────────────────────
+    st.markdown("---")
+    st.markdown("#### 🤖 AI Analysis: Why Your Portfolio Is Vulnerable")
+
+    most_exposed = sorted(scenario_positions, key=lambda x: x["pct_drop"])[0]
+    safest = sorted(scenario_positions, key=lambda x: x["pct_drop"])[-1]
+    tech_heavy = sum(1 for p in positions if p["sector"] == "Technology") / max(len(positions), 1)
+    cash_pct = cash / total_portfolio_value * 100
+
+    # Build insight
+    vulnerability_insights = []
+    if tech_heavy > 0.5:
+        vulnerability_insights.append(f"**Tech concentration risk:** {tech_heavy:.0%} of your positions are in Technology — the most volatile sector in most crashes.")
+    if cash_pct < 10:
+        vulnerability_insights.append(f"**Low cash buffer:** Only {cash_pct:.1f}% cash means no dry powder to buy the dip.")
+    elif cash_pct > 40:
+        vulnerability_insights.append(f"**High cash position:** {cash_pct:.1f}% in cash actually protects you — cash is king in a crash.")
+    if most_exposed["beta"] > 1.5:
+        vulnerability_insights.append(f"**{most_exposed['ticker']} is high-beta ({most_exposed['beta']:.1f}x):** It amplifies market moves — both up AND down.")
+    if len(positions) < 4:
+        vulnerability_insights.append("**Low diversification:** Fewer positions means a single bad stock can wipe you out.")
+
+    if not vulnerability_insights:
+        vulnerability_insights.append("Your portfolio looks reasonably diversified for this scenario.")
+
+    scenario_lesson = {
+        "2008 Financial Crisis": "In 2008, the key lesson was: **avoid leverage and financials**. The crisis started with banks — if you held no bank stocks, you still felt it, but far less.",
+        "COVID Crash 2020": "COVID was a **speed test, not a depth test**. The market recovered in 5 months. The lesson: don't panic sell. Those who held recovered everything and more.",
+        "Dot-Com Bust 2000": "The dot-com bust punished **any company without real profits**. Companies with actual earnings (like Walmart, Berkshire) fell much less. Profits matter.",
+        "2022 Rate Hike Crash": "In 2022, **duration risk killed growth stocks**. Companies priced for future profits got crushed when rates rose. Energy was the only winner.",
+        "Flash Crash 2010": "Flash crashes are **noise, not signal**. The market recovered same-day. Lesson: don't look at your portfolio every hour.",
+    }
+
+    ai_text = f"""
+**Your biggest risk in this scenario:** {most_exposed["ticker"]} ({most_exposed["sector"]}) — estimated {most_exposed["pct_drop"]:+.1f}% drop = **${abs(most_exposed["dollar_impact"]):,.0f} loss**.
+
+**Your most resilient position:** {safest["ticker"]} ({safest["sector"]}) — only {safest["pct_drop"]:+.1f}% estimated.
+
+**Key vulnerabilities:**
+""" + "\n".join(f"• {v}" for v in vulnerability_insights) + f"""
+
+**What history teaches us about {selected_scenario}:**
+{scenario_lesson.get(selected_scenario, "")}
+
+**Recovery outlook:** Historically, the S&P 500 took **{scenario["recovery_months"]:.0f} months** to fully recover from this scenario. Your portfolio may recover faster or slower depending on sector composition.
+"""
+    st.markdown(ai_text)
+
+    # ── What To Do ─────────────────────────────────────────────
+    st.markdown("---")
+    with st.expander("📚 What could you do to protect yourself? (Educational)"):
+        st.markdown("""
+**These are educational ideas, not financial advice. Always do your own research.**
+
+**1. Diversify across sectors**
+Don't put all eggs in one basket. Mix tech, healthcare, consumer staples, and energy.
+
+**2. Keep a cash buffer (10–20%)**
+Cash lets you buy quality stocks at discount prices during a crash.
+
+**3. Consider "defensive" stocks**
+Consumer staples (PG, KO, WMT) and utilities typically fall less in crashes.
+
+**4. Don't panic sell**
+The investors who lost the most in 2008 and COVID were those who sold at the bottom and missed the recovery.
+
+**5. Think in time horizons**
+If you don't need the money for 10+ years, crashes are buying opportunities, not disasters.
+        """)
+
+
+# ============================================================
+# FEATURE: NEWS ↔ PRICE EXPLAINER (#4)
+# ============================================================
+
+@st.cache_data(ttl=600)
+def get_news_with_price_impact(ticker):
+    """Fetch recent news for a ticker using Perplexity, with price context"""
+    perplexity_key = os.environ.get("PERPLEXITY_API_KEY", "")
+    if not perplexity_key:
+        return []
+
+    try:
+        prompt = f"""Find the 5 most recent and significant news headlines for {ticker} stock from the past 30 days.
+
+For each headline return a JSON array with objects containing:
+- "headline": the actual headline text (concise, max 120 chars)
+- "date": approximate date (YYYY-MM-DD format)
+- "price_impact": estimated % price move on that day (positive = stock went up, negative = down, use realistic numbers like +3.2 or -5.1)
+- "why_it_moved": 1-2 sentence plain English explanation of WHY the stock moved that day (write for a complete beginner, no jargon)
+- "sentiment": "positive", "negative", or "neutral"
+- "category": one of: "earnings", "product", "macro", "analyst", "legal", "partnership", "executive"
+
+Return ONLY the JSON array, no other text."""
+
+        response = requests.post(
+            "https://api.perplexity.ai/chat/completions",
+            headers={"Authorization": f"Bearer {perplexity_key}", "Content-Type": "application/json"},
+            json={"model": "sonar", "messages": [{"role": "user", "content": prompt}],
+                  "max_tokens": 1200, "temperature": 0.2},
+            timeout=20
+        )
+
+        if response.status_code == 200:
+            content = response.json()["choices"][0]["message"]["content"].strip()
+            # Clean JSON
+            content = content.replace("```json", "").replace("```", "").strip()
+            news_items = json.loads(content)
+            return news_items[:5]
+    except Exception:
+        pass
+    return []
+
+
+CATEGORY_ICONS = {
+    "earnings": "📊", "product": "🚀", "macro": "🌍",
+    "analyst": "🔍", "legal": "⚖️", "partnership": "🤝", "executive": "👔",
+}
+
+
+def render_news_price_explainer():
+    """News ↔ Price Explainer page"""
+    st.markdown("## 📰 News ↔ Price Explainer")
+    st.caption("*See what moved a stock and why — explained in plain English.*")
+
+    # Ticker input
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        ticker_input = st.text_input(
+            "Enter a stock ticker",
+            value=st.session_state.get("selected_ticker", "NVDA"),
+            placeholder="e.g. AAPL, TSLA, NVDA",
+            key="news_explainer_ticker",
+            label_visibility="collapsed"
+        ).upper().strip()
+    with col2:
+        run_btn = st.button("🔍 Explain", key="news_explainer_run", use_container_width=True, type="primary")
+
+    if not ticker_input:
+        return
+
+    # Auto-run if ticker in session or button clicked
+    if run_btn or st.session_state.get("news_explainer_last") != ticker_input:
+        st.session_state.news_explainer_last = ticker_input
+
+    ticker = sanitize_ticker(ticker_input)
+    if not ticker:
+        st.error("Please enter a valid ticker.")
+        return
+
+    # Get current price for context
+    quote = get_quote(ticker)
+    profile = get_profile(ticker)
+    company_name = (profile or {}).get("companyName", ticker)
+
+    if quote:
+        price = quote.get("price", 0)
+        change_pct = quote.get("changesPercentage", 0)
+        change_color = "#22c55e" if change_pct >= 0 else "#FF4444"
+        st.markdown(f"""
+        <div style='display:flex;align-items:center;gap:16px;padding:14px 20px;
+        background:rgba(255,255,255,0.04);border-radius:12px;margin-bottom:20px;'>
+            <div style='font-size:20px;font-weight:700;'>{company_name}</div>
+            <div style='font-family:monospace;font-size:22px;font-weight:800;'>${price:,.2f}</div>
+            <div style='color:{change_color};font-size:16px;font-weight:700;'>
+                {"▲" if change_pct >= 0 else "▼"} {change_pct:+.2f}% today</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # Fetch news
+    with st.spinner(f"🔍 Finding recent news and price impacts for {ticker}..."):
+        news_items = get_news_with_price_impact(ticker)
+
+    if not news_items:
+        st.warning("Couldn't fetch news right now. Make sure your Perplexity API key is set.")
+        return
+
+    st.markdown(f"### 📋 Recent News That Moved {ticker}")
+    st.caption("Each card shows the headline, estimated price reaction, and a plain-English explanation of why.")
+
+    for item in news_items:
+        sentiment = item.get("sentiment", "neutral")
+        impact = float(item.get("price_impact", 0))
+        cat = item.get("category", "macro")
+        icon = CATEGORY_ICONS.get(cat, "📰")
+
+        if sentiment == "positive" or impact > 0:
+            border_color = "#22c55e"
+            bg_color = "rgba(34,197,94,0.06)"
+            impact_color = "#22c55e"
+            arrow = "▲"
+        elif sentiment == "negative" or impact < 0:
+            border_color = "#FF4444"
+            bg_color = "rgba(255,68,68,0.06)"
+            impact_color = "#FF4444"
+            arrow = "▼"
+        else:
+            border_color = "rgba(255,255,255,0.15)"
+            bg_color = "rgba(255,255,255,0.03)"
+            impact_color = "rgba(255,255,255,0.5)"
+            arrow = "→"
+
+        st.markdown(f"""
+        <div style='background:{bg_color};border:1px solid {border_color};
+        border-radius:14px;padding:20px 24px;margin-bottom:14px;'>
+
+            <div style='display:flex;justify-content:space-between;align-items:flex-start;gap:12px;'>
+                <div style='flex:1;'>
+                    <div style='font-size:11px;color:rgba(255,255,255,0.4);
+                    text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;'>
+                        {icon} {cat.upper()} · {item.get("date","Recent")}
+                    </div>
+                    <div style='font-size:16px;font-weight:600;line-height:1.4;'>
+                        {item.get("headline","")}
+                    </div>
+                </div>
+                <div style='text-align:center;flex-shrink:0;
+                background:rgba(255,255,255,0.06);border-radius:10px;padding:10px 16px;'>
+                    <div style='font-size:11px;color:rgba(255,255,255,0.4);'>Est. move</div>
+                    <div style='font-size:22px;font-weight:800;color:{impact_color};'>
+                        {arrow} {abs(impact):.1f}%</div>
+                </div>
+            </div>
+
+            <div style='margin-top:14px;padding:12px 16px;
+            background:rgba(255,255,255,0.04);border-radius:8px;
+            border-left:3px solid {border_color};'>
+                <span style='font-size:12px;color:rgba(255,255,255,0.5);
+                text-transform:uppercase;letter-spacing:.06em;'>Why it moved: </span>
+                <span style='font-size:14px;color:rgba(255,255,255,0.85);line-height:1.6;'>
+                    {item.get("why_it_moved","")}
+                </span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # Key lesson
+    st.markdown("---")
+    st.markdown("""
+    <div style='background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);
+    border-radius:12px;padding:16px 20px;'>
+    <b>💡 Key lesson:</b> Stock prices move on <em>expectations</em>, not just facts.
+    A company can post record profits and still fall if investors expected even better results.
+    This is called <b>"sell the news"</b> — and it trips up beginners constantly.
+    </div>
+    """, unsafe_allow_html=True)
+
+
+# ============================================================
+# FEATURE: INVESTING JOURNAL (#9)
+# ============================================================
+
+def get_journal_db_key(user_id):
+    return f"journal_{user_id}"
+
+def load_journal_entries(user_id=None):
+    """Load journal entries from Supabase or session state"""
+    if user_id and SUPABASE_ENABLED:
+        try:
+            result = supabase.table("investing_journal").select("*").eq(
+                "user_id", user_id).order("created_at", desc=True).execute()
+            if result.data:
+                return result.data
+        except Exception:
+            pass
+    # Fallback to session state
+    return st.session_state.get("journal_entries", [])
+
+
+def save_journal_entry(entry, user_id=None):
+    """Save a journal entry to Supabase or session state"""
+    if user_id and SUPABASE_ENABLED:
+        try:
+            entry_data = {
+                "user_id": user_id,
+                "ticker": entry["ticker"],
+                "action": entry["action"],
+                "shares": entry["shares"],
+                "price": entry["price"],
+                "thesis": entry["thesis"],
+                "exit_trigger": entry["exit_trigger"],
+                "emotion": entry["emotion"],
+                "created_at": entry["created_at"],
+                "grade": entry.get("grade"),
+                "grade_reasoning": entry.get("grade_reasoning"),
+                "reviewed_at": entry.get("reviewed_at"),
+            }
+            supabase.table("investing_journal").insert(entry_data).execute()
+            return True
+        except Exception:
+            pass
+    # Fallback to session state
+    entries = st.session_state.get("journal_entries", [])
+    entries.insert(0, entry)
+    st.session_state.journal_entries = entries
+    return True
+
+
+def update_journal_grade(entry_id, grade, reasoning, user_id=None):
+    """Update grade on a journal entry"""
+    if user_id and SUPABASE_ENABLED:
+        try:
+            supabase.table("investing_journal").update({
+                "grade": grade,
+                "grade_reasoning": reasoning,
+                "reviewed_at": datetime.now().isoformat()
+            }).eq("id", entry_id).execute()
+            return True
+        except Exception:
+            pass
+    # Session state fallback
+    entries = st.session_state.get("journal_entries", [])
+    for e in entries:
+        if e.get("id") == entry_id:
+            e["grade"] = grade
+            e["grade_reasoning"] = reasoning
+            e["reviewed_at"] = datetime.now().isoformat()
+    st.session_state.journal_entries = entries
+    return True
+
+
+def ai_grade_thesis(ticker, action, thesis, exit_trigger, entry_price, current_price, days_held):
+    """Ask AI to grade the investing thesis"""
+    openai_key = os.environ.get("OPENAI_API_KEY", "")
+    if not openai_key:
+        return None, None
+
+    pct_change = ((current_price - entry_price) / entry_price * 100) if entry_price > 0 else 0
+    prompt = f"""You are a tough but fair investing coach grading a beginner investor's trade thesis.
+
+Trade details:
+- Ticker: {ticker}
+- Action: {action}
+- Entry price: ${entry_price:.2f}
+- Current price: ${current_price:.2f}
+- Change: {pct_change:+.1f}%
+- Days held: {days_held}
+- Thesis: "{thesis}"
+- Exit trigger: "{exit_trigger}"
+
+Grade this thesis A/B/C/D/F based on:
+1. Was the reasoning sound? (not just "I think it'll go up")
+2. Did they identify a specific catalyst?
+3. Did they set a clear exit trigger?
+4. Was the outcome consistent with their thesis (even if the price moved against them — good thesis can have bad outcomes short-term)
+
+Return a JSON object ONLY with:
+{{"grade": "B+", "reasoning": "2-3 sentences explaining the grade in plain English for a beginner"}}"""
+
+    try:
+        response = requests.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers={"Authorization": f"Bearer {openai_key}", "Content-Type": "application/json"},
+            json={"model": "gpt-4o-mini", "messages": [{"role": "user", "content": prompt}],
+                  "max_tokens": 300, "temperature": 0.3},
+            timeout=15
+        )
+        if response.status_code == 200:
+            content = response.json()["choices"][0]["message"]["content"].strip()
+            content = content.replace("```json", "").replace("```", "").strip()
+            result = json.loads(content)
+            return result.get("grade"), result.get("reasoning")
+    except Exception:
+        pass
+    return None, None
+
+
+EMOTION_OPTIONS = [
+    "😎 Confident", "🤔 Unsure but hopeful", "😰 Nervous", "🎯 Very certain",
+    "😤 FOMO — felt like I had to buy", "🧠 Fully researched", "🎲 Taking a chance"
+]
+
+GRADE_COLORS = {
+    "A+": "#22c55e", "A": "#22c55e", "A-": "#4ade80",
+    "B+": "#86efac", "B": "#86efac", "B-": "#bef264",
+    "C+": "#FFD700", "C": "#FFD700", "C-": "#FFA500",
+    "D+": "#FF8C00", "D": "#FF6B35", "D-": "#FF4444",
+    "F": "#FF0000",
+}
+
+
+def render_investing_journal():
+    """Full investing journal page"""
+    st.markdown("## 📓 Investing Journal")
+    st.caption("*Log your trade thesis. AI reviews your reasoning 30 days later and grades you.*")
+
+    user_id = st.session_state.get("user_id")
+    is_logged_in = st.session_state.get("is_logged_in", False)
+
+    if not is_logged_in:
+        st.info("📝 Sign in to save your journal entries across sessions.")
+
+    # ── Tabs ────────────────────────────────────────────────
+    tab1, tab2, tab3 = st.tabs(["✍️ Log a Trade", "📋 My Journal", "📊 My Stats"])
+
+    # ── TAB 1: Log a new entry ───────────────────────────────
+    with tab1:
+        st.markdown("### Log a new trade")
+        st.caption("Write down WHY you're making this trade before you make it. Future you will thank you.")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            j_ticker = st.text_input("Ticker", placeholder="AAPL", key="j_ticker").upper().strip()
+            j_action = st.selectbox("Action", ["Buy", "Sell", "Watch (didn't trade)"], key="j_action")
+            j_shares = st.number_input("Shares", min_value=0.0, step=0.1, key="j_shares")
+        with col2:
+            j_price = st.number_input("Price per share ($)", min_value=0.0, step=0.01, key="j_price")
+            j_emotion = st.selectbox("How are you feeling about this trade?", EMOTION_OPTIONS, key="j_emotion")
+
+        j_thesis = st.text_area(
+            "📝 Your thesis — WHY are you making this trade?",
+            placeholder="e.g. NVDA has a dominant position in AI chips. Data center revenue grew 400% last quarter. I think AI spending will continue for at least 2 more years. The recent dip to $800 looks like a buying opportunity before next earnings.",
+            height=120, key="j_thesis"
+        )
+        j_exit = st.text_area(
+            "🚪 Exit trigger — what would make you SELL?",
+            placeholder="e.g. I'll sell if: (1) AI spending slows significantly, (2) AMD closes the performance gap, or (3) price drops below $750 (my stop-loss), or (4) I hit +50% gain.",
+            height=80, key="j_exit"
+        )
+
+        # Thesis quality hints
+        if j_thesis and len(j_thesis) > 20:
+            quality_score = 0
+            hints = []
+            if len(j_thesis) > 100:
+                quality_score += 1
+            else:
+                hints.append("💡 More detail = better grade. Aim for 100+ characters.")
+            if any(w in j_thesis.lower() for w in ["revenue", "earnings", "growth", "profit", "sales", "margin"]):
+                quality_score += 1
+            else:
+                hints.append("💡 Mention a financial reason (revenue, earnings, growth).")
+            if any(w in j_thesis.lower() for w in ["because", "since", "due to", "reason", "expect"]):
+                quality_score += 1
+            else:
+                hints.append("💡 Use 'because' to explain your reasoning explicitly.")
+            if j_exit and len(j_exit) > 30:
+                quality_score += 1
+            else:
+                hints.append("💡 A clear exit trigger is what separates investors from gamblers.")
+
+            bar_pct = quality_score * 25
+            bar_color = "#22c55e" if quality_score >= 3 else "#FFD700" if quality_score >= 2 else "#FF4444"
+            quality_label = ["Weak", "Needs work", "Good", "Strong", "Excellent"][quality_score]
+            st.markdown(f"""
+            <div style='margin:8px 0;'>
+                <div style='font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:4px;'>
+                    Thesis quality: <b style='color:{bar_color};'>{quality_label}</b>
+                </div>
+                <div style='background:rgba(255,255,255,0.06);border-radius:100px;height:8px;'>
+                    <div style='background:{bar_color};height:100%;width:{bar_pct}%;border-radius:100px;
+                    transition:width .5s;'></div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            for h in hints[:2]:
+                st.caption(h)
+
+        if st.button("💾 Save Journal Entry", key="j_save", type="primary", use_container_width=True):
+            if not j_ticker:
+                st.error("Please enter a ticker.")
+            elif not j_thesis or len(j_thesis) < 20:
+                st.error("Please write a proper thesis (at least 20 characters).")
+            else:
+                entry = {
+                    "id": f"j_{datetime.now().strftime('%Y%m%d%H%M%S')}",
+                    "ticker": sanitize_ticker(j_ticker),
+                    "action": j_action,
+                    "shares": j_shares,
+                    "price": j_price,
+                    "thesis": j_thesis,
+                    "exit_trigger": j_exit,
+                    "emotion": j_emotion,
+                    "created_at": datetime.now().isoformat(),
+                    "grade": None,
+                    "grade_reasoning": None,
+                    "reviewed_at": None,
+                }
+                save_journal_entry(entry, user_id)
+                st.success(f"✅ Journal entry saved for {j_ticker}! AI will review your thesis in 30 days.")
+                st.balloons()
+
+    # ── TAB 2: My Journal ────────────────────────────────────
+    with tab2:
+        entries = load_journal_entries(user_id)
+        if not entries:
+            st.info("📭 No journal entries yet. Log your first trade in the 'Log a Trade' tab!")
+        else:
+            st.markdown(f"**{len(entries)} entries** in your journal")
+
+            for entry in entries:
+                ticker = entry.get("ticker", "")
+                action = entry.get("action", "Buy")
+                created_at = entry.get("created_at", "")[:10]
+                grade = entry.get("grade")
+                emotion = entry.get("emotion", "")
+
+                # Calculate days held & current price
+                try:
+                    entry_date = datetime.fromisoformat(entry["created_at"])
+                    days_held = (datetime.now() - entry_date).days
+                except Exception:
+                    days_held = 0
+
+                quote = get_quote(ticker) if ticker else None
+                current_price = quote.get("price", entry.get("price", 0)) if quote else entry.get("price", 0)
+                entry_price = entry.get("price", 0)
+                pct_change = ((current_price - entry_price) / entry_price * 100) if entry_price > 0 else 0
+                change_color = "#22c55e" if pct_change >= 0 else "#FF4444"
+
+                # Grade badge
+                if grade:
+                    grade_color = GRADE_COLORS.get(grade, "#FFD700")
+                    grade_badge = f"<span style='background:rgba(255,255,255,0.08);color:{grade_color};padding:3px 10px;border-radius:20px;font-size:13px;font-weight:800;'>Grade: {grade}</span>"
+                elif days_held >= 30:
+                    grade_badge = "<span style='background:rgba(255,215,0,0.15);color:#FFD700;padding:3px 10px;border-radius:20px;font-size:12px;'>⏳ Ready to grade!</span>"
+                else:
+                    grade_badge = f"<span style='background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.4);padding:3px 10px;border-radius:20px;font-size:12px;'>🕐 Review in {max(0,30-days_held)}d</span>"
+
+                action_color = "#22c55e" if action == "Buy" else "#FF4444" if action == "Sell" else "#9D4EDD"
+
+                with st.expander(f"{ticker} — {action} @ ${entry_price:.2f} | {created_at} | Now: ${current_price:.2f} ({pct_change:+.1f}%)"):
+                    st.markdown(f"""
+                    <div style='display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px;'>
+                        <span style='background:rgba(255,255,255,0.06);color:{action_color};
+                        padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;'>{action}</span>
+                        <span style='font-size:12px;color:rgba(255,255,255,0.4);'>{emotion}</span>
+                        {grade_badge}
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    c1, c2, c3 = st.columns(3)
+                    c1.metric("Entry Price", f"${entry_price:.2f}")
+                    c2.metric("Current Price", f"${current_price:.2f}",
+                              delta=f"{pct_change:+.1f}%")
+                    c3.metric("Days Held", f"{days_held}d")
+
+                    st.markdown("**Your thesis:**")
+                    st.markdown(f"> {entry.get('thesis', '')}")
+
+                    if entry.get("exit_trigger"):
+                        st.markdown("**Exit trigger:**")
+                        st.markdown(f"> {entry.get('exit_trigger', '')}")
+
+                    if entry.get("grade_reasoning"):
+                        grade_color = GRADE_COLORS.get(grade, "#FFD700")
+                        st.markdown(f"""
+                        <div style='background:rgba(255,255,255,0.04);border:1px solid {grade_color}44;
+                        border-radius:10px;padding:14px;margin-top:10px;'>
+                        <b style='color:{grade_color};'>AI Grade: {grade}</b><br>
+                        <span style='font-size:14px;color:rgba(255,255,255,0.8);'>
+                        {entry.get("grade_reasoning","")}</span>
+                        </div>
+                        """, unsafe_allow_html=True)
+                    elif days_held >= 30 and not grade:
+                        if st.button(f"🤖 Grade My Thesis", key=f"grade_{entry['id']}", type="primary"):
+                            with st.spinner("AI is reviewing your thesis..."):
+                                g, r = ai_grade_thesis(
+                                    ticker, action, entry.get("thesis", ""),
+                                    entry.get("exit_trigger", ""),
+                                    entry_price, current_price, days_held
+                                )
+                            if g:
+                                update_journal_grade(entry["id"], g, r, user_id)
+                                st.success(f"Grade: **{g}** — {r}")
+                                st.rerun()
+                            else:
+                                st.warning("Couldn't grade right now. Make sure OpenAI key is set.")
+
+    # ── TAB 3: Stats ─────────────────────────────────────────
+    with tab3:
+        entries = load_journal_entries(user_id)
+        if len(entries) < 2:
+            st.info("Log at least 2 trades to see your stats.")
+        else:
+            graded = [e for e in entries if e.get("grade")]
+            total = len(entries)
+            buys = sum(1 for e in entries if e.get("action") == "Buy")
+            sells = sum(1 for e in entries if e.get("action") == "Sell")
+
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Total Entries", total)
+            c2.metric("Buys Logged", buys)
+            c3.metric("Sells Logged", sells)
+            c4.metric("Graded", len(graded))
+
+            if graded:
+                st.markdown("### 🏆 Your Grade Distribution")
+                grade_counts = {}
+                for e in graded:
+                    g = e["grade"]
+                    grade_counts[g] = grade_counts.get(g, 0) + 1
+
+                grade_order = ["A+","A","A-","B+","B","B-","C+","C","C-","D+","D","D-","F"]
+                for g in grade_order:
+                    if g in grade_counts:
+                        color = GRADE_COLORS.get(g, "#FFD700")
+                        count = grade_counts[g]
+                        bar = "█" * count
+                        st.markdown(f"""
+                        <div style='display:flex;align-items:center;gap:12px;margin-bottom:6px;'>
+                            <span style='color:{color};font-weight:700;font-size:14px;
+                            min-width:28px;'>{g}</span>
+                            <span style='color:{color};font-size:16px;letter-spacing:2px;'>{bar}</span>
+                            <span style='color:rgba(255,255,255,0.4);font-size:12px;'>{count}x</span>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+            # Emotion analysis
+            emotions_used = [e.get("emotion","") for e in entries if e.get("emotion")]
+            if emotions_used:
+                fomo_count = sum(1 for em in emotions_used if "FOMO" in em)
+                confident_count = sum(1 for em in emotions_used if "Confident" in em or "certain" in em.lower())
+                st.markdown("### 🧠 Emotion Patterns")
+                if fomo_count > 0:
+                    pct = fomo_count / len(emotions_used) * 100
+                    fomo_color = "#FF4444" if pct > 30 else "#FFD700"
+                    st.markdown(f"<span style='color:{fomo_color};'>⚠️ {pct:.0f}% of your trades were driven by FOMO</span>", unsafe_allow_html=True)
+                    if pct > 30:
+                        st.caption("FOMO is one of the most common reasons beginner investors lose money. Try waiting 24 hours before any FOMO trade.")
+                if confident_count > 0:
+                    st.markdown(f"✅ {confident_count/len(emotions_used)*100:.0f}% of trades made with confidence or full research")
+
 
 # ============= DASHBOARD: PREMIUM HOME BASE =============
 if selected_page == "🏠 Dashboard":
@@ -20201,9 +21216,17 @@ elif selected_page == "📰 Market Intelligence":
     st.header("📰 Market Intelligence & News")
     st.markdown("**Stay informed with AI-powered market insights, news, and earnings**")
     
+    # ── INLINE TABS: Market Overview | News Explainer | Earnings ──
+    _mi_main_tab, _mi_news_tab = st.tabs(["🌍 Market Overview & Earnings", "📰 News ↔ Price Explainer"])
+    
+    with _mi_news_tab:
+        render_news_price_explainer()
+    
+    with _mi_main_tab:
+    
     # ============= VIX FEAR INDEX (Real-Time) =============
-    st.markdown("---")
-    st.markdown("### 📊 VIX Fear Index")
+        st.markdown("---")
+        st.markdown("### 📊 VIX Fear Index")
     
     vix_quote = get_quote("^VIX")
     if vix_quote and vix_quote.get('price'):
@@ -20326,9 +21349,19 @@ Keep each bullet to ONE line. Be concise."""
         # All models failed
         return None, f"All models failed. Last error: {last_error}"
     
-    # Fetch and display top news
-    with st.spinner("🔄 Fetching latest market news..."):
-        top_news, error = get_top_market_news()
+    # Fetch and display top news - button-gated to avoid slow auto-load
+    if "mi_news_loaded" not in st.session_state:
+        st.session_state.mi_news_loaded = False
+    
+    if not st.session_state.mi_news_loaded:
+        if st.button("📰 Load Latest Market News", key="load_mi_news", type="primary", use_container_width=True):
+            st.session_state.mi_news_loaded = True
+            st.rerun()
+        st.caption("*Click to fetch AI-powered news from Perplexity*")
+        top_news, error = None, None
+    else:
+        with st.spinner("🔄 Fetching latest market news..."):
+            top_news, error = get_top_market_news()
     
     if top_news:
         # Parse the news into individual lines and display each on its own line
@@ -20455,8 +21488,17 @@ Keep each bullet to ONE line. Be concise."""
     st.markdown("### 📅 Earnings Calendar - This Week")
     st.caption("Top 5 biggest earnings by market cap each day • Source: FMP API")
     
-    with st.spinner("📊 Loading earnings calendar..."):
-        earnings_by_day, earnings_error = get_weekly_earnings_fmp()
+    if "mi_cal_loaded" not in st.session_state:
+        st.session_state.mi_cal_loaded = False
+    if not st.session_state.mi_cal_loaded:
+        if st.button("📅 Load Earnings Calendar", key="load_mi_cal", use_container_width=True):
+            st.session_state.mi_cal_loaded = True
+            st.rerun()
+        st.caption("*Click to load this week's earnings (FMP API)*")
+        earnings_by_day, earnings_error = None, None
+    else:
+        with st.spinner("📊 Loading earnings calendar..."):
+            earnings_by_day, earnings_error = get_weekly_earnings_fmp()
     
     if earnings_by_day and len(earnings_by_day) > 0:
         day_names = {0: 'Monday', 1: 'Tuesday', 2: 'Wednesday', 3: 'Thursday', 4: 'Friday', 5: 'Saturday', 6: 'Sunday'}
@@ -20666,8 +21708,17 @@ elif selected_page == "👤 Naman's Portfolio":
             try:
                 df = get_historical_price(ticker, years)
                 if df is not None and not df.empty and len(df) >= 2:
-                    # FMP light endpoint returns 'close' column; some versions return 'price'
-                    price_col = 'close' if 'close' in df.columns else ('price' if 'price' in df.columns else None)
+                    # FMP light endpoint: try 'close', 'price', 'adjClose' in order
+                    price_col = None
+                    for col in ['close', 'price', 'adjClose', 'adjclose', 'Close']:
+                        if col in df.columns:
+                            price_col = col
+                            break
+                    if price_col is None:
+                        # Last resort: use first numeric column
+                        numeric_cols = df.select_dtypes(include='number').columns.tolist()
+                        if numeric_cols:
+                            price_col = numeric_cols[0]
                     if price_col:
                         start_price = float(df.iloc[0][price_col])
                         end_price = float(df.iloc[-1][price_col])
@@ -20759,11 +21810,19 @@ elif selected_page == "👤 Naman's Portfolio":
         
         # Calculate return using existing get_historical_price function
         def calc_return_from_history_free(ticker, years):
-            """Calculate % return using the working get_historical_price function"""
+            """Calculate % return - same robust logic as Pro version"""
             try:
                 df = get_historical_price(ticker, years)
                 if df is not None and not df.empty and len(df) >= 2:
-                    price_col = 'close' if 'close' in df.columns else ('price' if 'price' in df.columns else None)
+                    price_col = None
+                    for col in ['close', 'price', 'adjClose', 'adjclose', 'Close']:
+                        if col in df.columns:
+                            price_col = col
+                            break
+                    if price_col is None:
+                        numeric_cols = df.select_dtypes(include='number').columns.tolist()
+                        if numeric_cols:
+                            price_col = numeric_cols[0]
                     if price_col:
                         start_price = float(df.iloc[0][price_col])
                         end_price = float(df.iloc[-1][price_col])
@@ -22102,6 +23161,13 @@ elif selected_page == "📊 Pro Checklist":
     # AI Coach integration
     #REMOVED: render_ai_coach("Pro Checklist", ticker=ticker_check if 'ticker_check' in locals() else None, facts=None)
 
+
+
+    # ============= STRESS TEST - PRO FEATURE =============
+    st.markdown("---")
+    st.markdown("## 💥 Portfolio Stress Test")
+    st.caption("*See how your paper portfolio would survive historical market crashes*")
+    render_stress_test_page()
 
 # ============================================================================
 # 👑 ULTIMATE TAB - PREMIUM AI-FIRST ANALYSIS
@@ -23667,12 +24733,29 @@ Return JSON with grade, summary, top_risks (MAX 5), improvement_playbook (MAX 5)
 # NEW PAPER PORTFOLIO PAGE - Section 6 Implementation
 # This will replace lines 8367-8765 in the main file
 
+# ============= STRESS TEST (Ultimate Exclusive) =============
+    st.markdown("---")
+    st.markdown("## 💥 Portfolio Stress Test")
+    st.caption("*Exclusive to Ultimate: See how your portfolio would survive historical crashes*")
+    render_stress_test_page()
+
 elif selected_page == "💼 Paper Portfolio":
     
     # Page popup removed - user requested no popups except welcome
     
     st.header("💼 Paper Portfolio")
     st.caption("*Practice trading with fake money. Track your performance vs the market.*")
+    
+    # ── TABS: Portfolio | Journal ──────────────────────────
+    _pp_tab1, _pp_tab2 = st.tabs(["📈 My Portfolio", "📓 Investing Journal"])
+    with _pp_tab2:
+        render_investing_journal()
+    
+    # Everything below renders in tab1 (Portfolio) context
+    # Streamlit renders sibling-level code in the last active tab context
+    # We use a flag to stay clean
+    with _pp_tab1:
+        st.empty()  # anchor - portfolio content below renders here via Streamlit's tab scoping
     
     # Unhinged comment for Paper Portfolio
     unhinged_paper = get_unhinged_comment("paper_portfolio")
@@ -25036,6 +26119,7 @@ elif selected_page == "📜 Founder Track Record":
     st.caption("*Share this URL to give others read-only access to the founder's track record.*")
 
 
+
 elif selected_page == "💥 Stress Test":
     render_stress_test_page()
 
@@ -25050,989 +26134,3 @@ elif selected_page == "📓 Investing Journal":
 st.divider()
 st.caption("💡 Investing Made Simple | FMP Premium | Real-time data")
 st.caption("⚠️ Educational purposes only. Not financial advice.")
-
-
-# ============================================================
-# FEATURE: STRESS TEST PORTFOLIO (#3)
-# ============================================================
-
-# Historical crash scenarios with real market data
-CRASH_SCENARIOS = {
-    "2008 Financial Crisis": {
-        "period": "Sep 2008 – Mar 2009",
-        "icon": "🏦",
-        "sp500_drop": -56.8,
-        "duration_months": 6,
-        "recovery_months": 49,
-        "color": "#FF4444",
-        "description": "Lehman Brothers collapsed, housing market imploded. Worst crash since the Great Depression.",
-        "sector_impacts": {
-            "Financials": -83, "Real Estate": -72, "Consumer Discretionary": -65,
-            "Industrials": -60, "Materials": -58, "Energy": -55,
-            "Technology": -52, "Health Care": -36, "Consumer Staples": -30,
-            "Utilities": -29, "Telecom": -40,
-        },
-        "beta_multiplier": 1.0,
-    },
-    "COVID Crash 2020": {
-        "period": "Feb – Mar 2020",
-        "icon": "🦠",
-        "sp500_drop": -33.9,
-        "duration_months": 1.5,
-        "recovery_months": 5,
-        "color": "#FF8C00",
-        "description": "Global pandemic panic. Fastest bear market in history — but also the fastest recovery.",
-        "sector_impacts": {
-            "Energy": -58, "Financials": -45, "Industrials": -43,
-            "Real Estate": -38, "Consumer Discretionary": -36, "Materials": -34,
-            "Technology": -26, "Communication Services": -28, "Health Care": -14,
-            "Consumer Staples": -12, "Utilities": -20,
-        },
-        "beta_multiplier": 1.0,
-    },
-    "Dot-Com Bust 2000": {
-        "period": "Mar 2000 – Oct 2002",
-        "icon": "💻",
-        "sp500_drop": -49.1,
-        "duration_months": 30,
-        "recovery_months": 84,
-        "color": "#9D4EDD",
-        "description": "Tech bubble popped. Nasdaq fell 78%. Recovery took 7 years. Tech stocks were annihilated.",
-        "sector_impacts": {
-            "Technology": -82, "Communication Services": -70, "Consumer Discretionary": -50,
-            "Industrials": -35, "Financials": -30, "Materials": -28,
-            "Energy": -10, "Health Care": -22, "Consumer Staples": -15,
-            "Utilities": -30, "Real Estate": -10,
-        },
-        "beta_multiplier": 1.0,
-    },
-    "2022 Rate Hike Crash": {
-        "period": "Jan – Oct 2022",
-        "icon": "📈",
-        "sp500_drop": -25.4,
-        "duration_months": 9,
-        "recovery_months": 18,
-        "color": "#FF6B35",
-        "description": "Fed hiked rates at fastest pace since 1980 to fight 9% inflation. Growth stocks crushed.",
-        "sector_impacts": {
-            "Communication Services": -42, "Consumer Discretionary": -38, "Technology": -35,
-            "Real Estate": -30, "Financials": -20, "Materials": -15,
-            "Industrials": -12, "Health Care": -8, "Consumer Staples": -5,
-            "Energy": +59, "Utilities": -1,
-        },
-        "beta_multiplier": 1.0,
-    },
-    "Flash Crash 2010": {
-        "period": "May 6, 2010",
-        "icon": "⚡",
-        "sp500_drop": -9.2,
-        "duration_months": 0.03,
-        "recovery_months": 0.1,
-        "color": "#FFD700",
-        "description": "Market fell 9% in 36 minutes due to algorithmic trading cascade. Recovered same day.",
-        "sector_impacts": {
-            "Technology": -10, "Financials": -11, "Consumer Discretionary": -9,
-            "Industrials": -9, "Materials": -8, "Energy": -8,
-            "Health Care": -7, "Consumer Staples": -6, "Utilities": -5,
-            "Real Estate": -8, "Communication Services": -8,
-        },
-        "beta_multiplier": 1.0,
-    },
-}
-
-# Sector mapping for common tickers
-TICKER_SECTOR_MAP = {
-    # Technology
-    "AAPL": "Technology", "MSFT": "Technology", "NVDA": "Technology",
-    "AMD": "Technology", "INTC": "Technology", "QCOM": "Technology",
-    "AVGO": "Technology", "TXN": "Technology", "MU": "Technology",
-    "AMAT": "Technology", "LRCX": "Technology", "KLAC": "Technology",
-    # Communication Services
-    "GOOGL": "Communication Services", "GOOG": "Communication Services",
-    "META": "Communication Services", "NFLX": "Communication Services",
-    "DIS": "Communication Services", "CMCSA": "Communication Services",
-    "T": "Telecom", "VZ": "Telecom",
-    # Consumer Discretionary
-    "AMZN": "Consumer Discretionary", "TSLA": "Consumer Discretionary",
-    "NKE": "Consumer Discretionary", "MCD": "Consumer Discretionary",
-    "SBUX": "Consumer Discretionary", "HD": "Consumer Discretionary",
-    # Financials
-    "JPM": "Financials", "BAC": "Financials", "WFC": "Financials",
-    "GS": "Financials", "MS": "Financials", "BRK.B": "Financials",
-    "V": "Financials", "MA": "Financials", "AXP": "Financials",
-    # Health Care
-    "JNJ": "Health Care", "UNH": "Health Care", "PFE": "Health Care",
-    "ABBV": "Health Care", "MRK": "Health Care", "LLY": "Health Care",
-    # Consumer Staples
-    "PG": "Consumer Staples", "KO": "Consumer Staples", "PEP": "Consumer Staples",
-    "WMT": "Consumer Staples", "COST": "Consumer Staples",
-    # Energy
-    "XOM": "Energy", "CVX": "Energy", "COP": "Energy", "SLB": "Energy",
-    # Industrials
-    "BA": "Industrials", "CAT": "Industrials", "GE": "Industrials",
-    "HON": "Industrials", "UPS": "Industrials", "FDX": "Industrials",
-    # ETFs (treat as broad market)
-    "SPY": "ETF", "QQQ": "ETF", "IWM": "ETF", "VOO": "ETF",
-    "VTI": "ETF", "DIA": "ETF", "ARKK": "ETF",
-    # Crypto-adjacent
-    "COIN": "Technology", "MSTR": "Technology",
-    # PLTR
-    "PLTR": "Technology",
-}
-
-def get_ticker_sector(ticker, profile=None):
-    """Get sector for ticker from hardcoded map or FMP profile"""
-    t = ticker.upper()
-    if t in TICKER_SECTOR_MAP:
-        return TICKER_SECTOR_MAP[t]
-    if profile and profile.get("sector"):
-        return profile["sector"]
-    return "Technology"  # Default fallback
-
-def estimate_crash_impact(ticker, sector, scenario, current_value, beta=1.0):
-    """Estimate portfolio impact for a ticker in a given crash scenario"""
-    scenario_data = CRASH_SCENARIOS[scenario]
-    sector_drop = scenario_data["sector_impacts"].get(sector, scenario_data["sp500_drop"])
-
-    # Beta adjustment: high-beta stocks fall more, low-beta less
-    # Clamp beta between 0.3 and 2.5
-    beta = max(0.3, min(2.5, beta))
-    adjusted_drop = sector_drop * beta
-
-    # Cap at -95% (nothing goes to zero in our model) and +70% (2022 energy)
-    adjusted_drop = max(-95, min(70, adjusted_drop))
-
-    dollar_impact = current_value * (adjusted_drop / 100)
-    new_value = current_value + dollar_impact
-    return adjusted_drop, dollar_impact, new_value
-
-
-@st.cache_data(ttl=3600)
-def get_ticker_beta(ticker):
-    """Fetch beta from FMP profile"""
-    try:
-        url = f"{BASE_URL}/profile?symbol={ticker}&apikey={FMP_API_KEY}"
-        response = requests.get(url, timeout=10)
-        data = response.json()
-        if data and len(data) > 0:
-            return float(data[0].get("beta") or 1.0)
-    except Exception:
-        pass
-    return 1.0
-
-
-def render_stress_test_page():
-    """Full stress test portfolio page"""
-    st.markdown("## 💥 Stress Test Your Portfolio")
-    st.caption("*See how your paper portfolio would have performed in the worst market crashes in history.*")
-
-    # Tier gate - Pro+
-    if not show_premium_gate("Portfolio Stress Test", required_tier="pro"):
-        st.markdown("""
-        <div style='background:rgba(255,75,75,0.08);border:1px solid rgba(255,75,75,0.2);
-        border-radius:12px;padding:20px;margin-top:16px;'>
-        <b>🔓 What you'll unlock:</b><br><br>
-        • See your portfolio value in 2008, COVID, dot-com crash and more<br>
-        • Per-stock breakdown showing which position would hurt most<br>
-        • Recovery timeline — how long until you'd break even<br>
-        • AI plain-English explanation of why your portfolio is vulnerable<br>
-        </div>
-        """, unsafe_allow_html=True)
-        return
-
-    # Get current portfolio
-    portfolio = st.session_state.get("portfolio", [])
-    cash = st.session_state.get("cash", STARTING_CASH)
-
-    if not portfolio:
-        st.info("📭 Your paper portfolio is empty. Make some trades first, then come back to stress test it!")
-        if st.button("→ Go to Paper Portfolio", key="stress_goto_portfolio"):
-            st.session_state.selected_page = "💼 Paper Portfolio"
-            st.rerun()
-        return
-
-    # Build current portfolio values
-    with st.spinner("📊 Fetching current prices & beta values..."):
-        positions = []
-        total_invested = 0
-        for pos in portfolio:
-            ticker = pos["ticker"].upper()
-            shares = pos["shares"]
-            avg_price = pos["avg_price"]
-            quote = get_quote(ticker)
-            current_price = quote.get("price", avg_price) if quote else avg_price
-            current_value = shares * current_price
-            cost_basis = shares * avg_price
-            beta = get_ticker_beta(ticker)
-            profile = get_profile(ticker)
-            sector = get_ticker_sector(ticker, profile)
-            positions.append({
-                "ticker": ticker, "shares": shares,
-                "avg_price": avg_price, "current_price": current_price,
-                "current_value": current_value, "cost_basis": cost_basis,
-                "beta": beta, "sector": sector,
-            })
-            total_invested += current_value
-
-    total_portfolio_value = total_invested + cash
-
-    # ── Current Portfolio Summary ──────────────────────────────
-    st.markdown("### 📊 Current Portfolio")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Total Value", f"${total_portfolio_value:,.0f}")
-    with col2:
-        st.metric("Invested", f"${total_invested:,.0f}")
-    with col3:
-        st.metric("Cash (safe)", f"${cash:,.0f}")
-
-    # ── Scenario Selector ─────────────────────────────────────
-    st.markdown("---")
-    st.markdown("### 🌪️ Choose a Crash Scenario")
-
-    scenario_cols = st.columns(len(CRASH_SCENARIOS))
-    selected_scenario = st.session_state.get("stress_scenario", list(CRASH_SCENARIOS.keys())[0])
-
-    for i, (name, data) in enumerate(CRASH_SCENARIOS.items()):
-        with scenario_cols[i]:
-            active = selected_scenario == name
-            border = f"2px solid {data['color']}" if active else "1px solid rgba(255,255,255,0.1)"
-            bg = f"rgba(255,255,255,0.06)" if active else "rgba(255,255,255,0.02)"
-            st.markdown(f"""
-            <div style='background:{bg};border:{border};border-radius:12px;
-            padding:12px 8px;text-align:center;margin-bottom:4px;'>
-                <div style='font-size:24px'>{data["icon"]}</div>
-                <div style='font-size:11px;font-weight:700;color:{data["color"]};
-                margin:4px 0 2px;'>{name.split(" ")[0] + " " + name.split(" ")[-1]}</div>
-                <div style='font-size:18px;font-weight:800;color:{data["color"]};'>
-                {data["sp500_drop"]:+.1f}%</div>
-                <div style='font-size:10px;color:rgba(255,255,255,0.4);'>{data["period"]}</div>
-            </div>
-            """, unsafe_allow_html=True)
-            if st.button(f"Select", key=f"stress_sel_{i}", use_container_width=True):
-                st.session_state.stress_scenario = name
-                st.rerun()
-
-    st.markdown("---")
-
-    # ── Run the stress test ───────────────────────────────────
-    scenario = CRASH_SCENARIOS[selected_scenario]
-    st.markdown(f"### {scenario['icon']} {selected_scenario} — What Would Happen?")
-    st.caption(scenario["description"])
-
-    # Calculate impacts
-    scenario_positions = []
-    total_crash_value = cash  # Cash is always safe
-    total_crash_loss = 0
-
-    for pos in positions:
-        pct_drop, dollar_impact, new_value = estimate_crash_impact(
-            pos["ticker"], pos["sector"], selected_scenario,
-            pos["current_value"], pos["beta"]
-        )
-        scenario_positions.append({**pos, "pct_drop": pct_drop,
-                                    "dollar_impact": dollar_impact, "new_value": new_value})
-        total_crash_value += new_value
-        total_crash_loss += dollar_impact
-
-    total_crash_pct = (total_crash_loss / total_portfolio_value * 100) if total_portfolio_value > 0 else 0
-
-    # ── Big impact numbers ────────────────────────────────────
-    c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        st.metric("Portfolio Before", f"${total_portfolio_value:,.0f}")
-    with c2:
-        st.metric("Portfolio After Crash", f"${total_crash_value:,.0f}",
-                  delta=f"${total_crash_loss:,.0f}", delta_color="inverse")
-    with c3:
-        st.metric("Total Loss", f"${abs(total_crash_loss):,.0f}",
-                  delta=f"{total_crash_pct:.1f}%", delta_color="inverse")
-    with c4:
-        recovery = scenario["recovery_months"]
-        if recovery < 12:
-            rec_str = f"{recovery:.0f} months"
-        else:
-            rec_str = f"{recovery/12:.1f} years"
-        st.metric("Historical Recovery", rec_str)
-
-    # ── Visual bar: before vs after ───────────────────────────
-    st.markdown("<br>", unsafe_allow_html=True)
-    bar_pct = max(5, int((total_crash_value / total_portfolio_value) * 100))
-    loss_pct_display = 100 - bar_pct
-    st.markdown(f"""
-    <div style='margin:8px 0 4px;font-size:13px;color:rgba(255,255,255,0.5);'>
-        Portfolio value after crash
-    </div>
-    <div style='background:rgba(255,255,255,0.06);border-radius:100px;height:28px;
-    overflow:hidden;position:relative;'>
-        <div style='background:linear-gradient(90deg,{scenario["color"]},{scenario["color"]}aa);
-        height:100%;width:{bar_pct}%;border-radius:100px;
-        display:flex;align-items:center;padding-left:12px;
-        font-size:12px;font-weight:700;color:white;white-space:nowrap;'>
-            ${total_crash_value:,.0f} ({bar_pct}% remains)
-        </div>
-    </div>
-    <div style='text-align:right;font-size:11px;color:{scenario["color"]};margin-top:4px;'>
-        💸 {loss_pct_display}% lost — ${abs(total_crash_loss):,.0f}
-    </div>
-    """, unsafe_allow_html=True)
-
-    # ── Per-stock breakdown ───────────────────────────────────
-    st.markdown("---")
-    st.markdown("#### 📋 Position-by-Position Breakdown")
-    st.caption("Estimates based on historical sector performance + each stock's beta (volatility vs market).")
-
-    # Sort by biggest loss
-    scenario_positions.sort(key=lambda x: x["dollar_impact"])
-
-    for pos in scenario_positions:
-        color = "#FF4444" if pos["pct_drop"] < 0 else "#22c55e"
-        badge_bg = "rgba(255,68,68,0.12)" if pos["pct_drop"] < 0 else "rgba(34,197,94,0.12)"
-
-        c1, c2, c3, c4, c5 = st.columns([2, 2, 2, 2, 2])
-        with c1:
-            st.markdown(f"**{pos['ticker']}**  \n<span style='font-size:11px;color:rgba(255,255,255,0.4);'>{pos['sector']}</span>", unsafe_allow_html=True)
-        with c2:
-            st.markdown(f"<span style='font-size:13px;'>Value now: **${pos['current_value']:,.0f}**</span>", unsafe_allow_html=True)
-        with c3:
-            st.markdown(f"<span style='font-size:13px;color:{color};'>After crash: **${pos['new_value']:,.0f}**</span>", unsafe_allow_html=True)
-        with c4:
-            st.markdown(f"""<span style='background:{badge_bg};color:{color};
-            padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700;'>
-            {pos['pct_drop']:+.1f}%</span>""", unsafe_allow_html=True)
-        with c5:
-            st.markdown(f"<span style='font-size:12px;color:rgba(255,255,255,0.4);'>β = {pos['beta']:.2f}</span>", unsafe_allow_html=True)
-
-    # Cash row
-    st.markdown(f"""
-    <div style='display:flex;gap:12px;align-items:center;padding:8px 0;
-    border-top:1px solid rgba(255,255,255,0.06);margin-top:8px;'>
-    <span style='color:rgba(255,255,255,0.6);font-weight:600;'>💵 Cash</span>
-    <span style='color:#22c55e;font-size:13px;'>Safe — ${cash:,.0f} unchanged</span>
-    <span style='background:rgba(34,197,94,0.12);color:#22c55e;
-    padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700;'>+0.0%</span>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # ── AI Plain-English Analysis ─────────────────────────────
-    st.markdown("---")
-    st.markdown("#### 🤖 AI Analysis: Why Your Portfolio Is Vulnerable")
-
-    most_exposed = sorted(scenario_positions, key=lambda x: x["pct_drop"])[0]
-    safest = sorted(scenario_positions, key=lambda x: x["pct_drop"])[-1]
-    tech_heavy = sum(1 for p in positions if p["sector"] == "Technology") / max(len(positions), 1)
-    cash_pct = cash / total_portfolio_value * 100
-
-    # Build insight
-    vulnerability_insights = []
-    if tech_heavy > 0.5:
-        vulnerability_insights.append(f"**Tech concentration risk:** {tech_heavy:.0%} of your positions are in Technology — the most volatile sector in most crashes.")
-    if cash_pct < 10:
-        vulnerability_insights.append(f"**Low cash buffer:** Only {cash_pct:.1f}% cash means no dry powder to buy the dip.")
-    elif cash_pct > 40:
-        vulnerability_insights.append(f"**High cash position:** {cash_pct:.1f}% in cash actually protects you — cash is king in a crash.")
-    if most_exposed["beta"] > 1.5:
-        vulnerability_insights.append(f"**{most_exposed['ticker']} is high-beta ({most_exposed['beta']:.1f}x):** It amplifies market moves — both up AND down.")
-    if len(positions) < 4:
-        vulnerability_insights.append("**Low diversification:** Fewer positions means a single bad stock can wipe you out.")
-
-    if not vulnerability_insights:
-        vulnerability_insights.append("Your portfolio looks reasonably diversified for this scenario.")
-
-    scenario_lesson = {
-        "2008 Financial Crisis": "In 2008, the key lesson was: **avoid leverage and financials**. The crisis started with banks — if you held no bank stocks, you still felt it, but far less.",
-        "COVID Crash 2020": "COVID was a **speed test, not a depth test**. The market recovered in 5 months. The lesson: don't panic sell. Those who held recovered everything and more.",
-        "Dot-Com Bust 2000": "The dot-com bust punished **any company without real profits**. Companies with actual earnings (like Walmart, Berkshire) fell much less. Profits matter.",
-        "2022 Rate Hike Crash": "In 2022, **duration risk killed growth stocks**. Companies priced for future profits got crushed when rates rose. Energy was the only winner.",
-        "Flash Crash 2010": "Flash crashes are **noise, not signal**. The market recovered same-day. Lesson: don't look at your portfolio every hour.",
-    }
-
-    ai_text = f"""
-**Your biggest risk in this scenario:** {most_exposed["ticker"]} ({most_exposed["sector"]}) — estimated {most_exposed["pct_drop"]:+.1f}% drop = **${abs(most_exposed["dollar_impact"]):,.0f} loss**.
-
-**Your most resilient position:** {safest["ticker"]} ({safest["sector"]}) — only {safest["pct_drop"]:+.1f}% estimated.
-
-**Key vulnerabilities:**
-""" + "\n".join(f"• {v}" for v in vulnerability_insights) + f"""
-
-**What history teaches us about {selected_scenario}:**
-{scenario_lesson.get(selected_scenario, "")}
-
-**Recovery outlook:** Historically, the S&P 500 took **{scenario["recovery_months"]:.0f} months** to fully recover from this scenario. Your portfolio may recover faster or slower depending on sector composition.
-"""
-    st.markdown(ai_text)
-
-    # ── What To Do ─────────────────────────────────────────────
-    st.markdown("---")
-    with st.expander("📚 What could you do to protect yourself? (Educational)"):
-        st.markdown("""
-**These are educational ideas, not financial advice. Always do your own research.**
-
-**1. Diversify across sectors**
-Don't put all eggs in one basket. Mix tech, healthcare, consumer staples, and energy.
-
-**2. Keep a cash buffer (10–20%)**
-Cash lets you buy quality stocks at discount prices during a crash.
-
-**3. Consider "defensive" stocks**
-Consumer staples (PG, KO, WMT) and utilities typically fall less in crashes.
-
-**4. Don't panic sell**
-The investors who lost the most in 2008 and COVID were those who sold at the bottom and missed the recovery.
-
-**5. Think in time horizons**
-If you don't need the money for 10+ years, crashes are buying opportunities, not disasters.
-        """)
-
-
-# ============================================================
-# FEATURE: NEWS ↔ PRICE EXPLAINER (#4)
-# ============================================================
-
-@st.cache_data(ttl=600)
-def get_news_with_price_impact(ticker):
-    """Fetch recent news for a ticker using Perplexity, with price context"""
-    perplexity_key = os.environ.get("PERPLEXITY_API_KEY", "")
-    if not perplexity_key:
-        return []
-
-    try:
-        prompt = f"""Find the 5 most recent and significant news headlines for {ticker} stock from the past 30 days.
-
-For each headline return a JSON array with objects containing:
-- "headline": the actual headline text (concise, max 120 chars)
-- "date": approximate date (YYYY-MM-DD format)
-- "price_impact": estimated % price move on that day (positive = stock went up, negative = down, use realistic numbers like +3.2 or -5.1)
-- "why_it_moved": 1-2 sentence plain English explanation of WHY the stock moved that day (write for a complete beginner, no jargon)
-- "sentiment": "positive", "negative", or "neutral"
-- "category": one of: "earnings", "product", "macro", "analyst", "legal", "partnership", "executive"
-
-Return ONLY the JSON array, no other text."""
-
-        response = requests.post(
-            "https://api.perplexity.ai/chat/completions",
-            headers={"Authorization": f"Bearer {perplexity_key}", "Content-Type": "application/json"},
-            json={"model": "sonar", "messages": [{"role": "user", "content": prompt}],
-                  "max_tokens": 1200, "temperature": 0.2},
-            timeout=20
-        )
-
-        if response.status_code == 200:
-            content = response.json()["choices"][0]["message"]["content"].strip()
-            # Clean JSON
-            content = content.replace("```json", "").replace("```", "").strip()
-            news_items = json.loads(content)
-            return news_items[:5]
-    except Exception:
-        pass
-    return []
-
-
-CATEGORY_ICONS = {
-    "earnings": "📊", "product": "🚀", "macro": "🌍",
-    "analyst": "🔍", "legal": "⚖️", "partnership": "🤝", "executive": "👔",
-}
-
-
-def render_news_price_explainer():
-    """News ↔ Price Explainer page"""
-    st.markdown("## 📰 News ↔ Price Explainer")
-    st.caption("*See what moved a stock and why — explained in plain English.*")
-
-    # Ticker input
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        ticker_input = st.text_input(
-            "Enter a stock ticker",
-            value=st.session_state.get("selected_ticker", "NVDA"),
-            placeholder="e.g. AAPL, TSLA, NVDA",
-            key="news_explainer_ticker",
-            label_visibility="collapsed"
-        ).upper().strip()
-    with col2:
-        run_btn = st.button("🔍 Explain", key="news_explainer_run", use_container_width=True, type="primary")
-
-    if not ticker_input:
-        return
-
-    # Auto-run if ticker in session or button clicked
-    if run_btn or st.session_state.get("news_explainer_last") != ticker_input:
-        st.session_state.news_explainer_last = ticker_input
-
-    ticker = sanitize_ticker(ticker_input)
-    if not ticker:
-        st.error("Please enter a valid ticker.")
-        return
-
-    # Get current price for context
-    quote = get_quote(ticker)
-    profile = get_profile(ticker)
-    company_name = (profile or {}).get("companyName", ticker)
-
-    if quote:
-        price = quote.get("price", 0)
-        change_pct = quote.get("changesPercentage", 0)
-        change_color = "#22c55e" if change_pct >= 0 else "#FF4444"
-        st.markdown(f"""
-        <div style='display:flex;align-items:center;gap:16px;padding:14px 20px;
-        background:rgba(255,255,255,0.04);border-radius:12px;margin-bottom:20px;'>
-            <div style='font-size:20px;font-weight:700;'>{company_name}</div>
-            <div style='font-family:monospace;font-size:22px;font-weight:800;'>${price:,.2f}</div>
-            <div style='color:{change_color};font-size:16px;font-weight:700;'>
-                {"▲" if change_pct >= 0 else "▼"} {change_pct:+.2f}% today</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    # Fetch news
-    with st.spinner(f"🔍 Finding recent news and price impacts for {ticker}..."):
-        news_items = get_news_with_price_impact(ticker)
-
-    if not news_items:
-        st.warning("Couldn't fetch news right now. Make sure your Perplexity API key is set.")
-        return
-
-    st.markdown(f"### 📋 Recent News That Moved {ticker}")
-    st.caption("Each card shows the headline, estimated price reaction, and a plain-English explanation of why.")
-
-    for item in news_items:
-        sentiment = item.get("sentiment", "neutral")
-        impact = float(item.get("price_impact", 0))
-        cat = item.get("category", "macro")
-        icon = CATEGORY_ICONS.get(cat, "📰")
-
-        if sentiment == "positive" or impact > 0:
-            border_color = "#22c55e"
-            bg_color = "rgba(34,197,94,0.06)"
-            impact_color = "#22c55e"
-            arrow = "▲"
-        elif sentiment == "negative" or impact < 0:
-            border_color = "#FF4444"
-            bg_color = "rgba(255,68,68,0.06)"
-            impact_color = "#FF4444"
-            arrow = "▼"
-        else:
-            border_color = "rgba(255,255,255,0.15)"
-            bg_color = "rgba(255,255,255,0.03)"
-            impact_color = "rgba(255,255,255,0.5)"
-            arrow = "→"
-
-        st.markdown(f"""
-        <div style='background:{bg_color};border:1px solid {border_color};
-        border-radius:14px;padding:20px 24px;margin-bottom:14px;'>
-
-            <div style='display:flex;justify-content:space-between;align-items:flex-start;gap:12px;'>
-                <div style='flex:1;'>
-                    <div style='font-size:11px;color:rgba(255,255,255,0.4);
-                    text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;'>
-                        {icon} {cat.upper()} · {item.get("date","Recent")}
-                    </div>
-                    <div style='font-size:16px;font-weight:600;line-height:1.4;'>
-                        {item.get("headline","")}
-                    </div>
-                </div>
-                <div style='text-align:center;flex-shrink:0;
-                background:rgba(255,255,255,0.06);border-radius:10px;padding:10px 16px;'>
-                    <div style='font-size:11px;color:rgba(255,255,255,0.4);'>Est. move</div>
-                    <div style='font-size:22px;font-weight:800;color:{impact_color};'>
-                        {arrow} {abs(impact):.1f}%</div>
-                </div>
-            </div>
-
-            <div style='margin-top:14px;padding:12px 16px;
-            background:rgba(255,255,255,0.04);border-radius:8px;
-            border-left:3px solid {border_color};'>
-                <span style='font-size:12px;color:rgba(255,255,255,0.5);
-                text-transform:uppercase;letter-spacing:.06em;'>Why it moved: </span>
-                <span style='font-size:14px;color:rgba(255,255,255,0.85);line-height:1.6;'>
-                    {item.get("why_it_moved","")}
-                </span>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    # Key lesson
-    st.markdown("---")
-    st.markdown("""
-    <div style='background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);
-    border-radius:12px;padding:16px 20px;'>
-    <b>💡 Key lesson:</b> Stock prices move on <em>expectations</em>, not just facts.
-    A company can post record profits and still fall if investors expected even better results.
-    This is called <b>"sell the news"</b> — and it trips up beginners constantly.
-    </div>
-    """, unsafe_allow_html=True)
-
-
-# ============================================================
-# FEATURE: INVESTING JOURNAL (#9)
-# ============================================================
-
-def get_journal_db_key(user_id):
-    return f"journal_{user_id}"
-
-def load_journal_entries(user_id=None):
-    """Load journal entries from Supabase or session state"""
-    if user_id and SUPABASE_ENABLED:
-        try:
-            result = supabase.table("investing_journal").select("*").eq(
-                "user_id", user_id).order("created_at", desc=True).execute()
-            if result.data:
-                return result.data
-        except Exception:
-            pass
-    # Fallback to session state
-    return st.session_state.get("journal_entries", [])
-
-
-def save_journal_entry(entry, user_id=None):
-    """Save a journal entry to Supabase or session state"""
-    if user_id and SUPABASE_ENABLED:
-        try:
-            entry_data = {
-                "user_id": user_id,
-                "ticker": entry["ticker"],
-                "action": entry["action"],
-                "shares": entry["shares"],
-                "price": entry["price"],
-                "thesis": entry["thesis"],
-                "exit_trigger": entry["exit_trigger"],
-                "emotion": entry["emotion"],
-                "created_at": entry["created_at"],
-                "grade": entry.get("grade"),
-                "grade_reasoning": entry.get("grade_reasoning"),
-                "reviewed_at": entry.get("reviewed_at"),
-            }
-            supabase.table("investing_journal").insert(entry_data).execute()
-            return True
-        except Exception:
-            pass
-    # Fallback to session state
-    entries = st.session_state.get("journal_entries", [])
-    entries.insert(0, entry)
-    st.session_state.journal_entries = entries
-    return True
-
-
-def update_journal_grade(entry_id, grade, reasoning, user_id=None):
-    """Update grade on a journal entry"""
-    if user_id and SUPABASE_ENABLED:
-        try:
-            supabase.table("investing_journal").update({
-                "grade": grade,
-                "grade_reasoning": reasoning,
-                "reviewed_at": datetime.now().isoformat()
-            }).eq("id", entry_id).execute()
-            return True
-        except Exception:
-            pass
-    # Session state fallback
-    entries = st.session_state.get("journal_entries", [])
-    for e in entries:
-        if e.get("id") == entry_id:
-            e["grade"] = grade
-            e["grade_reasoning"] = reasoning
-            e["reviewed_at"] = datetime.now().isoformat()
-    st.session_state.journal_entries = entries
-    return True
-
-
-def ai_grade_thesis(ticker, action, thesis, exit_trigger, entry_price, current_price, days_held):
-    """Ask AI to grade the investing thesis"""
-    openai_key = os.environ.get("OPENAI_API_KEY", "")
-    if not openai_key:
-        return None, None
-
-    pct_change = ((current_price - entry_price) / entry_price * 100) if entry_price > 0 else 0
-    prompt = f"""You are a tough but fair investing coach grading a beginner investor's trade thesis.
-
-Trade details:
-- Ticker: {ticker}
-- Action: {action}
-- Entry price: ${entry_price:.2f}
-- Current price: ${current_price:.2f}
-- Change: {pct_change:+.1f}%
-- Days held: {days_held}
-- Thesis: "{thesis}"
-- Exit trigger: "{exit_trigger}"
-
-Grade this thesis A/B/C/D/F based on:
-1. Was the reasoning sound? (not just "I think it'll go up")
-2. Did they identify a specific catalyst?
-3. Did they set a clear exit trigger?
-4. Was the outcome consistent with their thesis (even if the price moved against them — good thesis can have bad outcomes short-term)
-
-Return a JSON object ONLY with:
-{{"grade": "B+", "reasoning": "2-3 sentences explaining the grade in plain English for a beginner"}}"""
-
-    try:
-        response = requests.post(
-            "https://api.openai.com/v1/chat/completions",
-            headers={"Authorization": f"Bearer {openai_key}", "Content-Type": "application/json"},
-            json={"model": "gpt-4o-mini", "messages": [{"role": "user", "content": prompt}],
-                  "max_tokens": 300, "temperature": 0.3},
-            timeout=15
-        )
-        if response.status_code == 200:
-            content = response.json()["choices"][0]["message"]["content"].strip()
-            content = content.replace("```json", "").replace("```", "").strip()
-            result = json.loads(content)
-            return result.get("grade"), result.get("reasoning")
-    except Exception:
-        pass
-    return None, None
-
-
-EMOTION_OPTIONS = [
-    "😎 Confident", "🤔 Unsure but hopeful", "😰 Nervous", "🎯 Very certain",
-    "😤 FOMO — felt like I had to buy", "🧠 Fully researched", "🎲 Taking a chance"
-]
-
-GRADE_COLORS = {
-    "A+": "#22c55e", "A": "#22c55e", "A-": "#4ade80",
-    "B+": "#86efac", "B": "#86efac", "B-": "#bef264",
-    "C+": "#FFD700", "C": "#FFD700", "C-": "#FFA500",
-    "D+": "#FF8C00", "D": "#FF6B35", "D-": "#FF4444",
-    "F": "#FF0000",
-}
-
-
-def render_investing_journal():
-    """Full investing journal page"""
-    st.markdown("## 📓 Investing Journal")
-    st.caption("*Log your trade thesis. AI reviews your reasoning 30 days later and grades you.*")
-
-    user_id = st.session_state.get("user_id")
-    is_logged_in = st.session_state.get("is_logged_in", False)
-
-    if not is_logged_in:
-        st.info("📝 Sign in to save your journal entries across sessions.")
-
-    # ── Tabs ────────────────────────────────────────────────
-    tab1, tab2, tab3 = st.tabs(["✍️ Log a Trade", "📋 My Journal", "📊 My Stats"])
-
-    # ── TAB 1: Log a new entry ───────────────────────────────
-    with tab1:
-        st.markdown("### Log a new trade")
-        st.caption("Write down WHY you're making this trade before you make it. Future you will thank you.")
-
-        col1, col2 = st.columns(2)
-        with col1:
-            j_ticker = st.text_input("Ticker", placeholder="AAPL", key="j_ticker").upper().strip()
-            j_action = st.selectbox("Action", ["Buy", "Sell", "Watch (didn't trade)"], key="j_action")
-            j_shares = st.number_input("Shares", min_value=0.0, step=0.1, key="j_shares")
-        with col2:
-            j_price = st.number_input("Price per share ($)", min_value=0.0, step=0.01, key="j_price")
-            j_emotion = st.selectbox("How are you feeling about this trade?", EMOTION_OPTIONS, key="j_emotion")
-
-        j_thesis = st.text_area(
-            "📝 Your thesis — WHY are you making this trade?",
-            placeholder="e.g. NVDA has a dominant position in AI chips. Data center revenue grew 400% last quarter. I think AI spending will continue for at least 2 more years. The recent dip to $800 looks like a buying opportunity before next earnings.",
-            height=120, key="j_thesis"
-        )
-        j_exit = st.text_area(
-            "🚪 Exit trigger — what would make you SELL?",
-            placeholder="e.g. I'll sell if: (1) AI spending slows significantly, (2) AMD closes the performance gap, or (3) price drops below $750 (my stop-loss), or (4) I hit +50% gain.",
-            height=80, key="j_exit"
-        )
-
-        # Thesis quality hints
-        if j_thesis and len(j_thesis) > 20:
-            quality_score = 0
-            hints = []
-            if len(j_thesis) > 100:
-                quality_score += 1
-            else:
-                hints.append("💡 More detail = better grade. Aim for 100+ characters.")
-            if any(w in j_thesis.lower() for w in ["revenue", "earnings", "growth", "profit", "sales", "margin"]):
-                quality_score += 1
-            else:
-                hints.append("💡 Mention a financial reason (revenue, earnings, growth).")
-            if any(w in j_thesis.lower() for w in ["because", "since", "due to", "reason", "expect"]):
-                quality_score += 1
-            else:
-                hints.append("💡 Use 'because' to explain your reasoning explicitly.")
-            if j_exit and len(j_exit) > 30:
-                quality_score += 1
-            else:
-                hints.append("💡 A clear exit trigger is what separates investors from gamblers.")
-
-            bar_pct = quality_score * 25
-            bar_color = "#22c55e" if quality_score >= 3 else "#FFD700" if quality_score >= 2 else "#FF4444"
-            quality_label = ["Weak", "Needs work", "Good", "Strong", "Excellent"][quality_score]
-            st.markdown(f"""
-            <div style='margin:8px 0;'>
-                <div style='font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:4px;'>
-                    Thesis quality: <b style='color:{bar_color};'>{quality_label}</b>
-                </div>
-                <div style='background:rgba(255,255,255,0.06);border-radius:100px;height:8px;'>
-                    <div style='background:{bar_color};height:100%;width:{bar_pct}%;border-radius:100px;
-                    transition:width .5s;'></div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-            for h in hints[:2]:
-                st.caption(h)
-
-        if st.button("💾 Save Journal Entry", key="j_save", type="primary", use_container_width=True):
-            if not j_ticker:
-                st.error("Please enter a ticker.")
-            elif not j_thesis or len(j_thesis) < 20:
-                st.error("Please write a proper thesis (at least 20 characters).")
-            else:
-                entry = {
-                    "id": f"j_{datetime.now().strftime('%Y%m%d%H%M%S')}",
-                    "ticker": sanitize_ticker(j_ticker),
-                    "action": j_action,
-                    "shares": j_shares,
-                    "price": j_price,
-                    "thesis": j_thesis,
-                    "exit_trigger": j_exit,
-                    "emotion": j_emotion,
-                    "created_at": datetime.now().isoformat(),
-                    "grade": None,
-                    "grade_reasoning": None,
-                    "reviewed_at": None,
-                }
-                save_journal_entry(entry, user_id)
-                st.success(f"✅ Journal entry saved for {j_ticker}! AI will review your thesis in 30 days.")
-                st.balloons()
-
-    # ── TAB 2: My Journal ────────────────────────────────────
-    with tab2:
-        entries = load_journal_entries(user_id)
-        if not entries:
-            st.info("📭 No journal entries yet. Log your first trade in the 'Log a Trade' tab!")
-        else:
-            st.markdown(f"**{len(entries)} entries** in your journal")
-
-            for entry in entries:
-                ticker = entry.get("ticker", "")
-                action = entry.get("action", "Buy")
-                created_at = entry.get("created_at", "")[:10]
-                grade = entry.get("grade")
-                emotion = entry.get("emotion", "")
-
-                # Calculate days held & current price
-                try:
-                    entry_date = datetime.fromisoformat(entry["created_at"])
-                    days_held = (datetime.now() - entry_date).days
-                except Exception:
-                    days_held = 0
-
-                quote = get_quote(ticker) if ticker else None
-                current_price = quote.get("price", entry.get("price", 0)) if quote else entry.get("price", 0)
-                entry_price = entry.get("price", 0)
-                pct_change = ((current_price - entry_price) / entry_price * 100) if entry_price > 0 else 0
-                change_color = "#22c55e" if pct_change >= 0 else "#FF4444"
-
-                # Grade badge
-                if grade:
-                    grade_color = GRADE_COLORS.get(grade, "#FFD700")
-                    grade_badge = f"<span style='background:rgba(255,255,255,0.08);color:{grade_color};padding:3px 10px;border-radius:20px;font-size:13px;font-weight:800;'>Grade: {grade}</span>"
-                elif days_held >= 30:
-                    grade_badge = "<span style='background:rgba(255,215,0,0.15);color:#FFD700;padding:3px 10px;border-radius:20px;font-size:12px;'>⏳ Ready to grade!</span>"
-                else:
-                    grade_badge = f"<span style='background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.4);padding:3px 10px;border-radius:20px;font-size:12px;'>🕐 Review in {max(0,30-days_held)}d</span>"
-
-                action_color = "#22c55e" if action == "Buy" else "#FF4444" if action == "Sell" else "#9D4EDD"
-
-                with st.expander(f"{ticker} — {action} @ ${entry_price:.2f} | {created_at} | Now: ${current_price:.2f} ({pct_change:+.1f}%)"):
-                    st.markdown(f"""
-                    <div style='display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px;'>
-                        <span style='background:rgba(255,255,255,0.06);color:{action_color};
-                        padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;'>{action}</span>
-                        <span style='font-size:12px;color:rgba(255,255,255,0.4);'>{emotion}</span>
-                        {grade_badge}
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                    c1, c2, c3 = st.columns(3)
-                    c1.metric("Entry Price", f"${entry_price:.2f}")
-                    c2.metric("Current Price", f"${current_price:.2f}",
-                              delta=f"{pct_change:+.1f}%")
-                    c3.metric("Days Held", f"{days_held}d")
-
-                    st.markdown("**Your thesis:**")
-                    st.markdown(f"> {entry.get('thesis', '')}")
-
-                    if entry.get("exit_trigger"):
-                        st.markdown("**Exit trigger:**")
-                        st.markdown(f"> {entry.get('exit_trigger', '')}")
-
-                    if entry.get("grade_reasoning"):
-                        grade_color = GRADE_COLORS.get(grade, "#FFD700")
-                        st.markdown(f"""
-                        <div style='background:rgba(255,255,255,0.04);border:1px solid {grade_color}44;
-                        border-radius:10px;padding:14px;margin-top:10px;'>
-                        <b style='color:{grade_color};'>AI Grade: {grade}</b><br>
-                        <span style='font-size:14px;color:rgba(255,255,255,0.8);'>
-                        {entry.get("grade_reasoning","")}</span>
-                        </div>
-                        """, unsafe_allow_html=True)
-                    elif days_held >= 30 and not grade:
-                        if st.button(f"🤖 Grade My Thesis", key=f"grade_{entry['id']}", type="primary"):
-                            with st.spinner("AI is reviewing your thesis..."):
-                                g, r = ai_grade_thesis(
-                                    ticker, action, entry.get("thesis", ""),
-                                    entry.get("exit_trigger", ""),
-                                    entry_price, current_price, days_held
-                                )
-                            if g:
-                                update_journal_grade(entry["id"], g, r, user_id)
-                                st.success(f"Grade: **{g}** — {r}")
-                                st.rerun()
-                            else:
-                                st.warning("Couldn't grade right now. Make sure OpenAI key is set.")
-
-    # ── TAB 3: Stats ─────────────────────────────────────────
-    with tab3:
-        entries = load_journal_entries(user_id)
-        if len(entries) < 2:
-            st.info("Log at least 2 trades to see your stats.")
-        else:
-            graded = [e for e in entries if e.get("grade")]
-            total = len(entries)
-            buys = sum(1 for e in entries if e.get("action") == "Buy")
-            sells = sum(1 for e in entries if e.get("action") == "Sell")
-
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Total Entries", total)
-            c2.metric("Buys Logged", buys)
-            c3.metric("Sells Logged", sells)
-            c4.metric("Graded", len(graded))
-
-            if graded:
-                st.markdown("### 🏆 Your Grade Distribution")
-                grade_counts = {}
-                for e in graded:
-                    g = e["grade"]
-                    grade_counts[g] = grade_counts.get(g, 0) + 1
-
-                grade_order = ["A+","A","A-","B+","B","B-","C+","C","C-","D+","D","D-","F"]
-                for g in grade_order:
-                    if g in grade_counts:
-                        color = GRADE_COLORS.get(g, "#FFD700")
-                        count = grade_counts[g]
-                        bar = "█" * count
-                        st.markdown(f"""
-                        <div style='display:flex;align-items:center;gap:12px;margin-bottom:6px;'>
-                            <span style='color:{color};font-weight:700;font-size:14px;
-                            min-width:28px;'>{g}</span>
-                            <span style='color:{color};font-size:16px;letter-spacing:2px;'>{bar}</span>
-                            <span style='color:rgba(255,255,255,0.4);font-size:12px;'>{count}x</span>
-                        </div>
-                        """, unsafe_allow_html=True)
-
-            # Emotion analysis
-            emotions_used = [e.get("emotion","") for e in entries if e.get("emotion")]
-            if emotions_used:
-                fomo_count = sum(1 for em in emotions_used if "FOMO" in em)
-                confident_count = sum(1 for em in emotions_used if "Confident" in em or "certain" in em.lower())
-                st.markdown("### 🧠 Emotion Patterns")
-                if fomo_count > 0:
-                    pct = fomo_count / len(emotions_used) * 100
-                    fomo_color = "#FF4444" if pct > 30 else "#FFD700"
-                    st.markdown(f"<span style='color:{fomo_color};'>⚠️ {pct:.0f}% of your trades were driven by FOMO</span>", unsafe_allow_html=True)
-                    if pct > 30:
-                        st.caption("FOMO is one of the most common reasons beginner investors lose money. Try waiting 24 hours before any FOMO trade.")
-                if confident_count > 0:
-                    st.markdown(f"✅ {confident_count/len(emotions_used)*100:.0f}% of trades made with confidence or full research")
