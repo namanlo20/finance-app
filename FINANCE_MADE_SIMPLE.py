@@ -7233,27 +7233,22 @@ def get_live_ticker_data():
         for i in range(0, len(TOP_100_TICKERS), 50):
             batch = TOP_100_TICKERS[i:i+50]
             tickers_str = ",".join(batch)
-            url = f"{BASE_URL}/quote/{tickers_str}?apikey={FMP_API_KEY}"
+            # Use the CORRECT endpoint format (same as working get_quote function)
+            url = f"{BASE_URL}/quote?symbol={tickers_str}&apikey={FMP_API_KEY}"
             response = requests.get(url, timeout=15)
             data = response.json()
-            for quote in data:
-                if isinstance(quote, dict):
-                    ticker_data.append({
-                        "symbol": quote.get("symbol", ""),
-                        "price": quote.get("price", 0),
-                        "change_pct": quote.get("changesPercentage", 0)
-                    })
-        return ticker_data
+            if isinstance(data, list):
+                for quote in data:
+                    if isinstance(quote, dict) and quote.get("price"):
+                        ticker_data.append({
+                            "symbol": quote.get("symbol", ""),
+                            "price": quote.get("price", 0),
+                            "change_pct": quote.get("changesPercentage", 0) or 0
+                        })
+        return ticker_data if ticker_data else None
     except Exception:
-        return [
-            {"symbol": "AAPL", "price": 185.50, "change_pct": 1.2},
-            {"symbol": "MSFT", "price": 378.25, "change_pct": -0.5},
-            {"symbol": "GOOGL", "price": 141.80, "change_pct": 0.8},
-            {"symbol": "AMZN", "price": 178.90, "change_pct": 1.5},
-            {"symbol": "NVDA", "price": 495.20, "change_pct": 2.3},
-            {"symbol": "META", "price": 505.15, "change_pct": -0.3},
-            {"symbol": "TSLA", "price": 248.50, "change_pct": -1.8},
-        ]
+        # Return None instead of hardcoded stale prices — better to show nothing than wrong data
+        return None
 
 def render_live_ticker_bar():
     """Render the scrolling live ticker bar at the top of the page"""
@@ -24758,6 +24753,12 @@ Return JSON with grade, summary, top_risks (MAX 5), improvement_playbook (MAX 5)
         
         else:
             st.info("💼 You don't have any positions in your Paper Portfolio yet. Go to the Paper Portfolio tab to start trading!")
+    
+    # ============= STRESS TEST - ULTIMATE FEATURE =============
+    st.markdown("---")
+    st.markdown("## 💥 Portfolio Stress Test")
+    st.caption("*See how your paper portfolio would survive historical market crashes*")
+    render_stress_test_page()
     
     # AI Coach integration
     #REMOVED: render_ai_coach("Portfolio Review", ticker=None, facts=None)
