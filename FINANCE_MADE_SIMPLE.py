@@ -5317,8 +5317,15 @@ def get_company_logo(ticker):
         if img_url and len(img_url) > 10 and 'placeholder' not in img_url.lower():
             return img_url
     
-    # 3. Fallback to TradingView logos (very reliable)
-    # Convert ticker to company name format for TradingView
+    # 3. Try logo.dev (very reliable, works for most tickers)
+    # Format: https://img.logo.dev/{domain}?token=pk_anonymous
+    # For stocks, try the company website domain from profile
+    if profile and profile.get('website'):
+        website = profile['website'].replace('https://', '').replace('http://', '').strip('/')
+        if website:
+            return f"https://logo.dev/{website}?token=pk_anonymous&format=png&size=64"
+    
+    # 4. Fallback to TradingView logos (very reliable for common tickers)
     return f"https://s3-symbol-logo.tradingview.com/{ticker_upper.lower()}--big.svg"
 
 
@@ -6487,6 +6494,7 @@ def get_financial_ratios(ticker, period='annual', limit=5):
         pass
     return pd.DataFrame()
 
+@st.cache_data(ttl=3600)
 @st.cache_data(ttl=3600)
 def get_historical_price(ticker, years=5):
     """Get historical prices"""
@@ -10161,15 +10169,6 @@ with header_cols[3]:
             st.rerun()
         if st.button("💼 Paper Portfolio", key="nav_paper_portfolio", use_container_width=True):
             st.session_state.selected_page = "💼 Paper Portfolio"
-            st.rerun()
-        if st.button("💥 Stress Test", key="nav_stress_test", use_container_width=True):
-            st.session_state.selected_page = "💥 Stress Test"
-            st.rerun()
-        if st.button("📰 News Explainer", key="nav_news_explainer", use_container_width=True):
-            st.session_state.selected_page = "📰 News Explainer"
-            st.rerun()
-        if st.button("📓 Investing Journal", key="nav_journal", use_container_width=True):
-            st.session_state.selected_page = "📓 Investing Journal"
             st.rerun()
         if st.button("👤 Naman's Portfolio", key="nav_naman_portfolio", use_container_width=True):
             st.session_state.selected_page = "👤 Naman's Portfolio"
@@ -20399,16 +20398,20 @@ elif selected_page == "📊 Market Overview":
                     if not ticker_sym:
                         continue
                     
-                    # Get quote for additional metrics (P/E, P/S, FCF, analyst target)
+                    # Get LIVE quote for real-time price + additional metrics
                     quote = get_quote(ticker_sym)
                     
-                    # Build row from screener data
+                    # Use LIVE quote price (accurate), fall back to screener price (stale)
+                    live_price = quote.get('price', 0) if quote else company.get('price', 0)
+                    live_mktcap = quote.get('marketCap', 0) if quote else company.get('marketCap', 0)
+                    
+                    # Build row from screener data + live quote
                     row = {
                         "Ticker": ticker_sym,
                         "Company": company.get('companyName', ticker_sym),
                         "Sector": company.get('sector', 'Other'),
-                        "Market Cap": company.get('marketCap', 0),
-                        "Price": company.get('price', 0),
+                        "Market Cap": live_mktcap or company.get('marketCap', 0),
+                        "Price": live_price or company.get('price', 0),
                         "P/E Ratio": None,
                         "P/S Ratio": None,
                         "FCF/Share": None,
@@ -20475,16 +20478,20 @@ elif selected_page == "📊 Market Overview":
                 if not ticker_sym:
                     continue
                 
-                # Get quote for additional metrics (P/E, P/S, FCF, analyst target)
+                # Get LIVE quote for real-time price + additional metrics
                 quote = get_quote(ticker_sym)
                 
-                # Build row from screener data
+                # Use LIVE quote price (accurate), fall back to screener price (stale)
+                live_price = quote.get('price', 0) if quote else company.get('price', 0)
+                live_mktcap = quote.get('marketCap', 0) if quote else company.get('marketCap', 0)
+                
+                # Build row from screener data + live quote
                 row = {
                     "Ticker": ticker_sym,
                     "Company": company.get('companyName', ticker_sym),
                     "Sector": company.get('sector', 'Other'),
-                    "Market Cap": company.get('marketCap', 0),
-                    "Price": company.get('price', 0),
+                    "Market Cap": live_mktcap or company.get('marketCap', 0),
+                    "Price": live_price or company.get('price', 0),
                     "P/E Ratio": None,
                     "P/S Ratio": None,
                     "FCF/Share": None,
@@ -21228,438 +21235,438 @@ elif selected_page == "📰 Market Intelligence":
         st.markdown("---")
         st.markdown("### 📊 VIX Fear Index")
     
-    vix_quote = get_quote("^VIX")
-    if vix_quote and vix_quote.get('price'):
-        vix_val = vix_quote.get('price', 0)
-        vix_change = vix_quote.get('changesPercentage', 0) or 0
+        vix_quote = get_quote("^VIX")
+        if vix_quote and vix_quote.get('price'):
+            vix_val = vix_quote.get('price', 0)
+            vix_change = vix_quote.get('changesPercentage', 0) or 0
         
-        if vix_val < 15:
-            vix_status, vix_color = "Low Fear (Complacent)", "#22c55e"
-        elif vix_val < 20:
-            vix_status, vix_color = "Normal", "#84cc16"
-        elif vix_val < 25:
-            vix_status, vix_color = "Elevated", "#f59e0b"
-        elif vix_val < 35:
-            vix_status, vix_color = "High Fear", "#f97316"
+            if vix_val < 15:
+                vix_status, vix_color = "Low Fear (Complacent)", "#22c55e"
+            elif vix_val < 20:
+                vix_status, vix_color = "Normal", "#84cc16"
+            elif vix_val < 25:
+                vix_status, vix_color = "Elevated", "#f59e0b"
+            elif vix_val < 35:
+                vix_status, vix_color = "High Fear", "#f97316"
+            else:
+                vix_status, vix_color = "Extreme Fear", "#ef4444"
+        
+            col1, col2 = st.columns([1, 2])
+            with col1:
+                st.metric("VIX Index", f"{vix_val:.2f}", f"{vix_change:+.2f}%")
+            with col2:
+                st.markdown(f"**Status:** <span style='color:{vix_color}; font-weight:bold; font-size:18px;'>{vix_status}</span>", unsafe_allow_html=True)
+                st.caption("VIX < 15: Complacent | 15-20: Normal | 20-25: Elevated | 25-35: High Fear | >35: Extreme Fear")
         else:
-            vix_status, vix_color = "Extreme Fear", "#ef4444"
-        
-        col1, col2 = st.columns([1, 2])
-        with col1:
-            st.metric("VIX Index", f"{vix_val:.2f}", f"{vix_change:+.2f}%")
-        with col2:
-            st.markdown(f"**Status:** <span style='color:{vix_color}; font-weight:bold; font-size:18px;'>{vix_status}</span>", unsafe_allow_html=True)
-            st.caption("VIX < 15: Complacent | 15-20: Normal | 20-25: Elevated | 25-35: High Fear | >35: Extreme Fear")
-    else:
-        st.info("VIX data unavailable - markets may be closed")
+            st.info("VIX data unavailable - markets may be closed")
     
-    show_data_source(source="FMP API (CBOE VIX)", updated_at=datetime.now())
+        show_data_source(source="FMP API (CBOE VIX)", updated_at=datetime.now())
     
-    st.markdown("---")
-    
-    # ============= TOP MARKET NEWS =============
-    st.markdown("### 📰 Latest Market News")
-    st.caption("AI-powered news summaries from Perplexity")
-    
-    # Function to get top news
-    def get_top_market_news():
-        """Fetch top market news using Perplexity API with fallback models"""
-        if not PERPLEXITY_API_KEY:
-            return None, "Perplexity API key not configured"
-        
-        # Try multiple models in order of preference
-        models_to_try = [
-            "sonar-small-online",
-            "sonar",
-            "llama-3.1-sonar-small-128k-online"
-        ]
-        
-        query = """What are today's top 8 US stock market news stories?
-
-CRITICAL FORMATTING RULES:
-- ONE bullet point per line
-- Format: • Headline - Brief summary [TICKER]
-- Focus ONLY on US markets (NYSE, NASDAQ)
-- NO Indian markets, NO international unless major US impact
-- Topics: S&P 500, Fed policy, major earnings (AAPL, MSFT, GOOGL, AMZN, NVDA, TSLA, META, JPM, BAC, etc), economic data
-
-Example format:
-• JPMorgan Earnings Beat - Q4 profit rises 50% on investment banking surge [JPM]
-• Fed Signals Rate Cuts - Powell hints at 2 cuts in 2026 based on inflation data
-• Tesla Deliveries Miss - Q4 deliveries fall short of estimates amid competition [TSLA]
-
-Keep each bullet to ONE line. Be concise."""
-        
-        headers = {
-            "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
-            "Content-Type": "application/json"
-        }
-        
-        last_error = None
-        
-        # Try each model
-        for model_name in models_to_try:
-            try:
-                payload = {
-                    "model": model_name,
-                    "messages": [
-                        {"role": "user", "content": query}
-                    ],
-                    "temperature": 0.2,
-                    "max_tokens": 1000
-                }
-                
-                response = requests.post(
-                    "https://api.perplexity.ai/chat/completions",
-                    headers=headers,
-                    json=payload,
-                    timeout=30
-                )
-                
-                # Log response for debugging
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-                    if content and len(content) > 50:
-                        return content, None
-                    else:
-                        last_error = f"Empty response from {model_name}"
-                        continue
-                else:
-                    # Try to get error details
-                    try:
-                        error_data = response.json()
-                        last_error = f"{model_name}: {response.status_code} - {error_data}"
-                    except Exception:
-                        last_error = f"{model_name}: HTTP {response.status_code}"
-                    
-                    continue
-                    
-            except requests.exceptions.Timeout:
-                last_error = f"{model_name}: Request timeout"
-                continue
-            except Exception as e:
-                last_error = f"{model_name}: {str(e)}"
-                continue
-        
-        # All models failed
-        return None, f"All models failed. Last error: {last_error}"
-        
-        # All models failed
-        return None, f"All models failed. Last error: {last_error}"
-    
-    # Fetch and display top news - button-gated to avoid slow auto-load
-    if "mi_news_loaded" not in st.session_state:
-        st.session_state.mi_news_loaded = False
-    
-    if not st.session_state.mi_news_loaded:
-        if st.button("📰 Load Latest Market News", key="load_mi_news", type="primary", use_container_width=True):
-            st.session_state.mi_news_loaded = True
-            st.rerun()
-        st.caption("*Click to fetch AI-powered news from Perplexity*")
-        top_news, error = None, None
-    else:
-        with st.spinner("🔄 Fetching latest market news..."):
-            top_news, error = get_top_market_news()
-    
-    if top_news:
-        # Parse the news into individual lines and display each on its own line
-        news_lines = [line.strip() for line in top_news.split('\n') if line.strip() and (line.strip().startswith('•') or line.strip().startswith('-') or line.strip().startswith('*'))]
-        
-        if news_lines:
-            formatted_news = '<br>'.join(news_lines)
-        else:
-            # If no bullets found, just replace newlines with <br>
-            formatted_news = top_news.replace('\n', '<br>')
-        
-        # Display in a card with light blue background - horizontal format
-        st.markdown(f"""
-        <div style="background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%); 
-                    border: 2px solid #ff3333; border-radius: 15px; padding: 30px; margin: 20px 0;">
-            <div style="color: #1a1a2e; font-size: 15px; line-height: 2.0;">
-                {formatted_news}
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Link to Perplexity for deeper exploration
-        st.markdown("""
-        <div style="text-align: center; margin-top: 20px;">
-            <a href="https://www.perplexity.ai" target="_blank" 
-               style="background-color: #ff3333; color: white; padding: 12px 30px; 
-                      border-radius: 8px; text-decoration: none; font-weight: bold; 
-                      display: inline-block;">
-                🔍 Explore More on Perplexity
-            </a>
-        </div>
-        """, unsafe_allow_html=True)
-    elif error:
-        st.warning(f"Could not fetch news: {error}")
-        st.info("Try again later or check if the Perplexity API key is configured correctly.")
-    
-    st.markdown("---")
-    
-    # ============= NEWS AFFECTING YOUR PORTFOLIO (NEW!) =============
-    # Only show if user has portfolio positions
-    user_portfolio = st.session_state.get('portfolio', [])
-    founder_portfolio = st.session_state.get('founder_portfolio', [])
-    
-    # Combine both portfolios to check if user has any positions
-    all_positions = user_portfolio + founder_portfolio
-    
-    if all_positions:
-        st.markdown("### 📊 News Affecting Your Portfolio")
-        st.caption("Personalized news for stocks you own")
-        
-        # Get unique tickers from portfolio
-        portfolio_tickers = list(set([pos['ticker'] for pos in all_positions]))
-        
-        # Function to get portfolio-specific news
-        def get_portfolio_news(tickers):
-            """Fetch news for specific tickers"""
-            if not PERPLEXITY_API_KEY:
-                return None, "Perplexity API key not configured"
-            
-            try:
-                tickers_str = ", ".join(tickers[:10])  # Limit to first 10 tickers
-                query = f"""Latest news and developments for these stocks: {tickers_str}
-                
-                For each stock with significant news, provide:
-                - **[TICKER]** Brief headline
-                - 1-2 sentence summary
-                - Impact assessment (positive/negative/neutral)
-                
-                Focus on: earnings, analyst ratings, product launches, regulatory news, major price movements.
-                Skip stocks with no recent news. Keep it concise."""
-                
-                headers = {
-                    "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
-                    "Content-Type": "application/json"
-                }
-                
-                payload = {
-                    "model": "sonar",
-                    "messages": [
-                        {"role": "system", "content": "You are a portfolio analyst. Provide relevant, actionable news summaries for the user's holdings."},
-                        {"role": "user", "content": query}
-                    ],
-                    "max_tokens": 1500
-                }
-                
-                response = requests.post(
-                    "https://api.perplexity.ai/chat/completions",
-                    headers=headers,
-                    json=payload,
-                    timeout=30
-                )
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-                    return content, None
-                else:
-                    return None, f"API error: {response.status_code}"
-            except Exception as e:
-                return None, str(e)
-        
-        with st.spinner(f"🔄 Fetching news for your {len(portfolio_tickers)} holdings..."):
-            portfolio_news, port_error = get_portfolio_news(portfolio_tickers)
-        
-        if portfolio_news:
-            # Show which stocks you own
-            st.info(f"📈 **Your Holdings:** {', '.join(portfolio_tickers)}")
-            
-            # Display portfolio news with GREEN accent
-            st.markdown(f"""
-            <div style="background: linear-gradient(135deg, #1a2e1a 0%, #162e21 100%); 
-                        border: 2px solid #4CAF50; border-radius: 15px; padding: 30px; margin: 20px 0;">
-                <div style="color: #FFFFFF; font-size: 16px; line-height: 1.8;">
-                    {portfolio_news}
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-        elif port_error:
-            st.warning(f"Could not fetch portfolio news: {port_error}")
-        
         st.markdown("---")
     
-    # ============= EARNINGS CALENDAR (Using FMP API) =============
-    st.markdown("### 📅 Earnings Calendar - This Week")
-    st.caption("Top 5 biggest earnings by market cap each day • Source: FMP API")
+        # ============= TOP MARKET NEWS =============
+        st.markdown("### 📰 Latest Market News")
+        st.caption("AI-powered news summaries from Perplexity")
     
-    if "mi_cal_loaded" not in st.session_state:
-        st.session_state.mi_cal_loaded = False
-    if not st.session_state.mi_cal_loaded:
-        if st.button("📅 Load Earnings Calendar", key="load_mi_cal", use_container_width=True):
-            st.session_state.mi_cal_loaded = True
-            st.rerun()
-        st.caption("*Click to load this week's earnings (FMP API)*")
-        earnings_by_day, earnings_error = None, None
-    else:
-        with st.spinner("📊 Loading earnings calendar..."):
-            earnings_by_day, earnings_error = get_weekly_earnings_fmp()
-    
-    if earnings_by_day and len(earnings_by_day) > 0:
-        day_names = {0: 'Monday', 1: 'Tuesday', 2: 'Wednesday', 3: 'Thursday', 4: 'Friday', 5: 'Saturday', 6: 'Sunday'}
-        
-        # Sort dates
-        sorted_dates = sorted(earnings_by_day.keys())
-        
-        for date_str in sorted_dates:
-            try:
-                date_obj = datetime.strptime(date_str, '%Y-%m-%d')
-                day_name = day_names.get(date_obj.weekday(), '')
-                formatted_date = date_obj.strftime('%B %d')
-                
-                st.markdown(f"**{day_name}, {formatted_date}:**")
-                
-                # Display each company with logo
-                for earning in earnings_by_day[date_str][:5]:
-                    symbol = earning['symbol']
-                    logo_url = get_company_logo(symbol)
-                    profile = get_profile(symbol)
-                    company_name = profile.get('companyName', symbol) if profile else symbol
-                    
-                    # Build logo HTML
-                    if logo_url:
-                        logo_html = f'<img src="{logo_url}" width="32" height="32" style="border-radius: 6px; margin-right: 10px;">'
-                    else:
-                        logo_html = f'<div style="width: 32px; height: 32px; background: #E0E0E0; border-radius: 6px; margin-right: 10px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px;">{symbol[:2]}</div>'
-                    
-                    st.markdown(f"""
-                    <div style="display: flex; align-items: center; background: rgba(128,128,128,0.05); padding: 8px 12px; border-radius: 8px; margin: 5px 0;">
-                        {logo_html}
-                        <div>
-                            <span style="font-weight: 600; color: #333;">{company_name[:30]}</span>
-                            <span style="color: #888; margin-left: 8px;">({symbol})</span>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                
-                st.markdown("")  # Spacer
-            except Exception as e:
-                continue
-        
-    elif earnings_error:
-        st.warning(f"Could not fetch earnings: {earnings_error}")
-        st.info("📊 Check FMP API connection")
-    else:
-        st.info("No major earnings scheduled for this week.")
-    
-    st.markdown("---")
-    
-    # ============= STOCK-SPECIFIC NEWS SEARCH =============
-    st.markdown("### 🔍 Search Stock News")
-    intel_input = st.text_input(
-        "Enter a company name or ticker:",
-        "",
-        placeholder="e.g., Apple, Tesla, GOOGL, Microsoft",
-        key="intel_ticker_search"
-    )
-    
-    # Resolve company name to ticker
-    intel_ticker = resolve_company_to_ticker(intel_input) if intel_input.strip() else None
-    
-    # Show resolved ticker with LOGO if different from input
-    if intel_input.strip() and intel_ticker:
-        intel_logo = get_company_logo(intel_ticker)
-        intel_profile = get_profile(intel_ticker)
-        intel_company_name = intel_profile.get('companyName', intel_ticker) if intel_profile else intel_ticker
-        
-        if intel_logo:
-            st.markdown(f"""
-            <div style="display: flex; align-items: center; background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%); padding: 12px; border-radius: 10px; margin: 10px 0; border: 1px solid #42A5F5;">
-                <img src="{intel_logo}" width="40" height="40" style="border-radius: 6px; margin-right: 12px;">
-                <div>
-                    <div style="font-size: 18px; font-weight: bold; color: #333;">{intel_ticker}</div>
-                    <div style="color: #555; font-size: 13px;">{intel_company_name}</div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-        elif intel_ticker.upper() != intel_input.strip().upper():
-            st.caption(f"Searching for: **{intel_ticker}**")
-    
-    # Fit Check Panel (only if ticker selected) - REMOVED - causes issues
-    if intel_ticker:
-        # REMOVED: render_fit_check_panel(intel_ticker)
-        # Just show news directly without risk quiz
-        
-        # Function to get market news via Perplexity API
-        def get_stock_intelligence(ticker):
-            """Fetch stock-specific news using Perplexity API"""
+        # Function to get top news
+        def get_top_market_news():
+            """Fetch top market news using Perplexity API with fallback models"""
             if not PERPLEXITY_API_KEY:
                 return None, "Perplexity API key not configured"
-            
-            try:
-                query = f"Latest news, catalysts, and market analysis for {ticker.upper()} stock. Include recent price movements, analyst opinions, and any significant company developments. Format with clear sections and bullet points."
-                
-                headers = {
-                    "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
-                    "Content-Type": "application/json"
-                }
-                
-                payload = {
-                    "model": "sonar",
-                    "messages": [
-                        {"role": "system", "content": "You are a financial news analyst. Provide concise, factual market updates with clear sections and bullet points. Make it easy to scan quickly."},
-                        {"role": "user", "content": query}
-                    ],
-                    "max_tokens": 1500
-                }
-                
-                response = requests.post(
-                    "https://api.perplexity.ai/chat/completions",
-                    headers=headers,
-                    json=payload,
-                    timeout=30
-                )
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-                    return content, None
-                else:
-                    return None, f"API error: {response.status_code}"
-            except Exception as e:
-                return None, str(e)
         
-        # Fetch and display stock news
-        with st.spinner(f"Fetching latest {intel_ticker} intelligence..."):
-            stock_news, stock_error = get_stock_intelligence(intel_ticker)
+            # Try multiple models in order of preference
+            models_to_try = [
+                "sonar-small-online",
+                "sonar",
+                "llama-3.1-sonar-small-128k-online"
+            ]
         
-        if stock_news:
-            st.markdown(f"### 📊 {intel_ticker.upper()} - Latest News & Analysis")
-            
+            query = """What are today's top 8 US stock market news stories?
+
+    CRITICAL FORMATTING RULES:
+    - ONE bullet point per line
+    - Format: • Headline - Brief summary [TICKER]
+    - Focus ONLY on US markets (NYSE, NASDAQ)
+    - NO Indian markets, NO international unless major US impact
+    - Topics: S&P 500, Fed policy, major earnings (AAPL, MSFT, GOOGL, AMZN, NVDA, TSLA, META, JPM, BAC, etc), economic data
+
+    Example format:
+    • JPMorgan Earnings Beat - Q4 profit rises 50% on investment banking surge [JPM]
+    • Fed Signals Rate Cuts - Powell hints at 2 cuts in 2026 based on inflation data
+    • Tesla Deliveries Miss - Q4 deliveries fall short of estimates amid competition [TSLA]
+
+    Keep each bullet to ONE line. Be concise."""
+        
+            headers = {
+                "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
+                "Content-Type": "application/json"
+            }
+        
+            last_error = None
+        
+            # Try each model
+            for model_name in models_to_try:
+                try:
+                    payload = {
+                        "model": model_name,
+                        "messages": [
+                            {"role": "user", "content": query}
+                        ],
+                        "temperature": 0.2,
+                        "max_tokens": 1000
+                    }
+                
+                    response = requests.post(
+                        "https://api.perplexity.ai/chat/completions",
+                        headers=headers,
+                        json=payload,
+                        timeout=30
+                    )
+                
+                    # Log response for debugging
+                
+                    if response.status_code == 200:
+                        data = response.json()
+                        content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                        if content and len(content) > 50:
+                            return content, None
+                        else:
+                            last_error = f"Empty response from {model_name}"
+                            continue
+                    else:
+                        # Try to get error details
+                        try:
+                            error_data = response.json()
+                            last_error = f"{model_name}: {response.status_code} - {error_data}"
+                        except Exception:
+                            last_error = f"{model_name}: HTTP {response.status_code}"
+                    
+                        continue
+                    
+                except requests.exceptions.Timeout:
+                    last_error = f"{model_name}: Request timeout"
+                    continue
+                except Exception as e:
+                    last_error = f"{model_name}: {str(e)}"
+                    continue
+        
+            # All models failed
+            return None, f"All models failed. Last error: {last_error}"
+        
+            # All models failed
+            return None, f"All models failed. Last error: {last_error}"
+    
+        # Fetch and display top news - button-gated to avoid slow auto-load
+        if "mi_news_loaded" not in st.session_state:
+            st.session_state.mi_news_loaded = False
+    
+        if not st.session_state.mi_news_loaded:
+            if st.button("📰 Load Latest Market News", key="load_mi_news", type="primary", use_container_width=True):
+                st.session_state.mi_news_loaded = True
+                st.rerun()
+            st.caption("*Click to fetch AI-powered news from Perplexity*")
+            top_news, error = None, None
+        else:
+            with st.spinner("🔄 Fetching latest market news..."):
+                top_news, error = get_top_market_news()
+    
+        if top_news:
+            # Parse the news into individual lines and display each on its own line
+            news_lines = [line.strip() for line in top_news.split('\n') if line.strip() and (line.strip().startswith('•') or line.strip().startswith('-') or line.strip().startswith('*'))]
+        
+            if news_lines:
+                formatted_news = '<br>'.join(news_lines)
+            else:
+                # If no bullets found, just replace newlines with <br>
+                formatted_news = top_news.replace('\n', '<br>')
+        
+            # Display in a card with light blue background - horizontal format
             st.markdown(f"""
-            <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
-                        border: 2px solid #00D9FF; border-radius: 15px; padding: 30px; margin: 20px 0;">
-                <div style="color: #FFFFFF; font-size: 16px; line-height: 1.8;">
-                    {stock_news}
+            <div style="background: linear-gradient(135deg, #E8F4FD 0%, #D1E9FC 100%); 
+                        border: 2px solid #ff3333; border-radius: 15px; padding: 30px; margin: 20px 0;">
+                <div style="color: #1a1a2e; font-size: 15px; line-height: 2.0;">
+                    {formatted_news}
                 </div>
             </div>
             """, unsafe_allow_html=True)
-        elif stock_error:
-            st.warning(f"Could not fetch {intel_ticker} news: {stock_error}")
         
-        # FMP news headlines for this stock
-        fmp_news = get_stock_specific_news(intel_ticker.upper(), 10)
-        if fmp_news:
-            st.markdown("#### Recent Headlines")
-            for article in fmp_news:
-                title = article.get('title', 'No title')
-                published = article.get('publishedDate', '')[:10] if article.get('publishedDate') else ''
-                url = article.get('url', '')
-                if url:
-                    st.markdown(f"- [{title}]({url}) ({published})")
-                else:
-                    st.markdown(f"- **{title}** ({published})")
+            # Link to Perplexity for deeper exploration
+            st.markdown("""
+            <div style="text-align: center; margin-top: 20px;">
+                <a href="https://www.perplexity.ai" target="_blank" 
+                   style="background-color: #ff3333; color: white; padding: 12px 30px; 
+                          border-radius: 8px; text-decoration: none; font-weight: bold; 
+                          display: inline-block;">
+                    🔍 Explore More on Perplexity
+                </a>
+            </div>
+            """, unsafe_allow_html=True)
+        elif error:
+            st.warning(f"Could not fetch news: {error}")
+            st.info("Try again later or check if the Perplexity API key is configured correctly.")
     
-    st.markdown("---")
-    st.caption("*News powered by Perplexity AI and Financial Modeling Prep. This is not financial advice.*")
+        st.markdown("---")
     
-    # AI Coach integration
-    #REMOVED: render_ai_coach("Market Intelligence", ticker=None, facts=None)
+        # ============= NEWS AFFECTING YOUR PORTFOLIO (NEW!) =============
+        # Only show if user has portfolio positions
+        user_portfolio = st.session_state.get('portfolio', [])
+        founder_portfolio = st.session_state.get('founder_portfolio', [])
+    
+        # Combine both portfolios to check if user has any positions
+        all_positions = user_portfolio + founder_portfolio
+    
+        if all_positions:
+            st.markdown("### 📊 News Affecting Your Portfolio")
+            st.caption("Personalized news for stocks you own")
+        
+            # Get unique tickers from portfolio
+            portfolio_tickers = list(set([pos['ticker'] for pos in all_positions]))
+        
+            # Function to get portfolio-specific news
+            def get_portfolio_news(tickers):
+                """Fetch news for specific tickers"""
+                if not PERPLEXITY_API_KEY:
+                    return None, "Perplexity API key not configured"
+            
+                try:
+                    tickers_str = ", ".join(tickers[:10])  # Limit to first 10 tickers
+                    query = f"""Latest news and developments for these stocks: {tickers_str}
+                
+                    For each stock with significant news, provide:
+                    - **[TICKER]** Brief headline
+                    - 1-2 sentence summary
+                    - Impact assessment (positive/negative/neutral)
+                
+                    Focus on: earnings, analyst ratings, product launches, regulatory news, major price movements.
+                    Skip stocks with no recent news. Keep it concise."""
+                
+                    headers = {
+                        "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
+                        "Content-Type": "application/json"
+                    }
+                
+                    payload = {
+                        "model": "sonar",
+                        "messages": [
+                            {"role": "system", "content": "You are a portfolio analyst. Provide relevant, actionable news summaries for the user's holdings."},
+                            {"role": "user", "content": query}
+                        ],
+                        "max_tokens": 1500
+                    }
+                
+                    response = requests.post(
+                        "https://api.perplexity.ai/chat/completions",
+                        headers=headers,
+                        json=payload,
+                        timeout=30
+                    )
+                
+                    if response.status_code == 200:
+                        data = response.json()
+                        content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                        return content, None
+                    else:
+                        return None, f"API error: {response.status_code}"
+                except Exception as e:
+                    return None, str(e)
+        
+            with st.spinner(f"🔄 Fetching news for your {len(portfolio_tickers)} holdings..."):
+                portfolio_news, port_error = get_portfolio_news(portfolio_tickers)
+        
+            if portfolio_news:
+                # Show which stocks you own
+                st.info(f"📈 **Your Holdings:** {', '.join(portfolio_tickers)}")
+            
+                # Display portfolio news with GREEN accent
+                st.markdown(f"""
+                <div style="background: linear-gradient(135deg, #1a2e1a 0%, #162e21 100%); 
+                            border: 2px solid #4CAF50; border-radius: 15px; padding: 30px; margin: 20px 0;">
+                    <div style="color: #FFFFFF; font-size: 16px; line-height: 1.8;">
+                        {portfolio_news}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            elif port_error:
+                st.warning(f"Could not fetch portfolio news: {port_error}")
+        
+            st.markdown("---")
+    
+        # ============= EARNINGS CALENDAR (Using FMP API) =============
+        st.markdown("### 📅 Earnings Calendar - This Week")
+        st.caption("Top 5 biggest earnings by market cap each day • Source: FMP API")
+    
+        if "mi_cal_loaded" not in st.session_state:
+            st.session_state.mi_cal_loaded = False
+        if not st.session_state.mi_cal_loaded:
+            if st.button("📅 Load Earnings Calendar", key="load_mi_cal", use_container_width=True):
+                st.session_state.mi_cal_loaded = True
+                st.rerun()
+            st.caption("*Click to load this week's earnings (FMP API)*")
+            earnings_by_day, earnings_error = None, None
+        else:
+            with st.spinner("📊 Loading earnings calendar..."):
+                earnings_by_day, earnings_error = get_weekly_earnings_fmp()
+    
+        if earnings_by_day and len(earnings_by_day) > 0:
+            day_names = {0: 'Monday', 1: 'Tuesday', 2: 'Wednesday', 3: 'Thursday', 4: 'Friday', 5: 'Saturday', 6: 'Sunday'}
+        
+            # Sort dates
+            sorted_dates = sorted(earnings_by_day.keys())
+        
+            for date_str in sorted_dates:
+                try:
+                    date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+                    day_name = day_names.get(date_obj.weekday(), '')
+                    formatted_date = date_obj.strftime('%B %d')
+                
+                    st.markdown(f"**{day_name}, {formatted_date}:**")
+                
+                    # Display each company with logo
+                    for earning in earnings_by_day[date_str][:5]:
+                        symbol = earning['symbol']
+                        logo_url = get_company_logo(symbol)
+                        profile = get_profile(symbol)
+                        company_name = profile.get('companyName', symbol) if profile else symbol
+                    
+                        # Build logo HTML
+                        if logo_url:
+                            logo_html = f'<img src="{logo_url}" width="32" height="32" style="border-radius: 6px; margin-right: 10px;">'
+                        else:
+                            logo_html = f'<div style="width: 32px; height: 32px; background: #E0E0E0; border-radius: 6px; margin-right: 10px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px;">{symbol[:2]}</div>'
+                    
+                        st.markdown(f"""
+                        <div style="display: flex; align-items: center; background: rgba(128,128,128,0.05); padding: 8px 12px; border-radius: 8px; margin: 5px 0;">
+                            {logo_html}
+                            <div>
+                                <span style="font-weight: 600; color: #333;">{company_name[:30]}</span>
+                                <span style="color: #888; margin-left: 8px;">({symbol})</span>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                
+                    st.markdown("")  # Spacer
+                except Exception as e:
+                    continue
+        
+        elif earnings_error:
+            st.warning(f"Could not fetch earnings: {earnings_error}")
+            st.info("📊 Check FMP API connection")
+        else:
+            st.info("No major earnings scheduled for this week.")
+    
+        st.markdown("---")
+    
+        # ============= STOCK-SPECIFIC NEWS SEARCH =============
+        st.markdown("### 🔍 Search Stock News")
+        intel_input = st.text_input(
+            "Enter a company name or ticker:",
+            "",
+            placeholder="e.g., Apple, Tesla, GOOGL, Microsoft",
+            key="intel_ticker_search"
+        )
+    
+        # Resolve company name to ticker
+        intel_ticker = resolve_company_to_ticker(intel_input) if intel_input.strip() else None
+    
+        # Show resolved ticker with LOGO if different from input
+        if intel_input.strip() and intel_ticker:
+            intel_logo = get_company_logo(intel_ticker)
+            intel_profile = get_profile(intel_ticker)
+            intel_company_name = intel_profile.get('companyName', intel_ticker) if intel_profile else intel_ticker
+        
+            if intel_logo:
+                st.markdown(f"""
+                <div style="display: flex; align-items: center; background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%); padding: 12px; border-radius: 10px; margin: 10px 0; border: 1px solid #42A5F5;">
+                    <img src="{intel_logo}" width="40" height="40" style="border-radius: 6px; margin-right: 12px;">
+                    <div>
+                        <div style="font-size: 18px; font-weight: bold; color: #333;">{intel_ticker}</div>
+                        <div style="color: #555; font-size: 13px;">{intel_company_name}</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            elif intel_ticker.upper() != intel_input.strip().upper():
+                st.caption(f"Searching for: **{intel_ticker}**")
+    
+        # Fit Check Panel (only if ticker selected) - REMOVED - causes issues
+        if intel_ticker:
+            # REMOVED: render_fit_check_panel(intel_ticker)
+            # Just show news directly without risk quiz
+        
+            # Function to get market news via Perplexity API
+            def get_stock_intelligence(ticker):
+                """Fetch stock-specific news using Perplexity API"""
+                if not PERPLEXITY_API_KEY:
+                    return None, "Perplexity API key not configured"
+            
+                try:
+                    query = f"Latest news, catalysts, and market analysis for {ticker.upper()} stock. Include recent price movements, analyst opinions, and any significant company developments. Format with clear sections and bullet points."
+                
+                    headers = {
+                        "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
+                        "Content-Type": "application/json"
+                    }
+                
+                    payload = {
+                        "model": "sonar",
+                        "messages": [
+                            {"role": "system", "content": "You are a financial news analyst. Provide concise, factual market updates with clear sections and bullet points. Make it easy to scan quickly."},
+                            {"role": "user", "content": query}
+                        ],
+                        "max_tokens": 1500
+                    }
+                
+                    response = requests.post(
+                        "https://api.perplexity.ai/chat/completions",
+                        headers=headers,
+                        json=payload,
+                        timeout=30
+                    )
+                
+                    if response.status_code == 200:
+                        data = response.json()
+                        content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                        return content, None
+                    else:
+                        return None, f"API error: {response.status_code}"
+                except Exception as e:
+                    return None, str(e)
+        
+            # Fetch and display stock news
+            with st.spinner(f"Fetching latest {intel_ticker} intelligence..."):
+                stock_news, stock_error = get_stock_intelligence(intel_ticker)
+        
+            if stock_news:
+                st.markdown(f"### 📊 {intel_ticker.upper()} - Latest News & Analysis")
+            
+                st.markdown(f"""
+                <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
+                            border: 2px solid #00D9FF; border-radius: 15px; padding: 30px; margin: 20px 0;">
+                    <div style="color: #FFFFFF; font-size: 16px; line-height: 1.8;">
+                        {stock_news}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            elif stock_error:
+                st.warning(f"Could not fetch {intel_ticker} news: {stock_error}")
+        
+            # FMP news headlines for this stock
+            fmp_news = get_stock_specific_news(intel_ticker.upper(), 10)
+            if fmp_news:
+                st.markdown("#### Recent Headlines")
+                for article in fmp_news:
+                    title = article.get('title', 'No title')
+                    published = article.get('publishedDate', '')[:10] if article.get('publishedDate') else ''
+                    url = article.get('url', '')
+                    if url:
+                        st.markdown(f"- [{title}]({url}) ({published})")
+                    else:
+                        st.markdown(f"- **{title}** ({published})")
+    
+        st.markdown("---")
+        st.caption("*News powered by Perplexity AI and Financial Modeling Prep. This is not financial advice.*")
+    
+        # AI Coach integration
+        #REMOVED: render_ai_coach("Market Intelligence", ticker=None, facts=None)
 
 
 
@@ -21702,9 +21709,9 @@ elif selected_page == "👤 Naman's Portfolio":
         # Get timeline from sidebar for S&P comparison
         timeline_years = st.session_state.get('global_timeline', 5)
         
-        # Calculate return using existing get_historical_price function
+        # Calculate return using existing get_historical_price function with yfinance fallback
         def calc_return_from_history(ticker, years):
-            """Calculate % return using the working get_historical_price function"""
+            """Calculate % return using FMP historical price, yfinance fallback"""
             try:
                 df = get_historical_price(ticker, years)
                 if df is not None and not df.empty and len(df) >= 2:
@@ -21724,6 +21731,19 @@ elif selected_page == "👤 Naman's Portfolio":
                         end_price = float(df.iloc[-1][price_col])
                         if start_price > 0:
                             return round(((end_price - start_price) / start_price) * 100, 1)
+            except Exception:
+                pass
+            # yfinance fallback
+            try:
+                period_map = {1: "1y", 2: "2y", 3: "5y", 5: "5y", 10: "10y"}
+                yf_period = period_map.get(int(years), "5y")
+                yf_data = yf.download(ticker, period=yf_period, progress=False)
+                if yf_data is not None and not yf_data.empty and len(yf_data) >= 2:
+                    col = 'Adj Close' if 'Adj Close' in yf_data.columns else 'Close'
+                    start_price = float(yf_data[col].iloc[0])
+                    end_price = float(yf_data[col].iloc[-1])
+                    if start_price > 0:
+                        return round(((end_price - start_price) / start_price) * 100, 1)
             except Exception:
                 pass
             return None
@@ -21808,9 +21828,9 @@ elif selected_page == "👤 Naman's Portfolio":
         # Get timeline from sidebar for S&P comparison
         timeline_years = st.session_state.get('global_timeline', 5)
         
-        # Calculate return using existing get_historical_price function
+        # Calculate return using FMP + yfinance fallback
         def calc_return_from_history_free(ticker, years):
-            """Calculate % return - same robust logic as Pro version"""
+            """Calculate % return - same robust logic as Pro version with yfinance fallback"""
             try:
                 df = get_historical_price(ticker, years)
                 if df is not None and not df.empty and len(df) >= 2:
@@ -21828,6 +21848,19 @@ elif selected_page == "👤 Naman's Portfolio":
                         end_price = float(df.iloc[-1][price_col])
                         if start_price > 0:
                             return round(((end_price - start_price) / start_price) * 100, 1)
+            except Exception:
+                pass
+            # yfinance fallback
+            try:
+                period_map = {1: "1y", 2: "2y", 3: "5y", 5: "5y", 10: "10y"}
+                yf_period = period_map.get(int(years), "5y")
+                yf_data = yf.download(ticker, period=yf_period, progress=False)
+                if yf_data is not None and not yf_data.empty and len(yf_data) >= 2:
+                    col = 'Adj Close' if 'Adj Close' in yf_data.columns else 'Close'
+                    start_price = float(yf_data[col].iloc[0])
+                    end_price = float(yf_data[col].iloc[-1])
+                    if start_price > 0:
+                        return round(((end_price - start_price) / start_price) * 100, 1)
             except Exception:
                 pass
             return None
@@ -24730,15 +24763,6 @@ Return JSON with grade, summary, top_risks (MAX 5), improvement_playbook (MAX 5)
     #REMOVED: render_ai_coach("Portfolio Review", ticker=None, facts=None)
 
 
-# NEW PAPER PORTFOLIO PAGE - Section 6 Implementation
-# This will replace lines 8367-8765 in the main file
-
-# ============= STRESS TEST (Ultimate Exclusive) =============
-    st.markdown("---")
-    st.markdown("## 💥 Portfolio Stress Test")
-    st.caption("*Exclusive to Ultimate: See how your portfolio would survive historical crashes*")
-    render_stress_test_page()
-
 elif selected_page == "💼 Paper Portfolio":
     
     # Page popup removed - user requested no popups except welcome
@@ -24746,807 +24770,806 @@ elif selected_page == "💼 Paper Portfolio":
     st.header("💼 Paper Portfolio")
     st.caption("*Practice trading with fake money. Track your performance vs the market.*")
     
-    # ── TABS: Portfolio | Journal ──────────────────────────
-    _pp_tab1, _pp_tab2 = st.tabs(["📈 My Portfolio", "📓 Investing Journal"])
+    # ── TABS: Portfolio | Journal | Stress Test ──────────────────────────
+    _pp_tab1, _pp_tab2, _pp_tab3 = st.tabs(["📈 My Portfolio", "📓 Investing Journal", "💥 Stress Test"])
     with _pp_tab2:
         render_investing_journal()
     
-    # Everything below renders in tab1 (Portfolio) context
-    # Streamlit renders sibling-level code in the last active tab context
-    # We use a flag to stay clean
+    with _pp_tab3:
+        render_stress_test_page()
+    
     with _pp_tab1:
-        st.empty()  # anchor - portfolio content below renders here via Streamlit's tab scoping
     
-    # Unhinged comment for Paper Portfolio
-    unhinged_paper = get_unhinged_comment("paper_portfolio")
-    if unhinged_paper:
-        st.markdown(f"🔥 *{unhinged_paper}*")
+        # Unhinged comment for Paper Portfolio
+        unhinged_paper = get_unhinged_comment("paper_portfolio")
+        if unhinged_paper:
+            st.markdown(f"🔥 *{unhinged_paper}*")
     
-    # Show data source indicator
-    show_data_source(source="FMP API + Local Portfolio Data", updated_at=datetime.now())
+        # Show data source indicator
+        show_data_source(source="FMP API + Local Portfolio Data", updated_at=datetime.now())
     
-    # ============= INITIALIZATION =============
-    # User portfolio
-    if 'portfolio' not in st.session_state:
-        st.session_state.portfolio = []
-    if 'cash' not in st.session_state:
-        st.session_state.cash = STARTING_CASH
-    if 'transactions' not in st.session_state:
-        st.session_state.transactions = []
-    if 'realized_gains' not in st.session_state:
-        st.session_state.realized_gains = 0.0
-    if 'concentration_flags' not in st.session_state:
-        st.session_state.concentration_flags = {}
+        # ============= INITIALIZATION =============
+        # User portfolio
+        if 'portfolio' not in st.session_state:
+            st.session_state.portfolio = []
+        if 'cash' not in st.session_state:
+            st.session_state.cash = STARTING_CASH
+        if 'transactions' not in st.session_state:
+            st.session_state.transactions = []
+        if 'realized_gains' not in st.session_state:
+            st.session_state.realized_gains = 0.0
+        if 'concentration_flags' not in st.session_state:
+            st.session_state.concentration_flags = {}
     
-    # Founder portfolio (now real, not hardcoded)
-    if 'founder_portfolio' not in st.session_state:
-        st.session_state.founder_portfolio = []
-    if 'founder_cash' not in st.session_state:
-        st.session_state.founder_cash = STARTING_CASH
-    if 'founder_transactions' not in st.session_state:
-        st.session_state.founder_transactions = []
-    if 'founder_realized_gains' not in st.session_state:
-        st.session_state.founder_realized_gains = 0.0
+        # Founder portfolio (now real, not hardcoded)
+        if 'founder_portfolio' not in st.session_state:
+            st.session_state.founder_portfolio = []
+        if 'founder_cash' not in st.session_state:
+            st.session_state.founder_cash = STARTING_CASH
+        if 'founder_transactions' not in st.session_state:
+            st.session_state.founder_transactions = []
+        if 'founder_realized_gains' not in st.session_state:
+            st.session_state.founder_realized_gains = 0.0
     
-    # ============= LOAD TRADES FROM DATABASE =============
-    # Load user trades if logged in
-    user_id = st.session_state.get("user_id")
-    
-    if SUPABASE_ENABLED and user_id:
-        # Load user portfolio trades
-        db_transactions = load_trades_from_db(user_id, portfolio_type='user')
-        if db_transactions:
-            st.session_state.transactions = db_transactions
-            
-            # Recalculate cash from DB trades
-            cash, _ = calculate_cash_from_db(user_id, portfolio_type='user')
-            st.session_state.cash = cash
-            
-            # Rebuild portfolio from transactions
-            st.session_state.portfolio = rebuild_portfolio_from_trades(db_transactions)
-    
-    # Load founder trades (public, always load)
-    if SUPABASE_ENABLED:
-        founder_db_transactions = load_trades_from_db(None, portfolio_type='founder')
-        if founder_db_transactions:
-            st.session_state.founder_transactions = founder_db_transactions
-            
-            # Recalculate founder cash
-            founder_cash, _ = calculate_cash_from_db(None, portfolio_type='founder')
-            st.session_state.founder_cash = founder_cash
-            
-            # Rebuild founder portfolio
-            st.session_state.founder_portfolio = rebuild_portfolio_from_trades(founder_db_transactions)
-    
-    # Trade UI state
-    if 'show_order_modal' not in st.session_state:
-        st.session_state.show_order_modal = False
-    if 'pending_order' not in st.session_state:
-        st.session_state.pending_order = None
-    
-    # Check if user is founder (derived from email match)
-    FOUNDER_EMAIL = (os.getenv("FOUNDER_EMAIL") or "").strip().lower()
-    user_email = (st.session_state.get("user_email") or "").strip().lower()
-    is_founder = bool(user_email) and (user_email == FOUNDER_EMAIL)
-    
-    # Update session state for consistency
-    st.session_state.is_founder = is_founder
-    
-    # ============= HELPER FUNCTIONS =============
-    def calculate_portfolio_equity(transactions, portfolio, realized_gains):
-        """Calculate portfolio equity from trade history"""
-        # Calculate cash from starting position and all transactions
-        cash = STARTING_CASH
-        
-        # Process all transactions to calculate current cash
-        for txn in transactions:
-            if txn['type'] == 'BUY':
-                cash -= txn['total']  # Subtract cost
-            elif txn['type'] == 'SELL':
-                cash += txn['total']  # Add proceeds
-        
-        # Calculate market value of current positions
-        market_value = 0.0
-        for pos in portfolio:
-            quote = get_quote(pos['ticker'])
-            if quote:
-                market_value += pos['shares'] * quote.get('price', 0)
-        
-        # Total equity = cash + market value
-        equity = cash + market_value
-        
-        # Total P/L = current equity - starting cash
-        total_pl = equity - STARTING_CASH
-        
-        # YTD return percentage
-        ytd_return_pct = (total_pl / STARTING_CASH * 100) if STARTING_CASH > 0 else 0.0
-        
-        # Handle empty portfolio case
-        if not transactions:
-            equity = STARTING_CASH
-            ytd_return_pct = 0.0
-        
-        return equity, ytd_return_pct, cash, market_value
-    
-    def calculate_portfolio_value(portfolio, cash):
-        """Calculate total portfolio value (legacy function for compatibility)"""
-        total_value = cash
-        for pos in portfolio:
-            quote = get_quote(pos['ticker'])
-            if quote:
-                total_value += pos['shares'] * quote.get('price', 0)
-        return total_value
-    
-    def get_ytd_return(current_value, starting_value=None):
-        """Calculate YTD return percentage"""
-        if starting_value is None:
-            starting_value = STARTING_CASH
-        if starting_value == 0:
-            return 0.0
-        return ((current_value - starting_value) / starting_value) * 100
-    
-    def execute_trade(action, ticker, shares, price, portfolio_type='user'):
-        """
-        Execute a trade with DB validation and persistence.
-        CRITICAL: Validates cash from DB before inserting.
-        """
+        # ============= LOAD TRADES FROM DATABASE =============
+        # Load user trades if logged in
         user_id = st.session_state.get("user_id")
-        
-        # Use DB validation (SOURCE OF TRUTH)
-        success, message = validate_and_insert_trade(
-            user_id=user_id,
-            portfolio_type=portfolio_type,
-            action=action,
-            ticker=ticker,
-            shares=shares,
-            price=price
-        )
-        
-        if not success:
-            return False, message
-        
-        # If DB insert succeeded, update session state for immediate UI update
-        # (This is just for real-time display; DB remains source of truth)
-        if portfolio_type == 'user':
-            portfolio = st.session_state.portfolio
-            cash_key = 'cash'
-            realized_gains_key = 'realized_gains'
-        else:  # founder
-            portfolio = st.session_state.founder_portfolio
-            cash_key = 'founder_cash'
-            realized_gains_key = 'founder_realized_gains'
-        
-        if action == "Buy":
-            total_cost = shares * price
+    
+        if SUPABASE_ENABLED and user_id:
+            # Load user portfolio trades
+            db_transactions = load_trades_from_db(user_id, portfolio_type='user')
+            if db_transactions:
+                st.session_state.transactions = db_transactions
             
-            # Update portfolio position
-            existing = None
+                # Recalculate cash from DB trades
+                cash, _ = calculate_cash_from_db(user_id, portfolio_type='user')
+                st.session_state.cash = cash
+            
+                # Rebuild portfolio from transactions
+                st.session_state.portfolio = rebuild_portfolio_from_trades(db_transactions)
+    
+        # Load founder trades (public, always load)
+        if SUPABASE_ENABLED:
+            founder_db_transactions = load_trades_from_db(None, portfolio_type='founder')
+            if founder_db_transactions:
+                st.session_state.founder_transactions = founder_db_transactions
+            
+                # Recalculate founder cash
+                founder_cash, _ = calculate_cash_from_db(None, portfolio_type='founder')
+                st.session_state.founder_cash = founder_cash
+            
+                # Rebuild founder portfolio
+                st.session_state.founder_portfolio = rebuild_portfolio_from_trades(founder_db_transactions)
+    
+        # Trade UI state
+        if 'show_order_modal' not in st.session_state:
+            st.session_state.show_order_modal = False
+        if 'pending_order' not in st.session_state:
+            st.session_state.pending_order = None
+    
+        # Check if user is founder (derived from email match)
+        FOUNDER_EMAIL = (os.getenv("FOUNDER_EMAIL") or "").strip().lower()
+        user_email = (st.session_state.get("user_email") or "").strip().lower()
+        is_founder = bool(user_email) and (user_email == FOUNDER_EMAIL)
+    
+        # Update session state for consistency
+        st.session_state.is_founder = is_founder
+    
+        # ============= HELPER FUNCTIONS =============
+        def calculate_portfolio_equity(transactions, portfolio, realized_gains):
+            """Calculate portfolio equity from trade history"""
+            # Calculate cash from starting position and all transactions
+            cash = STARTING_CASH
+        
+            # Process all transactions to calculate current cash
+            for txn in transactions:
+                if txn['type'] == 'BUY':
+                    cash -= txn['total']  # Subtract cost
+                elif txn['type'] == 'SELL':
+                    cash += txn['total']  # Add proceeds
+        
+            # Calculate market value of current positions
+            market_value = 0.0
             for pos in portfolio:
-                if pos['ticker'] == ticker:
-                    existing = pos
-                    break
-            
-            if existing:
-                total_shares = existing['shares'] + shares
-                total_cost_all = (existing['shares'] * existing['avg_price']) + total_cost
-                existing['avg_price'] = total_cost_all / total_shares
-                existing['shares'] = total_shares
-            else:
-                portfolio.append({
-                    'ticker': ticker,
-                    'shares': shares,
-                    'avg_price': price
-                })
-            
-            # Update cash
-            st.session_state[cash_key] -= total_cost
+                quote = get_quote(pos['ticker'])
+                if quote:
+                    market_value += pos['shares'] * quote.get('price', 0)
         
-        else:  # Sell
-            # Find position
-            pos_to_sell = None
-            pos_index = None
-            for i, pos in enumerate(portfolio):
-                if pos['ticker'] == ticker:
-                    pos_to_sell = pos
-                    pos_index = i
-                    break
-            
-            if not pos_to_sell:
-                return False, "Position not found"
-            
-            if shares > pos_to_sell['shares']:
-                return False, f"Cannot sell {shares} shares. You only have {pos_to_sell['shares']}"
-            
-            # Calculate proceeds and realized gain
-            proceeds = shares * price
-            cost_basis = shares * pos_to_sell['avg_price']
-            realized_gain = proceeds - cost_basis
-            
-            # Update position
-            if shares == pos_to_sell['shares']:
-                portfolio.pop(pos_index)
-            else:
-                pos_to_sell['shares'] -= shares
-            
-            # Update cash and realized gains
-            st.session_state[cash_key] += proceeds
-            st.session_state[realized_gains_key] += realized_gain
+            # Total equity = cash + market value
+            equity = cash + market_value
         
-        return True, message
+            # Total P/L = current equity - starting cash
+            total_pl = equity - STARTING_CASH
+        
+            # YTD return percentage
+            ytd_return_pct = (total_pl / STARTING_CASH * 100) if STARTING_CASH > 0 else 0.0
+        
+            # Handle empty portfolio case
+            if not transactions:
+                equity = STARTING_CASH
+                ytd_return_pct = 0.0
+        
+            return equity, ytd_return_pct, cash, market_value
     
-    # ============= ORDER CONFIRMATION MODAL =============
-    @st.dialog("Confirm Order", width="medium")
-    def order_confirmation_modal():
-        order = st.session_state.pending_order
-        if not order:
-            return
-        
-        # Simple header (matches screenshot)
-        st.markdown(f"### {order['action']} {order['ticker']}")
-        st.markdown(f"**Shares:** {order['shares']:.4f}")
-        st.markdown(f"**Estimated Price:** ${order['price']:.2f}")  
-        st.markdown(f"**Estimated Total:** ${order['total']:.2f}")
-        
-        st.markdown("")
-        
-        # Post-trade cash with DARK GREEN background for readability
-        post_cash = order['post_cash']
-        if post_cash < 0:
-            # Red for insufficient funds
-            st.error(f"⚠️ **Insufficient Funds** - You need ${abs(post_cash):,.2f} more")
-        else:
-            # DARK GREEN background (readable on dark theme)
-            st.markdown(f"""
-            <div style="background-color: rgba(40, 100, 40, 0.8); padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 2px solid #4CAF50;">
-                <p style="margin: 0; color: #FFFFFF; font-size: 16px;"><strong>✅ Remaining Cash:</strong> ${post_cash:,.2f}</p>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        # Concentration warning with DARK BLUE background (readable)
-        if order['post_concentration'] > 0:
-            st.markdown(f"""
-            <div style="background-color: rgba(30, 50, 90, 0.8); padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 2px solid #2196F3;">
-                <p style="margin: 0; color: #FFFFFF; font-size: 16px;">
-                    <strong>⚠️ Post-trade Concentration:</strong> {order['post_concentration']:.1f}% in {order['ticker']}
-                </p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # Show personalized warning if risk quiz taken
-            risk_tier = st.session_state.user_profile.get('risk_tier', 'unknown')
-            if risk_tier != 'unknown':
-                _, conc_msg = get_concentration_warning(order['ticker'], order['post_concentration'] / 100, risk_tier)
-                if conc_msg:
-                    st.warning(conc_msg)
-        
-        st.markdown("---")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            if st.button("✅ Confirm", use_container_width=True, type="primary", disabled=(post_cash < 0)):
-                # FIXED: Added try-except for error handling + force rerun
-                try:
-                    success, message = execute_trade(
-                        order['action'], 
-                        order['ticker'], 
-                        order['shares'], 
-                        order['price'],
-                        order['portfolio_type']
-                    )
-                    
-                    if success:
-                        # Update concentration flags
-                        if order['portfolio_type'] == 'user':
-                            update_concentration_flags(st.session_state.portfolio)
-                        
-                        # CRITICAL: Clear modal state BEFORE rerun
-                        st.session_state.show_order_modal = False
-                        st.session_state.pending_order = None
-                        
-                        # Save progress
-                        save_user_progress()
-                        
-                        # FIXED: Force reload trades from DB for immediate update
-                        if order['portfolio_type'] == 'founder':
-                            # Reload founder portfolio immediately
-                            founder_db_transactions = load_trades_from_db(None, portfolio_type='founder')
-                            if founder_db_transactions:
-                                st.session_state.founder_transactions = founder_db_transactions
-                                founder_cash, _ = calculate_cash_from_db(None, portfolio_type='founder')
-                                st.session_state.founder_cash = founder_cash
-                                st.session_state.founder_portfolio = rebuild_portfolio_from_trades(founder_db_transactions)
-                        else:
-                            # Reload user portfolio immediately
-                            user_id = st.session_state.get("user_id")
-                            if user_id:
-                                db_transactions = load_trades_from_db(user_id, portfolio_type='user')
-                                if db_transactions:
-                                    st.session_state.transactions = db_transactions
-                                    cash, _ = calculate_cash_from_db(user_id, portfolio_type='user')
-                                    st.session_state.cash = cash
-                                    st.session_state.portfolio = rebuild_portfolio_from_trades(db_transactions)
-                        
-                        st.success(message)
-                        st.rerun()  # Force full page refresh
-                    else:
-                        # FIXED: Show actual error message
-                        st.error(f"Trade failed: {message}")
-                        
-                except Exception as e:
-                    # FIXED: No more silent failures!
-                    st.error(f"❌ Trade execution error: {str(e)}")
-                    import traceback
-                    st.code(traceback.format_exc())  # Show full error for debugging
-        
-        with col2:
-            if st.button("❌ Cancel", use_container_width=True, type="secondary"):
-                st.session_state.show_order_modal = False
-                st.session_state.pending_order = None
-                st.rerun()
+        def calculate_portfolio_value(portfolio, cash):
+            """Calculate total portfolio value (legacy function for compatibility)"""
+            total_value = cash
+            for pos in portfolio:
+                quote = get_quote(pos['ticker'])
+                if quote:
+                    total_value += pos['shares'] * quote.get('price', 0)
+            return total_value
     
-    # Show modal if triggered
-    if st.session_state.show_order_modal:
-        order_confirmation_modal()
+        def get_ytd_return(current_value, starting_value=None):
+            """Calculate YTD return percentage"""
+            if starting_value is None:
+                starting_value = STARTING_CASH
+            if starting_value == 0:
+                return 0.0
+            return ((current_value - starting_value) / starting_value) * 100
     
-    # ============= TRADE PANEL COMPONENT =============
-    def render_trade_panel(portfolio_type='user'):
-        """Render the trade panel for user or founder"""
-        is_founder_panel = (portfolio_type == 'founder')
-        panel_title = "Trade Panel (Founder)" if is_founder_panel else "Trade Panel (User)"
-        
-        # Get portfolio data - ALWAYS get fresh cash from DB
-        if is_founder_panel:
-            portfolio = st.session_state.founder_portfolio
-            # Get FRESH cash from DB (source of truth)
-            cash, _ = calculate_cash_from_db(None, portfolio_type='founder')
-            st.session_state.founder_cash = cash  # Sync session state
-        else:
-            portfolio = st.session_state.portfolio
+        def execute_trade(action, ticker, shares, price, portfolio_type='user'):
+            """
+            Execute a trade with DB validation and persistence.
+            CRITICAL: Validates cash from DB before inserting.
+            """
             user_id = st.session_state.get("user_id")
-            cash, _ = calculate_cash_from_db(user_id, portfolio_type='user')
-            st.session_state.cash = cash  # Sync session state
         
-        st.markdown(f"### 🛒 {panel_title}")
-        
-        # Check for prefilled ticker from quick buy/sell buttons
-        prefill_ticker = st.session_state.pop(f'prefill_ticker_{portfolio_type}', '')
-        prefill_action = st.session_state.pop(f'prefill_action_{portfolio_type}', None)
-        
-        # Ticker input with name resolution
-        ticker_input = st.text_input(
-            "Stock (name or ticker)",
-            value=prefill_ticker,
-            placeholder="AAPL or Apple",
-            key=f"ticker_input_{portfolio_type}"
-        ).strip()
-        
-        if ticker_input:
-            # Resolve ticker
-            resolved_ticker, company_name = smart_search_ticker(ticker_input)
-            
-            if resolved_ticker != ticker_input.upper():
-                st.caption(f"→ {company_name} ({resolved_ticker})")
-            
-            ticker = resolved_ticker
-            
-            # Get current price
-            quote = get_quote(ticker)
-            if not quote:
-                st.error("Invalid ticker")
-                return
-            
-            current_price = quote.get('price', 0)
-            st.metric("Current Price", f"${current_price:.2f}")
-            
-            # Action toggle - default to prefilled action if set
-            default_action_idx = 1 if prefill_action == 'Sell' else 0
-            action = st.radio(
-                "Action",
-                ["Buy", "Sell"],
-                horizontal=True,
-                index=default_action_idx,
-                key=f"action_{portfolio_type}"
+            # Use DB validation (SOURCE OF TRUTH)
+            success, message = validate_and_insert_trade(
+                user_id=user_id,
+                portfolio_type=portfolio_type,
+                action=action,
+                ticker=ticker,
+                shares=shares,
+                price=price
             )
-            
-            # Input type toggle
-            input_mode = st.radio(
-                "Input Mode",
-                ["Shares", "Dollars"],
-                horizontal=True,
-                key=f"input_mode_{portfolio_type}"
-            )
-            
-            # Quantity input
-            if input_mode == "Shares":
-                shares = st.number_input(
-                    "Shares",
-                    min_value=0.01,
-                    value=1.0,
-                    step=0.01,
-                    key=f"shares_input_{portfolio_type}"
-                )
-                total_cost = shares * current_price
-            else:  # Dollars
-                dollars = st.number_input(
-                    "Dollars",
-                    min_value=1.0,
-                    value=1000.0,
-                    step=100.0,
-                    key=f"dollars_input_{portfolio_type}"
-                )
-                shares = dollars / current_price
-                total_cost = dollars
-            
-            # Live preview with FIXED styling
-            st.markdown("---")
-            st.markdown("#### 📋 Preview")
-            
+        
+            if not success:
+                return False, message
+        
+            # If DB insert succeeded, update session state for immediate UI update
+            # (This is just for real-time display; DB remains source of truth)
+            if portfolio_type == 'user':
+                portfolio = st.session_state.portfolio
+                cash_key = 'cash'
+                realized_gains_key = 'realized_gains'
+            else:  # founder
+                portfolio = st.session_state.founder_portfolio
+                cash_key = 'founder_cash'
+                realized_gains_key = 'founder_realized_gains'
+        
             if action == "Buy":
-                post_cash = cash - total_cost
-                
-                # Simulate concentration
-                sim_portfolio = portfolio.copy()
-                existing_pos = None
-                for pos in sim_portfolio:
-                    if pos['ticker'] == ticker:
-                        existing_pos = pos
-                        break
-                
-                if existing_pos:
-                    existing_pos['shares'] += shares
-                else:
-                    sim_portfolio.append({'ticker': ticker, 'shares': shares, 'avg_price': current_price})
-                
-                sim_weights = compute_portfolio_concentration(sim_portfolio)
-                post_concentration = sim_weights.get(ticker, 0) * 100
-                
-                # Preview box with DARK NAVY background (matches screenshot)
-                st.info(f"""
-                **Estimated Shares:** {shares:.4f}  
-                **Estimated Cost:** ${total_cost:,.2f}  
-                **Remaining Cash:** ${post_cash:,.2f}  
-                **Post-trade {ticker}:** {post_concentration:.1f}% of portfolio
-                """)
-                
-                if post_cash < 0:
-                    st.error(f"⚠️ Insufficient funds! Need ${abs(post_cash):,.2f} more")
+                total_cost = shares * price
             
-            else:  # Sell
-                # Check if position exists
-                existing_pos = None
+                # Update portfolio position
+                existing = None
                 for pos in portfolio:
                     if pos['ticker'] == ticker:
-                        existing_pos = pos
+                        existing = pos
                         break
-                
-                if not existing_pos:
-                    st.error(f"You don't own any {ticker}")
-                    return
-                
-                if shares > existing_pos['shares']:
-                    st.error(f"Cannot sell {shares:.4f} shares. You only have {existing_pos['shares']:.4f}")
-                    return
-                
-                proceeds = shares * current_price
-                post_cash = cash + proceeds
-                
-                # Preview box with DARK NAVY background (matches screenshot)
-                st.info(f"""
-                **Selling Shares:** {shares:.4f}  
-                **Estimated Proceeds:** ${proceeds:,.2f}  
-                **Remaining Cash:** ${post_cash:,.2f}
-                """)
             
-            # Review Order button
-            st.markdown("---")
+                if existing:
+                    total_shares = existing['shares'] + shares
+                    total_cost_all = (existing['shares'] * existing['avg_price']) + total_cost
+                    existing['avg_price'] = total_cost_all / total_shares
+                    existing['shares'] = total_shares
+                else:
+                    portfolio.append({
+                        'ticker': ticker,
+                        'shares': shares,
+                        'avg_price': price
+                    })
             
-            # Prepare order data
-            can_execute = True
-            if action == "Buy" and total_cost > cash:
-                can_execute = False
-            elif action == "Sell" and (not existing_pos or shares > existing_pos['shares']):
-                can_execute = False
+                # Update cash
+                st.session_state[cash_key] -= total_cost
+        
+            else:  # Sell
+                # Find position
+                pos_to_sell = None
+                pos_index = None
+                for i, pos in enumerate(portfolio):
+                    if pos['ticker'] == ticker:
+                        pos_to_sell = pos
+                        pos_index = i
+                        break
             
-            if st.button(
-                "📝 Review Order",
-                use_container_width=True,
-                type="primary",
-                key=f"review_order_{portfolio_type}",
-                disabled=not can_execute
-            ):
-                # Store order data and show modal
-                st.session_state.pending_order = {
-                    'action': action,
-                    'ticker': ticker,
-                    'shares': shares,
-                    'price': current_price,
-                    'total': total_cost if action == "Buy" else proceeds,
-                    'post_cash': post_cash,
-                    'post_concentration': post_concentration if action == "Buy" else 0,
-                    'portfolio_type': portfolio_type
-                }
-                st.session_state.show_order_modal = True
-                st.rerun()
+                if not pos_to_sell:
+                    return False, "Position not found"
+            
+                if shares > pos_to_sell['shares']:
+                    return False, f"Cannot sell {shares} shares. You only have {pos_to_sell['shares']}"
+            
+                # Calculate proceeds and realized gain
+                proceeds = shares * price
+                cost_basis = shares * pos_to_sell['avg_price']
+                realized_gain = proceeds - cost_basis
+            
+                # Update position
+                if shares == pos_to_sell['shares']:
+                    portfolio.pop(pos_index)
+                else:
+                    pos_to_sell['shares'] -= shares
+            
+                # Update cash and realized gains
+                st.session_state[cash_key] += proceeds
+                st.session_state[realized_gains_key] += realized_gain
+        
+            return True, message
     
-    # ============= POSITIONS TABLE COMPONENT =============
-    def render_positions_table(portfolio, realized_gains, portfolio_type='user'):
-        """Render Robinhood-style positions table with logo, name, shares, price, value, gain/loss"""
-        if not portfolio:
-            st.info("No positions yet. Use the trade panel to buy your first stock!")
-            return
+        # ============= ORDER CONFIRMATION MODAL =============
+        @st.dialog("Confirm Order", width="medium")
+        def order_confirmation_modal():
+            order = st.session_state.pending_order
+            if not order:
+                return
         
-        # Update concentration flags
-        update_concentration_flags(portfolio)
-        concentration_flags = st.session_state.get('concentration_flags', {})
+            # Simple header (matches screenshot)
+            st.markdown(f"### {order['action']} {order['ticker']}")
+            st.markdown(f"**Shares:** {order['shares']:.4f}")
+            st.markdown(f"**Estimated Price:** ${order['price']:.2f}")  
+            st.markdown(f"**Estimated Total:** ${order['total']:.2f}")
         
-        # Render each position as a clean Robinhood-style row
-        for idx, pos in enumerate(portfolio):
-            quote = get_quote(pos['ticker'])
-            if not quote:
-                continue
-            
-            current_price = quote.get('price', 0)
-            company_name = quote.get('name', pos['ticker'])
-            market_value = pos['shares'] * current_price
-            cost_basis = pos['shares'] * pos['avg_price']
-            unrealized_gain = market_value - cost_basis
-            unrealized_gain_pct = (unrealized_gain / cost_basis * 100) if cost_basis > 0 else 0
-            
-            # Get company logo
-            logo_url = get_company_logo(pos['ticker'])
-            
-            # Color for gain/loss - Robinhood style (green gain, red loss with background)
-            if unrealized_gain >= 0:
-                gain_color = "#00C853"
-                gain_bg = "rgba(0, 200, 83, 0.15)"
-                gain_text = f"+${unrealized_gain:,.2f}"
-                gain_pct_text = f"(+{unrealized_gain_pct:.2f}%)"
+            st.markdown("")
+        
+            # Post-trade cash with DARK GREEN background for readability
+            post_cash = order['post_cash']
+            if post_cash < 0:
+                # Red for insufficient funds
+                st.error(f"⚠️ **Insufficient Funds** - You need ${abs(post_cash):,.2f} more")
             else:
-                gain_color = "#FF5252"
-                gain_bg = "rgba(255, 82, 82, 0.15)"
-                gain_text = f"-${abs(unrealized_gain):,.2f}"
-                gain_pct_text = f"(-{abs(unrealized_gain_pct):.2f}%)"
+                # DARK GREEN background (readable on dark theme)
+                st.markdown(f"""
+                <div style="background-color: rgba(40, 100, 40, 0.8); padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 2px solid #4CAF50;">
+                    <p style="margin: 0; color: #FFFFFF; font-size: 16px;"><strong>✅ Remaining Cash:</strong> ${post_cash:,.2f}</p>
+                </div>
+                """, unsafe_allow_html=True)
+        
+            # Concentration warning with DARK BLUE background (readable)
+            if order['post_concentration'] > 0:
+                st.markdown(f"""
+                <div style="background-color: rgba(30, 50, 90, 0.8); padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 2px solid #2196F3;">
+                    <p style="margin: 0; color: #FFFFFF; font-size: 16px;">
+                        <strong>⚠️ Post-trade Concentration:</strong> {order['post_concentration']:.1f}% in {order['ticker']}
+                    </p>
+                </div>
+                """, unsafe_allow_html=True)
             
-            # Robinhood-style card with logo
-            logo_html = f'<img src="{logo_url}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">' if logo_url else f'<div style="width: 40px; height: 40px; border-radius: 50%; background: #E0E0E0; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #666;">{pos["ticker"][:2]}</div>'
-            
-            st.markdown(f"""
-            <div style="display: flex; align-items: center; padding: 16px; background: #FAFAFA; border-radius: 12px; margin-bottom: 12px; border: 1px solid #E0E0E0;">
-                <div style="flex: 0 0 50px;">
-                    {logo_html}
-                </div>
-                <div style="flex: 1; margin-left: 12px;">
-                    <div style="font-weight: 600; font-size: 16px; color: #121212;">{pos['ticker']}</div>
-                    <div style="font-size: 13px; color: #666;">{company_name[:30]}{'...' if len(company_name) > 30 else ''}</div>
-                </div>
-                <div style="text-align: right; margin-right: 20px;">
-                    <div style="font-size: 13px; color: #666;">Shares</div>
-                    <div style="font-weight: 500; color: #121212;">{pos['shares']:.4f}</div>
-                </div>
-                <div style="text-align: right; margin-right: 20px;">
-                    <div style="font-size: 13px; color: #666;">Current Price</div>
-                    <div style="font-weight: 500; color: #121212;">${current_price:,.2f}</div>
-                </div>
-                <div style="text-align: right; margin-right: 20px;">
-                    <div style="font-size: 13px; color: #666;">Avg Cost</div>
-                    <div style="font-weight: 500; color: #121212;">${pos['avg_price']:.2f}</div>
-                </div>
-                <div style="text-align: right; margin-right: 20px;">
-                    <div style="font-size: 13px; color: #666;">Market Value</div>
-                    <div style="font-weight: 600; color: #121212;">${market_value:,.2f}</div>
-                </div>
-                <div style="text-align: right; min-width: 110px;">
-                    <div style="font-size: 13px; color: #666;">Gain/Loss</div>
-                    <div style="font-weight: 600; color: {gain_color}; background: {gain_bg}; padding: 4px 8px; border-radius: 6px; display: inline-block;">{gain_text}</div>
-                    <div style="font-size: 12px; color: {gain_color};">{gain_pct_text}</div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # Buy/Sell buttons below each position
-            col_spacer, col_buy, col_sell, col_spacer2 = st.columns([3, 1, 1, 3])
-            with col_buy:
-                if st.button("🟢 Buy", key=f"quick_buy_{portfolio_type}_{pos['ticker']}_{idx}", use_container_width=True):
-                    st.session_state[f'prefill_ticker_{portfolio_type}'] = pos['ticker']
-                    st.session_state[f'prefill_action_{portfolio_type}'] = 'Buy'
+                # Show personalized warning if risk quiz taken
+                risk_tier = st.session_state.user_profile.get('risk_tier', 'unknown')
+                if risk_tier != 'unknown':
+                    _, conc_msg = get_concentration_warning(order['ticker'], order['post_concentration'] / 100, risk_tier)
+                    if conc_msg:
+                        st.warning(conc_msg)
+        
+            st.markdown("---")
+        
+            col1, col2 = st.columns(2)
+        
+            with col1:
+                if st.button("✅ Confirm", use_container_width=True, type="primary", disabled=(post_cash < 0)):
+                    # FIXED: Added try-except for error handling + force rerun
+                    try:
+                        success, message = execute_trade(
+                            order['action'], 
+                            order['ticker'], 
+                            order['shares'], 
+                            order['price'],
+                            order['portfolio_type']
+                        )
+                    
+                        if success:
+                            # Update concentration flags
+                            if order['portfolio_type'] == 'user':
+                                update_concentration_flags(st.session_state.portfolio)
+                        
+                            # CRITICAL: Clear modal state BEFORE rerun
+                            st.session_state.show_order_modal = False
+                            st.session_state.pending_order = None
+                        
+                            # Save progress
+                            save_user_progress()
+                        
+                            # FIXED: Force reload trades from DB for immediate update
+                            if order['portfolio_type'] == 'founder':
+                                # Reload founder portfolio immediately
+                                founder_db_transactions = load_trades_from_db(None, portfolio_type='founder')
+                                if founder_db_transactions:
+                                    st.session_state.founder_transactions = founder_db_transactions
+                                    founder_cash, _ = calculate_cash_from_db(None, portfolio_type='founder')
+                                    st.session_state.founder_cash = founder_cash
+                                    st.session_state.founder_portfolio = rebuild_portfolio_from_trades(founder_db_transactions)
+                            else:
+                                # Reload user portfolio immediately
+                                user_id = st.session_state.get("user_id")
+                                if user_id:
+                                    db_transactions = load_trades_from_db(user_id, portfolio_type='user')
+                                    if db_transactions:
+                                        st.session_state.transactions = db_transactions
+                                        cash, _ = calculate_cash_from_db(user_id, portfolio_type='user')
+                                        st.session_state.cash = cash
+                                        st.session_state.portfolio = rebuild_portfolio_from_trades(db_transactions)
+                        
+                            st.success(message)
+                            st.rerun()  # Force full page refresh
+                        else:
+                            # FIXED: Show actual error message
+                            st.error(f"Trade failed: {message}")
+                        
+                    except Exception as e:
+                        # FIXED: No more silent failures!
+                        st.error(f"❌ Trade execution error: {str(e)}")
+                        import traceback
+                        st.code(traceback.format_exc())  # Show full error for debugging
+        
+            with col2:
+                if st.button("❌ Cancel", use_container_width=True, type="secondary"):
+                    st.session_state.show_order_modal = False
+                    st.session_state.pending_order = None
                     st.rerun()
-            with col_sell:
-                if st.button("🔴 Sell", key=f"quick_sell_{portfolio_type}_{pos['ticker']}_{idx}", use_container_width=True):
-                    st.session_state[f'prefill_ticker_{portfolio_type}'] = pos['ticker']
-                    st.session_state[f'prefill_action_{portfolio_type}'] = 'Sell'
+    
+        # Show modal if triggered
+        if st.session_state.show_order_modal:
+            order_confirmation_modal()
+    
+        # ============= TRADE PANEL COMPONENT =============
+        def render_trade_panel(portfolio_type='user'):
+            """Render the trade panel for user or founder"""
+            is_founder_panel = (portfolio_type == 'founder')
+            panel_title = "Trade Panel (Founder)" if is_founder_panel else "Trade Panel (User)"
+        
+            # Get portfolio data - ALWAYS get fresh cash from DB
+            if is_founder_panel:
+                portfolio = st.session_state.founder_portfolio
+                # Get FRESH cash from DB (source of truth)
+                cash, _ = calculate_cash_from_db(None, portfolio_type='founder')
+                st.session_state.founder_cash = cash  # Sync session state
+            else:
+                portfolio = st.session_state.portfolio
+                user_id = st.session_state.get("user_id")
+                cash, _ = calculate_cash_from_db(user_id, portfolio_type='user')
+                st.session_state.cash = cash  # Sync session state
+        
+            st.markdown(f"### 🛒 {panel_title}")
+        
+            # Check for prefilled ticker from quick buy/sell buttons
+            prefill_ticker = st.session_state.pop(f'prefill_ticker_{portfolio_type}', '')
+            prefill_action = st.session_state.pop(f'prefill_action_{portfolio_type}', None)
+        
+            # Ticker input with name resolution
+            ticker_input = st.text_input(
+                "Stock (name or ticker)",
+                value=prefill_ticker,
+                placeholder="AAPL or Apple",
+                key=f"ticker_input_{portfolio_type}"
+            ).strip()
+        
+            if ticker_input:
+                # Resolve ticker
+                resolved_ticker, company_name = smart_search_ticker(ticker_input)
+            
+                if resolved_ticker != ticker_input.upper():
+                    st.caption(f"→ {company_name} ({resolved_ticker})")
+            
+                ticker = resolved_ticker
+            
+                # Get current price
+                quote = get_quote(ticker)
+                if not quote:
+                    st.error("Invalid ticker")
+                    return
+            
+                current_price = quote.get('price', 0)
+                st.metric("Current Price", f"${current_price:.2f}")
+            
+                # Action toggle - default to prefilled action if set
+                default_action_idx = 1 if prefill_action == 'Sell' else 0
+                action = st.radio(
+                    "Action",
+                    ["Buy", "Sell"],
+                    horizontal=True,
+                    index=default_action_idx,
+                    key=f"action_{portfolio_type}"
+                )
+            
+                # Input type toggle
+                input_mode = st.radio(
+                    "Input Mode",
+                    ["Shares", "Dollars"],
+                    horizontal=True,
+                    key=f"input_mode_{portfolio_type}"
+                )
+            
+                # Quantity input
+                if input_mode == "Shares":
+                    shares = st.number_input(
+                        "Shares",
+                        min_value=0.01,
+                        value=1.0,
+                        step=0.01,
+                        key=f"shares_input_{portfolio_type}"
+                    )
+                    total_cost = shares * current_price
+                else:  # Dollars
+                    dollars = st.number_input(
+                        "Dollars",
+                        min_value=1.0,
+                        value=1000.0,
+                        step=100.0,
+                        key=f"dollars_input_{portfolio_type}"
+                    )
+                    shares = dollars / current_price
+                    total_cost = dollars
+            
+                # Live preview with FIXED styling
+                st.markdown("---")
+                st.markdown("#### 📋 Preview")
+            
+                if action == "Buy":
+                    post_cash = cash - total_cost
+                
+                    # Simulate concentration
+                    sim_portfolio = portfolio.copy()
+                    existing_pos = None
+                    for pos in sim_portfolio:
+                        if pos['ticker'] == ticker:
+                            existing_pos = pos
+                            break
+                
+                    if existing_pos:
+                        existing_pos['shares'] += shares
+                    else:
+                        sim_portfolio.append({'ticker': ticker, 'shares': shares, 'avg_price': current_price})
+                
+                    sim_weights = compute_portfolio_concentration(sim_portfolio)
+                    post_concentration = sim_weights.get(ticker, 0) * 100
+                
+                    # Preview box with DARK NAVY background (matches screenshot)
+                    st.info(f"""
+                    **Estimated Shares:** {shares:.4f}  
+                    **Estimated Cost:** ${total_cost:,.2f}  
+                    **Remaining Cash:** ${post_cash:,.2f}  
+                    **Post-trade {ticker}:** {post_concentration:.1f}% of portfolio
+                    """)
+                
+                    if post_cash < 0:
+                        st.error(f"⚠️ Insufficient funds! Need ${abs(post_cash):,.2f} more")
+            
+                else:  # Sell
+                    # Check if position exists
+                    existing_pos = None
+                    for pos in portfolio:
+                        if pos['ticker'] == ticker:
+                            existing_pos = pos
+                            break
+                
+                    if not existing_pos:
+                        st.error(f"You don't own any {ticker}")
+                        return
+                
+                    if shares > existing_pos['shares']:
+                        st.error(f"Cannot sell {shares:.4f} shares. You only have {existing_pos['shares']:.4f}")
+                        return
+                
+                    proceeds = shares * current_price
+                    post_cash = cash + proceeds
+                
+                    # Preview box with DARK NAVY background (matches screenshot)
+                    st.info(f"""
+                    **Selling Shares:** {shares:.4f}  
+                    **Estimated Proceeds:** ${proceeds:,.2f}  
+                    **Remaining Cash:** ${post_cash:,.2f}
+                    """)
+            
+                # Review Order button
+                st.markdown("---")
+            
+                # Prepare order data
+                can_execute = True
+                if action == "Buy" and total_cost > cash:
+                    can_execute = False
+                elif action == "Sell" and (not existing_pos or shares > existing_pos['shares']):
+                    can_execute = False
+            
+                if st.button(
+                    "📝 Review Order",
+                    use_container_width=True,
+                    type="primary",
+                    key=f"review_order_{portfolio_type}",
+                    disabled=not can_execute
+                ):
+                    # Store order data and show modal
+                    st.session_state.pending_order = {
+                        'action': action,
+                        'ticker': ticker,
+                        'shares': shares,
+                        'price': current_price,
+                        'total': total_cost if action == "Buy" else proceeds,
+                        'post_cash': post_cash,
+                        'post_concentration': post_concentration if action == "Buy" else 0,
+                        'portfolio_type': portfolio_type
+                    }
+                    st.session_state.show_order_modal = True
                     st.rerun()
+    
+        # ============= POSITIONS TABLE COMPONENT =============
+        def render_positions_table(portfolio, realized_gains, portfolio_type='user'):
+            """Render Robinhood-style positions table with logo, name, shares, price, value, gain/loss"""
+            if not portfolio:
+                st.info("No positions yet. Use the trade panel to buy your first stock!")
+                return
         
-        # Summary
-        st.caption(f"**Total Realized G/L:** ${realized_gains:,.2f}")
-    
-    # ============= SECTION A: YOUR PAPER PORTFOLIO =============
-    st.markdown("## 📊 Section A — Your Paper Portfolio")
-    
-    col_trade, col_chart = st.columns([1, 1])
-    
-    with col_trade:
-        render_trade_panel('user')
-    
-    with col_chart:
-        st.markdown("### 📈 YTD Performance (User)")
+            # Update concentration flags
+            update_concentration_flags(portfolio)
+            concentration_flags = st.session_state.get('concentration_flags', {})
         
-        # Calculate metrics using real equity calculation
-        user_equity, user_ytd_return, user_cash, user_market_value = calculate_portfolio_equity(
-            st.session_state.transactions,
-            st.session_state.portfolio,
-            st.session_state.realized_gains
-        )
+            # Render each position as a clean Robinhood-style row
+            for idx, pos in enumerate(portfolio):
+                quote = get_quote(pos['ticker'])
+                if not quote:
+                    continue
+            
+                current_price = quote.get('price', 0)
+                company_name = quote.get('name', pos['ticker'])
+                market_value = pos['shares'] * current_price
+                cost_basis = pos['shares'] * pos['avg_price']
+                unrealized_gain = market_value - cost_basis
+                unrealized_gain_pct = (unrealized_gain / cost_basis * 100) if cost_basis > 0 else 0
+            
+                # Get company logo
+                logo_url = get_company_logo(pos['ticker'])
+            
+                # Color for gain/loss - Robinhood style (green gain, red loss with background)
+                if unrealized_gain >= 0:
+                    gain_color = "#00C853"
+                    gain_bg = "rgba(0, 200, 83, 0.15)"
+                    gain_text = f"+${unrealized_gain:,.2f}"
+                    gain_pct_text = f"(+{unrealized_gain_pct:.2f}%)"
+                else:
+                    gain_color = "#FF5252"
+                    gain_bg = "rgba(255, 82, 82, 0.15)"
+                    gain_text = f"-${abs(unrealized_gain):,.2f}"
+                    gain_pct_text = f"(-{abs(unrealized_gain_pct):.2f}%)"
+            
+                # Robinhood-style card with logo
+                logo_html = f'<img src="{logo_url}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">' if logo_url else f'<div style="width: 40px; height: 40px; border-radius: 50%; background: #E0E0E0; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #666;">{pos["ticker"][:2]}</div>'
+            
+                st.markdown(f"""
+                <div style="display: flex; align-items: center; padding: 16px; background: #FAFAFA; border-radius: 12px; margin-bottom: 12px; border: 1px solid #E0E0E0;">
+                    <div style="flex: 0 0 50px;">
+                        {logo_html}
+                    </div>
+                    <div style="flex: 1; margin-left: 12px;">
+                        <div style="font-weight: 600; font-size: 16px; color: #121212;">{pos['ticker']}</div>
+                        <div style="font-size: 13px; color: #666;">{company_name[:30]}{'...' if len(company_name) > 30 else ''}</div>
+                    </div>
+                    <div style="text-align: right; margin-right: 20px;">
+                        <div style="font-size: 13px; color: #666;">Shares</div>
+                        <div style="font-weight: 500; color: #121212;">{pos['shares']:.4f}</div>
+                    </div>
+                    <div style="text-align: right; margin-right: 20px;">
+                        <div style="font-size: 13px; color: #666;">Current Price</div>
+                        <div style="font-weight: 500; color: #121212;">${current_price:,.2f}</div>
+                    </div>
+                    <div style="text-align: right; margin-right: 20px;">
+                        <div style="font-size: 13px; color: #666;">Avg Cost</div>
+                        <div style="font-weight: 500; color: #121212;">${pos['avg_price']:.2f}</div>
+                    </div>
+                    <div style="text-align: right; margin-right: 20px;">
+                        <div style="font-size: 13px; color: #666;">Market Value</div>
+                        <div style="font-weight: 600; color: #121212;">${market_value:,.2f}</div>
+                    </div>
+                    <div style="text-align: right; min-width: 110px;">
+                        <div style="font-size: 13px; color: #666;">Gain/Loss</div>
+                        <div style="font-weight: 600; color: {gain_color}; background: {gain_bg}; padding: 4px 8px; border-radius: 6px; display: inline-block;">{gain_text}</div>
+                        <div style="font-size: 12px; color: {gain_color};">{gain_pct_text}</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+                # Buy/Sell buttons below each position
+                col_spacer, col_buy, col_sell, col_spacer2 = st.columns([3, 1, 1, 3])
+                with col_buy:
+                    if st.button("🟢 Buy", key=f"quick_buy_{portfolio_type}_{pos['ticker']}_{idx}", use_container_width=True):
+                        st.session_state[f'prefill_ticker_{portfolio_type}'] = pos['ticker']
+                        st.session_state[f'prefill_action_{portfolio_type}'] = 'Buy'
+                        st.rerun()
+                with col_sell:
+                    if st.button("🔴 Sell", key=f"quick_sell_{portfolio_type}_{pos['ticker']}_{idx}", use_container_width=True):
+                        st.session_state[f'prefill_ticker_{portfolio_type}'] = pos['ticker']
+                        st.session_state[f'prefill_action_{portfolio_type}'] = 'Sell'
+                        st.rerun()
         
-        # KPI card
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Starting", f"${STARTING_CASH:,.0f}")
-        col2.metric("Current", f"${user_equity:,.2f}")
-        col3.metric("YTD Return", f"{user_ytd_return:+.2f}%")
+            # Summary
+            st.caption(f"**Total Realized G/L:** ${realized_gains:,.2f}")
+    
+        # ============= SECTION A: YOUR PAPER PORTFOLIO =============
+        st.markdown("## 📊 Section A — Your Paper Portfolio")
+    
+        col_trade, col_chart = st.columns([1, 1])
+    
+        with col_trade:
+            render_trade_panel('user')
+    
+        with col_chart:
+            st.markdown("### 📈 YTD Performance (User)")
         
-        # Simple line chart placeholder
-        # TODO: Implement actual YTD chart with historical data
-        st.caption("📈 Chart: YTD performance tracking coming soon")
+            # Calculate metrics using real equity calculation
+            user_equity, user_ytd_return, user_cash, user_market_value = calculate_portfolio_equity(
+                st.session_state.transactions,
+                st.session_state.portfolio,
+                st.session_state.realized_gains
+            )
+        
+            # KPI card
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Starting", f"${STARTING_CASH:,.0f}")
+            col2.metric("Current", f"${user_equity:,.2f}")
+            col3.metric("YTD Return", f"{user_ytd_return:+.2f}%")
+        
+            # Simple line chart placeholder
+            # TODO: Implement actual YTD chart with historical data
+            st.caption("📈 Chart: YTD performance tracking coming soon")
     
-    # User positions table
-    st.markdown("---")
-    st.markdown("### 📋 Your Positions")
-    render_positions_table(st.session_state.portfolio, st.session_state.realized_gains, 'user')
+        # User positions table
+        st.markdown("---")
+        st.markdown("### 📋 Your Positions")
+        render_positions_table(st.session_state.portfolio, st.session_state.realized_gains, 'user')
     
-    # Transaction history
-    with st.expander("📜 Transaction History", expanded=False):
-        if st.session_state.transactions:
-            for txn in reversed(st.session_state.transactions[-20:]):
-                st.caption(f"{txn['date']} | {txn['type']} {txn['shares']} {txn['ticker']} @ ${txn['price']:.2f}")
+        # Transaction history
+        with st.expander("📜 Transaction History", expanded=False):
+            if st.session_state.transactions:
+                for txn in reversed(st.session_state.transactions[-20:]):
+                    st.caption(f"{txn['date']} | {txn['type']} {txn['shares']} {txn['ticker']} @ ${txn['price']:.2f}")
+            else:
+                st.caption("No transactions yet")
+    
+        st.divider()
+    
+        # ============= SECTION B: FOUNDER'S PAPER PORTFOLIO =============
+        st.markdown("## 👑 Section B — Founder's Paper Portfolio")
+    
+        if is_founder:
+            # Interactive founder panel for owner
+            col_trade_f, col_chart_f = st.columns([1, 1])
+        
+            with col_trade_f:
+                render_trade_panel('founder')
+        
+            with col_chart_f:
+                st.markdown("### 📈 YTD Performance (Founder)")
+            
+                # Calculate metrics using real equity calculation
+                founder_equity, founder_ytd_return, founder_cash, founder_market_value = calculate_portfolio_equity(
+                    st.session_state.founder_transactions,
+                    st.session_state.founder_portfolio,
+                    st.session_state.founder_realized_gains
+                )
+            
+                col1, col2, col3 = st.columns(3)
+                col1.metric("Starting", f"${STARTING_CASH:,.0f}")
+                col2.metric("Current", f"${founder_equity:,.2f}")
+                col3.metric("YTD Return", f"{founder_ytd_return:+.2f}%")
+            
+                st.caption("📈 Chart: YTD performance tracking coming soon")
+        
+            st.markdown("---")
+            st.markdown("### 📋 Founder Positions")
+            render_positions_table(st.session_state.founder_portfolio, st.session_state.founder_realized_gains, 'founder')
+        
+            with st.expander("📜 Founder Transaction History", expanded=False):
+                if st.session_state.founder_transactions:
+                    for txn in reversed(st.session_state.founder_transactions[-20:]):
+                        st.caption(f"{txn['date']} | {txn['type']} {txn['shares']} {txn['ticker']} @ ${txn['price']:.2f}")
+                else:
+                    st.caption("No transactions yet")
+    
         else:
-            st.caption("No transactions yet")
-    
-    st.divider()
-    
-    # ============= SECTION B: FOUNDER'S PAPER PORTFOLIO =============
-    st.markdown("## 👑 Section B — Founder's Paper Portfolio")
-    
-    if is_founder:
-        # Interactive founder panel for owner
-        col_trade_f, col_chart_f = st.columns([1, 1])
+            # Read-only view for non-founders
+            st.info("👑 **Founder portfolio is read-only. Only the founder can trade here.**")
         
-        with col_trade_f:
-            render_trade_panel('founder')
-        
-        with col_chart_f:
+            # Show founder portfolio stats
             st.markdown("### 📈 YTD Performance (Founder)")
-            
+        
             # Calculate metrics using real equity calculation
             founder_equity, founder_ytd_return, founder_cash, founder_market_value = calculate_portfolio_equity(
                 st.session_state.founder_transactions,
                 st.session_state.founder_portfolio,
                 st.session_state.founder_realized_gains
             )
-            
+        
             col1, col2, col3 = st.columns(3)
             col1.metric("Starting", f"${STARTING_CASH:,.0f}")
             col2.metric("Current", f"${founder_equity:,.2f}")
             col3.metric("YTD Return", f"{founder_ytd_return:+.2f}%")
+        
+            st.markdown("---")
+            st.markdown("### 📋 Founder Positions")
+            render_positions_table(st.session_state.founder_portfolio, st.session_state.founder_realized_gains, 'founder')
+        
+            with st.expander("📜 Founder Transaction History", expanded=False):
+                if st.session_state.founder_transactions:
+                    for txn in reversed(st.session_state.founder_transactions[-20:]):
+                        st.caption(f"{txn['date']} | {txn['type']} {txn['shares']} {txn['ticker']} @ ${txn['price']:.2f}")
+                else:
+                    st.caption("No transactions yet")
+    
+        st.divider()
+    
+        # ============= SECTION C: BENCHMARK & WHO'S WINNING =============
+        st.markdown("## 🏆 Section C — Benchmark & Who's Winning")
+    
+        # SPY benchmark - REAL YTD DATA using same method as Company Analysis chart
+        st.markdown("### 📊 SPY Benchmark")
+    
+        spy_starting = STARTING_CASH  # $100k starting capital
+        spy_ytd_return = 0.0
+        spy_current = spy_starting
+    
+        # Use EXACT same method as Company Analysis page chart (get_historical_price + calculate growth)
+        try:
+            # Get YTD data - use ~0.2 years to get data from start of year
+            spy_data = get_historical_price("SPY", 0.5)  # Get ~6 months to ensure we have YTD data
+        
+            if not spy_data.empty and len(spy_data) > 1:
+                # Filter to current year only (YTD)
+                current_year = datetime.now().year
+                spy_data['year'] = spy_data['date'].dt.year
+                spy_ytd_data = spy_data[spy_data['year'] == current_year]
             
-            st.caption("📈 Chart: YTD performance tracking coming soon")
-        
-        st.markdown("---")
-        st.markdown("### 📋 Founder Positions")
-        render_positions_table(st.session_state.founder_portfolio, st.session_state.founder_realized_gains, 'founder')
-        
-        with st.expander("📜 Founder Transaction History", expanded=False):
-            if st.session_state.founder_transactions:
-                for txn in reversed(st.session_state.founder_transactions[-20:]):
-                    st.caption(f"{txn['date']} | {txn['type']} {txn['shares']} {txn['ticker']} @ ${txn['price']:.2f}")
-            else:
-                st.caption("No transactions yet")
-    
-    else:
-        # Read-only view for non-founders
-        st.info("👑 **Founder portfolio is read-only. Only the founder can trade here.**")
-        
-        # Show founder portfolio stats
-        st.markdown("### 📈 YTD Performance (Founder)")
-        
-        # Calculate metrics using real equity calculation
-        founder_equity, founder_ytd_return, founder_cash, founder_market_value = calculate_portfolio_equity(
-            st.session_state.founder_transactions,
-            st.session_state.founder_portfolio,
-            st.session_state.founder_realized_gains
-        )
-        
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Starting", f"${STARTING_CASH:,.0f}")
-        col2.metric("Current", f"${founder_equity:,.2f}")
-        col3.metric("YTD Return", f"{founder_ytd_return:+.2f}%")
-        
-        st.markdown("---")
-        st.markdown("### 📋 Founder Positions")
-        render_positions_table(st.session_state.founder_portfolio, st.session_state.founder_realized_gains, 'founder')
-        
-        with st.expander("📜 Founder Transaction History", expanded=False):
-            if st.session_state.founder_transactions:
-                for txn in reversed(st.session_state.founder_transactions[-20:]):
-                    st.caption(f"{txn['date']} | {txn['type']} {txn['shares']} {txn['ticker']} @ ${txn['price']:.2f}")
-            else:
-                st.caption("No transactions yet")
-    
-    st.divider()
-    
-    # ============= SECTION C: BENCHMARK & WHO'S WINNING =============
-    st.markdown("## 🏆 Section C — Benchmark & Who's Winning")
-    
-    # SPY benchmark - REAL YTD DATA using same method as Company Analysis chart
-    st.markdown("### 📊 SPY Benchmark")
-    
-    spy_starting = STARTING_CASH  # $100k starting capital
-    spy_ytd_return = 0.0
-    spy_current = spy_starting
-    
-    # Use EXACT same method as Company Analysis page chart (get_historical_price + calculate growth)
-    try:
-        # Get YTD data - use ~0.2 years to get data from start of year
-        spy_data = get_historical_price("SPY", 0.5)  # Get ~6 months to ensure we have YTD data
-        
-        if not spy_data.empty and len(spy_data) > 1:
-            # Filter to current year only (YTD)
-            current_year = datetime.now().year
-            spy_data['year'] = spy_data['date'].dt.year
-            spy_ytd_data = spy_data[spy_data['year'] == current_year]
-            
-            if len(spy_ytd_data) >= 2:
-                price_col = 'close' if 'close' in spy_ytd_data.columns else 'price'
-                start_price = spy_ytd_data[price_col].iloc[0]
-                end_price = spy_ytd_data[price_col].iloc[-1]
+                if len(spy_ytd_data) >= 2:
+                    price_col = 'close' if 'close' in spy_ytd_data.columns else 'price'
+                    start_price = spy_ytd_data[price_col].iloc[0]
+                    end_price = spy_ytd_data[price_col].iloc[-1]
                 
-                if start_price > 0:
-                    spy_ytd_return = ((end_price - start_price) / start_price) * 100
-                    spy_current = spy_starting * (1 + spy_ytd_return / 100)
-    except Exception as e:
-        pass
+                    if start_price > 0:
+                        spy_ytd_return = ((end_price - start_price) / start_price) * 100
+                        spy_current = spy_starting * (1 + spy_ytd_return / 100)
+        except Exception as e:
+            pass
     
-    col1, col2, col3 = st.columns(3)
-    col1.metric("SPY Starting", f"${spy_starting:,.2f}")
-    col2.metric("SPY Current", f"${spy_current:,.2f}")
-    col3.metric("SPY YTD", f"{spy_ytd_return:+.2f}%")
+        col1, col2, col3 = st.columns(3)
+        col1.metric("SPY Starting", f"${spy_starting:,.2f}")
+        col2.metric("SPY Current", f"${spy_current:,.2f}")
+        col3.metric("SPY YTD", f"{spy_ytd_return:+.2f}%")
     
-    # Summary
-    st.markdown("---")
-    st.markdown("### 🏁 Performance Summary")
+        # Summary
+        st.markdown("---")
+        st.markdown("### 🏁 Performance Summary")
     
-    # Determine leader
-    performances = [
-        ("User", user_ytd_return),
-        ("Founder", get_ytd_return(calculate_portfolio_value(st.session_state.founder_portfolio, st.session_state.founder_cash), STARTING_CASH)),
-        ("SPY", spy_ytd_return)
-    ]
-    leader = max(performances, key=lambda x: x[1])
+        # Determine leader
+        performances = [
+            ("User", user_ytd_return),
+            ("Founder", get_ytd_return(calculate_portfolio_value(st.session_state.founder_portfolio, st.session_state.founder_cash), STARTING_CASH)),
+            ("SPY", spy_ytd_return)
+        ]
+        leader = max(performances, key=lambda x: x[1])
     
-    st.info(f"""
-    **YTD Returns:**  
-    User: {user_ytd_return:+.2f}%  
-    Founder: {performances[1][1]:+.2f}%  
-    SPY: {spy_ytd_return:+.2f}%  
+        st.info(f"""
+        **YTD Returns:**  
+        User: {user_ytd_return:+.2f}%  
+        Founder: {performances[1][1]:+.2f}%  
+        SPY: {spy_ytd_return:+.2f}%  
     
-    **Leader:** {leader[0]} ({leader[1]:+.2f}%)
-    """)
+        **Leader:** {leader[0]} ({leader[1]:+.2f}%)
+        """)
     
-    st.caption("📊 Overlay chart (User vs Founder vs SPY) coming soon")
+        st.caption("📊 Overlay chart (User vs Founder vs SPY) coming soon")
     
-    # Reset option
-    st.divider()
-    if st.button("🔄 Reset Your Portfolio", type="secondary"):
-        st.session_state.portfolio = []
-        st.session_state.cash = STARTING_CASH
-        st.session_state.transactions = []
-        st.session_state.realized_gains = 0.0
-        st.session_state.concentration_flags = {}
-        save_user_progress()
-        st.success(f"Portfolio reset! You have ${STARTING_CASH:,.0f} to start fresh.")
-        st.rerun()
+        # Reset option
+        st.divider()
+        if st.button("🔄 Reset Your Portfolio", type="secondary"):
+            st.session_state.portfolio = []
+            st.session_state.cash = STARTING_CASH
+            st.session_state.transactions = []
+            st.session_state.realized_gains = 0.0
+            st.session_state.concentration_flags = {}
+            save_user_progress()
+            st.success(f"Portfolio reset! You have ${STARTING_CASH:,.0f} to start fresh.")
+            st.rerun()
     
-    # AI Coach integration
-    #REMOVED: render_ai_coach("Paper Portfolio", ticker=None, facts=None)
+        # AI Coach integration
+        #REMOVED: render_ai_coach("Paper Portfolio", ticker=None, facts=None)
 
 elif selected_page == "✅ Portfolio Risk Analyzer":
     st.header("📈 Portfolio Risk Analyzer")
@@ -26121,13 +26144,19 @@ elif selected_page == "📜 Founder Track Record":
 
 
 elif selected_page == "💥 Stress Test":
-    render_stress_test_page()
+    # Redirect to Paper Portfolio (Stress Test is now a tab there)
+    st.session_state.selected_page = "💼 Paper Portfolio"
+    st.rerun()
 
 elif selected_page == "📰 News Explainer":
-    render_news_price_explainer()
+    # Redirect to Market Intelligence (News Explainer is now a tab there)
+    st.session_state.selected_page = "📰 Market Intelligence"
+    st.rerun()
 
 elif selected_page == "📓 Investing Journal":
-    render_investing_journal()
+    # Redirect to Paper Portfolio (Journal is now a tab there)
+    st.session_state.selected_page = "💼 Paper Portfolio"
+    st.rerun()
 
 
 # ============= FOOTER =============
