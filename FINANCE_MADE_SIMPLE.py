@@ -13297,22 +13297,46 @@ For each headline return a JSON array with objects containing:
 - "sentiment": "positive", "negative", or "neutral"
 - "category": one of: "earnings", "product", "macro", "analyst", "legal", "partnership", "executive"
 
-Return ONLY the JSON array, no other text."""
+Return ONLY the raw JSON array. No markdown, no code blocks, no explanation before or after. Just the [ ... ] array."""
 
         response = requests.post(
             "https://api.perplexity.ai/chat/completions",
             headers={"Authorization": f"Bearer {perplexity_key}", "Content-Type": "application/json"},
-            json={"model": "sonar", "messages": [{"role": "user", "content": prompt}],
-                  "max_tokens": 1200, "temperature": 0.2},
+            json={
+                "model": "sonar",
+                "messages": [
+                    {"role": "system", "content": "You are a data API. Return ONLY valid JSON arrays with no markdown, no code blocks, no preamble, no explanation. Just raw JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                "max_tokens": 1200, "temperature": 0.2
+            },
             timeout=20
         )
 
         if response.status_code == 200:
             content = response.json()["choices"][0]["message"]["content"].strip()
-            # Clean JSON
+            # Aggressive cleanup — strip markdown fences, leading text, etc.
             content = content.replace("```json", "").replace("```", "").strip()
+            # Find the actual JSON array in the response
+            start_idx = content.find("[")
+            end_idx = content.rfind("]")
+            if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+                content = content[start_idx:end_idx + 1]
             news_items = json.loads(content)
-            return news_items[:5]
+            # Validate that items are dicts with expected keys
+            validated = []
+            for item in news_items[:5]:
+                if isinstance(item, dict) and "headline" in item:
+                    # Ensure all expected keys exist with defaults
+                    validated.append({
+                        "headline": str(item.get("headline", "")),
+                        "date": str(item.get("date", "Recent")),
+                        "price_impact": float(item.get("price_impact", 0)),
+                        "why_it_moved": str(item.get("why_it_moved", "")),
+                        "sentiment": str(item.get("sentiment", "neutral")),
+                        "category": str(item.get("category", "macro")),
+                    })
+            return validated
     except Exception:
         pass
     return []
