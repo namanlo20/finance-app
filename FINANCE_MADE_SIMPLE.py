@@ -18516,116 +18516,153 @@ elif selected_page == "🧠 Risk Quiz":
     if 'risk_quiz_submitted' not in st.session_state:
         st.session_state.risk_quiz_submitted = False
     
-    with st.form("risk_quiz_form"):
-        st.markdown("### 📊 Your Risk Tolerance")
-        
-        # Question 1: Worst-case drawdown tolerance
-        q1 = st.radio(
-            "1. If your account dropped 35% in a recession, what would you most likely do?",
-            ["Sell most positions immediately",
-             "Sell some to reduce stress",
-             "Hold and wait it out",
-             "Buy more over time"]
-        )
-        
-        # Question 2: Volatility reality check
-        q2 = st.radio(
-            "2. Which feels more painful?",
-            ["Losing $1,000 in a week",
-             "Missing a $1,000 gain",
-             "Both about the same",
-             "Neither bothers me much"]
-        )
-        
-        # Question 3: Concentration tolerance
-        q3 = st.radio(
-            "3. How comfortable are you with one stock being a large part of your portfolio?",
-            ["Not comfortable — I want diversification",
-             "A little is fine (10–20%)",
-             "I'm okay with big bets (30–50%)",
-             "I prefer concentrated bets (50%+)"]
-        )
-        
-        # Question 4: Time to recover
-        q4 = st.radio(
-            "4. If an investment is down, how long are you willing to wait to recover?",
-            ["Weeks",
-             "Months",
-             "1–3 years",
-             "3+ years"]
-        )
-        
-        # Question 5: Reaction under uncertainty
-        q5 = st.radio(
-            "5. When you see scary headlines about your holdings, you usually…",
-            ["Sell quickly to avoid more loss",
-             "Watch closely and feel stressed",
-             "Do more research before acting",
-             "Ignore headlines and stick to the plan"]
-        )
-        
-        # Question 6: Income stability (risk capacity proxy)
-        q6 = st.radio(
-            "6. How stable is your income right now?",
-            ["Unstable / uncertain",
-             "Somewhat stable",
-             "Stable",
-             "Very stable with strong savings"]
-        )
-        
-        # Question 7: Knowledge + behavior check (guardrail)
-        q7 = st.radio(
-            "7. Which best describes how you choose investments?",
-            ["Tips / trends / social media",
-             "Mostly price charts and vibes",
-             "Mix of fundamentals + valuation",
-             "Long-term fundamentals + discipline"]
-        )
-        
-        submitted = st.form_submit_button("🎯 Get My Results", use_container_width=True, type="primary")
-        
-        if submitted:
-            # Calculate risk score (1-4 points per question)
-            score_map = {
-                q1: {"Sell most positions immediately": 1, "Sell some to reduce stress": 2, "Hold and wait it out": 3, "Buy more over time": 4},
-                q2: {"Losing $1,000 in a week": 1, "Missing a $1,000 gain": 2, "Both about the same": 3, "Neither bothers me much": 4},
-                q3: {"Not comfortable — I want diversification": 1, "A little is fine (10–20%)": 2, "I'm okay with big bets (30–50%)": 3, "I prefer concentrated bets (50%+)": 4},
-                q4: {"Weeks": 1, "Months": 2, "1–3 years": 3, "3+ years": 4},
-                q5: {"Sell quickly to avoid more loss": 1, "Watch closely and feel stressed": 2, "Do more research before acting": 3, "Ignore headlines and stick to the plan": 4},
-                q6: {"Unstable / uncertain": 1, "Somewhat stable": 2, "Stable": 3, "Very stable with strong savings": 4},
-                q7: {"Tips / trends / social media": 1, "Mostly price charts and vibes": 2, "Mix of fundamentals + valuation": 3, "Long-term fundamentals + discipline": 4}
-            }
+    if not st.session_state.get('risk_quiz_submitted', False):
+        with st.form("risk_quiz_form"):
+            st.markdown("### 📊 Your Risk Tolerance")
             
-            risk_score = sum([score_map[q][q] for q in [q1, q2, q3, q4, q5, q6, q7]])
+            # Question 1: Worst-case drawdown tolerance
+            q1 = st.radio(
+                "1. If your portfolio dropped 35% in a recession, what would you most likely do?",
+                ["Sell everything to stop the bleeding",
+                 "Sell some positions to reduce exposure",
+                 "Hold steady and wait for recovery",
+                 "Buy more aggressively at lower prices"]
+            )
             
-            # Map score to risk tier
-            if risk_score <= 12:
-                risk_tier = "Conservative"
-            elif risk_score <= 18:
-                risk_tier = "Moderate"
-            elif risk_score <= 23:
-                risk_tier = "Growth"
-            else:
-                risk_tier = "Aggressive"
+            # Question 2: Loss aversion (fixed — higher risk tolerance = higher score)
+            q2 = st.radio(
+                "2. How would a 20% loss on a single stock affect you emotionally?",
+                ["I would lose sleep and want to sell immediately",
+                 "I would feel stressed but try to hold",
+                 "I would be disappointed but stick to my plan",
+                 "I would see it as a potential buying opportunity"]
+            )
             
-            # Store results in session state
-            from datetime import datetime
-            st.session_state.risk_tier = risk_tier
-            st.session_state.risk_score = risk_score
-            st.session_state.risk_quiz_completed_at = datetime.now().isoformat()
-            st.session_state.risk_quiz_submitted = True
+            # Question 3: Concentration tolerance
+            q3 = st.radio(
+                "3. How comfortable are you with one stock being a large part of your portfolio?",
+                ["Not comfortable at all — spread it out evenly",
+                 "A little is okay (10-20% max)",
+                 "I am fine with big bets if I know the company (30-50%)",
+                 "I prefer concentrated bets on my best ideas (50%+)"]
+            )
             
-            # Build unified user profile
-            build_user_profile()
+            # Question 4: Time horizon
+            q4 = st.radio(
+                "4. If an investment is down significantly, how long are you willing to wait for recovery?",
+                ["A few weeks at most",
+                 "A few months",
+                 "1 to 3 years",
+                 "3+ years — I am very patient"]
+            )
             
-            # Save to Supabase if logged in
-            if st.session_state.get('is_logged_in', False):
-                try:
-                    save_user_progress()
-                except Exception:
-                    pass  # Silent fallback to session state
+            # Question 5: Reaction to volatility
+            q5 = st.radio(
+                "5. When you see scary market headlines about your holdings, you usually...",
+                ["Sell quickly to avoid further loss",
+                 "Watch closely and feel anxious",
+                 "Do additional research before deciding",
+                 "Ignore the noise and stick to my thesis"]
+            )
             
-            st.rerun()
+            # Question 6: Income stability (risk capacity)
+            q6 = st.radio(
+                "6. How stable is your income and financial situation right now?",
+                ["Unstable or uncertain — I may need this money soon",
+                 "Somewhat stable but limited savings buffer",
+                 "Stable income with a solid emergency fund",
+                 "Very stable with strong savings and no debt"]
+            )
+            
+            # Question 7: Investment approach
+            q7 = st.radio(
+                "7. Which best describes how you choose investments?",
+                ["I follow tips from social media or friends",
+                 "I mostly go by price charts and momentum",
+                 "I use a mix of fundamentals and valuation",
+                 "I do deep fundamental research with a long-term lens"]
+            )
+            
+            # Question 8: Portfolio experience
+            q8 = st.radio(
+                "8. How much investing experience do you have?",
+                ["Brand new — just getting started",
+                 "Less than 2 years",
+                 "2 to 5 years of active investing",
+                 "5+ years including at least one bear market"]
+            )
+            
+            # Question 9: Volatility expectation
+            q9 = st.radio(
+                "9. In a typical year, how much portfolio fluctuation can you handle without changing your strategy?",
+                ["Up to 5% swings",
+                 "Up to 15% swings",
+                 "Up to 25% swings",
+                 "30%+ swings are fine if the long-term thesis is intact"]
+            )
+            
+            # Question 10: Goal orientation
+            q10 = st.radio(
+                "10. What matters more to you right now?",
+                ["Protecting what I have — I cannot afford big losses",
+                 "Steady growth with limited downside",
+                 "Growing my wealth significantly over 5-10 years",
+                 "Maximizing long-term returns — I can handle anything short-term"]
+            )
+            
+            submitted = st.form_submit_button("🎯 Get My Results", use_container_width=True, type="primary")
+            
+            if submitted:
+                # Score each question 1-4 (index-based)
+                answers = [q1, q2, q3, q4, q5, q6, q7, q8, q9, q10]
+                
+                options_map = {
+                    0: ["Sell everything to stop the bleeding", "Sell some positions to reduce exposure", "Hold steady and wait for recovery", "Buy more aggressively at lower prices"],
+                    1: ["I would lose sleep and want to sell immediately", "I would feel stressed but try to hold", "I would be disappointed but stick to my plan", "I would see it as a potential buying opportunity"],
+                    2: ["Not comfortable at all — spread it out evenly", "A little is okay (10-20% max)", "I am fine with big bets if I know the company (30-50%)", "I prefer concentrated bets on my best ideas (50%+)"],
+                    3: ["A few weeks at most", "A few months", "1 to 3 years", "3+ years — I am very patient"],
+                    4: ["Sell quickly to avoid further loss", "Watch closely and feel anxious", "Do additional research before deciding", "Ignore the noise and stick to my thesis"],
+                    5: ["Unstable or uncertain — I may need this money soon", "Somewhat stable but limited savings buffer", "Stable income with a solid emergency fund", "Very stable with strong savings and no debt"],
+                    6: ["I follow tips from social media or friends", "I mostly go by price charts and momentum", "I use a mix of fundamentals and valuation", "I do deep fundamental research with a long-term lens"],
+                    7: ["Brand new — just getting started", "Less than 2 years", "2 to 5 years of active investing", "5+ years including at least one bear market"],
+                    8: ["Up to 5% swings", "Up to 15% swings", "Up to 25% swings", "30%+ swings are fine if the long-term thesis is intact"],
+                    9: ["Protecting what I have — I cannot afford big losses", "Steady growth with limited downside", "Growing my wealth significantly over 5-10 years", "Maximizing long-term returns — I can handle anything short-term"],
+                }
+                
+                risk_score = 0
+                for i, answer in enumerate(answers):
+                    options = options_map[i]
+                    score = options.index(answer) + 1  # 1-4
+                    risk_score += score
+                
+                # Map score to risk tier (10-40 range, equal 7-8 point bands)
+                if risk_score <= 17:
+                    risk_tier = "Conservative"
+                elif risk_score <= 25:
+                    risk_tier = "Moderate"
+                elif risk_score <= 33:
+                    risk_tier = "Growth"
+                else:
+                    risk_tier = "Aggressive"
+                
+                # Store results in session state
+                from datetime import datetime
+                st.session_state.risk_tier = risk_tier
+                st.session_state.risk_score = risk_score
+                st.session_state.risk_quiz_completed_at = datetime.now().isoformat()
+                st.session_state.risk_quiz_submitted = True
+                
+                # Build unified user profile
+                build_user_profile()
+                
+                # Save to Supabase if logged in
+                if st.session_state.get('is_logged_in', False):
+                    try:
+                        save_user_progress()
+                    except Exception:
+                        pass
+                
+                st.rerun()
     
     # Show results if quiz completed
     if st.session_state.get('risk_quiz_submitted', False):
@@ -18635,7 +18672,7 @@ elif selected_page == "🧠 Risk Quiz":
         risk_score = st.session_state.risk_score
         
         # Title
-        st.markdown(f"## 🎯 Your Risk Style: {risk_tier}")
+        st.markdown(f"## 🎯 Your Risk Profile: {risk_tier}")
         
         # Color-coded tier display
         tier_colors = {
@@ -18645,31 +18682,43 @@ elif selected_page == "🧠 Risk Quiz":
             "Aggressive": "🔴"
         }
         
+        tier_descriptions = {
+            "Conservative": "Capital Protector",
+            "Moderate": "Balanced Builder",
+            "Growth": "Growth Seeker",
+            "Aggressive": "Opportunity Hunter"
+        }
+        
         col1, col2 = st.columns([1, 2])
         with col1:
-            st.metric("Risk Tier", f"{tier_colors.get(risk_tier, '')} {risk_tier}", f"Score: {risk_score}/28")
+            st.metric("Risk Tier", f"{tier_colors.get(risk_tier, '')} {risk_tier}", f"Score: {risk_score}/40")
+            st.caption(f"*\"{tier_descriptions.get(risk_tier, '')}\"*")
         
-        # Interpretations (3 bullets)
+        # Interpretations
         interpretations = {
             "Conservative": [
                 "You prioritize capital preservation over high returns",
-                "You prefer stability and are uncomfortable with large swings",
-                "You likely have a shorter time horizon or lower risk capacity"
+                "You prefer stability and are uncomfortable with large portfolio swings",
+                "You likely have a shorter time horizon or need access to your money sooner",
+                "Your ideal portfolio leans heavily toward bonds, dividend stocks, and cash"
             ],
             "Moderate": [
-                "You're comfortable with moderate volatility for reasonable growth",
-                "You can tolerate temporary losses but want some downside protection",
-                "You balance between safety and opportunity"
+                "You are comfortable with moderate volatility for reasonable long-term growth",
+                "You can tolerate temporary losses of 15-20% but want some downside protection",
+                "You balance between safety and opportunity — no extremes",
+                "Your ideal portfolio blends index funds with some individual stock picks"
             ],
             "Growth": [
-                "You're willing to accept significant volatility for higher returns",
-                "You can handle drawdowns and stay focused on long-term goals",
-                "You have strong conviction and can wait years for recovery"
+                "You are willing to accept significant volatility for higher long-term returns",
+                "You can handle 25-30% drawdowns and stay focused on your long-term goals",
+                "You have strong conviction and the patience to wait years for a thesis to play out",
+                "Your ideal portfolio is equity-heavy with exposure to high-growth sectors"
             ],
             "Aggressive": [
-                "You're seeking maximum returns and embrace high volatility",
+                "You are seeking maximum returns and fully embrace high volatility",
                 "You view market crashes as buying opportunities, not panic signals",
-                "You have strong risk capacity (time, income, savings, discipline)"
+                "You have strong risk capacity — stable income, long time horizon, and discipline",
+                "Your ideal portfolio is concentrated in high-conviction growth and emerging opportunities"
             ]
         }
         
@@ -18680,7 +18729,176 @@ elif selected_page == "🧠 Risk Quiz":
         
         st.markdown("---")
         
-        # "What this affects" box (exact copy)
+        # Suggested allocation breakdown
+        st.markdown("### 📊 Suggested Portfolio Allocation")
+        
+        allocation_data = {
+            "Conservative": {"US Stocks": 25, "International Stocks": 10, "Bonds": 40, "Cash / Short-Term": 20, "Alternatives (REITs, Gold)": 5},
+            "Moderate": {"US Stocks": 45, "International Stocks": 15, "Bonds": 25, "Cash / Short-Term": 10, "Alternatives (REITs, Gold)": 5},
+            "Growth": {"US Stocks": 55, "International Stocks": 20, "Bonds": 10, "Cash / Short-Term": 5, "Alternatives (REITs, Gold)": 10},
+            "Aggressive": {"US Stocks": 65, "International Stocks": 20, "Bonds": 5, "Cash / Short-Term": 0, "Alternatives (REITs, Gold)": 10},
+        }
+        
+        alloc = allocation_data.get(risk_tier, {})
+        alloc_cols = st.columns(len(alloc))
+        for i, (category, pct) in enumerate(alloc.items()):
+            with alloc_cols[i]:
+                st.metric(category, f"{pct}%")
+        
+        st.markdown("---")
+        
+        # AI-Powered Investment Suggestions
+        st.markdown("### 🤖 AI-Suggested Investments For Your Profile")
+        st.caption("*Educational examples only — not financial advice. Always do your own research before investing.*")
+        
+        # Generate AI suggestions based on risk profile
+        ai_suggestions_key = f"risk_quiz_ai_suggestions_{risk_tier}_{risk_score}"
+        
+        if ai_suggestions_key not in st.session_state:
+            with st.spinner("Generating personalized suggestions based on your risk profile..."):
+                ai_prompt = f"""Based on an investor risk profile of "{risk_tier}" (score {risk_score}/40), suggest specific investments that match this profile. 
+
+The investor profile means:
+- Conservative (10-17): Prioritizes capital preservation, low volatility, shorter time horizon
+- Moderate (18-25): Balanced approach, moderate volatility tolerance, 5-10 year horizon
+- Growth (26-33): Accepts significant volatility, long-term focused, wants above-market returns
+- Aggressive (34-40): Maximum return seeking, embraces volatility, 10+ year horizon, experienced
+
+This investor scored {risk_score}/40 which places them in the "{risk_tier}" tier.
+
+Return ONLY valid JSON with this exact structure:
+{{
+    "etfs": [
+        {{"ticker": "XXX", "name": "Full ETF Name", "why": "1-2 sentence explanation of why this fits the profile", "expense_ratio": "0.XX%"}},
+        {{"ticker": "XXX", "name": "Full ETF Name", "why": "1-2 sentence explanation", "expense_ratio": "0.XX%"}},
+        {{"ticker": "XXX", "name": "Full ETF Name", "why": "1-2 sentence explanation", "expense_ratio": "0.XX%"}}
+    ],
+    "stocks": [
+        {{"ticker": "XXX", "name": "Company Name", "why": "1-2 sentence explanation of why this fits the risk profile"}},
+        {{"ticker": "XXX", "name": "Company Name", "why": "1-2 sentence explanation"}},
+        {{"ticker": "XXX", "name": "Company Name", "why": "1-2 sentence explanation"}}
+    ],
+    "portfolio_tip": "A 2-3 sentence practical portfolio construction tip for this risk tier. Include a specific suggested split between ETFs and individual stocks."
+}}
+
+Requirements:
+- ETFs should be real, investable, well-known funds appropriate for this risk level
+- Stocks should be real public companies with characteristics matching the risk tier
+- For Conservative: focus on dividend aristocrats, blue chips, bond ETFs, low-volatility funds
+- For Moderate: balanced mix of index funds, dividend growers, quality large-caps
+- For Growth: growth-oriented ETFs, high-growth large-caps, sector leaders
+- For Aggressive: high-growth stocks, emerging sector leaders, concentrated bets
+- Be specific with expense ratios for ETFs
+- Make the "why" actually explain the connection to the risk profile"""
+
+                ai_result = call_perplexity_json(ai_prompt, max_tokens=1500, temperature=0.3)
+                
+                if ai_result:
+                    st.session_state[ai_suggestions_key] = ai_result
+                else:
+                    # Fallback suggestions if AI fails
+                    fallback = {
+                        "Conservative": {
+                            "etfs": [
+                                {"ticker": "BND", "name": "Vanguard Total Bond Market ETF", "why": "Broad bond exposure with low volatility — anchors a conservative portfolio.", "expense_ratio": "0.03%"},
+                                {"ticker": "SCHD", "name": "Schwab US Dividend Equity ETF", "why": "High-quality dividend-paying stocks with lower volatility than the broad market.", "expense_ratio": "0.06%"},
+                                {"ticker": "VTIP", "name": "Vanguard Short-Term Inflation-Protected Securities ETF", "why": "Protects purchasing power with minimal interest rate risk.", "expense_ratio": "0.04%"}
+                            ],
+                            "stocks": [
+                                {"ticker": "JNJ", "name": "Johnson & Johnson", "why": "Healthcare blue chip with 60+ years of consecutive dividend increases."},
+                                {"ticker": "PG", "name": "Procter & Gamble", "why": "Consumer staples giant — steady cash flows regardless of economic conditions."},
+                                {"ticker": "KO", "name": "Coca-Cola", "why": "Iconic brand with pricing power and reliable 3%+ dividend yield."}
+                            ],
+                            "portfolio_tip": "Consider a 70/30 split between ETFs and individual stocks. Keep at least 15-20% in bonds or cash equivalents. Focus on companies that have raised dividends for 20+ consecutive years."
+                        },
+                        "Moderate": {
+                            "etfs": [
+                                {"ticker": "VOO", "name": "Vanguard S&P 500 ETF", "why": "Core US equity exposure at rock-bottom cost — the foundation of most portfolios.", "expense_ratio": "0.03%"},
+                                {"ticker": "VXUS", "name": "Vanguard Total International Stock ETF", "why": "Global diversification outside the US reduces single-country risk.", "expense_ratio": "0.07%"},
+                                {"ticker": "BND", "name": "Vanguard Total Bond Market ETF", "why": "Provides ballast during equity sell-offs and steady income.", "expense_ratio": "0.03%"}
+                            ],
+                            "stocks": [
+                                {"ticker": "MSFT", "name": "Microsoft", "why": "Dominant cloud + AI position with consistent 15-20% earnings growth and expanding margins."},
+                                {"ticker": "COST", "name": "Costco", "why": "Membership model creates predictable revenue with strong consumer loyalty."},
+                                {"ticker": "V", "name": "Visa", "why": "Payment network with 65%+ operating margins and built-in inflation hedge."}
+                            ],
+                            "portfolio_tip": "A 75/25 split between equities (ETFs + stocks) and bonds works well. Use VOO as your core (40-50%), add 15% international, and keep individual stock picks to 20-30% of the equity portion."
+                        },
+                        "Growth": {
+                            "etfs": [
+                                {"ticker": "VGT", "name": "Vanguard Information Technology ETF", "why": "Concentrated tech exposure for above-market growth — the highest-performing sector long-term.", "expense_ratio": "0.10%"},
+                                {"ticker": "VOO", "name": "Vanguard S&P 500 ETF", "why": "Broad market core that still delivers solid growth with lower single-sector risk.", "expense_ratio": "0.03%"},
+                                {"ticker": "VXUS", "name": "Vanguard Total International Stock ETF", "why": "International exposure captures growth in emerging markets and non-US tech.", "expense_ratio": "0.07%"}
+                            ],
+                            "stocks": [
+                                {"ticker": "NVDA", "name": "NVIDIA", "why": "AI infrastructure leader with explosive revenue growth and dominant market position."},
+                                {"ticker": "AMZN", "name": "Amazon", "why": "AWS cloud dominance plus e-commerce — multiple growth engines in one company."},
+                                {"ticker": "GOOGL", "name": "Alphabet", "why": "Search monopoly, YouTube, and Google Cloud — strong free cash flow with AI optionality."}
+                            ],
+                            "portfolio_tip": "Go 90/10 equity-to-bonds. Use broad ETFs for 60% of equity, individual growth stocks for 40%. Keep some cash (5%) to buy dips. Accept 25-30% drawdowns as the price of long-term outperformance."
+                        },
+                        "Aggressive": {
+                            "etfs": [
+                                {"ticker": "QQQ", "name": "Invesco Nasdaq-100 ETF", "why": "Concentrated exposure to the 100 largest Nasdaq companies — high growth, high conviction.", "expense_ratio": "0.20%"},
+                                {"ticker": "ARKK", "name": "ARK Innovation ETF", "why": "Disruptive innovation focus — high volatility but targets breakthrough technology companies.", "expense_ratio": "0.75%"},
+                                {"ticker": "SMH", "name": "VanEck Semiconductor ETF", "why": "Pure-play semiconductor exposure — the backbone of AI, cloud, and autonomous tech.", "expense_ratio": "0.35%"}
+                            ],
+                            "stocks": [
+                                {"ticker": "NVDA", "name": "NVIDIA", "why": "The dominant AI chip company — massive TAM with 70%+ gross margins and hypergrowth."},
+                                {"ticker": "TSLA", "name": "Tesla", "why": "High-conviction bet on EV + energy + AI robotics — massive volatility but enormous upside potential."},
+                                {"ticker": "META", "name": "Meta Platforms", "why": "AI-driven ad targeting plus Reality Labs optionality — strong FCF generation funds moonshots."}
+                            ],
+                            "portfolio_tip": "Go 95-100% equity with concentrated positions. Your top 5 holdings should be 50%+ of the portfolio. Accept 40%+ drawdowns as normal. Only works if you have 10+ years, stable income, and iron discipline."
+                        }
+                    }
+                    st.session_state[ai_suggestions_key] = fallback.get(risk_tier, fallback["Moderate"])
+        
+        suggestions = st.session_state.get(ai_suggestions_key, {})
+        
+        if suggestions:
+            # ETF Suggestions
+            st.markdown("#### 📦 ETFs That Match Your Profile")
+            etf_cols = st.columns(3)
+            for i, etf in enumerate(suggestions.get("etfs", [])[:3]):
+                with etf_cols[i]:
+                    ticker_str = etf.get("ticker", "")
+                    st.markdown(f"**{ticker_str}**")
+                    st.caption(etf.get("name", ""))
+                    if etf.get("expense_ratio"):
+                        st.caption(f"Expense ratio: {etf['expense_ratio']}")
+                    st.markdown(f"_{etf.get('why', '')}_")
+                    if ticker_str:
+                        if st.button(f"📊 Analyze {ticker_str}", key=f"rq_etf_{ticker_str}", use_container_width=True):
+                            st.session_state.selected_ticker = ticker_str
+                            st.session_state.selected_page = "📊 Company Analysis"
+                            st.rerun()
+            
+            st.markdown("")
+            
+            # Stock Suggestions
+            st.markdown("#### 📈 Stocks That Match Your Profile")
+            stock_cols = st.columns(3)
+            for i, stock in enumerate(suggestions.get("stocks", [])[:3]):
+                with stock_cols[i]:
+                    ticker_str = stock.get("ticker", "")
+                    st.markdown(f"**{ticker_str}**")
+                    st.caption(stock.get("name", ""))
+                    st.markdown(f"_{stock.get('why', '')}_")
+                    if ticker_str:
+                        if st.button(f"📊 Analyze {ticker_str}", key=f"rq_stock_{ticker_str}", use_container_width=True):
+                            st.session_state.selected_ticker = ticker_str
+                            st.session_state.selected_page = "📊 Company Analysis"
+                            st.rerun()
+            
+            # Portfolio tip
+            tip = suggestions.get("portfolio_tip", "")
+            if tip:
+                st.markdown("")
+                st.success(f"💡 **Portfolio Tip:** {tip}")
+        
+        st.markdown("---")
+        
+        # "What this affects" box
         st.info("""
 **What this changes in the app:**
 • The warnings you see (volatility + concentration)  
@@ -18689,7 +18907,8 @@ elif selected_page == "🧠 Risk Quiz":
 
 **What this does NOT change:**
 • It does not block you from anything  
-• It does not place trades for you
+• It does not place trades for you  
+• These suggestions are educational — not financial advice
         """)
         
         st.markdown("---")
@@ -18710,10 +18929,11 @@ elif selected_page == "🧠 Risk Quiz":
         with col2:
             if st.button("🔄 Retake Quiz", use_container_width=True, type="secondary"):
                 st.session_state.risk_quiz_submitted = False
+                # Clear cached AI suggestions
+                for key in list(st.session_state.keys()):
+                    if key.startswith("risk_quiz_ai_suggestions_"):
+                        del st.session_state[key]
                 st.rerun()
-    
-    # AI Coach integration
-    #REMOVED: render_ai_coach("Risk Quiz", ticker=None, facts=None)
 
 
 elif selected_page == "📊 Company Analysis":
