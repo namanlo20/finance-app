@@ -21591,9 +21591,6 @@ elif selected_page == "📰 Market Intelligence":
         
             # All models failed
             return None, f"All models failed. Last error: {last_error}"
-        
-            # All models failed
-            return None, f"All models failed. Last error: {last_error}"
     
         # Fetch and display top news - button-gated to avoid slow auto-load
         if "mi_news_loaded" not in st.session_state:
@@ -21795,111 +21792,9 @@ elif selected_page == "📰 Market Intelligence":
     
         st.markdown("---")
     
-        # ============= STOCK-SPECIFIC NEWS SEARCH =============
-        st.markdown("### 🔍 Search Stock News")
-        intel_input = st.text_input(
-            "Enter a company name or ticker:",
-            "",
-            placeholder="e.g., Apple, Tesla, GOOGL, Microsoft",
-            key="intel_ticker_search"
-        )
-    
-        # Resolve company name to ticker
-        intel_ticker = resolve_company_to_ticker(intel_input) if intel_input.strip() else None
-    
-        # Show resolved ticker with LOGO if different from input
-        if intel_input.strip() and intel_ticker:
-            intel_logo = get_company_logo(intel_ticker)
-            intel_profile = get_profile(intel_ticker)
-            intel_company_name = intel_profile.get('companyName', intel_ticker) if intel_profile else intel_ticker
-        
-            if intel_logo:
-                st.markdown(f"""
-                <div style="display: flex; align-items: center; background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%); padding: 12px; border-radius: 10px; margin: 10px 0; border: 1px solid #42A5F5;">
-                    <img src="{intel_logo}" width="40" height="40" style="border-radius: 6px; margin-right: 12px;">
-                    <div>
-                        <div style="font-size: 18px; font-weight: bold; color: #333;">{intel_ticker}</div>
-                        <div style="color: #555; font-size: 13px;">{intel_company_name}</div>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-            elif intel_ticker.upper() != intel_input.strip().upper():
-                st.caption(f"Searching for: **{intel_ticker}**")
-    
-        # Fit Check Panel (only if ticker selected) - REMOVED - causes issues
-        if intel_ticker:
-            # REMOVED: render_fit_check_panel(intel_ticker)
-            # Just show news directly without risk quiz
-        
-            # Function to get market news via Perplexity API
-            def get_stock_intelligence(ticker):
-                """Fetch stock-specific news using Perplexity API"""
-                if not PERPLEXITY_API_KEY:
-                    return None, "Perplexity API key not configured"
-            
-                try:
-                    query = f"Latest news, catalysts, and market analysis for {ticker.upper()} stock. Include recent price movements, analyst opinions, and any significant company developments. Format with clear sections and bullet points."
-                
-                    headers = {
-                        "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
-                        "Content-Type": "application/json"
-                    }
-                
-                    payload = {
-                        "model": "sonar",
-                        "messages": [
-                            {"role": "system", "content": "You are a financial news analyst. Provide concise, factual market updates with clear sections and bullet points. Make it easy to scan quickly."},
-                            {"role": "user", "content": query}
-                        ],
-                        "max_tokens": 1500
-                    }
-                
-                    response = requests.post(
-                        "https://api.perplexity.ai/chat/completions",
-                        headers=headers,
-                        json=payload,
-                        timeout=30
-                    )
-                
-                    if response.status_code == 200:
-                        data = response.json()
-                        content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-                        return content, None
-                    else:
-                        return None, f"API error: {response.status_code}"
-                except Exception as e:
-                    return None, str(e)
-        
-            # Fetch and display stock news
-            with st.spinner(f"Fetching latest {intel_ticker} intelligence..."):
-                stock_news, stock_error = get_stock_intelligence(intel_ticker)
-        
-            if stock_news:
-                st.markdown(f"### 📊 {intel_ticker.upper()} - Latest News & Analysis")
-            
-                st.markdown(f"""
-                <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
-                            border: 2px solid #00D9FF; border-radius: 15px; padding: 30px; margin: 20px 0;">
-                    <div style="color: #FFFFFF; font-size: 16px; line-height: 1.8;">
-                        {stock_news}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-            elif stock_error:
-                st.warning(f"Could not fetch {intel_ticker} news: {stock_error}")
-        
-            # FMP news headlines for this stock
-            fmp_news = get_stock_specific_news(intel_ticker.upper(), 10)
-            if fmp_news:
-                st.markdown("#### Recent Headlines")
-                for article in fmp_news:
-                    title = article.get('title', 'No title')
-                    published = article.get('publishedDate', '')[:10] if article.get('publishedDate') else ''
-                    url = article.get('url', '')
-                    if url:
-                        st.markdown(f"- [{title}]({url}) ({published})")
-                    else:
-                        st.markdown(f"- **{title}** ({published})")
+        # ============= POINTER TO NEWS EXPLAINER TAB =============
+        st.markdown("### 🔍 Want News For a Specific Stock?")
+        st.markdown("Use the **News ↔ Price Explainer** tab above to search any stock and see what moved it, with estimated price impact and plain-English explanations.")
     
         st.markdown("---")
         st.caption("*News powered by Perplexity AI and Financial Modeling Prep. This is not financial advice.*")
