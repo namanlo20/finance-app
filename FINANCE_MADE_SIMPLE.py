@@ -895,7 +895,65 @@ def show_data_source(source="FMP API", updated_at=None, is_cached=False, is_dela
     """, unsafe_allow_html=True)
 
 
-def show_ai_disclaimer(inputs_used=None):
+def show_financial_data_notice(df, period='annual'):
+    """Show a notice about financial data source and freshness based on 10-Q/10-K filings.
+    
+    Args:
+        df: DataFrame with financial data (must have 'date' column)
+        period: 'annual' or 'quarter'
+    """
+    if df is None or df.empty or 'date' not in df.columns:
+        return
+    
+    try:
+        latest_date = pd.to_datetime(df['date']).max()
+        date_str = latest_date.strftime('%b %d, %Y')
+        
+        # Build period label
+        if period == 'quarter':
+            q = (latest_date.month - 1) // 3 + 1
+            period_label = f"Q{q} {latest_date.year}"
+            filing_type = "10-Q"
+        else:
+            period_label = f"FY {latest_date.year}"
+            filing_type = "10-K"
+        
+        # Calculate how old the data is
+        days_old = (datetime.now() - latest_date).days
+        
+        if days_old > 120:
+            freshness_color = "#FF4444"
+            freshness_note = "Data may be outdated"
+        elif days_old > 60:
+            freshness_color = "#FFA500"
+            freshness_note = "Waiting for latest filing"
+        else:
+            freshness_color = "#888"
+            freshness_note = ""
+        
+        freshness_html = f' <span style="color:{freshness_color}; font-weight:600;">• {freshness_note}</span>' if freshness_note else ''
+        
+        st.markdown(f"""
+        <div style="
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
+            background: rgba(128, 128, 128, 0.08);
+            border-radius: 8px;
+            font-size: 12px;
+            color: #888;
+            margin: 6px 0 14px 0;
+            border-left: 3px solid rgba(128,128,128,0.3);
+        ">
+            <span>📄 Based on latest <strong>{filing_type}</strong> filing</span>
+            <span>•</span>
+            <span>Data through <strong>{period_label}</strong> ({date_str})</span>
+            {freshness_html}
+        </div>
+        """, unsafe_allow_html=True)
+    except Exception:
+        pass
     """Display AI content disclaimer with inputs used
     
     Args:
@@ -19678,6 +19736,8 @@ elif selected_page == "📊 Company Analysis":
                 cols = st.columns(len(metrics_to_plot))
                 for i, (metric, name) in enumerate(zip(metrics_to_plot, metric_names)):
                     cols[i].metric(f"Latest {name}", format_number(cash_df[metric].iloc[-1]))
+                
+                show_financial_data_notice(cash_df, period)
         else:
             st.warning("⚠️ Cash flow data not available")
         
@@ -19771,6 +19831,8 @@ elif selected_page == "📊 Company Analysis":
                 cols = [col1, col2, col3]
                 for i, (metric, name) in enumerate(zip(metrics_to_plot, metric_names)):
                     cols[i].metric(f"Latest {name}", format_number(income_df[metric].iloc[-1]))
+                
+                show_financial_data_notice(income_df, period)
         else:
             st.warning("⚠️ Income statement not available")
         
@@ -19862,6 +19924,8 @@ elif selected_page == "📊 Company Analysis":
                 cols = st.columns(len(metrics_to_plot))
                 for i, (metric, name) in enumerate(zip(metrics_to_plot, metric_names)):
                     cols[i].metric(f"Latest {name}", format_number(balance_df[metric].iloc[-1]))
+                
+                show_financial_data_notice(balance_df, period)
         else:
             st.warning("⚠️ Balance sheet not available")
     
