@@ -954,6 +954,9 @@ def show_financial_data_notice(df, period='annual'):
         """, unsafe_allow_html=True)
     except Exception:
         pass
+
+
+def show_ai_disclaimer(inputs_used=None):
     """Display AI content disclaimer with inputs used
     
     Args:
