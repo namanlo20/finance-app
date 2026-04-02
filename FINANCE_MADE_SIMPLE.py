@@ -11590,55 +11590,169 @@ def check_if_stretched_for_mean_reversion(facts: dict) -> tuple:
 
 def generate_trader_actions(facts: dict, pattern_label: str) -> list:
     """
-    STEP 6: Generate 5-7 educational bullets about what traders typically watch/do.
-    Returns list of action strings.
+    STEP 6: Generate a Perplexity-style trade setup card.
+    Sections: Current price → Bull case → Bear case → Deeper buy zone → Stops → Dollar upside/downside → Verdict.
+    Returns list of markdown strings rendered as a clean trade card in the UI.
     """
     if not facts or not facts.get("last_close"):
         return []
-    
-    actions = []
-    rsi = facts.get("rsi14_last")
-    pct_above_sma50 = facts.get("pct_above_sma50")
+
+    last_close = facts.get("last_close")
+    sma50      = facts.get("sma50")
+    sma200     = facts.get("sma200")
+    support    = facts.get("support_level")
+    resistance = facts.get("resistance_level")
+    rsi        = facts.get("rsi14_last")
+    pct_above_sma50  = facts.get("pct_above_sma50")
     pct_above_sma200 = facts.get("pct_above_sma200")
-    sma50_slope = facts.get("sma50_slope")
-    distance_to_resistance_pct = facts.get("distance_to_resistance_pct")
-    distance_to_support_pct = facts.get("distance_to_support_pct")
-    vol_spike = facts.get("volume_spike")
+    atr_pct    = facts.get("atr_pct")
+    vol_spike  = facts.get("volume_spike")
     vol_regime = facts.get("vol_regime")
-    
-    # RSI overbought
-    if rsi is not None and rsi >= 70:
-        actions.append("Watch for cooldown/pullback — overbought readings often precede short-term dips")
-    
-    # Near resistance
-    if distance_to_resistance_pct is not None and distance_to_resistance_pct < 3:
-        actions.append("Breakout traders wait for close ABOVE resistance + volume confirmation before entering")
-    
-    # Above SMA50 with rising slope
-    if pct_above_sma50 is not None and pct_above_sma50 > 0 and sma50_slope is not None and sma50_slope > 0:
-        actions.append("Pullback-to-SMA50 often watched as re-entry zone in uptrends (dip-buying opportunity)")
-    
-    # Volume spike
+    return_60d = facts.get("return_60d")
+
+    lines = []
+
+    # ── CURRENT PRICE ────────────────────────────────────────
+    lines.append(f"**Current price: ${last_close:,.2f}**")
+
+    # ── BULL CASE ────────────────────────────────────────────
+    if sma50 is not None and sma200 is not None:
+        if last_close > sma50:
+            bull_entry = f"above the 50-day MA (${sma50:,.2f})"
+        else:
+            bull_entry = f"on a reclaim of the 50-day MA (${sma50:,.2f})"
+        upside_target = sma200
+        upside_dollars = upside_target - last_close
+        upside_pct = (upside_dollars / last_close) * 100
+        lines.append(
+            f"🟢 **Bull case:** Stay or buy {bull_entry}. "
+            f"Upside target: 200-day MA at **${upside_target:,.2f}** "
+            f"(~**${upside_dollars:+,.0f}** / {upside_pct:+.1f}% from here)."
+        )
+    elif resistance is not None:
+        upside_dollars = resistance - last_close
+        upside_pct = (upside_dollars / last_close) * 100
+        lines.append(
+            f"🟢 **Bull case:** Hold above support. "
+            f"First target: **${resistance:,.2f}** resistance "
+            f"(~**${upside_dollars:+,.0f}** / {upside_pct:+.1f}% from here)."
+        )
+
+    # ── BEAR CASE ────────────────────────────────────────────
+    # Momentum stop = just below 50MA or support
+    if sma50 is not None:
+        momentum_stop = sma50 * 0.995  # just under 50MA
+        downside_1 = last_close - momentum_stop
+        # next support below momentum stop
+        if support is not None and support < momentum_stop:
+            next_support = support
+        else:
+            next_support = momentum_stop * 0.94  # estimate ~6% further
+        downside_2 = last_close - next_support
+        lines.append(
+            f"🔴 **Bear case:** If it loses **${momentum_stop:,.2f}** (50-day MA area), "
+            f"next support is around **${next_support:,.2f}** "
+            f"(~**${downside_1:,.0f}–${downside_2:,.0f}** downside)."
+        )
+    elif support is not None:
+        stop_price = support * 0.97
+        downside = last_close - stop_price
+        lines.append(
+            f"🔴 **Bear case:** A break below **${stop_price:,.2f}** (support breakdown) "
+            f"puts ~**${downside:,.0f}** at risk near term."
+        )
+
+    # ── DEEPER BUY ZONE ──────────────────────────────────────
+    # Use 52-week low proxy (return_60d can hint at how far down we've been) or sma200*0.90
+    if sma200 is not None and last_close < sma200:
+        deeper_zone = sma200 * 0.88
+        lines.append(
+            f"📉 **Deeper buy zone: below ${deeper_zone:,.2f}** — "
+            f"that's ~12% under the 200-day MA and likely near major long-term support. "
+            f"A drop there still keeps the multi-year trend structure intact for most stocks."
+        )
+    elif sma200 is not None and last_close > sma200:
+        deeper_zone = sma200 * 0.95
+        lines.append(
+            f"📉 **Deeper buy zone: near ${deeper_zone:,.2f}** — "
+            f"just below the 200-day MA. If it ever gets there, that's a high-conviction long-term entry."
+        )
+    elif support is not None:
+        deeper_zone = support * 0.93
+        lines.append(
+            f"📉 **Deeper buy zone: around ${deeper_zone:,.2f}** — "
+            f"well below current support. A drop to that area would be a larger dip worth watching."
+        )
+
+    # ── STOPS ────────────────────────────────────────────────
+    if sma50 is not None and sma200 is not None:
+        momentum_stop = sma50 * 0.995
+        value_stop = sma200 * 0.97
+        lines.append(
+            f"🛑 **Stops:** ${momentum_stop:,.2f} for momentum trades (50-day break); "
+            f"${value_stop:,.2f} for longer-term positions (200-day break). "
+            f"Pick one based on your time horizon."
+        )
+    elif sma50 is not None:
+        momentum_stop = sma50 * 0.995
+        lines.append(
+            f"🛑 **Stop:** ${momentum_stop:,.2f} — just under the 50-day MA. "
+            f"A clean close below there means the setup is broken."
+        )
+    elif support is not None:
+        stop_price = support * 0.97
+        lines.append(
+            f"🛑 **Stop:** ${stop_price:,.2f} — 3% under the ${support:,.2f} support level. "
+            f"Break below means sellers are in control."
+        )
+
+    # ── UPSIDE vs DOWNSIDE IN DOLLARS ────────────────────────
+    if sma200 is not None and sma50 is not None:
+        upside_d = sma200 - last_close
+        downside_d = last_close - (sma50 * 0.995)
+        rr = abs(upside_d / downside_d) if downside_d != 0 else 0
+        if upside_d > 0:
+            lines.append(
+                f"⚖️ **Risk/Reward:** ~${upside_d:,.0f} upside to the 200-day MA vs "
+                f"~${downside_d:,.0f} downside to the 50-day stop. "
+                f"That's roughly {rr:.1f}:1 — {'favorable' if rr >= 1.5 else 'tight, be selective'}."
+            )
+        else:
+            lines.append(
+                f"⚖️ **Risk/Reward:** Price is already above the 200-day MA — "
+                f"resistance is overhead. Risk/reward is less favorable for new entries here."
+            )
+
+    # ── VOLUME CONTEXT (brief) ───────────────────────────────
     if vol_spike:
-        actions.append("Volume spikes make moves more 'meaningful' — suggests institutional/smart-money activity")
-    
-    # Below SMA200
-    if pct_above_sma200 is not None and pct_above_sma200 < 0:
-        actions.append("Below SMA200: many wait for reclaim before considering long positions (long-term weakness)")
-    
-    # Near support
-    if distance_to_support_pct is not None and distance_to_support_pct < 3:
-        actions.append("Support test: bounce confirms support strength; break below signals potential breakdown")
-    
-    # Low volatility
-    if vol_regime == "low":
-        actions.append("Low volatility 'squeezes' often precede larger directional moves (coiling spring effect)")
-    
-    # RSI oversold
-    if rsi is not None and rsi <= 30:
-        actions.append("Oversold conditions: contrarian traders watch for reversal signals (but downtrends can stay oversold)")
-    
-    return actions[:7]  # Max 7
+        vol_x = facts.get("volume_spike_x", 0)
+        lines.append(f"⚡ Volume is {vol_x:.1f}× average — moves here carry more conviction.")
+    elif vol_regime == "low":
+        lines.append(f"⚡ Volume is quiet — watch for a surge to confirm any breakout or breakdown.")
+
+    # ── VERDICT ─────────────────────────────────────────────
+    if sma50 is not None and sma200 is not None:
+        if last_close > sma50 > sma200:
+            verdict = f"Risk/reward skews bullish above ${sma50:,.2f}. Trend is intact."
+        elif last_close > sma50 and last_close < sma200:
+            verdict = f"Neutral-to-bullish between ${sma50:,.2f} and ${sma200:,.2f}. Real confirmation comes on a 200-day reclaim."
+        elif last_close < sma50 and last_close > sma200:
+            verdict = f"Cautious. Below the 50-day (${sma50:,.2f}) but above the 200-day (${sma200:,.2f}). Wait for a 50-day reclaim before adding."
+        else:
+            verdict = f"Bearish structure — below both MAs. Don't fight the trend. Wait for a 200-day reclaim at ${sma200:,.2f}."
+    elif rsi is not None:
+        if rsi >= 70:
+            verdict = "Overbought — risk/reward favors waiting for a pullback."
+        elif rsi <= 30:
+            verdict = "Oversold — potential bounce candidate, but confirm before entering."
+        else:
+            verdict = "Neutral setup — no strong edge either way right now."
+    else:
+        verdict = "Insufficient data for a clean verdict."
+
+    lines.append(f"**Verdict:** {verdict}")
+
+    return lines
 
 
 def build_explain_chart_prompt(facts: dict, rule_based: dict, simple_mode: bool = False) -> str:
@@ -11667,7 +11781,7 @@ def build_explain_chart_prompt(facts: dict, rule_based: dict, simple_mode: bool 
     
     language_style = "simple, conversational language (like talking to a friend)" if simple_mode else "clear professional language"
     
-    prompt = f"""You are a chart analysis AI assistant analyzing {company_name} ({ticker}). Write in natural, CONVERSATIONAL language.
+    prompt = f"""You are a chart analysis AI assistant analyzing {company_name} ({ticker}). Write like a trader talking to a beginner — plain, direct, no jargon.
 
 CRITICAL FORMATTING RULES:
 1. Format ALL dollar amounts as: $XXX.XX (with $ sign and 2 decimals)
@@ -11689,31 +11803,36 @@ PATTERN DETECTED:
 Return ONLY this JSON (no markdown, no code blocks):
 
 {{
-  "summary_one_liner": "One conversational sentence explaining {ticker}'s current situation (what's happening right now)",
+  "summary_one_liner": "One sentence: what is {ticker} doing right now and is the setup bullish, bearish, or neutral?",
   "trend": [
-    "First observation about {ticker}'s trend (where price is vs moving averages) - explain what it means",
-    "Second observation about trend direction/strength - why it matters for {ticker}",
-    "Third observation about how long trend has lasted - is it reliable?"
+    "Where is {ticker}'s price vs the 50-day MA? Above or below — and what does that mean in plain English?",
+    "Where is {ticker}'s price vs the 200-day MA? What does that signal about the longer-term picture?",
+    "Is the trend getting stronger or weakening? How do you know (slope, days above MA, etc.)?"
   ],
   "momentum": [
-    "First observation about {ticker}'s RSI (explain if momentum is strong, weak, or neutral) - what it suggests",
-    "Second observation about recent price gains/losses - put in context",
-    "Third observation about volume (is it high/low, what does that mean)"
+    "What is the RSI telling us about {ticker} right now? Is momentum stretched or healthy?",
+    "What has {ticker} done over the last 20 days — and is that move backed by volume?",
+    "Is volume confirming the move or is it suspiciously quiet?"
   ],
+  "trade_setup": {{
+    "bull_case": "If {ticker} holds above [key MA/support level $X], upside target is [level $Y] — that's ~$Z gain. One sentence, specific price, why it matters.",
+    "bear_case": "If {ticker} loses [key level $X], next support is [level $Y]. That's ~$Z downside. One sentence, specific prices.",
+    "deeper_buy_zone": "If {ticker} sold off hard to [level $X], that would be a high-conviction longer-term entry — explain why (major support, 200-day, multi-year trend, etc.)",
+    "momentum_stop": "Specific $ price for momentum/short-term traders — just under which MA or level, and what it means if broken",
+    "value_stop": "Specific $ price for longer-term/position traders — usually near the 200-day MA or major structure",
+    "upside_dollars": 11.50,
+    "downside_dollars": 8.75,
+    "verdict": "One bold sentence: risk/reward skews [bullish/bearish/neutral] above/below $X. Plain, direct, no hedging."
+  }},
   "key_levels": {{
     "support": {{"level": 123.45, "distance_pct": -2.5}},
     "resistance": {{"level": 150.00, "distance_pct": 3.2}},
-    "watch_level": {{"level": 145.50, "note": "Plain English note about this level for {ticker}"}}
+    "watch_level": {{"level": 145.50, "note": "Plain English note about why this level matters for {ticker}"}}
   }},
-  "risk_notes": [
-    "First risk to watch for {ticker} - explain why it's a risk",
-    "Second risk - what could go wrong",
-    "Third risk - what traders worry about here"
-  ],
   "what_to_watch_next_5_days": [
-    "First specific thing to monitor for {ticker} (price level, event, pattern)",
-    "Second thing to watch",
-    "Third thing to watch"
+    "First specific price level or event to watch for {ticker} — what does it mean if it breaks up or down?",
+    "Second thing to watch — what would confirm the setup?",
+    "Third thing to watch — what would invalidate it?"
   ]
 }}
 
@@ -11721,14 +11840,19 @@ CRITICAL:
 - NO fact_keys anywhere in output
 - NO brackets like [sma50] or [rsi14_last]
 - ALL numbers formatted with $, %, or commas as appropriate
-- Each bullet should EXPLAIN what the fact MEANS for {ticker}, not just state it
-- Write naturally - pretend you're texting a friend about {ticker}
+- trade_setup fields MUST have SPECIFIC $ price levels from the facts — not vague phrases
+- upside_dollars and downside_dollars must be actual numbers (floats), not strings
+- verdict must be ONE bold, direct sentence with a specific price level
+- Write like a trader texting a friend — short, direct, specific
 
-Example GOOD bullet:
-"{ticker} is sitting at $653.06, about 2% above the 50-day average - this suggests buyers have been in control recently"
+Example GOOD bull_case:
+"If NFLX holds above the 50-day MA at $87.50, upside target is the 200-day MA at $107.50 — that's about $20 higher."
 
-Example BAD bullet:
-"The last close at 653.06 is slightly above the 50-day SMA of 643.3988 (+1.50%).[last_close][sma50][pct_above_sma50]"
+Example GOOD verdict:
+"Risk/reward skews bullish above $87.50. Lose that and the next stop is the low-$80s."
+
+Example BAD bull_case:
+"The stock could go higher if momentum improves."
 
 Return ONLY the JSON. No other text."""
 
@@ -11854,7 +11978,7 @@ def validate_ai_response(ai_output: dict, facts: dict, response_type: str = "exp
 
         # Check required fields exist
         if response_type == "explain":
-            required = ["summary_one_liner", "trend", "momentum", "key_levels", "risk_notes"]
+            required = ["summary_one_liner", "trend", "momentum", "key_levels", "trade_setup"]
             for field in required:
                 if field not in ai_output:
                     return False, f"Missing required field: {field}"
@@ -23161,19 +23285,19 @@ elif selected_page == "📊 Pro Checklist":
                     else:
                         st.info("ℹ️ **Note**: Pattern detection combines rule-based signals with AI interpretation. Not financial advice.")
                     
-                    # ============= STEP 6: WHAT TRADERS DO NEXT =============
+                    # ============= STEP 6: TRADE SETUP =============
                     st.markdown("---")
-                    st.markdown("### ✅ What Traders Generally Do Next (Educational)")
-                    st.caption("*Common approaches traders use when analyzing similar setups*")
+                    st.markdown("### 🎯 Trade Setup")
+                    st.caption("*Specific price levels to watch — buy zone, stop loss, and key MAs explained simply*")
                     
                     trader_actions = generate_trader_actions(tech_facts, pattern_label)
                     if trader_actions:
                         for action in trader_actions:
-                            st.markdown(f"- {action}")
+                            st.markdown(action)
                     else:
-                        st.caption("*Insufficient data for trader action suggestions*")
+                        st.caption("*Insufficient data for trade setup*")
                     
-                    st.caption("*📚 Educational only — not a recommendation. Always do your own research.*")
+                    st.caption("*⚠️ Educational only — not financial advice. Always do your own research.*")
                     
                     # ============= STEP 7: AI-POWERED ANALYSIS BUTTONS =============
                     st.markdown("---")
@@ -23273,9 +23397,60 @@ elif selected_page == "📊 Pro Checklist":
                                 st.markdown(f"**{output['summary_one_liner']}**")
                                 st.markdown("")
                             
+                            # ── TRADE SETUP CARD ──────────────────────────────
+                            if "trade_setup" in output and output["trade_setup"]:
+                                ts = output["trade_setup"]
+                                
+                                # Dollar upside/downside pill
+                                upside_d  = ts.get("upside_dollars")
+                                downside_d = ts.get("downside_dollars")
+                                rr_str = ""
+                                if upside_d and downside_d and float(downside_d) != 0:
+                                    rr = abs(float(upside_d) / float(downside_d))
+                                    rr_str = f" &nbsp;|&nbsp; ⚖️ R/R: <b>{rr:.1f}:1</b>"
+                                upside_pill  = f"<span style='color:#00C851;'>▲ <b>${float(upside_d):,.0f} upside</b></span>" if upside_d else ""
+                                downside_pill = f"<span style='color:#FF4444;'>▼ <b>${float(downside_d):,.0f} downside</b></span>" if downside_d else ""
+
+                                st.markdown(f"""
+<div style="background:#111827; border-radius:12px; padding:18px; margin:8px 0; border:1px solid #2d3748;">
+  <div style="font-size:13px; color:#9ca3af; margin-bottom:12px;">
+    {upside_pill} &nbsp;{downside_pill}{rr_str}
+  </div>
+
+  <div style="margin-bottom:12px; padding:10px; background:#0d2818; border-radius:8px; border-left:3px solid #00C851;">
+    <span style="color:#00C851; font-weight:700; font-size:14px;">🟢 Bull Case</span><br>
+    <span style="color:#d1fae5; font-size:13px;">{clean_citation_tags(ts.get('bull_case', '—'))}</span>
+  </div>
+
+  <div style="margin-bottom:12px; padding:10px; background:#2d0a0a; border-radius:8px; border-left:3px solid #FF4444;">
+    <span style="color:#FF4444; font-weight:700; font-size:14px;">🔴 Bear Case</span><br>
+    <span style="color:#fee2e2; font-size:13px;">{clean_citation_tags(ts.get('bear_case', '—'))}</span>
+  </div>
+
+  <div style="margin-bottom:12px; padding:10px; background:#1a1a0d; border-radius:8px; border-left:3px solid #FBBF24;">
+    <span style="color:#FBBF24; font-weight:700; font-size:14px;">📉 Deeper Buy Zone</span><br>
+    <span style="color:#fef3c7; font-size:13px;">{clean_citation_tags(ts.get('deeper_buy_zone', '—'))}</span>
+  </div>
+
+  <div style="margin-bottom:12px; padding:10px; background:#1a0d1a; border-radius:8px; border-left:3px solid #a855f7;">
+    <span style="color:#a855f7; font-weight:700; font-size:14px;">🛑 Stops</span><br>
+    <span style="color:#f3e8ff; font-size:13px;">
+      <b>Momentum:</b> {clean_citation_tags(ts.get('momentum_stop', '—'))}<br>
+      <b>Longer-term:</b> {clean_citation_tags(ts.get('value_stop', '—'))}
+    </span>
+  </div>
+
+  <div style="padding:10px; background:#0f172a; border-radius:8px; border:1px solid #374151;">
+    <span style="color:#60a5fa; font-weight:700; font-size:14px;">⚡ Verdict</span><br>
+    <span style="color:#bfdbfe; font-size:13px; font-weight:600;">{clean_citation_tags(ts.get('verdict', '—'))}</span>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+                                st.markdown("")
+                            
                             # Trend
                             if "trend" in output and output["trend"]:
-                                st.markdown("**📈 Trend Analysis:**")
+                                st.markdown("**📈 Trend:**")
                                 for bullet in output["trend"]:
                                     clean_bullet = clean_citation_tags(bullet)
                                     st.markdown(f"- {clean_bullet}")
@@ -23291,7 +23466,7 @@ elif selected_page == "📊 Pro Checklist":
                             
                             # Key Levels
                             if "key_levels" in output:
-                                st.markdown("**🎯 Key Levels:**")
+                                st.markdown("**📍 Key Levels:**")
                                 levels = output["key_levels"]
                                 
                                 if "support" in levels and levels["support"].get("level"):
@@ -23311,17 +23486,9 @@ elif selected_page == "📊 Pro Checklist":
                                 
                                 st.markdown("")
                             
-                            # Risk Notes
-                            if "risk_notes" in output and output["risk_notes"]:
-                                st.markdown("**⚠️ Risks to Watch:**")
-                                for bullet in output["risk_notes"]:
-                                    clean_bullet = clean_citation_tags(bullet)
-                                    st.markdown(f"- {clean_bullet}")
-                                st.markdown("")
-                            
                             # What to Watch Next 5 Days
                             if "what_to_watch_next_5_days" in output and output["what_to_watch_next_5_days"]:
-                                st.markdown("**👀 What to Watch (Next 5 Days):**")
+                                st.markdown("**👀 Watch Next 5 Days:**")
                                 for bullet in output["what_to_watch_next_5_days"]:
                                     clean_bullet = clean_citation_tags(bullet)
                                     st.markdown(f"- {clean_bullet}")
