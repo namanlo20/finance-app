@@ -18687,16 +18687,30 @@ elif selected_page == "🎬 Company Deep Dives":
     
     else:
         # Display videos when they exist
+        def get_youtube_embed_url(url):
+            """Convert any YouTube URL to embed format"""
+            if not url:
+                return None
+            import re
+            # Shorts: /shorts/ID
+            shorts_match = re.search(r'/shorts/([A-Za-z0-9_-]+)', url)
+            if shorts_match:
+                return f"https://www.youtube.com/embed/{shorts_match.group(1)}"
+            # Standard: ?v=ID or youtu.be/ID
+            v_match = re.search(r'(?:v=|youtu\.be/)([A-Za-z0-9_-]+)', url)
+            if v_match:
+                return f"https://www.youtube.com/embed/{v_match.group(1)}"
+            return None
+
         for cat_key, cat_data in DEEP_DIVE_VIDEOS.items():
             if selected_cat != "All" and selected_cat != cat_data["label"]:
                 continue
             if not cat_data["videos"]:
                 continue
-            
+
             st.markdown(f"### {cat_data['label']}")
             st.caption(cat_data["description"])
-            
-            # Display videos in a grid (2 per row)
+
             videos = cat_data["videos"]
             for i in range(0, len(videos), 2):
                 cols = st.columns(2)
@@ -18704,22 +18718,40 @@ elif selected_page == "🎬 Company Deep Dives":
                     if i + j < len(videos):
                         video = videos[i + j]
                         with col:
-                            # Video card
+                            embed_url = get_youtube_embed_url(video.get("youtube_url", ""))
+                            date_str = str(video.get("date_published", ""))[:10]
+                            duration = video.get("duration", "")
+                            meta = " · ".join(filter(None, [date_str, duration]))
+
+                            # Embed iframe
+                            if embed_url:
+                                st.markdown(f"""
+                                <div style="border-radius: 12px; overflow: hidden; margin-bottom: 8px;">
+                                    <iframe width="100%" height="280"
+                                        src="{embed_url}"
+                                        frameborder="0"
+                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                        allowfullscreen
+                                        style="border-radius: 12px; display: block;">
+                                    </iframe>
+                                </div>
+                                """, unsafe_allow_html=True)
+
+                            # Info below video
                             st.markdown(f"""
-                            <div style="border: 1px solid #333; border-radius: 12px; padding: 16px; margin-bottom: 16px;">
-                                <div style="font-weight: bold; font-size: 16px; margin-bottom: 4px;">{video.get('title', 'Untitled')}</div>
-                                <div style="color: #888; font-size: 13px; margin-bottom: 8px;">{video.get('date', '')} &bull; {video.get('duration', '')}</div>
-                                <div style="font-size: 14px; margin-bottom: 12px;">{video.get('description', '')}</div>
+                            <div style="padding: 4px 2px 16px 2px;">
+                                <div style="font-weight: 700; font-size: 15px; margin-bottom: 4px;">{video.get('title', 'Untitled')}</div>
+                                <div style="color: #888; font-size: 12px; margin-bottom: 6px;">{meta}</div>
+                                <div style="font-size: 13px; color: #555;">{video.get('description') or ''}</div>
                             </div>
                             """, unsafe_allow_html=True)
-                            if video.get("youtube_url"):
-                                st.video(video["youtube_url"])
+
                             if video.get("ticker"):
                                 if st.button(f"📊 Analyze {video['ticker']}", key=f"dd_analyze_{video['ticker']}_{i+j}", use_container_width=True):
                                     st.session_state.selected_page = "📊 Company Analysis"
                                     st.session_state['ticker_input'] = video['ticker']
                                     st.rerun()
-            
+
             st.markdown("---")
 
 
