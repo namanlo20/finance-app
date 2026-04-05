@@ -18592,23 +18592,32 @@ elif selected_page == "🎬 Company Deep Dives":
     st.markdown("---")
     
     # Video categories
-    DEEP_DIVE_VIDEOS = {
-        "deep_dives": {
-            "label": "🔍 Full Deep Dives",
-            "description": "Complete company analysis — financials, moat, valuation, and verdict.",
-            "videos": []
-        },
-        "quick_takes": {
-            "label": "⚡ Quick Takes",
-            "description": "Short-form opinions and observations on stocks in the news.",
-            "videos": []
-        },
-        "earnings": {
-            "label": "📊 Earnings Breakdowns",
-            "description": "What the numbers actually said — and what the market missed.",
-            "videos": []
+    # Fetch videos from Supabase
+    @st.cache_data(ttl=300)
+    def fetch_deep_dive_videos():
+        if not SUPABASE_ENABLED:
+            return {}
+        try:
+            resp = requests.get(
+                f"{SUPABASE_URL}/rest/v1/deep_dive_videos?is_published=eq.true&order=date_published.desc",
+                headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
+            )
+            rows = resp.json() if resp.status_code == 200 else []
+        except:
+            rows = []
+        
+        result = {
+            "deep_dives": {"label": "🔍 Full Deep Dives", "description": "Complete company analysis — financials, moat, valuation, and verdict.", "videos": []},
+            "quick_takes": {"label": "⚡ Quick Takes", "description": "Short-form opinions and observations on stocks in the news.", "videos": []},
+            "earnings":    {"label": "📊 Earnings Breakdowns", "description": "What the numbers actually said — and what the market missed.", "videos": []}
         }
-    }
+        for row in rows:
+            cat = row.get("category")
+            if cat in result:
+                result[cat]["videos"].append(row)
+        return result
+    
+    DEEP_DIVE_VIDEOS = fetch_deep_dive_videos()
     
     # Category filter
     cat_options = ["All"] + [v["label"] for v in DEEP_DIVE_VIDEOS.values()]
