@@ -4402,13 +4402,29 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
 
     fig = go.Figure()
     growth_rates = {}
-    
+
+    # Determine years span for CAGR from actual dates
+    cagr_years = None
+    if 'date' in df_sorted.columns and len(df_sorted) >= 2:
+        try:
+            date_start = pd.to_datetime(df_sorted['date'].iloc[0])
+            date_end = pd.to_datetime(df_sorted['date'].iloc[-1])
+            cagr_years = max((date_end - date_start).days / 365.25, 0.1)
+        except Exception:
+            pass
+    if cagr_years is None:
+        if period_type == 'annual':
+            cagr_years = max(len(df_sorted) - 1, 1)
+        else:
+            cagr_years = max((len(df_sorted) - 1) / 4.0, 0.25)
+
     for idx, metric in enumerate(metrics):
         if metric in df_sorted.columns:
             values = df_sorted[metric].values
             if len(values) >= 2 and values[0] != 0:
-                growth_rate = ((values[-1] - values[0]) / abs(values[0])) * 100
-                growth_rates[metric] = growth_rate
+                cagr = calculate_cagr(values[0], values[-1], cagr_years)
+                if cagr is not None:
+                    growth_rates[metric] = cagr
             
             display_name = METRIC_DISPLAY_NAMES.get(metric, metric.replace('_', ' ').title())
             c = METRIC_COLORS.get(idx % 3, METRIC_COLORS[0])
@@ -4572,7 +4588,7 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
         ),
     )
     
-    return fig, growth_rates
+    return fig, growth_rates, round(cagr_years, 1)
 
 def create_ratio_trend_chart(df, metric_name, metric_column, title, sector=None):
     """Create line chart for financial ratio trends with S&P 500 and industry benchmarks"""
@@ -19878,7 +19894,7 @@ elif selected_page == "📊 Company Analysis":
                 plot_df = cash_df[["date"] + metrics_to_plot].copy()
                 
                 # Create chart with y-axis padding and growth rates
-                fig, growth_rates = create_financial_chart_with_growth(
+                fig, growth_rates, cagr_years = create_financial_chart_with_growth(
                     plot_df,
                     metrics_to_plot,
                     f"{company_name} - Cash Flow",
@@ -19886,20 +19902,21 @@ elif selected_page == "📊 Company Analysis":
                     "Amount ($)",
                     period_type=period
                 )
-                
+
                 if fig:
                     st.plotly_chart(fig, use_container_width=True)
-                    
-                    # Display growth rates
+
+                    # Display CAGR summary
                     if growth_rates:
-                        period_label = period_type.lower()
-                        growth_text = f"**Growth over {years} {period_label} periods:**\n\n"
-                        for idx, (metric_col, growth_rate) in enumerate(growth_rates.items()):
+                        yrs_label = f"{cagr_years:.0f}" if cagr_years == int(cagr_years) else f"{cagr_years:.1f}"
+                        growth_text = f"**{yrs_label}-Year CAGR** *(Compound Annual Growth Rate — annualized % per year)*\n\n"
+                        for idx, (metric_col, cagr) in enumerate(growth_rates.items()):
                             metric_name = metric_names[metrics_to_plot.index(metric_col)]
-                            emoji = "🚀" if growth_rate > 10 else "📈" if growth_rate > 0 else "📉"
-                            growth_text += f"{emoji} **{metric_name}:** {growth_rate:+.1f}%\n\n"
-                        
+                            emoji = "🚀" if cagr > 10 else "📈" if cagr > 0 else "📉"
+                            growth_text += f"{emoji} **{metric_name}:** {cagr:+.1f}%/yr\n\n"
+
                         st.markdown(f'<div class="growth-note">{growth_text}</div>', unsafe_allow_html=True)
+                        st.caption("ℹ️ CAGR = the steady annual growth rate that would take the first year's value to the last year's value. Unlike total % change, it accounts for how many years passed.")
                 
                 cols = st.columns(len(metrics_to_plot))
                 for i, (metric, name) in enumerate(zip(metrics_to_plot, metric_names)):
@@ -19973,7 +19990,7 @@ elif selected_page == "📊 Company Analysis":
                 
                 plot_df = income_df[["date"] + metrics_to_plot].copy()
                 
-                fig, growth_rates = create_financial_chart_with_growth(
+                fig, growth_rates, cagr_years = create_financial_chart_with_growth(
                     plot_df,
                     metrics_to_plot,
                     f"{company_name} - Income Statement",
@@ -19981,19 +19998,21 @@ elif selected_page == "📊 Company Analysis":
                     "Amount ($)",
                     period_type=period
                 )
-                
+
                 if fig:
                     st.plotly_chart(fig, use_container_width=True)
-                    
+
+                    # Display CAGR summary
                     if growth_rates:
-                        period_label = period_type.lower()
-                        growth_text = f"**Growth over {years} {period_label} periods:**\n\n"
-                        for idx, (metric_col, growth_rate) in enumerate(growth_rates.items()):
+                        yrs_label = f"{cagr_years:.0f}" if cagr_years == int(cagr_years) else f"{cagr_years:.1f}"
+                        growth_text = f"**{yrs_label}-Year CAGR** *(Compound Annual Growth Rate — annualized % per year)*\n\n"
+                        for idx, (metric_col, cagr) in enumerate(growth_rates.items()):
                             metric_name = metric_names[metrics_to_plot.index(metric_col)]
-                            emoji = "🚀" if growth_rate > 10 else "📈" if growth_rate > 0 else "📉"
-                            growth_text += f"{emoji} **{metric_name}:** {growth_rate:+.1f}%\n\n"
-                        
+                            emoji = "🚀" if cagr > 10 else "📈" if cagr > 0 else "📉"
+                            growth_text += f"{emoji} **{metric_name}:** {cagr:+.1f}%/yr\n\n"
+
                         st.markdown(f'<div class="growth-note">{growth_text}</div>', unsafe_allow_html=True)
+                        st.caption("ℹ️ CAGR = the steady annual growth rate that would take the first year's value to the last year's value. Unlike total % change, it accounts for how many years passed.")
                 
                 col1, col2, col3 = st.columns(3)
                 cols = [col1, col2, col3]
@@ -20067,7 +20086,7 @@ elif selected_page == "📊 Company Analysis":
                 
                 plot_df = balance_df[["date"] + metrics_to_plot].copy()
                 
-                fig, growth_rates = create_financial_chart_with_growth(
+                fig, growth_rates, cagr_years = create_financial_chart_with_growth(
                     plot_df,
                     metrics_to_plot,
                     f"{company_name} - Balance Sheet",
@@ -20075,19 +20094,21 @@ elif selected_page == "📊 Company Analysis":
                     "Amount ($)",
                     period_type=period
                 )
-                
+
                 if fig:
                     st.plotly_chart(fig, use_container_width=True)
-                    
+
+                    # Display CAGR summary
                     if growth_rates:
-                        period_label = period_type.lower()
-                        growth_text = f"**Growth over {years} {period_label} periods:**\n\n"
-                        for idx, (metric_col, growth_rate) in enumerate(growth_rates.items()):
+                        yrs_label = f"{cagr_years:.0f}" if cagr_years == int(cagr_years) else f"{cagr_years:.1f}"
+                        growth_text = f"**{yrs_label}-Year CAGR** *(Compound Annual Growth Rate — annualized % per year)*\n\n"
+                        for idx, (metric_col, cagr) in enumerate(growth_rates.items()):
                             metric_name = metric_names[metrics_to_plot.index(metric_col)]
-                            emoji = "🚀" if growth_rate > 10 else "📈" if growth_rate > 0 else "📉"
-                            growth_text += f"{emoji} **{metric_name}:** {growth_rate:+.1f}%\n\n"
-                        
+                            emoji = "🚀" if cagr > 10 else "📈" if cagr > 0 else "📉"
+                            growth_text += f"{emoji} **{metric_name}:** {cagr:+.1f}%/yr\n\n"
+
                         st.markdown(f'<div class="growth-note">{growth_text}</div>', unsafe_allow_html=True)
+                        st.caption("ℹ️ CAGR = the steady annual growth rate that would take the first year's value to the last year's value. Unlike total % change, it accounts for how many years passed.")
                 
                 cols = st.columns(len(metrics_to_plot))
                 for i, (metric, name) in enumerate(zip(metrics_to_plot, metric_names)):
