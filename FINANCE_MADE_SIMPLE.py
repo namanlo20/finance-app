@@ -5468,6 +5468,245 @@ def get_revenue_growth(ticker):
         return None
 
 
+@st.cache_data(ttl=3600)
+def get_analyst_consensus(ticker):
+    """
+    Fetch analyst buy/hold/sell consensus from FMP grades-consensus endpoint.
+    Returns dict with keys: strongBuy, buy, hold, sell, strongSell, consensus (str), total (int).
+    Returns None on failure.
+    """
+    try:
+        url = f"{BASE_URL}/grades-consensus?symbol={ticker}&apikey={FMP_API_KEY}"
+        resp = requests.get(url, timeout=8)
+        if resp.status_code == 200:
+            data = resp.json()
+            if data and isinstance(data, list) and len(data) > 0:
+                r = data[0]
+            elif data and isinstance(data, dict):
+                r = data
+            else:
+                return None
+            strong_buy  = int(r.get('strongBuy',  0) or 0)
+            buy         = int(r.get('buy',         0) or 0)
+            hold        = int(r.get('hold',        0) or 0)
+            sell        = int(r.get('sell',        0) or 0)
+            strong_sell = int(r.get('strongSell',  0) or 0)
+            total = strong_buy + buy + hold + sell + strong_sell
+            consensus = str(r.get('consensus', ''))
+            return {
+                'strongBuy': strong_buy, 'buy': buy, 'hold': hold,
+                'sell': sell, 'strongSell': strong_sell,
+                'total': total, 'consensus': consensus,
+            }
+    except Exception:
+        pass
+    return None
+
+
+def _dip_radar_valuation_label(pe, pct_from_high):
+    """Return Undervalued / Fair Value / Overvalued label based on P/E and dip depth."""
+    if pe and pe > 0:
+        if pe < 15:
+            return "🟢 Undervalued"
+        elif pe > 35:
+            return "🔴 Overvalued"
+        else:
+            return "🟡 Fair Value"
+    if pct_from_high is not None:
+        if pct_from_high < -30:
+            return "🟢 Deep Dip"
+        elif pct_from_high > -5:
+            return "🔴 Near High"
+    return "🟡 Fair Value"
+
+
+def render_dip_radar(tickers, chart_title="Dip Radar"):
+    """
+    Shared Dip Radar UI: horizontal bar chart ranked by % below 52-week high,
+    then an expandable detail panel per ticker.
+    tickers: list[str] — uppercase ticker symbols.
+    """
+    if not tickers:
+        st.info("No tickers to display. Enter some tickers above.")
+        return
+
+    BG_SPACE    = '#0A0A1A'
+    BG_PLOT     = '#0D0D20'
+    TEXT_BRIGHT = '#FFFFFF'
+    TEXT_DIM    = 'rgba(255,255,255,0.55)'
+    GRID_COLOR  = 'rgba(255,255,255,0.06)'
+
+    with st.spinner(f"Fetching data for {len(tickers)} ticker(s)…"):
+        rows = []
+        for tk in tickers:
+            q = get_quote(tk)
+            if not q:
+                continue
+            price     = q.get('price', 0) or 0
+            year_high = q.get('yearHigh', 0) or 0
+            year_low  = q.get('yearLow',  0) or 0
+            pe_raw    = q.get('pe', None)
+            pe        = float(pe_raw) if pe_raw and float(pe_raw) > 0 else None
+            pct = ((price - year_high) / year_high * 100) if year_high > 0 else None
+            rows.append({
+                'ticker': tk.upper(),
+                'price': price,
+                'year_high': year_high,
+                'year_low': year_low,
+                'pe': pe,
+                'pct_from_high': pct,
+            })
+
+    if not rows:
+        st.warning("Could not fetch data for any of the requested tickers. Check that tickers are valid.")
+        return
+
+    # Sort worst dip first (most negative pct_from_high)
+    rows.sort(key=lambda r: (r['pct_from_high'] is None, r['pct_from_high'] if r['pct_from_high'] is not None else 0))
+
+    tickers_sorted = [r['ticker'] for r in rows]
+    pcts           = [r['pct_from_high'] if r['pct_from_high'] is not None else 0 for r in rows]
+
+    # Color: deepest dip → red, smallest dip → green
+    import colorsys
+    bar_colors = []
+    min_p, max_p = min(pcts), max(pcts)
+    span = max_p - min_p if max_p != min_p else 1
+    for p in pcts:
+        norm = (p - min_p) / span          # 0 = biggest dip (red), 1 = smallest dip (green)
+        r_c, g_c, b_c = colorsys.hsv_to_rgb(norm * 0.33, 0.85, 0.9)
+        bar_colors.append(f'rgb({int(r_c*255)},{int(g_c*255)},{int(b_c*255)})')
+
+    hover_texts = []
+    for r in rows:
+        p = r['pct_from_high']
+        hover_texts.append(
+            f"<b>{r['ticker']}</b><br>"
+            f"Price: ${r['price']:.2f}<br>"
+            f"52W High: ${r['year_high']:.2f}<br>"
+            f"From High: {p:+.1f}%" if p is not None else f"<b>{r['ticker']}</b><br>No 52W data"
+        )
+
+    fig = go.Figure(go.Bar(
+        x=pcts,
+        y=tickers_sorted,
+        orientation='h',
+        marker=dict(color=bar_colors, line=dict(width=0)),
+        text=[f"{p:+.1f}%" if p is not None else "N/A" for p in pcts],
+        textposition='outside',
+        textfont=dict(size=12, color=TEXT_BRIGHT, family='Inter, system-ui, sans-serif'),
+        hovertext=hover_texts,
+        hoverinfo='text',
+    ))
+
+    # Zero reference line
+    fig.add_vline(x=0, line=dict(color='rgba(255,255,255,0.3)', width=1, dash='dot'))
+
+    fig.update_layout(
+        title=dict(
+            text=f'<b>{chart_title} — % Below 52-Week High</b>',
+            font=dict(size=17, color=TEXT_BRIGHT, family='Inter, system-ui, sans-serif'),
+            x=0.5, xanchor='center',
+        ),
+        xaxis=dict(
+            title='% from 52-Week High',
+            showgrid=True, gridcolor=GRID_COLOR,
+            zeroline=False,
+            tickfont=dict(size=11, color=TEXT_DIM),
+            title_font=dict(color=TEXT_DIM),
+            ticksuffix='%',
+        ),
+        yaxis=dict(
+            showgrid=False, showline=False,
+            tickfont=dict(size=13, color=TEXT_BRIGHT, family='Inter, system-ui, sans-serif'),
+            autorange='reversed',  # worst dip at top
+        ),
+        plot_bgcolor=BG_PLOT,
+        paper_bgcolor=BG_SPACE,
+        margin=dict(t=60, b=50, l=80, r=80),
+        height=max(300, 50 * len(rows) + 80),
+        hoverlabel=dict(
+            bgcolor='#1A1A35', font_size=13,
+            font_family='Inter, system-ui, sans-serif',
+            font_color=TEXT_BRIGHT,
+            bordercolor='rgba(140,100,255,0.5)',
+        ),
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+    st.caption("🔴 Red = biggest dip from 52-week high  ·  🟢 Green = smallest dip  ·  Select a ticker below for details")
+
+    # Detail panel — selectbox picks which ticker to inspect
+    row_map = {r['ticker']: r for r in rows}
+    selected_tk = st.selectbox(
+        "Select a ticker to see details:",
+        options=tickers_sorted,
+        key=f"dip_radar_select_{chart_title.replace(' ', '_')}",
+    )
+
+    if selected_tk:
+        r = row_map[selected_tk]
+        pct = r['pct_from_high']
+
+        # Fetch supplementary data (cached)
+        rev_growth = get_revenue_growth(selected_tk)
+        consensus  = get_analyst_consensus(selected_tk)
+        val_label  = _dip_radar_valuation_label(r['pe'], pct)
+
+        st.markdown(f"""
+        <div style="background:#0D0D20; border:1px solid rgba(140,100,255,0.35); border-radius:14px; padding:20px 24px; margin-top:8px;">
+            <h3 style="color:#FFFFFF; margin:0 0 14px 0; font-family:Inter,sans-serif;">{selected_tk} &nbsp; <span style="font-size:16px; color:rgba(255,255,255,0.55);">Detail Panel</span></h3>
+        """, unsafe_allow_html=True)
+
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.metric("Current Price", f"${r['price']:.2f}")
+            st.metric("52-Week High",  f"${r['year_high']:.2f}")
+        with c2:
+            st.metric("From 52W High", f"{pct:+.1f}%" if pct is not None else "N/A",
+                      delta_color="inverse")
+            pe_display = f"{r['pe']:.1f}x" if r['pe'] else "N/A"
+            st.metric("P/E Ratio (TTM)", pe_display)
+        with c3:
+            rg_display = f"{rev_growth:+.1f}%" if rev_growth is not None else "N/A"
+            st.metric("Revenue Growth YoY", rg_display)
+            st.metric("Valuation", val_label)
+
+        # Analyst consensus bar
+        if consensus and consensus.get('total', 0) > 0:
+            total = consensus['total']
+            buy_n  = consensus['strongBuy'] + consensus['buy']
+            hold_n = consensus['hold']
+            sell_n = consensus['sell'] + consensus['strongSell']
+            buy_pct  = buy_n  / total * 100
+            hold_pct = hold_n / total * 100
+            sell_pct = sell_n / total * 100
+            cons_label = consensus.get('consensus', '') or f"{buy_pct:.0f}% Buy"
+
+            st.markdown(f"**Analyst Consensus** — *{total} analysts* — **{cons_label}**")
+            cons_fig = go.Figure(go.Bar(
+                x=[buy_pct, hold_pct, sell_pct],
+                y=[''],
+                orientation='h',
+                marker=dict(color=['#00FF96', '#FFD700', '#FF6B6B']),
+                text=[f"Buy {buy_pct:.0f}%", f"Hold {hold_pct:.0f}%", f"Sell {sell_pct:.0f}%"],
+                textposition='inside',
+                textfont=dict(size=12, color='#000000', family='Inter,sans-serif'),
+            ))
+            cons_fig.update_layout(
+                barmode='stack', height=55,
+                margin=dict(t=0, b=0, l=0, r=0),
+                plot_bgcolor=BG_PLOT, paper_bgcolor='rgba(0,0,0,0)',
+                xaxis=dict(visible=False), yaxis=dict(visible=False),
+                showlegend=False,
+            )
+            st.plotly_chart(cons_fig, use_container_width=True)
+        else:
+            st.caption("Analyst consensus: not available for this ticker")
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+
 # Fallback logos for stocks with missing or problematic logos
 # Using reliable sources with PNG format
 FALLBACK_LOGOS = {
@@ -10354,6 +10593,9 @@ with header_cols[2]:
             st.rerun()
         if st.button("🤖 AI Stock Screener", key="nav_ai_screener", use_container_width=True):
             st.session_state.selected_page = "🔍 AI Stock Screener"
+            st.rerun()
+        if st.button("📡 Dip Radar", key="nav_dip_radar", use_container_width=True):
+            st.session_state.selected_page = "📡 Dip Radar"
             st.rerun()
         if st.button("🎬 Company Deep Dives", key="nav_deep_dives", use_container_width=True):
             st.session_state.selected_page = "🎬 Company Deep Dives"
@@ -20036,8 +20278,7 @@ elif selected_page == "📊 Company Analysis":
 
                     # Display CAGR summary
                     if growth_rates:
-                        yrs_label = f"{cagr_years:.0f}" if cagr_years == int(cagr_years) else f"{cagr_years:.1f}"
-                        growth_text = f"**{yrs_label}-Year CAGR** *(Compound Annual Growth Rate — annualized % per year)*\n\n"
+                        growth_text = f"**{years}-Year CAGR** *(Compound Annual Growth Rate — annualized % per year)*\n\n"
                         for idx, (metric_col, cagr) in enumerate(growth_rates.items()):
                             metric_name = metric_names[metrics_to_plot.index(metric_col)]
                             emoji = "🚀" if cagr > 10 else "📈" if cagr > 0 else "📉"
@@ -20045,7 +20286,7 @@ elif selected_page == "📊 Company Analysis":
 
                         st.markdown(f'<div class="growth-note">{growth_text}</div>', unsafe_allow_html=True)
                         st.caption("ℹ️ CAGR = the steady annual growth rate that would take the first year's value to the last year's value. Unlike total % change, it accounts for how many years passed.")
-                
+
                 cols = st.columns(len(metrics_to_plot))
                 for i, (metric, name) in enumerate(zip(metrics_to_plot, metric_names)):
                     cols[i].metric(f"Latest {name}", format_number(cash_df[metric].iloc[-1]))
@@ -20132,8 +20373,7 @@ elif selected_page == "📊 Company Analysis":
 
                     # Display CAGR summary
                     if growth_rates:
-                        yrs_label = f"{cagr_years:.0f}" if cagr_years == int(cagr_years) else f"{cagr_years:.1f}"
-                        growth_text = f"**{yrs_label}-Year CAGR** *(Compound Annual Growth Rate — annualized % per year)*\n\n"
+                        growth_text = f"**{years}-Year CAGR** *(Compound Annual Growth Rate — annualized % per year)*\n\n"
                         for idx, (metric_col, cagr) in enumerate(growth_rates.items()):
                             metric_name = metric_names[metrics_to_plot.index(metric_col)]
                             emoji = "🚀" if cagr > 10 else "📈" if cagr > 0 else "📉"
@@ -20141,7 +20381,7 @@ elif selected_page == "📊 Company Analysis":
 
                         st.markdown(f'<div class="growth-note">{growth_text}</div>', unsafe_allow_html=True)
                         st.caption("ℹ️ CAGR = the steady annual growth rate that would take the first year's value to the last year's value. Unlike total % change, it accounts for how many years passed.")
-                
+
                 col1, col2, col3 = st.columns(3)
                 cols = [col1, col2, col3]
                 for i, (metric, name) in enumerate(zip(metrics_to_plot, metric_names)):
@@ -20228,8 +20468,7 @@ elif selected_page == "📊 Company Analysis":
 
                     # Display CAGR summary
                     if growth_rates:
-                        yrs_label = f"{cagr_years:.0f}" if cagr_years == int(cagr_years) else f"{cagr_years:.1f}"
-                        growth_text = f"**{yrs_label}-Year CAGR** *(Compound Annual Growth Rate — annualized % per year)*\n\n"
+                        growth_text = f"**{years}-Year CAGR** *(Compound Annual Growth Rate — annualized % per year)*\n\n"
                         for idx, (metric_col, cagr) in enumerate(growth_rates.items()):
                             metric_name = metric_names[metrics_to_plot.index(metric_col)]
                             emoji = "🚀" if cagr > 10 else "📈" if cagr > 0 else "📉"
@@ -20237,7 +20476,7 @@ elif selected_page == "📊 Company Analysis":
 
                         st.markdown(f'<div class="growth-note">{growth_text}</div>', unsafe_allow_html=True)
                         st.caption("ℹ️ CAGR = the steady annual growth rate that would take the first year's value to the last year's value. Unlike total % change, it accounts for how many years passed.")
-                
+
                 cols = st.columns(len(metrics_to_plot))
                 for i, (metric, name) in enumerate(zip(metrics_to_plot, metric_names)):
                     cols[i].metric(f"Latest {name}", format_number(balance_df[metric].iloc[-1]))
@@ -21281,17 +21520,13 @@ elif selected_page == "📊 Market Overview":
 
 # ============= AI STOCK SCREENER PAGE =============
 elif selected_page == "🔍 AI Stock Screener":
-    # Check tier - Ultimate only
     user_tier = get_user_tier()
-    
-    # Header
+
+    # Header (always visible)
     st.markdown("""
-    <div style="background: linear-gradient(135deg, #FF4B4B 0%, #CC0000 100%); 
-                padding: 15px 25px; 
-                border-radius: 15px; 
-                text-align: center; 
-                margin-bottom: 25px;
-                box-shadow: 0 4px 15px rgba(255, 51, 51, 0.3);">
+    <div style="background: linear-gradient(135deg, #FF4B4B 0%, #CC0000 100%);
+                padding: 15px 25px; border-radius: 15px; text-align: center;
+                margin-bottom: 20px; box-shadow: 0 4px 15px rgba(255,51,51,0.3);">
         <h2 style="margin: 0; color: #FFFFFF; font-size: 24px; font-weight: bold;">
             🤖 AI Stock Research Agent
         </h2>
@@ -21300,153 +21535,174 @@ elif selected_page == "🔍 AI Stock Screener":
         </p>
     </div>
     """, unsafe_allow_html=True)
-    
-    # Gate for non-Ultimate users
-    if user_tier != "ultimate":
-        st.markdown("""
-        <div style="background: rgba(255, 215, 0, 0.1); border: 2px dashed #FFD700; border-radius: 15px; padding: 30px; text-align: center; margin: 20px 0;">
-            <div style="font-size: 48px; margin-bottom: 15px;">🔒</div>
-            <h3 style="color: #FFD700; margin-bottom: 10px;">Ultimate Tier Feature</h3>
-            <p style="color: #888; margin-bottom: 20px;">Your personal AI research analyst — exclusive to Ultimate members</p>
-            <p style="color: #FFF;">Ask questions like:</p>
-            <p style="color: #888; font-style: italic;">"Is NVDA overvalued?" • "Compare AAPL vs MSFT" • "Bull and bear case for TSLA"</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        if st.button("🚀 Upgrade to Ultimate", key="upgrade_screener", use_container_width=True, type="primary"):
-            st.session_state.selected_page = "👑 Become a VIP"
-            st.rerun()
-        
-        st.markdown("---")
-        st.markdown("### 💡 What You Could Ask")
-        col1, col2 = st.columns(2)
-        with col1:
+
+    screener_tab1, screener_tab2 = st.tabs(["🤖 AI Research Agent", "📡 Dip Radar"])
+
+    # ── Tab 1: AI Research Agent ──────────────────────────────────────────────
+    with screener_tab1:
+        if user_tier != "ultimate":
             st.markdown("""
-            **Stock Analysis:**
-            - Is NVDA overvalued right now?
-            - Give me a bull and bear case for Tesla
-            - What's happening with Palantir lately?
-            
-            **Comparisons:**
-            - Compare AAPL vs MSFT vs GOOGL
-            - Should I pick AMD or INTC?
-            """)
-        with col2:
-            st.markdown("""
-            **Research:**
-            - Analyze Meta's revenue growth trend
-            - What do analysts think about AMZN?
-            - How healthy is Apple's balance sheet?
-            
-            **Screening:**
-            - Find undervalued tech stocks
-            - Show me dividend stocks with low debt
-            """)
-    else:
-        # ============= ULTIMATE USERS: FULL AI RESEARCH AGENT =============
-        try:
-            from stock_research_agent import StockResearchAgent
-            
-            # Initialize agent once per session
-            if "research_agent" not in st.session_state:
-                st.session_state.research_agent = StockResearchAgent(model="gpt-4o")
-            
-            # Initialize chat history
-            if "agent_chat_history" not in st.session_state:
-                st.session_state.agent_chat_history = []
-            
-            # Quick suggestion buttons
-            st.markdown("**💡 Try these:**")
-            quick_col1, quick_col2, quick_col3, quick_col4 = st.columns(4)
-            with quick_col1:
-                if st.button("Is NVDA overvalued?", key="quick_nvda"):
-                    st.session_state.agent_pending_query = "Is NVDA overvalued right now? Give me a full analysis."
-            with quick_col2:
-                if st.button("AAPL vs MSFT", key="quick_compare"):
-                    st.session_state.agent_pending_query = "Compare AAPL vs MSFT — which is a better investment right now?"
-            with quick_col3:
-                if st.button("TSLA bull & bear", key="quick_tsla"):
-                    st.session_state.agent_pending_query = "Give me a bull case and bear case for Tesla."
-            with quick_col4:
-                if st.button("PLTR analysis", key="quick_pltr"):
-                    st.session_state.agent_pending_query = "What's happening with Palantir? Analyze the stock."
-            
-            # Show examples above chat if no history yet
-            if not st.session_state.agent_chat_history:
-                st.markdown("---")
-                st.markdown("### 💡 What You Can Ask")
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.markdown("""
-                    **Stock Analysis:**
-                    - Is NVDA overvalued right now?
-                    - Give me a bull and bear case for Tesla
-                    - What's happening with Palantir lately?
-                    
-                    **Comparisons:**
-                    - Compare AAPL vs MSFT vs GOOGL
-                    - Should I pick AMD or INTC?
-                    """)
-                with col2:
-                    st.markdown("""
-                    **Deep Dives:**
-                    - Analyze Meta's revenue growth trend
-                    - What do analysts think about AMZN?
-                    - How healthy is Apple's balance sheet?
-                    
-                    **Screening:**
-                    - Find undervalued tech stocks with P/E under 15
-                    - Show me dividend aristocrats with low debt
-                    """)
-                
-                show_data_source(source="FMP API + OpenAI GPT-4o Agent", updated_at=datetime.now())
-                st.markdown("---")
-            
-            # Display chat history
-            for msg in st.session_state.agent_chat_history:
-                with st.chat_message(msg["role"]):
-                    st.markdown(msg["content"])
-            
-            # Check for pending query from quick buttons
-            pending_query = st.session_state.pop("agent_pending_query", None)
-            
-            # Chat input
-            user_query = st.chat_input("Ask anything about stocks... (e.g., 'Is NVDA overvalued?')")
-            
-            # Use pending query if no direct input
-            if pending_query and not user_query:
-                user_query = pending_query
-            
-            if user_query:
-                # Add user message to history
-                st.session_state.agent_chat_history.append({"role": "user", "content": user_query})
-                with st.chat_message("user"):
-                    st.markdown(user_query)
-                
-                # Get agent response
-                with st.chat_message("assistant"):
-                    with st.spinner("🔍 Researching... (pulling real-time data from multiple sources)"):
-                        try:
-                            response = st.session_state.research_agent.research(user_query)
-                            st.markdown(response)
-                            st.session_state.agent_chat_history.append({"role": "assistant", "content": response})
-                        except Exception as e:
-                            error_msg = f"Research error: {str(e)}. Please try again."
-                            st.error(error_msg)
-                            st.session_state.agent_chat_history.append({"role": "assistant", "content": error_msg})
-                
-                show_ai_disclaimer()
-            
-            # Clear chat button
-            if st.session_state.agent_chat_history:
-                st.markdown("---")
-                if st.button("🗑️ Clear Chat", key="clear_agent_chat"):
+            <div style="background: rgba(255,215,0,0.1); border: 2px dashed #FFD700; border-radius: 15px; padding: 30px; text-align: center; margin: 20px 0;">
+                <div style="font-size: 48px; margin-bottom: 15px;">🔒</div>
+                <h3 style="color: #FFD700; margin-bottom: 10px;">Ultimate Tier Feature</h3>
+                <p style="color: #888; margin-bottom: 20px;">Your personal AI research analyst — exclusive to Ultimate members</p>
+                <p style="color: #FFF;">Ask questions like:</p>
+                <p style="color: #888; font-style: italic;">"Is NVDA overvalued?" • "Compare AAPL vs MSFT" • "Bull and bear case for TSLA"</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+            if st.button("🚀 Upgrade to Ultimate", key="upgrade_screener", use_container_width=True, type="primary"):
+                st.session_state.selected_page = "👑 Become a VIP"
+                st.rerun()
+
+            st.markdown("---")
+            st.markdown("### 💡 What You Could Ask")
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown("""
+                **Stock Analysis:**
+                - Is NVDA overvalued right now?
+                - Give me a bull and bear case for Tesla
+                - What's happening with Palantir lately?
+
+                **Comparisons:**
+                - Compare AAPL vs MSFT vs GOOGL
+                - Should I pick AMD or INTC?
+                """)
+            with col2:
+                st.markdown("""
+                **Research:**
+                - Analyze Meta's revenue growth trend
+                - What do analysts think about AMZN?
+                - How healthy is Apple's balance sheet?
+
+                **Screening:**
+                - Find undervalued tech stocks
+                - Show me dividend stocks with low debt
+                """)
+        else:
+            # Ultimate users: full AI research agent
+            try:
+                from stock_research_agent import StockResearchAgent
+
+                if "research_agent" not in st.session_state:
+                    st.session_state.research_agent = StockResearchAgent(model="gpt-4o")
+                if "agent_chat_history" not in st.session_state:
                     st.session_state.agent_chat_history = []
-                    st.rerun()
-        
-        except ImportError:
-            st.error("⚠️ AI Research Agent not found. Make sure stock_research_agent.py is in the same directory as this file.")
-            st.info("Upload stock_research_agent.py to your GitHub repo alongside this file.")
+
+                st.markdown("**💡 Try these:**")
+                quick_col1, quick_col2, quick_col3, quick_col4 = st.columns(4)
+                with quick_col1:
+                    if st.button("Is NVDA overvalued?", key="quick_nvda"):
+                        st.session_state.agent_pending_query = "Is NVDA overvalued right now? Give me a full analysis."
+                with quick_col2:
+                    if st.button("AAPL vs MSFT", key="quick_compare"):
+                        st.session_state.agent_pending_query = "Compare AAPL vs MSFT — which is a better investment right now?"
+                with quick_col3:
+                    if st.button("TSLA bull & bear", key="quick_tsla"):
+                        st.session_state.agent_pending_query = "Give me a bull case and bear case for Tesla."
+                with quick_col4:
+                    if st.button("PLTR analysis", key="quick_pltr"):
+                        st.session_state.agent_pending_query = "What's happening with Palantir? Analyze the stock."
+
+                if not st.session_state.agent_chat_history:
+                    st.markdown("---")
+                    st.markdown("### 💡 What You Can Ask")
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.markdown("""
+                        **Stock Analysis:**
+                        - Is NVDA overvalued right now?
+                        - Give me a bull and bear case for Tesla
+                        - What's happening with Palantir lately?
+
+                        **Comparisons:**
+                        - Compare AAPL vs MSFT vs GOOGL
+                        - Should I pick AMD or INTC?
+                        """)
+                    with col2:
+                        st.markdown("""
+                        **Deep Dives:**
+                        - Analyze Meta's revenue growth trend
+                        - What do analysts think about AMZN?
+                        - How healthy is Apple's balance sheet?
+
+                        **Screening:**
+                        - Find undervalued tech stocks with P/E under 15
+                        - Show me dividend aristocrats with low debt
+                        """)
+
+                    show_data_source(source="FMP API + OpenAI GPT-4o Agent", updated_at=datetime.now())
+                    st.markdown("---")
+
+                for msg in st.session_state.agent_chat_history:
+                    with st.chat_message(msg["role"]):
+                        st.markdown(msg["content"])
+
+                pending_query = st.session_state.pop("agent_pending_query", None)
+                user_query = st.chat_input("Ask anything about stocks... (e.g., 'Is NVDA overvalued?')")
+
+                if pending_query and not user_query:
+                    user_query = pending_query
+
+                if user_query:
+                    st.session_state.agent_chat_history.append({"role": "user", "content": user_query})
+                    with st.chat_message("user"):
+                        st.markdown(user_query)
+                    with st.chat_message("assistant"):
+                        with st.spinner("🔍 Researching... (pulling real-time data from multiple sources)"):
+                            try:
+                                response = st.session_state.research_agent.research(user_query)
+                                st.markdown(response)
+                                st.session_state.agent_chat_history.append({"role": "assistant", "content": response})
+                            except Exception as e:
+                                error_msg = f"Research error: {str(e)}. Please try again."
+                                st.error(error_msg)
+                                st.session_state.agent_chat_history.append({"role": "assistant", "content": error_msg})
+                    show_ai_disclaimer()
+
+                if st.session_state.agent_chat_history:
+                    st.markdown("---")
+                    if st.button("🗑️ Clear Chat", key="clear_agent_chat"):
+                        st.session_state.agent_chat_history = []
+                        st.rerun()
+
+            except ImportError:
+                st.error("⚠️ AI Research Agent not found. Make sure stock_research_agent.py is in the same directory as this file.")
+                st.info("Upload stock_research_agent.py to your GitHub repo alongside this file.")
+
+    # ── Tab 2: Dip Radar (portfolio-based) ───────────────────────────────────
+    with screener_tab2:
+        st.markdown("### 📡 My Portfolio — Dip Radar")
+        st.caption("Auto-loaded from your paper portfolio · Shows how far each holding has dipped from its 52-week high")
+
+        # Load tickers from Supabase paper portfolio
+        portfolio_tickers = []
+        _user_id = st.session_state.get('user_id')
+        if _user_id and SUPABASE_ENABLED:
+            try:
+                _trades = load_trades_from_db(_user_id, 'user')
+                _positions = rebuild_portfolio_from_trades(_trades)
+                portfolio_tickers = [p['ticker'] for p in _positions if p.get('ticker')]
+            except Exception:
+                portfolio_tickers = []
+
+        if portfolio_tickers:
+            render_dip_radar(portfolio_tickers, chart_title="My Portfolio")
+        else:
+            st.info("No portfolio positions found. Add stocks to your Paper Portfolio first, then come back here to radar your dips.")
+            st.markdown("**→** Go to **💼 Paper Portfolio** in the nav to start building your portfolio.")
+            st.markdown("---")
+            st.markdown("**Want to try it?** Paste some tickers manually:")
+            manual_input = st.text_input(
+                "Tickers (comma-separated):",
+                placeholder="e.g. AAPL, NVDA, TSLA",
+                key="screener_dip_radar_manual",
+            )
+            if manual_input:
+                manual_tickers = [t.strip().upper() for t in manual_input.split(",") if t.strip()]
+                if manual_tickers:
+                    render_dip_radar(manual_tickers, chart_title="Manual Watchlist")
 
 elif selected_page == "📈 Financial Health":
     
@@ -26683,6 +26939,42 @@ elif selected_page == "📓 Investing Journal":
     # Redirect to Paper Portfolio (Journal is now a tab there)
     st.session_state.selected_page = "💼 Paper Portfolio"
     st.rerun()
+
+
+elif selected_page == "📡 Dip Radar":
+    st.markdown("""
+    <div style="background:linear-gradient(135deg,#0A0A1A 0%,#1A0A2E 100%);
+                padding:18px 28px; border-radius:14px; margin-bottom:20px;
+                border-left:4px solid #BF5FFF;">
+        <h2 style="margin:0; color:#FFFFFF; font-size:26px;">📡 Dip Radar</h2>
+        <p style="margin:6px 0 0; color:rgba(255,255,255,0.65); font-size:14px;">
+            Rank any watchlist by how far each stock has fallen from its 52-week high.
+            Biggest dips at the top — tap a ticker for the full breakdown.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    raw_input = st.text_input(
+        "Enter tickers (comma-separated):",
+        placeholder="e.g. AAPL, NVDA, TSLA, MSFT, AMZN",
+        key="dip_radar_tickers_input",
+    )
+
+    tickers_list = []
+    if raw_input:
+        tickers_list = [t.strip().upper() for t in raw_input.split(",") if t.strip()]
+
+    if tickers_list:
+        render_dip_radar(tickers_list, chart_title="Custom Watchlist")
+    else:
+        st.info("Enter one or more ticker symbols above to scan for dips.")
+        st.markdown("""
+        **How it works:**
+        - Fetches live price and 52-week high for each ticker
+        - Ranks them by how far they've dipped (worst first)
+        - Red bars = biggest dips · Green bars = closest to 52W high
+        - Select any ticker to see P/E, analyst consensus, revenue growth, and valuation label
+        """)
 
 
 # ============= FOOTER =============
