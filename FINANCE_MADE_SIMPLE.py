@@ -3362,15 +3362,22 @@ INDUSTRY_BENCHMARKS = {
 
 # ============= S&P 500 AVERAGE BENCHMARKS =============
 SP500_BENCHMARKS = {
-    'grossProfitMargin': 0.42,  # 42% average for S&P 500
-    'operatingProfitMargin': 0.15,  # 15% average
-    'netProfitMargin': 0.11,  # 11% average
-    'returnOnEquity': 0.18,  # 18% average ROE
-    'returnOnAssets': 0.07,  # 7% average ROA
-    'returnOnCapitalEmployed': 0.12,  # 12% average ROCE
-    'currentRatio': 1.5,  # 1.5x average
-    'quickRatio': 1.0,  # 1.0x average
-    'debtToEquity': 1.0  # 1.0x average D/E
+    'grossProfitMargin': 0.42,          # 42% average for S&P 500
+    'operatingProfitMargin': 0.15,      # 15% average
+    'netProfitMargin': 0.11,            # 11% average
+    'returnOnEquity': 0.18,             # 18% average ROE
+    'returnOnAssets': 0.07,             # 7% average ROA
+    'returnOnCapitalEmployed': 0.12,    # 12% average ROCE
+    'currentRatio': 1.5,                # 1.5x average
+    'quickRatio': 1.0,                  # 1.0x average
+    'debtToEquity': 1.0,                # 1.0x average D/E
+    'priceEarningsRatio': 22.0,         # ~22x S&P 500 historical avg P/E
+    'priceToSalesRatio': 2.8,           # ~2.8x avg P/S
+    'priceToBookRatio': 4.0,            # ~4x avg P/B
+    'enterpriseValueMultiple': 14.5,    # ~14.5x avg EV/EBITDA
+    'freeCashFlowYield': 0.04,          # ~4% avg FCF yield (stored as decimal)
+    'priceToFreeCashFlowsRatio': 25.0,  # ~25x avg P/FCF
+    'dividendYield': 0.015,             # ~1.5% avg dividend yield (stored as decimal)
 }
 
 # Meme stocks list
@@ -4717,6 +4724,127 @@ def create_ratio_trend_chart(df, metric_name, metric_column, title, sector=None)
     
     return fig
 
+
+# Ratio columns stored as decimals (e.g. 0.42 = 42%) — need ×100 for display
+_PCT_RATIO_COLS = {
+    'grossProfitMargin', 'operatingProfitMargin', 'netProfitMargin',
+    'returnOnEquity', 'returnOnAssets', 'returnOnCapitalEmployed',
+    'freeCashFlowYield', 'dividendYield',
+    'operatingCashFlowSalesRatio', 'freeCashFlowOperatingCashFlowRatio',
+    'ebitdaratio',
+}
+
+# Distinct colors for multi-line unified chart
+_UNIFIED_LINE_COLORS = [
+    '#00E5FF', '#FFD700', '#BF5FFF', '#00FF96',
+    '#FF6B6B', '#FF9500', '#7C83FD', '#50FA7B',
+]
+
+
+def create_unified_ratio_chart(df, selected_items, company_name, sector=None):
+    """
+    Single dark-themed multi-line chart for any mix of financial ratios.
+    selected_items: list of (display_name, col_name) tuples.
+    Solid lines = company values; dashed lines = S&P 500 avg (where benchmarks exist).
+    """
+    if df.empty or not selected_items:
+        return None
+
+    BG_SPACE    = '#0A0A1A'
+    BG_PLOT     = '#0D0D20'
+    TEXT_BRIGHT = '#FFFFFF'
+    TEXT_DIM    = 'rgba(255,255,255,0.55)'
+    GRID_COLOR  = 'rgba(255,255,255,0.06)'
+    ZERO_LINE   = 'rgba(255,255,255,0.20)'
+
+    df_sorted = df.sort_values('date').reset_index(drop=True)
+    fig = go.Figure()
+    added = 0
+
+    for i, (display_name, col) in enumerate(selected_items):
+        if col not in df_sorted.columns:
+            continue
+        col_data = df_sorted[col]
+        if col_data.isna().all():
+            continue
+
+        is_pct = col in _PCT_RATIO_COLS
+        multiplier = 100 if is_pct else 1
+        y_suffix = '%' if is_pct else 'x'
+        plot_values = col_data * multiplier
+        color = _UNIFIED_LINE_COLORS[added % len(_UNIFIED_LINE_COLORS)]
+        added += 1
+
+        # Company line
+        fig.add_trace(go.Scatter(
+            x=df_sorted['date'],
+            y=plot_values,
+            mode='lines+markers',
+            name=display_name,
+            line=dict(color=color, width=2.5, shape='spline'),
+            marker=dict(size=5, color=color, line=dict(width=1.5, color='white')),
+            hovertemplate=f'<b>{display_name}</b>: %{{y:.2f}}{y_suffix}<extra></extra>',
+        ))
+
+        # Dashed S&P 500 benchmark (same hue, thinner, semi-transparent)
+        if col in SP500_BENCHMARKS:
+            sp500_val = SP500_BENCHMARKS[col] * multiplier
+            bench_label = (
+                f'S&P 500 Avg ({display_name})' if len(selected_items) > 1
+                else 'S&P 500 Avg'
+            )
+            fig.add_trace(go.Scatter(
+                x=[df_sorted['date'].iloc[0], df_sorted['date'].iloc[-1]],
+                y=[sp500_val, sp500_val],
+                mode='lines',
+                name=bench_label,
+                line=dict(color=color, width=1.5, dash='dash'),
+                opacity=0.5,
+                hovertemplate=f'S&P 500 Avg ({display_name}): {sp500_val:.2f}{y_suffix}<extra></extra>',
+            ))
+
+    if added == 0:
+        return None
+
+    fig.update_layout(
+        title=dict(
+            text=f'<b>{company_name} — Financial Ratios Over Time</b>',
+            font=dict(size=17, color=TEXT_BRIGHT, family='Inter, system-ui, sans-serif'),
+            x=0.5, xanchor='center', y=0.97, yanchor='top',
+        ),
+        xaxis_title=None,
+        yaxis_title=None,
+        height=500,
+        hovermode='x unified',
+        showlegend=True,
+        legend=dict(
+            orientation='h',
+            yanchor='top', y=-0.18,
+            xanchor='center', x=0.5,
+            bgcolor='rgba(0,0,0,0)', borderwidth=0,
+            font=dict(size=12, color=TEXT_DIM, family='Inter, system-ui, sans-serif'),
+        ),
+        plot_bgcolor=BG_PLOT,
+        paper_bgcolor=BG_SPACE,
+        margin=dict(t=55, b=115, l=65, r=30),
+        xaxis=dict(
+            showgrid=False, showline=False,
+            tickfont=dict(size=12, color=TEXT_DIM, family='Inter, system-ui, sans-serif'),
+        ),
+        yaxis=dict(
+            showgrid=True, gridcolor=GRID_COLOR, gridwidth=1,
+            zeroline=True, zerolinecolor=ZERO_LINE, zerolinewidth=1,
+            showline=False,
+            tickfont=dict(size=11, color=TEXT_DIM, family='Inter, system-ui, sans-serif'),
+        ),
+        hoverlabel=dict(
+            bgcolor='#1A1A35',
+            font_size=13, font_family='Inter, system-ui, sans-serif',
+            font_color=TEXT_BRIGHT,
+            bordercolor='rgba(140,100,255,0.5)',
+        ),
+    )
+    return fig
 
 
 # ============= MY FAVORITE METRICS & WHY =============
@@ -20125,67 +20253,76 @@ elif selected_page == "📊 Company Analysis":
         health_tab1, health_tab2 = st.tabs(["📈 Financial Health", "🔀 Compare Stocks"])
         
         with health_tab1:
-            st.markdown("### 📈 Financial Health")
-            st.caption("See how the company's key ratios compare to the S&P 500 average")
-            
-            ratios_df_health = get_financial_ratios(ticker, period, years*4 if period == 'quarter' else years)
-            
+            st.markdown("### 📊 Financial Ratios Over Time")
+            st.caption("Solid lines = company · Dashed lines = S&P 500 average · Tip: combine ratios with similar scales (e.g. all margins, or all valuation multiples)")
+
+            ratios_df_health = get_financial_ratios(ticker, period, years * 4 if period == 'quarter' else years)
+
             if ratios_df_health is not None and not ratios_df_health.empty:
-                ratio_options = [
+                all_ratio_options = [
                     ("Gross Margin", "grossProfitMargin"),
                     ("Operating Margin", "operatingProfitMargin"),
                     ("Net Margin", "netProfitMargin"),
-                    ("Return on Equity", "returnOnEquity"),
-                    ("Return on Assets", "returnOnAssets"),
-                    ("Current Ratio", "currentRatio")
+                    ("Return on Equity (ROE)", "returnOnEquity"),
+                    ("Return on Assets (ROA)", "returnOnAssets"),
+                    ("Return on Capital Employed", "returnOnCapitalEmployed"),
+                    ("P/E Ratio", "priceEarningsRatio"),
+                    ("P/S Ratio", "priceToSalesRatio"),
+                    ("P/B Ratio", "priceToBookRatio"),
+                    ("EV/EBITDA", "enterpriseValueMultiple"),
+                    ("FCF Yield", "freeCashFlowYield"),
+                    ("P/FCF", "priceToFreeCashFlowsRatio"),
+                    ("Current Ratio", "currentRatio"),
+                    ("Quick Ratio", "quickRatio"),
+                    ("Debt to Equity", "debtToEquity"),
                 ]
-                
-                available_ratios = [(name, col) for name, col in ratio_options if col in ratios_df_health.columns]
-                
-                if available_ratios:
-                    selected_ratio = st.selectbox(
-                        "Select a ratio to analyze:",
-                        options=[name for name, _ in available_ratios],
-                        key="health_ratio_select"
+                available_options = [(n, c) for n, c in all_ratio_options if c in ratios_df_health.columns]
+
+                if available_options:
+                    default_names = [n for n, c in available_options if c in ('grossProfitMargin', 'operatingProfitMargin', 'netProfitMargin')][:2]
+                    if not default_names:
+                        default_names = [available_options[0][0]]
+
+                    selected_names = st.multiselect(
+                        "Choose ratios to display:",
+                        options=[n for n, _ in available_options],
+                        default=default_names,
+                        key="health_ratio_multiselect",
                     )
-                    
-                    ratio_col = next(col for name, col in available_ratios if name == selected_ratio)
-                    
-                    fig = create_ratio_trend_chart(
-                        ratios_df_health,
-                        selected_ratio,
-                        ratio_col,
-                        f"{company_name} - {selected_ratio} Trend",
-                        sector
-                    )
-                    
-                    if fig:
-                        st.plotly_chart(fig, use_container_width=True)
-                    
-                    with st.expander(f"💡 What is {selected_ratio}?"):
-                        if selected_ratio in RATIO_EXPLANATIONS:
-                            exp = RATIO_EXPLANATIONS[selected_ratio]
-                            st.markdown(f"**What it measures:** {exp.get('what', 'N/A')}")
-                            st.markdown(f"**What's good:** {exp.get('good', 'N/A')}")
-                    
-                    # Checkpoint Quiz (G) - P/E understanding
-                    st.markdown("---")
-                    render_checkpoint_quiz(
-                        quiz_id="pe_ratio",
-                        question="What does a high P/E ratio typically indicate?",
-                        options=[
-                            "The stock is cheap",
-                            "Investors expect high future growth",
-                            "The company has low debt",
-                            "The company pays high dividends"
-                        ],
-                        correct_idx=1,
-                        explanation="A high P/E ratio usually means investors are willing to pay more per dollar of earnings because they expect the company to grow faster in the future. However, it could also mean the stock is overvalued."
-                    )
+                    selected_items = [(n, c) for n, c in available_options if n in selected_names]
+
+                    if selected_items:
+                        fig = create_unified_ratio_chart(ratios_df_health, selected_items, company_name, sector)
+                        if fig:
+                            st.plotly_chart(fig, use_container_width=True)
+
+                        with st.expander("💡 What do these ratios mean?", expanded=False):
+                            for name, col in selected_items:
+                                exp = get_metric_explanation(col) or get_metric_explanation(name)
+                                if exp:
+                                    st.markdown(f"**{name}** — {exp['simple']}")
+                                    st.caption(f"Why it matters: {exp['why']}")
+                                    st.markdown("---")
+                    else:
+                        st.info("Select at least one ratio above to see the chart.")
                 else:
                     st.warning("No ratio data available for this company")
             else:
                 st.warning("Financial ratios not available")
+
+            st.markdown("---")
+            render_checkpoint_quiz(
+                quiz_id="pe_ratio",
+                question="What does a high P/E ratio typically indicate?",
+                options=[
+                    "The stock is cheap",
+                    "Investors expect high future growth",
+                    "The company has low debt",
+                    "The company pays high dividends"
+                ],
+                correct_idx=1,
+                explanation="A high P/E ratio usually means investors are willing to pay more per dollar of earnings because they expect the company to grow faster in the future. However, it could also mean the stock is overvalued."
+            )
         
         with health_tab2:
             st.markdown("### 🔀 Compare 2 Stocks")
@@ -20486,130 +20623,83 @@ elif selected_page == "📊 Company Analysis":
     
     elif view == "📈 Financial Health":
         st.markdown("## 📊 Financial Ratios Over Time")
-        
         st.info("💡 **Why I track these ratios:** They reveal profitability (margins), efficiency (ROE/ROA/ROCE), and safety (liquidity/leverage). Together they show if a company makes money efficiently and can survive tough times.")
-        
-        
+
         col1, col2 = st.columns(2)
         with col1:
             ratio_period = st.radio("Period", ["Annual", "Quarterly"], key="ratio_period_sel")
         with col2:
             ratio_years = st.slider("Years of History", 1, 30, 5, key="ratio_years_sel")
-        
+
         period_param = "annual" if ratio_period == "Annual" else "quarter"
-        ratios_url = f"{BASE_URL}/ratios/{ticker}?period={period_param}&limit={ratio_years}&apikey={FMP_API_KEY}"
-        
-        try:
-            response = requests.get(ratios_url, timeout=10)
-            response.raise_for_status()
-            ratios_data = response.json()
-            ratios_df_new = pd.DataFrame(ratios_data)
-            
-            if not ratios_df_new.empty:
-                st.markdown("### 📊 Current Ratios")
-                col1, col2, col3 = st.columns(3)
-                
-                with col1:
-                    if 'grossProfitMargin' in ratios_df_new.columns:
-                        latest = ratios_df_new['grossProfitMargin'].iloc[0] * 100
-                        st.metric("Gross Margin", f"{latest:.1f}%",
-                             help="Revenue minus cost of goods sold, divided by revenue")
-                
-                with col2:
-                    if 'operatingProfitMargin' in ratios_df_new.columns:
-                        latest = ratios_df_new['operatingProfitMargin'].iloc[0] * 100
-                        st.metric("Operating Margin", f"{latest:.1f}%",
-                             help="Operating income divided by revenue - shows efficiency")
-                
-                with col3:
-                    if 'netProfitMargin' in ratios_df_new.columns:
-                        latest = ratios_df_new['netProfitMargin'].iloc[0] * 100
-                        st.metric("Net Margin", f"{latest:.1f}%",
-                             help="Net income divided by revenue - bottom line profitability")
-                
-                    st.markdown("### 💰 Profitability Trends")
-                
-                st.info("**Profitability shows how much profit the company keeps from each dollar of sales. Higher margins = better pricing power and efficiency.**")
-                
-                
-                for metric_name, metric_col in [('Gross Profit Margin', 'grossProfitMargin'), 
-                                                 ('Operating Profit Margin', 'operatingProfitMargin'),
-                                                 ('Net Profit Margin', 'netProfitMargin')]:
-                    if metric_col in ratios_df_new.columns:
-                        fig = create_ratio_trend_chart(ratios_df_new, metric_name, metric_col, 
-                                                       f"{company_name} - {metric_name}", sector)
-                        if fig:
-                            st.plotly_chart(fig, use_container_width=True)
-                            explanation = get_metric_explanation(metric_col)
-                            if explanation:
-                                st.markdown(f"""<div class="metric-explain">
-                            📊 **What it is:** {explanation["simple"]}  
-                            💡 **Why it matters:** {explanation["why"]}
-                            </div>""", unsafe_allow_html=True)
-                            
-                
-                    st.markdown("### ⚡ Efficiency Trends")
-                
-                st.info("**Efficiency ratios show how well the company uses its money to generate profits. Higher returns = better management and stronger business.**")
-                
-                
-                for metric_name, metric_col in [('Return on Equity (ROE)', 'returnOnEquity'),
-                                                 ('Return on Assets (ROA)', 'returnOnAssets'),
-                                                 ('Return on Capital Employed', 'returnOnCapitalEmployed')]:
-                    if metric_col in ratios_df_new.columns:
-                        fig = create_ratio_trend_chart(ratios_df_new, metric_name, metric_col,
-                                                       f"{company_name} - {metric_name}", sector)
-                        if fig:
-                            st.plotly_chart(fig, use_container_width=True)
-                            explanation = get_metric_explanation(metric_col)
-                            if explanation:
-                                st.markdown(f"""<div class="metric-explain">
-                            📊 **What it is:** {explanation["simple"]}  
-                            💡 **Why it matters:** {explanation["why"]}
-                            </div>""", unsafe_allow_html=True)
-                            
-                
-                    st.markdown("### 🏦 Liquidity & Leverage Trends")
-                
-                st.info("**Liquidity = Can the company pay its bills? Leverage = How much debt does it have? Good liquidity + low debt = safer company.**")
-                
-                
-                for metric_name, metric_col in [('Current Ratio', 'currentRatio'),
-                                                 ('Quick Ratio', 'quickRatio'),
-                                                 ('Debt to Equity', 'debtToEquity')]:
-                    if metric_col in ratios_df_new.columns:
-                        fig = create_ratio_trend_chart(ratios_df_new, metric_name, metric_col,
-                                                       f"{company_name} - {metric_name}", sector)
-                        if fig:
-                            st.plotly_chart(fig, use_container_width=True)
-                            explanation = get_metric_explanation(metric_col)
-                            if explanation:
-                                st.markdown(f"""<div class="metric-explain">
-                            📊 **What it is:** {explanation["simple"]}  
-                            💡 **Why it matters:** {explanation["why"]}
-                            </div>""", unsafe_allow_html=True)
-                            
+        limit_param = ratio_years * 4 if period_param == "quarter" else ratio_years
+        ratios_df_new = get_financial_ratios(ticker, period_param, limit_param)
+
+        if ratios_df_new is not None and not ratios_df_new.empty:
+            all_ratio_options = [
+                ("Gross Margin", "grossProfitMargin"),
+                ("Operating Margin", "operatingProfitMargin"),
+                ("Net Margin", "netProfitMargin"),
+                ("Return on Equity (ROE)", "returnOnEquity"),
+                ("Return on Assets (ROA)", "returnOnAssets"),
+                ("Return on Capital Employed", "returnOnCapitalEmployed"),
+                ("P/E Ratio", "priceEarningsRatio"),
+                ("P/S Ratio", "priceToSalesRatio"),
+                ("P/B Ratio", "priceToBookRatio"),
+                ("EV/EBITDA", "enterpriseValueMultiple"),
+                ("FCF Yield", "freeCashFlowYield"),
+                ("P/FCF", "priceToFreeCashFlowsRatio"),
+                ("Current Ratio", "currentRatio"),
+                ("Quick Ratio", "quickRatio"),
+                ("Debt to Equity", "debtToEquity"),
+            ]
+            available_options = [(n, c) for n, c in all_ratio_options if c in ratios_df_new.columns]
+
+            if available_options:
+                default_names = [n for n, c in available_options if c in ('grossProfitMargin', 'operatingProfitMargin', 'netProfitMargin')][:3]
+                if not default_names:
+                    default_names = [available_options[0][0]]
+
+                selected_names = st.multiselect(
+                    "Choose ratios to display:",
+                    options=[n for n, _ in available_options],
+                    default=default_names,
+                    key="ratio_multiselect_new",
+                    help="Tip: combine ratios with similar scales (e.g. all margin %, or all valuation multiples) for the clearest chart",
+                )
+                selected_items = [(n, c) for n, c in available_options if n in selected_names]
+
+                if selected_items:
+                    fig = create_unified_ratio_chart(ratios_df_new, selected_items, company_name, sector)
+                    if fig:
+                        st.plotly_chart(fig, use_container_width=True)
+
+                    st.caption("Solid lines = company · Dashed lines = S&P 500 average")
+
+                    st.markdown("**Latest Values**")
+                    val_cols = st.columns(min(len(selected_items), 5))
+                    for i, (name, col) in enumerate(selected_items):
+                        if col in ratios_df_new.columns:
+                            latest = ratios_df_new[col].dropna()
+                            if not latest.empty:
+                                val = latest.iloc[-1]
+                                is_pct = col in _PCT_RATIO_COLS
+                                display_val = f"{val * 100:.1f}%" if is_pct else f"{val:.2f}x"
+                                val_cols[i % 5].metric(name, display_val)
+
+                    with st.expander("💡 What do these ratios mean?", expanded=False):
+                        for name, col in selected_items:
+                            exp = get_metric_explanation(col) or get_metric_explanation(name)
+                            if exp:
+                                st.markdown(f"**{name}** — {exp['simple']}")
+                                st.caption(f"Why it matters: {exp['why']}")
+                                st.markdown("---")
+                else:
+                    st.info("Select at least one ratio above to see the chart.")
             else:
-                st.warning("Ratio data not available for the selected period")
-        except Exception as e:
-            # Stop loss suggestion
-            atr_estimate = (high_90d - low_90d) / 90 * 14  # Rough ATR estimate
-            stop_loss = current - (2 * atr_estimate)
-            
-            st.info(f"💡 **Suggested Stop-Loss:** ${stop_loss:.2f} (2x ATR below current price)")
-            st.caption("Stop-loss exits your position if price drops to protect capital. Adjust based on your risk tolerance.")
-        
-        st.markdown("---")
-        st.markdown("### ⚠️ Technical Analysis Disclaimer")
-        st.warning("""
-**IMPORTANT:**
-- Technical analysis is NOT guaranteed to predict future prices
-- Past patterns do NOT ensure future results
-- Always use stop-losses to limit downside
-- Combine with fundamental analysis for best results
-- Never invest more than you can afford to lose
-- This is educational - not financial advice
-        """)
+                st.warning("No ratio data available for this company")
+        else:
+            st.warning("Ratio data not available for the selected period")
 
     elif view == "💰 Price & Future Value":
         st.markdown("## 💰 DCF Valuation")
