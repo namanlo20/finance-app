@@ -10588,12 +10588,6 @@ with header_cols[2]:
         if st.button("📰 Market Intelligence", key="nav_market_intel", use_container_width=True):
             st.session_state.selected_page = "📰 Market Intelligence"
             st.rerun()
-        if st.button("📊 Market Overview", key="nav_market_overview", use_container_width=True):
-            st.session_state.selected_page = "📊 Market Overview"
-            st.rerun()
-        if st.button("🤖 AI Stock Screener", key="nav_ai_screener", use_container_width=True):
-            st.session_state.selected_page = "🔍 AI Stock Screener"
-            st.rerun()
         if st.button("🎬 Company Deep Dives", key="nav_deep_dives", use_container_width=True):
             st.session_state.selected_page = "🎬 Company Deep Dives"
             st.rerun()
@@ -10602,6 +10596,9 @@ with header_cols[3]:
     with st.popover("📊 Pro Checklist ▼", use_container_width=True):
         if st.button("📊 Pro Checklist", key="nav_pro_checklist", use_container_width=True):
             st.session_state.selected_page = "📊 Pro Checklist"
+            st.rerun()
+        if st.button("💡 Trade Ideas", key="nav_trade_ideas", use_container_width=True):
+            st.session_state.selected_page = "💡 Trade Ideas"
             st.rerun()
         if st.button("👑 Ultimate", key="nav_ultimate", use_container_width=True):
             st.session_state.selected_page = "👑 Ultimate"
@@ -21177,530 +21174,6 @@ elif selected_page == "📊 Company Analysis":
     #REMOVED: render_ai_coach("Company Analysis", ticker=ticker if ticker and ticker != "AAPL" else None, facts=None)
 
 
-elif selected_page == "📊 Market Overview":
-    
-    st.header("📊 Market Overview")
-    st.caption("*Top 50 stocks by market cap (ETFs excluded). Real-time data from FMP Stock Screener.*")
-    
-    # Show data source indicator
-    show_data_source(source="FMP Stock Screener API", updated_at=datetime.now())
-    
-    # Define available sectors (FMP standard sectors)
-    all_sectors = [
-        "Technology", "Financial Services", "Healthcare", "Consumer Cyclical", 
-        "Consumer Defensive", "Industrials", "Energy", "Materials", 
-        "Real Estate", "Utilities", "Communication Services", "Other"
-    ]
-    
-    # Sector filter (multiselect, empty by default = show all sectors)
-    selected_sectors = st.multiselect(
-        "Filter by sector (leave empty to show all):",
-        options=all_sectors,
-        default=[],  # Empty by default
-        help="Select one or more sectors to filter. Leave empty to see top 100 companies across all sectors."
-    )
-    
-    with st.spinner("Loading market data from Stock Screener API..."):
-        rows = []
-        market_cap_debug = []  # Track market caps for validation
-        
-        if selected_sectors and "Other" not in selected_sectors:
-            # Load selected sectors - make one API call per sector
-            st.info(f"Loading companies from {len(selected_sectors)} sector(s)...")
-            
-            for sector in selected_sectors:
-                companies = get_companies_from_screener(sector=sector, limit=50)
-                
-                for company in companies:
-                    ticker_sym = company.get('symbol')
-                    if not ticker_sym:
-                        continue
-                    
-                    # Get LIVE quote for real-time price + additional metrics
-                    quote = get_quote(ticker_sym)
-                    
-                    # Use LIVE quote price (accurate), fall back to screener price (stale)
-                    live_price = quote.get('price', 0) if quote else company.get('price', 0)
-                    live_mktcap = quote.get('marketCap', 0) if quote else company.get('marketCap', 0)
-                    
-                    # Build row from screener data + live quote
-                    row = {
-                        "Ticker": ticker_sym,
-                        "Company": company.get('companyName', ticker_sym),
-                        "Sector": company.get('sector', 'Other'),
-                        "Market Cap": live_mktcap or company.get('marketCap', 0),
-                        "Price": live_price or company.get('price', 0),
-                        "P/E Ratio": None,
-                        "P/S Ratio": None,
-                        "FCF/Share": None,
-                        "Dividend Yield %": None,
-                        "Analyst Price Target": None,
-                        "Upside/Downside %": None,
-                    }
-                    
-                    # Track debug info for major companies
-                    if ticker_sym in ['AAPL', 'MSFT', 'NVDA', 'BRK.B', 'GOOGL', 'BRK-B']:
-                        market_cap_debug.append({
-                            'ticker': ticker_sym,
-                            'name': row["Company"],
-                            'raw_market_cap': row["Market Cap"],
-                            'formatted': format_number(row["Market Cap"]) if row["Market Cap"] > 0 else "N/A"
-                        })
-                    
-                    # Get analyst price target and calculate upside/downside
-                    if quote:
-                        try:
-                            target_data = get_price_target_consensus(ticker_sym)
-                            if target_data:
-                                target_price = target_data.get('targetConsensus') or target_data.get('targetMean')
-                                if target_price and target_price > 0:
-                                    row["Analyst Price Target"] = target_price
-                                    
-                                    current_price = row["Price"]
-                                    if current_price and current_price > 0:
-                                        upside_pct = ((target_price - current_price) / current_price) * 100
-                                        row["Upside/Downside %"] = upside_pct
-                        except Exception:
-                            pass  # Fail soft
-                        
-                        # Get additional metrics (P/E, P/S, FCF)
-                        try:
-                            ratios_ttm = get_ratios_ttm(ticker_sym)
-                            cash_df = get_cash_flow(ticker_sym, 'annual', 1)
-                            income_df = get_income_statement(ticker_sym, 'annual', 1)
-                            
-                            pe = get_pe_ratio(ticker_sym, quote, ratios_ttm, income_df)
-                            ps = get_ps_ratio(ticker_sym, ratios_ttm)
-                            fcf_per_share = calculate_fcf_per_share(ticker_sym, cash_df, quote)
-                            
-                            row["P/E Ratio"] = pe if pe and pe > 0 else None
-                            row["P/S Ratio"] = ps if ps and ps > 0 else None
-                            row["FCF/Share"] = fcf_per_share if fcf_per_share and fcf_per_share > 0 else None
-                            
-                            # Get dividend yield using dedicated function
-                            div_yield = get_dividend_yield(ticker_sym, row["Price"])
-                            if div_yield:
-                                row["Dividend Yield %"] = div_yield
-                        except Exception:
-                            pass  # Keep None values
-                    
-                    rows.append(row)
-        else:
-            # Default view: Load top 100 companies across all sectors
-            st.info("Loading top 100 companies by market cap...")
-            
-            companies = get_companies_from_screener(sector=None, limit=50)
-            
-            for company in companies:
-                ticker_sym = company.get('symbol')
-                if not ticker_sym:
-                    continue
-                
-                # Get LIVE quote for real-time price + additional metrics
-                quote = get_quote(ticker_sym)
-                
-                # Use LIVE quote price (accurate), fall back to screener price (stale)
-                live_price = quote.get('price', 0) if quote else company.get('price', 0)
-                live_mktcap = quote.get('marketCap', 0) if quote else company.get('marketCap', 0)
-                
-                # Build row from screener data + live quote
-                row = {
-                    "Ticker": ticker_sym,
-                    "Company": company.get('companyName', ticker_sym),
-                    "Sector": company.get('sector', 'Other'),
-                    "Market Cap": live_mktcap or company.get('marketCap', 0),
-                    "Price": live_price or company.get('price', 0),
-                    "P/E Ratio": None,
-                    "P/S Ratio": None,
-                    "FCF/Share": None,
-                    "Dividend Yield %": None,
-                    "Analyst Price Target": None,
-                    "Upside/Downside %": None,
-                }
-                
-                # Track debug info for major companies
-                if ticker_sym in ['AAPL', 'MSFT', 'NVDA', 'BRK.B', 'GOOGL', 'BRK-B']:
-                    market_cap_debug.append({
-                        'ticker': ticker_sym,
-                        'name': row["Company"],
-                        'raw_market_cap': row["Market Cap"],
-                        'formatted': format_number(row["Market Cap"]) if row["Market Cap"] > 0 else "N/A"
-                    })
-                
-                # Get analyst price target and calculate upside/downside
-                if quote:
-                    try:
-                        target_data = get_price_target_consensus(ticker_sym)
-                        if target_data:
-                            target_price = target_data.get('targetConsensus') or target_data.get('targetMean')
-                            if target_price and target_price > 0:
-                                row["Analyst Price Target"] = target_price
-                                
-                                current_price = row["Price"]
-                                if current_price and current_price > 0:
-                                    upside_pct = ((target_price - current_price) / current_price) * 100
-                                    row["Upside/Downside %"] = upside_pct
-                    except Exception:
-                        pass  # Fail soft
-                    
-                    # Get additional metrics (P/E, P/S, FCF)
-                    try:
-                        ratios_ttm = get_ratios_ttm(ticker_sym)
-                        cash_df = get_cash_flow(ticker_sym, 'annual', 1)
-                        income_df = get_income_statement(ticker_sym, 'annual', 1)
-                        
-                        pe = get_pe_ratio(ticker_sym, quote, ratios_ttm, income_df)
-                        ps = get_ps_ratio(ticker_sym, ratios_ttm)
-                        fcf_per_share = calculate_fcf_per_share(ticker_sym, cash_df, quote)
-                        
-                        row["P/E Ratio"] = pe if pe and pe > 0 else None
-                        row["P/S Ratio"] = ps if ps and ps > 0 else None
-                        row["FCF/Share"] = fcf_per_share if fcf_per_share and fcf_per_share > 0 else None
-                        
-                        # Get dividend yield using dedicated function
-                        div_yield = get_dividend_yield(ticker_sym, row["Price"])
-                        if div_yield:
-                            row["Dividend Yield %"] = div_yield
-                    except Exception:
-                        pass  # Keep None values
-                
-                rows.append(row)
-        
-        if rows:
-            df = pd.DataFrame(rows)
-            
-            # Sort by Market Cap descending (0 market caps go to bottom)
-            df = df.sort_values('Market Cap', ascending=False).reset_index(drop=True)
-            
-            # Take top 100
-            df = df.head(100)
-            
-            st.info(f"📊 Showing **{len(df)}** companies (sorted by market cap)")
-            
-            # Show KPI cards ONLY when exactly 1 sector selected
-            if len(selected_sectors) == 1:
-                st.markdown(f"### 📊 {selected_sectors[0]} Sector Metrics")
-                col1, col2, col3 = st.columns(3)
-                
-                valid_pes = df[df['P/E Ratio'].notna()]['P/E Ratio']
-                if len(valid_pes) > 0:
-                    col1.metric("Avg P/E", f"{valid_pes.mean():.2f}",
-                               help="Average Price-to-Earnings ratio for this sector")
-                
-                valid_ps = df[df['P/S Ratio'].notna()]['P/S Ratio']
-                if len(valid_ps) > 0:
-                    col2.metric("Avg P/S", f"{valid_ps.mean():.2f}",
-                               help="Average Price-to-Sales ratio for this sector")
-                
-                valid_fcf = df[df['FCF/Share'].notna()]['FCF/Share']
-                if len(valid_fcf) > 0:
-                    col3.metric("Avg FCF/Share", f"${valid_fcf.mean():.2f}",
-                               help="Average Free Cash Flow per share for this sector")
-            
-            # Format display dataframe
-            display_df = df.copy()
-            display_df['Price'] = display_df['Price'].apply(lambda x: f"${x:.2f}" if pd.notna(x) and x > 0 else "—")
-            display_df['Market Cap'] = display_df['Market Cap'].apply(lambda x: format_number(x) if x > 0 else "—")
-            display_df['Analyst Price Target'] = display_df['Analyst Price Target'].apply(lambda x: f"${x:.2f}" if pd.notna(x) and x > 0 else "—")
-            display_df['Upside/Downside %'] = display_df['Upside/Downside %'].apply(lambda x: f"{x:+.1f}%" if pd.notna(x) else "—")
-            display_df['P/E Ratio'] = display_df['P/E Ratio'].apply(lambda x: f"{x:.2f}" if pd.notna(x) else "—")
-            display_df['P/S Ratio'] = display_df['P/S Ratio'].apply(lambda x: f"{x:.2f}" if pd.notna(x) else "—")
-            display_df['FCF/Share'] = display_df['FCF/Share'].apply(lambda x: f"${x:.2f}" if pd.notna(x) else "—")
-            display_df['Dividend Yield %'] = display_df['Dividend Yield %'].apply(lambda x: f"{x:.2f}%" if pd.notna(x) and x > 0 else "—")
-            # VIP columns already have placeholders, no formatting needed
-            
-            # Cool header styling for the section - LIGHT BLUE gradient
-            st.markdown("""
-            <div style="background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 50%, #90CAF9 100%); 
-                        padding: 20px 25px; border-radius: 16px 16px 0 0; margin-bottom: 0;
-                        border: 2px solid #64B5F6; border-bottom: none;">
-                <h3 style="color: #1565C0; margin: 0; font-size: 18px; font-weight: 700;">
-                    📊 Top Companies by Market Cap
-                </h3>
-                <p style="color: #1976D2; margin: 5px 0 0 0; font-size: 13px;">
-                    Click any row to analyze • Real-time data from FMP
-                </p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # Add custom CSS for table styling
-            st.markdown("""
-            <style>
-            /* Table container styling */
-            [data-testid="stDataFrame"] {
-                border: 2px solid #64B5F6 !important;
-                border-radius: 0 0 16px 16px !important;
-                overflow: hidden !important;
-            }
-            
-            /* Table header styling */
-            [data-testid="stDataFrame"] thead tr th {
-                background: linear-gradient(135deg, #1565C0 0%, #1976D2 100%) !important;
-                color: white !important;
-                font-weight: 600 !important;
-                text-transform: uppercase !important;
-                font-size: 11px !important;
-                letter-spacing: 0.5px !important;
-                padding: 12px 8px !important;
-            }
-            
-            /* Alternating row colors */
-            [data-testid="stDataFrame"] tbody tr:nth-child(odd) {
-                background-color: #F5F9FF !important;
-            }
-            [data-testid="stDataFrame"] tbody tr:nth-child(even) {
-                background-color: #FFFFFF !important;
-            }
-            
-            /* Row hover effect */
-            [data-testid="stDataFrame"] tbody tr:hover {
-                background: linear-gradient(90deg, #E3F2FD 0%, #BBDEFB 100%) !important;
-                cursor: pointer !important;
-            }
-            
-            /* Cell styling */
-            [data-testid="stDataFrame"] td {
-                padding: 10px 8px !important;
-                font-size: 13px !important;
-                border-bottom: 1px solid #E3F2FD !important;
-            }
-            </style>
-            """, unsafe_allow_html=True)
-            
-            # Display table with row selection enabled
-            event = st.dataframe(display_df, use_container_width=True, height=600, 
-                        on_select="rerun", selection_mode="single-row", key="market_overview_table")
-            
-            # Handle row click - navigate to Company Analysis
-            if event and hasattr(event, 'selection') and event.selection.get('rows'):
-                selected_row_idx = event.selection['rows'][0]
-                if selected_row_idx < len(df):
-                    selected_ticker = df.iloc[selected_row_idx]['Ticker']
-                    st.session_state.selected_ticker = selected_ticker
-                    st.session_state.selected_page = "📊 Company Analysis"
-                    st.rerun()
-            
-            with st.expander("💡 What do these metrics mean?"):
-                col1, col2 = st.columns(2)
-                with col1:
-                    pe_exp = METRIC_EXPLANATIONS.get("P/E Ratio", {}).get("explanation", "Price-to-Earnings ratio explanation coming soon.")
-                    ps_exp = METRIC_EXPLANATIONS.get("P/S Ratio", {}).get("explanation", "Price-to-Sales ratio explanation coming soon.")
-                    div_exp = "Annual dividends paid divided by stock price. A 3% yield means $3 per year for every $100 invested."
-                    st.markdown(f"**P/E Ratio:** {pe_exp}")
-                    st.markdown(f"**P/S Ratio:** {ps_exp}")
-                    st.markdown(f"**Dividend Yield:** {div_exp}")
-                with col2:
-                    fcf_exp = METRIC_EXPLANATIONS.get("FCF per Share", {}).get("explanation", "Free Cash Flow per share explanation coming soon.")
-                    mc_exp = METRIC_EXPLANATIONS.get("Market Cap", {}).get("explanation", "Total company value explanation coming soon.")
-                    st.markdown(f"**FCF/Share:** {fcf_exp}")
-                    st.markdown(f"**Market Cap:** {mc_exp}")
-            
-            st.markdown("### 🔍 Analyze a Company")
-            col1, col2 = st.columns([3, 1])
-            with col1:
-                selected = st.selectbox("Choose:", df['Ticker'].tolist(), 
-                                   format_func=lambda x: f"{df[df['Ticker']==x]['Company'].values[0]} ({x})")
-            with col2:
-                if st.button("Analyze →", type="primary", use_container_width=True):
-                    st.session_state.selected_ticker = selected
-                    st.session_state.selected_page = "📊 Company Analysis"
-                    st.rerun()
-        else:
-            st.error("❌ No rows created. This shouldn't happen!")
-            st.write(f"Debug: tickers_to_load had {len(tickers_to_load)} items")
-            st.write(f"Debug: selected_sectors = {selected_sectors}")
-            st.write(f"Debug: rows list was empty after processing")
-
-    # AI Coach integration
-    #REMOVED: render_ai_coach("Market Overview", ticker=None, facts=None)
-
-
-# ============= AI STOCK SCREENER PAGE =============
-elif selected_page == "🔍 AI Stock Screener":
-    user_tier = get_user_tier()
-
-    # Header (always visible)
-    st.markdown("""
-    <div style="background: linear-gradient(135deg, #FF4B4B 0%, #CC0000 100%);
-                padding: 15px 25px; border-radius: 15px; text-align: center;
-                margin-bottom: 20px; box-shadow: 0 4px 15px rgba(255,51,51,0.3);">
-        <h2 style="margin: 0; color: #FFFFFF; font-size: 24px; font-weight: bold;">
-            🤖 AI Stock Research Agent
-        </h2>
-        <p style="margin: 5px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">
-            Ask any stock question • AI pulls real data • Gets smarter with every query
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    screener_tab1, screener_tab2 = st.tabs(["🤖 AI Research Agent", "📡 Dip Radar"])
-
-    # ── Tab 1: AI Research Agent ──────────────────────────────────────────────
-    with screener_tab1:
-        if user_tier != "ultimate":
-            st.markdown("""
-            <div style="background: rgba(255,215,0,0.1); border: 2px dashed #FFD700; border-radius: 15px; padding: 30px; text-align: center; margin: 20px 0;">
-                <div style="font-size: 48px; margin-bottom: 15px;">🔒</div>
-                <h3 style="color: #FFD700; margin-bottom: 10px;">Ultimate Tier Feature</h3>
-                <p style="color: #888; margin-bottom: 20px;">Your personal AI research analyst — exclusive to Ultimate members</p>
-                <p style="color: #FFF;">Ask questions like:</p>
-                <p style="color: #888; font-style: italic;">"Is NVDA overvalued?" • "Compare AAPL vs MSFT" • "Bull and bear case for TSLA"</p>
-            </div>
-            """, unsafe_allow_html=True)
-
-            if st.button("🚀 Upgrade to Ultimate", key="upgrade_screener", use_container_width=True, type="primary"):
-                st.session_state.selected_page = "👑 Become a VIP"
-                st.rerun()
-
-            st.markdown("---")
-            st.markdown("### 💡 What You Could Ask")
-            col1, col2 = st.columns(2)
-            with col1:
-                st.markdown("""
-                **Stock Analysis:**
-                - Is NVDA overvalued right now?
-                - Give me a bull and bear case for Tesla
-                - What's happening with Palantir lately?
-
-                **Comparisons:**
-                - Compare AAPL vs MSFT vs GOOGL
-                - Should I pick AMD or INTC?
-                """)
-            with col2:
-                st.markdown("""
-                **Research:**
-                - Analyze Meta's revenue growth trend
-                - What do analysts think about AMZN?
-                - How healthy is Apple's balance sheet?
-
-                **Screening:**
-                - Find undervalued tech stocks
-                - Show me dividend stocks with low debt
-                """)
-        else:
-            # Ultimate users: full AI research agent
-            try:
-                from stock_research_agent import StockResearchAgent
-
-                if "research_agent" not in st.session_state:
-                    st.session_state.research_agent = StockResearchAgent(model="gpt-4o")
-                if "agent_chat_history" not in st.session_state:
-                    st.session_state.agent_chat_history = []
-
-                st.markdown("**💡 Try these:**")
-                quick_col1, quick_col2, quick_col3, quick_col4 = st.columns(4)
-                with quick_col1:
-                    if st.button("Is NVDA overvalued?", key="quick_nvda"):
-                        st.session_state.agent_pending_query = "Is NVDA overvalued right now? Give me a full analysis."
-                with quick_col2:
-                    if st.button("AAPL vs MSFT", key="quick_compare"):
-                        st.session_state.agent_pending_query = "Compare AAPL vs MSFT — which is a better investment right now?"
-                with quick_col3:
-                    if st.button("TSLA bull & bear", key="quick_tsla"):
-                        st.session_state.agent_pending_query = "Give me a bull case and bear case for Tesla."
-                with quick_col4:
-                    if st.button("PLTR analysis", key="quick_pltr"):
-                        st.session_state.agent_pending_query = "What's happening with Palantir? Analyze the stock."
-
-                if not st.session_state.agent_chat_history:
-                    st.markdown("---")
-                    st.markdown("### 💡 What You Can Ask")
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        st.markdown("""
-                        **Stock Analysis:**
-                        - Is NVDA overvalued right now?
-                        - Give me a bull and bear case for Tesla
-                        - What's happening with Palantir lately?
-
-                        **Comparisons:**
-                        - Compare AAPL vs MSFT vs GOOGL
-                        - Should I pick AMD or INTC?
-                        """)
-                    with col2:
-                        st.markdown("""
-                        **Deep Dives:**
-                        - Analyze Meta's revenue growth trend
-                        - What do analysts think about AMZN?
-                        - How healthy is Apple's balance sheet?
-
-                        **Screening:**
-                        - Find undervalued tech stocks with P/E under 15
-                        - Show me dividend aristocrats with low debt
-                        """)
-
-                    show_data_source(source="FMP API + OpenAI GPT-4o Agent", updated_at=datetime.now())
-                    st.markdown("---")
-
-                for msg in st.session_state.agent_chat_history:
-                    with st.chat_message(msg["role"]):
-                        st.markdown(msg["content"])
-
-                pending_query = st.session_state.pop("agent_pending_query", None)
-                user_query = st.chat_input("Ask anything about stocks... (e.g., 'Is NVDA overvalued?')")
-
-                if pending_query and not user_query:
-                    user_query = pending_query
-
-                if user_query:
-                    st.session_state.agent_chat_history.append({"role": "user", "content": user_query})
-                    with st.chat_message("user"):
-                        st.markdown(user_query)
-                    with st.chat_message("assistant"):
-                        with st.spinner("🔍 Researching... (pulling real-time data from multiple sources)"):
-                            try:
-                                response = st.session_state.research_agent.research(user_query)
-                                st.markdown(response)
-                                st.session_state.agent_chat_history.append({"role": "assistant", "content": response})
-                            except Exception as e:
-                                error_msg = f"Research error: {str(e)}. Please try again."
-                                st.error(error_msg)
-                                st.session_state.agent_chat_history.append({"role": "assistant", "content": error_msg})
-                    show_ai_disclaimer()
-
-                if st.session_state.agent_chat_history:
-                    st.markdown("---")
-                    if st.button("🗑️ Clear Chat", key="clear_agent_chat"):
-                        st.session_state.agent_chat_history = []
-                        st.rerun()
-
-            except ImportError:
-                st.error("⚠️ AI Research Agent not found. Make sure stock_research_agent.py is in the same directory as this file.")
-                st.info("Upload stock_research_agent.py to your GitHub repo alongside this file.")
-
-    # ── Tab 2: Dip Radar (portfolio-based) ───────────────────────────────────
-    with screener_tab2:
-        st.markdown("### 📡 My Portfolio — Dip Radar")
-        st.caption("Auto-loaded from your paper portfolio · Shows how far each holding has dipped from its 52-week high")
-
-        # Load tickers from Supabase paper portfolio
-        portfolio_tickers = []
-        _user_id = st.session_state.get('user_id')
-        if _user_id and SUPABASE_ENABLED:
-            try:
-                _trades = load_trades_from_db(_user_id, 'user')
-                _positions = rebuild_portfolio_from_trades(_trades)
-                portfolio_tickers = [p['ticker'] for p in _positions if p.get('ticker')]
-            except Exception:
-                portfolio_tickers = []
-
-        if portfolio_tickers:
-            render_dip_radar(portfolio_tickers, chart_title="My Portfolio")
-        else:
-            st.info("No portfolio positions found. Add stocks to your Paper Portfolio first, then come back here to radar your dips.")
-            st.markdown("**→** Go to **💼 Paper Portfolio** in the nav to start building your portfolio.")
-            st.markdown("---")
-            st.markdown("**Want to try it?** Paste some tickers manually:")
-            manual_input = st.text_input(
-                "Tickers (comma-separated):",
-                placeholder="e.g. AAPL, NVDA, TSLA",
-                key="screener_dip_radar_manual",
-            )
-            if manual_input:
-                manual_tickers = [t.strip().upper() for t in manual_input.split(",") if t.strip()]
-                if manual_tickers:
-                    render_dip_radar(manual_tickers, chart_title="Manual Watchlist")
-
 elif selected_page == "📈 Financial Health":
     
     st.header("📈 Financial Health - Historical Trends")
@@ -22876,899 +22349,626 @@ elif selected_page == "👑 Become a VIP":
 
 
 elif selected_page == "📊 Pro Checklist":
-    
-    # Page popup removed - user requested no popups except welcome
-    
-    # Unhinged comment for Pro Checklist
-    unhinged_pro = get_unhinged_comment("pro_checklist")
-    if unhinged_pro:
-        st.markdown(f"🔥 *{unhinged_pro}*")
-    
-    # ============= YELLOW PILL HEADER =============
+
+    # ── Header ─────────────────────────────────────────────────────────────────
     st.markdown("""
-    <div style="background: linear-gradient(135deg, #FFD60A 0%, #FFA500 100%); 
-                padding: 15px 25px; 
-                border-radius: 15px; 
-                text-align: center; 
-                margin-bottom: 25px;
-                box-shadow: 0 4px 15px rgba(255, 214, 10, 0.3);">
-        <h2 style="margin: 0; color: #1a1a1a; font-size: 24px; font-weight: bold;">
-            🟡 PRO — AI Chart Explain
-        </h2>
-        <p style="margin: 5px 0 0 0; color: rgba(26,26,26,0.8); font-size: 14px;">
-            Pattern detection • AI analysis • 5-bullet insights
-        </p>
+    <div style="background:#0D0D20; border:1px solid rgba(255,255,255,0.12);
+                border-radius:12px; padding:16px 24px; margin-bottom:20px;">
+        <div style="font-size:22px; font-weight:700; color:#FFFFFF;">📊 Technical Analysis</div>
+        <div style="font-size:13px; color:rgba(255,255,255,0.55); margin-top:4px;">
+            Pattern detection · Key levels · Trade setup · Scenarios
+        </div>
     </div>
     """, unsafe_allow_html=True)
-    
-    st.caption("*Advanced technical analysis + fundamental screening*")
-    
-    # Disclaimer box (always visible)
-    st.markdown("""
-    <div style="background: rgba(255,165,0,0.1); padding: 15px; border-radius: 8px; border-left: 4px solid #FFA500; margin-bottom: 20px;">
-        <p style="margin: 0; color: #FFA500; font-size: 13px;">
-            <strong>⚠️ Educational Only — Not Financial Advice</strong><br>
-            This checklist helps you think in two lanes: (1) Business conviction and (2) Timing/momentum.<br>
-            <em>Signals can conflict — that's normal.</em>
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # ============= PRO USER CONTENT (NOW PUBLIC) =============
-    # Note: Pro Checklist is now available to all users
-    
-    # Fix selectbox dropdown colors to match input styling
-    st.markdown("""
-    <style>
-    /* STEP 1: Red dropdown theme - closed AND opened states */
-    
-    /* Closed state - RED like text input */
-    [data-testid="stSelectbox"] > div > div {
-        background-color: #FF4B4B !important;
-        color: white !important;
-    }
-    
-    /* Dropdown button/selector - RED */
-    [data-testid="stSelectbox"] [data-baseweb="select"] > div {
-        background-color: #FF4B4B !important;
-        color: white !important;
-    }
-    
-    /* CRITICAL: Opened popover/menu - RED theme */
-    div[data-baseweb="popover"] {
-        background-color: #FF4B4B !important;
-    }
-    
-    /* Listbox container - RED */
-    div[data-baseweb="popover"] ul[role="listbox"] {
-        background-color: #FF4B4B !important;
-        border: none !important;
-    }
-    
-    /* Individual options - RED background */
-    div[data-baseweb="popover"] li[role="option"] {
-        background-color: #FF4B4B !important;
-        color: white !important;
-        padding: 8px 12px !important;
-    }
-    
-    /* Hover state - Darker red */
-    div[data-baseweb="popover"] li[role="option"]:hover {
-        background-color: #CC3333 !important;
-        color: white !important;
-    }
-    
-    /* Selected/active item - Deepest red */
-    div[data-baseweb="popover"] li[role="option"][aria-selected="true"] {
-        background-color: #AA2222 !important;
-        color: white !important;
-        font-weight: bold !important;
-    }
-    
-    /* Menu items in general */
-    [data-baseweb="menu"] {
-        background-color: #FF4B4B !important;
-    }
-    
-    [data-baseweb="menu"] li {
-        background-color: #FF4B4B !important;
-        color: white !important;
-    }
-    
-    [data-baseweb="menu"] li:hover {
-        background-color: #CC3333 !important;
-    }
-    
-    [data-baseweb="menu"] li[aria-selected="true"] {
-        background-color: #AA2222 !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-    
-    # Progress Bar for Investment Checklist
-    if 'checklist_analyzed' not in st.session_state:
-        st.session_state.checklist_analyzed = False
-    
-    # Use current_step/total_steps format for render_progress_bar
-    checklist_current = 1 if st.session_state.checklist_analyzed else 0
-    checklist_total = 1
-    render_progress_bar(checklist_current, checklist_total, "Checklist Progress", disable_celebrations=True)
-    
-    # ============= INPUT ROW =============
-    col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
-    
-    # Use demo ticker if coming from VIP page
-    default_ticker = st.session_state.get('demo_ticker', st.session_state.selected_ticker)
-    
-    with col1:
-        ticker_check = st.text_input("Ticker or Company Name:", value=default_ticker, key="checklist_ticker")
-    
-    # CRITICAL: Clear AI outputs when ticker changes
-    if 'last_pro_ticker' not in st.session_state:
-        st.session_state.last_pro_ticker = None
-    
-    if ticker_check != st.session_state.last_pro_ticker:
-        st.session_state.pro_explain_ai = None
-        st.session_state.pro_bull_bear_ai = None
-        st.session_state.last_pro_ticker = ticker_check
-    
-    with col2:
+
+    # ── Input row ───────────────────────────────────────────────────────────────
+    default_ticker = st.session_state.get("demo_ticker", st.session_state.selected_ticker)
+    _pc_c1, _pc_c2, _pc_c3 = st.columns([3, 1, 1])
+    with _pc_c1:
+        ticker_check = st.text_input("Ticker or Company:", value=default_ticker, key="checklist_ticker")
+    with _pc_c2:
         timeframe = st.selectbox("Timeframe", ["3M", "6M", "1Y", "2Y", "5Y"], index=2, key="checklist_timeframe")
-    
-    with col3:
-        # Interval options based on timeframe
-        if timeframe in ["3M", "6M"]:
-            interval_options = ["1D"]
-            default_interval = "1D"
-        else:  # 1Y, 2Y, 5Y
-            interval_options = ["1D", "1W"]
-            default_interval = "1D"
-        
-        interval = st.selectbox("Interval", interval_options, index=0, key="checklist_interval")
-    
-    with col4:
-        # ELI5 toggle
-        simple_mode = st.toggle("Explain like I'm 5", value=False, key="eli5_toggle")
-        analyze_button = st.button("Analyze", key="checklist_analyze", use_container_width=True)
-    
-    # Store simple_mode in session state for use across features
-    st.session_state.simple_mode = simple_mode
-    
-    # ============= ACCESS GATE: Pro/Ultimate only =============
+    with _pc_c3:
+        st.write("")
+        analyze_button = st.button("Analyze →", key="checklist_analyze", use_container_width=True, type="primary")
+
+    # Clear outputs when ticker changes
+    if "last_pro_ticker" not in st.session_state:
+        st.session_state.last_pro_ticker = None
+    if ticker_check != st.session_state.last_pro_ticker:
+        st.session_state.pro_explain_ai  = None
+        st.session_state.pro_bull_bear_ai = None
+        st.session_state.pattern_detected = False
+        st.session_state.checklist_analyzed = False
+        st.session_state.last_pro_ticker = ticker_check
+
+    if "checklist_analyzed" not in st.session_state:
+        st.session_state.checklist_analyzed = False
+    if "pro_explain_ai" not in st.session_state:
+        st.session_state.pro_explain_ai = None
+    if "pro_bull_bear_ai" not in st.session_state:
+        st.session_state.pro_bull_bear_ai = None
+
+    # ── Access gate ─────────────────────────────────────────────────────────────
     user_tier = get_user_tier()
     if analyze_button and user_tier == "free":
-        analyze_button = False  # Block the analyze
-        st.markdown("""
-        <div style="background: linear-gradient(135deg, #FFF3E0 0%, #FFE0B2 100%); border: 2px solid #FF9800; 
-                    border-radius: 12px; padding: 25px; text-align: center; margin: 20px 0;">
-            <h3 style="color: #E65100; margin: 0 0 10px 0;">🔒 Pro Feature</h3>
-            <p style="color: #333; margin: 0;">AI Chart Analysis requires a <strong>Pro</strong> or <strong>Ultimate</strong> subscription.</p>
-            <p style="color: #555; font-size: 14px; margin-top: 10px;">You can browse the interface, but analysis is locked for Free users.</p>
-        </div>
-        """, unsafe_allow_html=True)
-        if st.button("⭐ Upgrade to Pro", key="pro_gate_upgrade", type="primary", use_container_width=True):
+        analyze_button = False
+        st.warning("🔒 Technical Analysis requires a Pro or Ultimate subscription.")
+        if st.button("⭐ Upgrade to Pro", key="pro_gate_upgrade", type="primary"):
             st.session_state.selected_page = "👑 Become a VIP"
             st.rerun()
-    
-    
-    # ============= TITLES-ONLY PREVIEW FOR FREE USERS =============
+
     if user_tier == "free":
         st.markdown("---")
-        st.markdown("#### 👀 Here's what Pro members get:")
-        
-        preview_features = [
-            ("📈", "Price Chart with Technical Indicators", "Candlestick charts + SMA50/SMA200/RSI/Volume overlays"),
-            ("📌", "Key Observations", "AI-generated technical facts summary"),
-            ("🔍", "Pattern Detection (AI + Rules)", "Pattern label, confidence score, and key levels"),
-            ("🎯", "Pattern Analysis", "Detailed breakdown of detected patterns"),
-            ("✅", "What Traders Generally Do Next (Educational)", "Educational checklist based on current setup"),
-            ("🤖", "AI-Powered Deep Dive (Fact-Locked)", "AI Chart Explanation + Bull vs Bear Analysis"),
-        ]
-        
-        for emoji, title, subtitle in preview_features:
-            st.markdown(f"""
-            <div style="background: linear-gradient(135deg, #F5F5F5 0%, #EEEEEE 100%); 
-                        border: 1px solid #E0E0E0; border-radius: 10px; padding: 16px 20px; margin: 8px 0;
-                        display: flex; align-items: center; gap: 12px;">
-                <span style="font-size: 24px;">{emoji}</span>
-                <div>
-                    <span style="font-size: 16px; font-weight: 600; color: #333;">🔒 {title}</span><br>
-                    <span style="font-size: 13px; color: #888;">{subtitle}</span>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-        
+        st.markdown("**🔒 Pro members see:**")
+        for _lbl in [
+            "Bold market summary for the stock",
+            "Interactive candlestick chart — SMA 50, SMA 200, RSI auto-shown",
+            "Key Levels table: support, resistance, MAs with % from current price",
+            "Pattern detection with confidence rating and reasons",
+            "Entry · Stop Loss · Take Profit trade setup",
+            "Bull / Base / Bear scenario cards",
+            "AI-powered deep dive (Perplexity fact-locked)",
+        ]:
+            st.markdown(f"&nbsp;&nbsp;🔒 {_lbl}")
         st.markdown("")
         if st.button("⭐ Unlock Pro Features", key="pro_preview_upgrade", type="primary", use_container_width=True):
             st.session_state.selected_page = "👑 Become a VIP"
             st.rerun()
-    
-    # ============= ANALYSIS SECTION =============
+
+    # ── Main analysis ────────────────────────────────────────────────────────────
     if (analyze_button or st.session_state.checklist_analyzed) and user_tier != "free":
         st.session_state.checklist_analyzed = True
-        
-        # Resolve ticker
+
         resolved_ticker = resolve_company_to_ticker(ticker_check)
-        
         if not resolved_ticker:
             st.error(f"❌ Could not find ticker: {ticker_check}")
-            st.warning("Try using the exact ticker symbol (e.g., GOOGL not GOOG)")
             st.stop()
-        
         ticker_check = resolved_ticker
-        st.success(f"✅ Resolved to: {ticker_check}")
-        
-        # Get data
+
         quote = get_quote(ticker_check)
-        
         if not quote:
             st.error(f"❌ Could not fetch data for {ticker_check}")
-            st.warning("This might be due to:")
-            st.write("- API rate limit")
-            st.write("- Invalid ticker")
-            st.write("- Network issue")
             st.stop()
-        
-        # Load price data early so we can show Technical Quick Guide
-        timeframe_days = {
-            "3M": 90,
-            "6M": 180,
-            "1Y": 365,
-            "2Y": 730,
-            "5Y": 1825
-        }
+
+        current_price  = float(quote.get("price", 0) or 0)
+        company_name_ta = quote.get("name", ticker_check)
+
+        timeframe_days = {"3M": 90, "6M": 180, "1Y": 365, "2Y": 730, "5Y": 1825}
         days = timeframe_days.get(timeframe, 365)
-        years = days / 365.0
-        price_history = get_historical_ohlc(ticker_check, years)
-        
+        price_history = get_historical_ohlc(ticker_check, days / 365.0)
+
         if price_history.empty:
-            st.error(f"❌ No price data available for {ticker_check}")
-            st.warning("Try a different ticker or timeframe")
+            st.error(f"❌ No price data for {ticker_check}")
             st.stop()
-        
-        # ============= TECHNICAL QUICK GUIDE (BEFORE COMPANY NAME) =============
-        st.markdown("---")
-        render_technical_quick_guide(price_history, ticker_check)
-        
-        st.markdown("---")
-        st.subheader(f"📊 {quote.get('name', ticker_check)} ({ticker_check})")
-        
-        # ============= CANDLESTICK CHART (Using Company Analysis proven logic) =============
-        st.markdown("---")
-        st.markdown("### 📈 Price Chart with Technical Indicators")
-        
-        # Overlay checkboxes
-        col_check1, col_check2, col_check3, col_check4 = st.columns(4)
-        with col_check1:
-            show_sma50 = st.checkbox("SMA 50", value=True, key="show_sma50")
-        with col_check2:
-            show_sma200 = st.checkbox("SMA 200", value=True, key="show_sma200")
-        with col_check3:
-            show_rsi = st.checkbox("RSI", value=True, key="show_rsi")
-        with col_check4:
-            show_volume = st.checkbox("Volume", value=True, key="show_volume")
-        
-        # Price history already loaded earlier for Technical Quick Guide
-        # Continue with chart rendering
-        
-        # Track what features are available for status line
-        chart_features = []
-        
-        # Create chart (candlestick if we have OHLC, line chart if only close)
-        has_ohlc = all(col in price_history.columns for col in ['open', 'high', 'low', 'close'])
-        
-        # Initialize num_rows (used for layout height calculation)
-        num_rows = 1
-        
-        if has_ohlc:
-            chart_features.append("OHLC")
-            
-            # Determine number of rows based on indicators
-            num_rows = 1  # Price chart always present
-            row_heights = []
-            subplot_titles_list = [f'{ticker_check} Price']
-            
-            if show_rsi:
-                num_rows += 1
-                subplot_titles_list.append('RSI (14)')
-            
-            if show_volume and 'volume' in price_history.columns:
-                num_rows += 1
-                subplot_titles_list.append('Volume')
-            
-            # Calculate row heights
-            if num_rows == 1:
-                row_heights = [1.0]
-            elif num_rows == 2:
-                row_heights = [0.7, 0.3]
-            else:  # 3 rows
-                row_heights = [0.6, 0.2, 0.2]
-            
-            # Create candlestick chart with dynamic rows
-            fig_price = make_subplots(
-                rows=num_rows,
-                cols=1,
-                shared_xaxes=True,
-                vertical_spacing=0.03,
-                row_heights=row_heights,
-                subplot_titles=tuple(subplot_titles_list)
-            )
-            
-            # Add candlestick
-            fig_price.add_trace(
-                go.Candlestick(
-                    x=price_history['date'],
-                    open=price_history['open'],
-                    high=price_history['high'],
-                    low=price_history['low'],
-                    close=price_history['close'],
-                    name='Price',
-                    increasing_line_color='#00FF00',  # GREEN for up days
-                    decreasing_line_color='#FF4444'   # RED for down days
-                ),
-                row=1, col=1
-            )
-            
-            # Add volume if available and requested
-            if show_volume and 'volume' in price_history.columns:
-                colors = ['#00FF00' if price_history['close'].iloc[i] >= price_history['open'].iloc[i] else '#FF4444' 
-                          for i in range(len(price_history))]
-                
-                # Determine which row for volume (last row)
-                volume_row = num_rows
-                
-                fig_price.add_trace(
-                    go.Bar(
-                        x=price_history['date'],
-                        y=price_history['volume'],
-                        name='Volume',
-                        marker_color=colors,
-                        opacity=0.5
-                    ),
-                    row=volume_row, col=1
-                )
-                chart_features.append("Volume")
-            
-        else:
-            # Fallback to line chart (like Company Analysis does)
-            chart_features.append("Line")
-            
-            fig_price = go.Figure()
-            
-            price_col = 'close' if 'close' in price_history.columns else 'price'
-            
-            fig_price.add_trace(go.Scatter(
-                x=price_history['date'],
-                y=price_history[price_col],
-                mode='lines',
-                name='Price',
-                line=dict(color='#9D4EDD', width=2),
-                fill='tozeroy',
-                fillcolor='rgba(157, 78, 221, 0.2)',
-                hovertemplate='%{x}<br>Price: $%{y:.2f}<extra></extra>'
-            ))
-        
-        # Add SMAs (calculate manually from close prices)
-        close_col = 'close' if 'close' in price_history.columns else 'price'
-        
-        if show_sma50 and len(price_history) >= 50:
-            sma50 = price_history[close_col].rolling(window=50, min_periods=1).mean()
-            sma_trace_50 = go.Scatter(
-                x=price_history['date'],
-                y=sma50,
-                mode='lines',
-                name='SMA 50',
-                line=dict(color='#FFA500', width=2)
-            )
-            
-            if has_ohlc:
-                fig_price.add_trace(sma_trace_50, row=1, col=1)
-            else:
-                fig_price.add_trace(sma_trace_50)
-            
-            chart_features.append("SMA50")
-        
-        if show_sma200 and len(price_history) >= 200:
-            sma200 = price_history[close_col].rolling(window=200, min_periods=1).mean()
-            sma_trace_200 = go.Scatter(
-                x=price_history['date'],
-                y=sma200,
-                mode='lines',
-                name='SMA 200',
-                line=dict(color='#9D4EDD', width=2)
-            )
-            
-            if has_ohlc:
-                fig_price.add_trace(sma_trace_200, row=1, col=1)
-            else:
-                fig_price.add_trace(sma_trace_200)
-            
-            chart_features.append("SMA200")
-        
-        # Add RSI (Relative Strength Index)
-            if show_rsi and len(price_history) >= 14:
-                # Calculate RSI
-                close_col = 'close' if 'close' in price_history.columns else 'price'
-                delta = price_history[close_col].diff()
-                gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-                loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-                rs = gain / loss
-                rsi = 100 - (100 / (1 + rs))
-                
-                # Determine RSI row number
-                rsi_row = 2 if show_rsi else None
-                if rsi_row and has_ohlc:
-                    # Add RSI line
-                    fig_price.add_trace(
-                        go.Scatter(
-                            x=price_history['date'],
-                            y=rsi,
-                            mode='lines',
-                            name='RSI',
-                            line=dict(color='#FFD700', width=2)  # Gold color
-                        ),
-                        row=rsi_row, col=1
-                    )
-                    
-                    # Add overbought/oversold lines
-                    fig_price.add_hline(y=70, line_dash="dash", line_color="red", opacity=0.5, row=rsi_row, col=1)
-                    fig_price.add_hline(y=30, line_dash="dash", line_color="green", opacity=0.5, row=rsi_row, col=1)
-                    
-                    # Update RSI y-axis
-                    fig_price.update_yaxes(title_text="RSI", range=[0, 100], row=rsi_row, col=1)
-                    
-                    chart_features.append("RSI")
-            
-            # Update layout (same as Company Analysis)
-            fig_price.update_layout(
-                title=f"{ticker_check} Price History ({timeframe})",
-                xaxis_title="Date",
-                yaxis_title="Price ($)",
-                height=500,  # Reduced from 700/600/500
-                template='plotly_dark',
-                margin=dict(l=0, r=0, t=40, b=0),
-                hovermode='x unified',
-                showlegend=True,
-                xaxis_rangeslider_visible=False  # Hide by default, add custom range selector
-            )
-            
-            # Add rangeslider to the BOTTOM row (where it will be visible)
-            # No range selector buttons - user controls timeframe via dropdown
-            if has_ohlc:
-                fig_price.update_xaxes(
-                    rangeslider=dict(
-                        visible=True,
-                        thickness=0.05,
-                        bgcolor="rgba(150, 150, 150, 0.1)"
-                    ),
-                    row=num_rows, col=1  # Slider on bottom chart
-                )
-            else:
-                # For line charts (no subplots), add to main axis
-                fig_price.update_xaxes(
-                    rangeslider=dict(
-                        visible=True,
-                        thickness=0.05,
-                        bgcolor="rgba(150, 150, 150, 0.1)"
-                    )
-                )
-            
-            # Update axis labels based on number of rows
-            if has_ohlc:
-                fig_price.update_yaxes(title_text="Price ($)", row=1, col=1)
-                if show_volume:
-                    fig_price.update_yaxes(title_text="Volume", row=num_rows, col=1)
-            
-            # Display chart (same as Company Analysis)
-            st.plotly_chart(fig_price, use_container_width=True)
-            
-            # ============= COMPACT STATUS LINE =============
-            if has_ohlc:
-                status_parts = [f"{feat} ✓" for feat in chart_features]
-                st.success(f"✅ Chart ready: {' | '.join(status_parts)}")
-            else:
-                st.warning("⚠️ OHLC not available — showing line chart fallback.")
-        
-        # ============= CHART CALLOUTS (STEP 4) =============
-        st.markdown("---")
-        st.markdown("### 📌 Key Observations")
-        
-        # Compute technical facts if not already done
+
         tech_facts = compute_technical_facts(price_history)
-        # CRITICAL: Add ticker to tech_facts so AI knows which stock
-        tech_facts['ticker'] = ticker_check
-        tech_facts['company_name'] = quote.get('name', ticker_check)
-        
-        if 'pro_tech_facts' not in st.session_state:
-            st.session_state.pro_tech_facts = tech_facts
+        tech_facts["ticker"]       = ticker_check
+        tech_facts["company_name"] = company_name_ta
+        st.session_state.pro_tech_facts = tech_facts
+
+        features = calculate_pattern_features(price_history)
+        if features:
+            pattern_label, confidence, reasons, watch_level, watch_note = detect_rule_based_pattern(tech_facts)
         else:
-            # Update session state with new ticker's facts
-            st.session_state.pro_tech_facts = tech_facts
-        
-        # Generate and display callouts
-        callouts = render_chart_callouts(tech_facts)
-        if callouts:
-            for callout in callouts:
-                st.markdown(f"- {callout}")
+            pattern_label, confidence, reasons, watch_level, watch_note = "Insufficient Data", "Low", [], None, "Not enough data"
+
+        sma50_val  = tech_facts.get("sma50")
+        sma200_val = tech_facts.get("sma200")
+        rsi_val    = tech_facts.get("rsi14_last")
+        rsi_state  = (tech_facts.get("rsi_state") or "neutral")
+        sup_lvl    = tech_facts.get("support_level")
+        res_lvl    = tech_facts.get("resistance_level")
+        sup_dist   = tech_facts.get("distance_to_support_pct")
+        res_dist   = tech_facts.get("distance_to_resistance_pct")
+
+        # ── 1. BOLD SUMMARY ──────────────────────────────────────────────────────
+        _trend_vs   = "above" if sma50_val and current_price > sma50_val else "below"
+        _trend_word = "uptrend" if _trend_vs == "above" else "downtrend"
+        _rsi_str    = f"RSI {rsi_val:.0f} ({rsi_state})" if rsi_val else ""
+        _summary    = (
+            f"{company_name_ta} ({ticker_check}) is trading at "
+            f"<span style='color:#00E5FF;font-weight:700;'>${current_price:.2f}</span>"
+            f" — {_trend_vs} its 50-day MA in a {_trend_word}, "
+            f"pattern: <span style='color:#FFD700;font-weight:700;'>{pattern_label}</span>"
+            f"{f', {_rsi_str}' if _rsi_str else ''}."
+        )
+        st.markdown(f"""
+        <div style="background:#0D0D20; border:1px solid rgba(255,255,255,0.15);
+                    border-radius:12px; padding:18px 24px; margin:12px 0 20px 0;">
+            <div style="font-size:17px; font-weight:600; color:#FFFFFF; line-height:1.6;">
+                {_summary}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # ── 2. PRICE CHART ───────────────────────────────────────────────────────
+        st.markdown("### 📈 Price Chart")
+        _close_col = "close" if "close" in price_history.columns else "price"
+        _has_ohlc  = all(c in price_history.columns for c in ["open", "high", "low", "close"])
+        _rsi_rows  = 2 if len(price_history) >= 14 else 1
+        _row_h     = [0.70, 0.30] if _rsi_rows == 2 else [1.0]
+        _subtitles = (f"{ticker_check} ({timeframe})", "RSI (14)") if _rsi_rows == 2 else (f"{ticker_check} ({timeframe})",)
+
+        _fig_ta = make_subplots(
+            rows=_rsi_rows, cols=1, shared_xaxes=True,
+            vertical_spacing=0.04, row_heights=_row_h,
+            subplot_titles=_subtitles
+        )
+
+        if _has_ohlc:
+            _fig_ta.add_trace(go.Candlestick(
+                x=price_history["date"],
+                open=price_history["open"], high=price_history["high"],
+                low=price_history["low"],  close=price_history["close"],
+                name="Price",
+                increasing_line_color="#00C851", decreasing_line_color="#FF4444"
+            ), row=1, col=1)
         else:
-            st.caption("*Insufficient data for observations*")
-        
-        # ============= PATTERN DETECTION =============
-        st.markdown("---")
-        st.markdown("### 🔍 Pattern Detection (AI + Rules)")
-        
-        # Pattern detection button
-        col_pattern1, col_pattern2 = st.columns([1, 3])
-        with col_pattern1:
-            detect_pattern_btn = st.button("🤖 Detect Pattern", key="detect_pattern_btn", use_container_width=True)
-        
-        with col_pattern2:
-            st.caption("*AI analyzes chart patterns, momentum, and technical signals*")
-        
-        # Pattern detection logic
-        if detect_pattern_btn or st.session_state.get('pattern_detected', False):
-            st.session_state.pattern_detected = True
-            
-            with st.spinner("🔍 Analyzing chart pattern..."):
-                # Calculate rule-based features
-                features = calculate_pattern_features(price_history)
-                
-                if features:
-                    # STEP 2: Technical Metrics with RED header
-                    st.markdown("""
-                    <div style="background-color: #FF4B4B; padding: 10px; border-radius: 5px; margin: 10px 0;">
-                        <h4 style="color: white; margin: 0;">📊 Technical Metrics</h4>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    with st.expander("View Details", expanded=False):
-                        col_f1, col_f2, col_f3, col_f4 = st.columns(4)
-                        with col_f1:
-                            st.metric("Current Price", f"${features['current_price']}")
-                            st.caption(f"vs MA20: {features['price_vs_ma20']:+.1f}%")
-                        with col_f2:
-                            st.metric("RSI", f"{features['rsi']:.0f}")
-                            st.caption(f"{features['rsi_zone'].capitalize()}")
-                        with col_f3:
-                            st.metric("20-Day Return", f"{features['last_20d_return']:+.1f}%")
-                            st.caption(f"Trend: {features['trend_direction']}")
-                        with col_f4:
-                            st.metric("Volatility", features['vol_regime'].capitalize())
-                            st.caption(f"20d: {features['vol_20d']:.1f}%")
-                    
-                    # Get AI pattern detection
-                    simple_mode = st.session_state.get('simple_mode', False)
-                    pattern_prompt = detect_chart_pattern(ticker_check, features, simple_mode)
-                    
-                    # Here you would call Claude API with pattern_prompt
-                    # For now, we'll show a placeholder response based on rules
-                    
-                                        
-                    # Rule-based pattern suggestion (fact-locked fallback)
-                    tech_facts = st.session_state.get('pro_tech_facts')
-                    if not tech_facts:
-                        tech_facts = compute_technical_facts(price_history)
-                        # Ensure ticker is in tech_facts
-                        tech_facts['ticker'] = ticker_check
-                        tech_facts['company_name'] = quote.get('name', ticker_check)
-                    
-                    pattern_label, confidence, reasons, watch_level, watch_note = detect_rule_based_pattern(
-                        tech_facts,
-                        simple_mode=simple_mode
-                    )
-# Display pattern result
-                    st.markdown("#### 🎯 Pattern Analysis")
-                    
-                    # Pattern card with confidence color
-                    confidence_color = {
-                        'High': '#00FF00',
-                        'Medium': '#FFA500', 
-                        'Low': '#FF4444'
-                    }
-                    
-                    st.markdown(f"""
-                    <div style="background: rgba(50,50,50,0.5); padding: 20px; border-radius: 10px; border-left: 5px solid {confidence_color[confidence]};">
-                        <h3 style="margin: 0; color: {confidence_color[confidence]};">🔍 {pattern_label}</h3>
-                        <p style="margin: 5px 0; color: {confidence_color[confidence]}; font-size: 14px;">Confidence: {confidence}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    st.markdown("**Why we think this:**")
-                    for reason in reasons:
-                        st.markdown(f"• {reason}")
-                    
-                    st.markdown(f"**🎯 Key Level to Watch:** {watch_note}")
-                    
-                    # Note about AI
-                    if simple_mode:
-                        st.info("💡 **Remember**: This is just one way to look at the chart. Always do your own research!")
+            _fig_ta.add_trace(go.Scatter(
+                x=price_history["date"], y=price_history[_close_col],
+                mode="lines", name="Price", line=dict(color="#00E5FF", width=2)
+            ), row=1, col=1)
+
+        if len(price_history) >= 50:
+            _sma50s = price_history[_close_col].rolling(50, min_periods=1).mean()
+            _fig_ta.add_trace(go.Scatter(
+                x=price_history["date"], y=_sma50s,
+                mode="lines", name="SMA 50", line=dict(color="#FFA500", width=1.5, dash="dot")
+            ), row=1, col=1)
+        if len(price_history) >= 200:
+            _sma200s = price_history[_close_col].rolling(200, min_periods=1).mean()
+            _fig_ta.add_trace(go.Scatter(
+                x=price_history["date"], y=_sma200s,
+                mode="lines", name="SMA 200", line=dict(color="#BF5FFF", width=1.5, dash="dot")
+            ), row=1, col=1)
+
+        if _rsi_rows == 2:
+            _delta  = price_history[_close_col].diff()
+            _gain   = _delta.where(_delta > 0, 0).rolling(14).mean()
+            _loss   = (-_delta.where(_delta < 0, 0)).rolling(14).mean()
+            _rsi_s  = 100 - (100 / (1 + _gain / _loss.replace(0, float("nan"))))
+            _fig_ta.add_trace(go.Scatter(
+                x=price_history["date"], y=_rsi_s,
+                mode="lines", name="RSI", line=dict(color="#FFD700", width=2)
+            ), row=2, col=1)
+            _fig_ta.add_hline(y=70, line_dash="dash", line_color="rgba(255,68,68,0.4)",   row=2, col=1)
+            _fig_ta.add_hline(y=30, line_dash="dash", line_color="rgba(0,200,81,0.4)",   row=2, col=1)
+            _fig_ta.update_yaxes(title_text="RSI", range=[0, 100], row=2, col=1)
+
+        _fig_ta.update_layout(
+            height=520, template="plotly_dark",
+            margin=dict(l=0, r=0, t=30, b=0),
+            hovermode="x unified", showlegend=True,
+            xaxis_rangeslider_visible=False,
+            paper_bgcolor="#0A0A1A", plot_bgcolor="#0D0D20",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        )
+        st.plotly_chart(_fig_ta, use_container_width=True)
+
+        # ── 3. KEY LEVELS ────────────────────────────────────────────────────────
+        st.markdown("### 📍 Key Levels")
+        _levels = []
+        if sup_lvl:
+            _p = sup_dist if sup_dist is not None else ((sup_lvl - current_price) / current_price * 100 if current_price else 0)
+            _levels.append({"Level": "Support",     "Price": f"${sup_lvl:.2f}",    "% from Current": f"{_p:+.1f}%",  "Signal": "🟢"})
+        if res_lvl:
+            _p = res_dist if res_dist is not None else ((res_lvl - current_price) / current_price * 100 if current_price else 0)
+            _levels.append({"Level": "Resistance",  "Price": f"${res_lvl:.2f}",    "% from Current": f"{_p:+.1f}%",  "Signal": "🔴"})
+        if sma50_val and current_price:
+            _p = (sma50_val - current_price) / current_price * 100
+            _levels.append({"Level": "SMA 50",      "Price": f"${sma50_val:.2f}",  "% from Current": f"{_p:+.1f}%",  "Signal": "🟡"})
+        if sma200_val and current_price:
+            _p = (sma200_val - current_price) / current_price * 100
+            _levels.append({"Level": "SMA 200",     "Price": f"${sma200_val:.2f}", "% from Current": f"{_p:+.1f}%",  "Signal": "🟣"})
+        if watch_level:
+            try:
+                _wl = float(watch_level)
+                _p  = (_wl - current_price) / current_price * 100 if current_price else 0
+                _levels.append({"Level": "Watch Level", "Price": f"${_wl:.2f}",  "% from Current": f"{_p:+.1f}%", "Signal": "👀"})
+            except Exception:
+                pass
+
+        if _levels:
+            st.dataframe(pd.DataFrame(_levels), use_container_width=True, hide_index=True)
+            st.caption(f"Current price: **${current_price:.2f}**")
+        else:
+            st.caption("Insufficient price data for key levels.")
+
+        # ── 4. PATTERN ───────────────────────────────────────────────────────────
+        st.markdown("### 🔍 Pattern")
+        _cc = {"High": "#00C851", "Medium": "#FFA500", "Low": "#FF4444"}.get(confidence, "#888")
+        _reasons_html = "".join(
+            f'<div style="color:rgba(255,255,255,0.75);font-size:13px;margin:5px 0;">• {r}</div>'
+            for r in (reasons or [])[:4]
+        )
+        st.markdown(f"""
+        <div style="background:#0D0D20; border-left:4px solid {_cc};
+                    border-radius:8px; padding:16px 20px; margin:8px 0 16px 0;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <span style="font-size:17px; font-weight:700; color:#FFFFFF;">{pattern_label}</span>
+                <span style="background:{_cc}22; color:{_cc}; padding:3px 12px; border-radius:20px;
+                             font-size:12px; font-weight:600; border:1px solid {_cc}44;">
+                    {confidence} Confidence
+                </span>
+            </div>
+            {_reasons_html}
+        </div>
+        """, unsafe_allow_html=True)
+
+        # ── 5. TRADE SETUP ───────────────────────────────────────────────────────
+        st.markdown("### 🎯 Trade Setup")
+        trader_actions = generate_trader_actions(tech_facts, pattern_label)
+        if trader_actions:
+            for _action in trader_actions:
+                st.markdown(_action)
+        else:
+            _entry = current_price
+            _stop  = sup_lvl if sup_lvl and sup_lvl < current_price else round(current_price * 0.95, 2)
+            _tgt   = res_lvl if res_lvl and res_lvl > current_price else round(current_price * 1.10, 2)
+            _risk_pct   = abs((_entry - _stop) / _entry * 100) if _entry else 0
+            _reward_pct = abs((_tgt - _entry) / _entry * 100)  if _entry else 0
+            _rr         = _reward_pct / _risk_pct if _risk_pct else 0
+            _tce, _tcs, _tct = st.columns(3)
+            _tce.metric("Entry Zone",  f"${_entry:.2f}")
+            _tcs.metric("Stop Loss",   f"${_stop:.2f}",  f"-{_risk_pct:.1f}%")
+            _tct.metric("Take Profit", f"${_tgt:.2f}",   f"+{_reward_pct:.1f}%")
+            if _rr > 0:
+                st.caption(f"⚖️ Risk / Reward: **{_rr:.1f} : 1**")
+        st.caption("*⚠️ Educational only — not financial advice.*")
+
+        # ── 6. SCENARIOS ─────────────────────────────────────────────────────────
+        st.markdown("### 📊 Bull / Base / Bear Scenarios")
+        _vol        = (tech_facts.get("vol_regime") or "normal").lower()
+        _bull_trig  = f"breaks above ${res_lvl:.2f}" if res_lvl else "breaks key resistance"
+        _bull_tgt   = f"${res_lvl * 1.05:.2f}" if res_lvl else f"${current_price * 1.15:.2f} (+15%)"
+        _bear_trig  = f"breaks below ${sup_lvl:.2f}" if sup_lvl else "breaks key support"
+        _bear_tgt   = f"${sup_lvl * 0.95:.2f}" if sup_lvl else f"${current_price * 0.85:.2f} (-15%)"
+
+        _sc1, _sc2, _sc3 = st.columns(3)
+        with _sc1:
+            st.markdown(f"""
+            <div style="background:#081A10; border:1px solid #00C851; border-radius:10px;
+                        padding:16px; min-height:110px;">
+                <div style="color:#00C851; font-weight:700; font-size:14px; margin-bottom:8px;">🐂 Bull Case</div>
+                <div style="color:#d1fae5; font-size:13px; line-height:1.5;">
+                    {ticker_check} {_bull_trig}, momentum confirms uptrend.
+                    Target: <strong>{_bull_tgt}</strong>.
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        with _sc2:
+            st.markdown(f"""
+            <div style="background:#0D0D1F; border:1px solid rgba(255,255,255,0.2); border-radius:10px;
+                        padding:16px; min-height:110px;">
+                <div style="color:#FFFFFF; font-weight:700; font-size:14px; margin-bottom:8px;">📊 Base Case</div>
+                <div style="color:rgba(255,255,255,0.75); font-size:13px; line-height:1.5;">
+                    Consolidates near <strong>${current_price:.2f}</strong> with {_vol} volatility.
+                    Watches key levels before next directional move.
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        with _sc3:
+            st.markdown(f"""
+            <div style="background:#1A0808; border:1px solid #FF4444; border-radius:10px;
+                        padding:16px; min-height:110px;">
+                <div style="color:#FF4444; font-weight:700; font-size:14px; margin-bottom:8px;">🐻 Bear Case</div>
+                <div style="color:#fee2e2; font-size:13px; line-height:1.5;">
+                    {ticker_check} {_bear_trig}, selling pressure builds.
+                    Risk target: <strong>{_bear_tgt}</strong>.
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # ── 7. AI DEEP DIVE ──────────────────────────────────────────────────────
+        if bool(os.environ.get("PERPLEXITY_API_KEY", "")):
+            st.markdown("---")
+            st.markdown("### 🤖 AI Deep Dive")
+
+            _ai_c1, _ai_c2 = st.columns(2)
+            with _ai_c1:
+                explain_btn = st.button("🔍 Explain this chart (AI)", key="explain_chart_ai", use_container_width=True)
+            with _ai_c2:
+                bull_bear_btn = st.button("⚖️ Bull vs Bear (AI)", key="bull_bear_ai", use_container_width=True)
+
+            if explain_btn:
+                st.session_state.pro_bull_bear_ai = None
+                with st.spinner("AI analyzing chart…"):
+                    _rule_dict = {"label": pattern_label, "confidence": confidence,
+                                  "reasons": reasons, "watch_level": watch_level, "watch_note": watch_note}
+                    _prompt = build_explain_chart_prompt(tech_facts, _rule_dict, False)
+                    _resp   = call_perplexity_json(_prompt, max_tokens=2500, temperature=0.1)
+                    if _resp:
+                        _valid, _ = validate_ai_response(_resp, tech_facts, "explain")
+                        st.session_state.pro_explain_ai = _resp if _valid else None
                     else:
-                        st.info("ℹ️ **Note**: Pattern detection combines rule-based signals with AI interpretation. Not financial advice.")
-                    
-                    # ============= STEP 6: TRADE SETUP =============
-                    st.markdown("---")
-                    st.markdown("### 🎯 Trade Setup")
-                    st.caption("*Specific price levels to watch — buy zone, stop loss, and key MAs explained simply*")
-                    
-                    trader_actions = generate_trader_actions(tech_facts, pattern_label)
-                    if trader_actions:
-                        for action in trader_actions:
-                            st.markdown(action)
-                    else:
-                        st.caption("*Insufficient data for trade setup*")
-                    
-                    st.caption("*⚠️ Educational only — not financial advice. Always do your own research.*")
-                    
-                    # ============= STEP 7: AI-POWERED ANALYSIS BUTTONS =============
-                    st.markdown("---")
-                    st.markdown("### 🤖 AI-Powered Deep Dive (Fact-Locked)")
-                    st.caption("*AI analyzes using ONLY the technical facts above — no hallucinations*")
-                    
-                    # Initialize session state for AI outputs
-                    if 'pro_explain_ai' not in st.session_state:
                         st.session_state.pro_explain_ai = None
-                    if 'pro_bull_bear_ai' not in st.session_state:
-                        st.session_state.pro_bull_bear_ai = None
-                    
-                    # Check if Perplexity is available
-                    perplexity_available = bool(os.environ.get('PERPLEXITY_API_KEY', ''))
-                    
-                    if not perplexity_available:
-                        st.warning("⚠️ AI features require PERPLEXITY_API_KEY environment variable")
+
+            if bull_bear_btn:
+                st.session_state.pro_explain_ai = None
+                with st.spinner("Building cases…"):
+                    _prompt = build_bull_bear_prompt(tech_facts, False)
+                    _resp   = call_perplexity_json(_prompt, max_tokens=2000, temperature=0.1)
+                    if _resp:
+                        _valid, _ = validate_ai_response(_resp, tech_facts, "bull_bear")
+                        st.session_state.pro_bull_bear_ai = _resp if _valid else None
                     else:
-                        col_ai1, col_ai2 = st.columns(2)
-                        
-                        with col_ai1:
-                            explain_btn = st.button("🔍 Explain this chart (AI)", key="explain_chart_ai", use_container_width=True)
-                        
-                        with col_ai2:
-                            bull_bear_btn = st.button("⚖️ Bull vs Bear case (AI)", key="bull_bear_ai", use_container_width=True)
-                        
-                        # ============= EXPLAIN CHART AI =============
-                        if explain_btn:
-                            # CLEAR the other AI output (toggle behavior)
-                            st.session_state.pro_bull_bear_ai = None
-                            
-                            with st.spinner("🤖 AI analyzing chart facts..."):
-                                # Build prompt
-                                rule_based_dict = {
-                                    "label": pattern_label,
-                                    "confidence": confidence,
-                                    "reasons": reasons,
-                                    "watch_level": watch_level,
-                                    "watch_note": watch_note
-                                }
-                                
-                                simple_mode = st.session_state.get('simple_mode', False)
-                                prompt = build_explain_chart_prompt(tech_facts, rule_based_dict, simple_mode)
-                                
-                                # Call Perplexity
-                                ai_response = call_perplexity_json(prompt, max_tokens=2500, temperature=0.1)
-                                
-                                if ai_response:
-                                    # Validate response
-                                    is_valid, error_msg = validate_ai_response(ai_response, tech_facts, "explain")
-                                    
-                                    if is_valid:
-                                        st.session_state.pro_explain_ai = ai_response
-                                    else:
-                                        st.error(f"⚠️ AI validation failed: {error_msg}")
-                                        st.info("Showing rule-based analysis instead.")
-                                        st.session_state.pro_explain_ai = None
-                                else:
-                                    st.error("⚠️ AI request failed. Try again or use rule-based analysis.")
-                                    st.session_state.pro_explain_ai = None
-                        
-                        # ============= BULL VS BEAR AI =============
-                        if bull_bear_btn:
-                            # CLEAR the other AI output (toggle behavior)
-                            st.session_state.pro_explain_ai = None
-                            
-                            with st.spinner("🤖 AI building bull/bear cases..."):
-                                simple_mode = st.session_state.get('simple_mode', False)
-                                prompt = build_bull_bear_prompt(tech_facts, simple_mode)
-                                
-                                # Call Perplexity
-                                ai_response = call_perplexity_json(prompt, max_tokens=2000, temperature=0.1)
-                                
-                                if ai_response:
-                                    # Validate response
-                                    is_valid, error_msg = validate_ai_response(ai_response, tech_facts, "bull_bear")
-                                    
-                                    if is_valid:
-                                        st.session_state.pro_bull_bear_ai = ai_response
-                                    else:
-                                        st.error(f"⚠️ AI validation failed: {error_msg}")
-                                        st.info("Check the pattern analysis above for rule-based insights.")
-                                        st.session_state.pro_bull_bear_ai = None
-                                else:
-                                    st.error("⚠️ AI request failed. Try again.")
-                                    st.session_state.pro_bull_bear_ai = None
-                        
-                        # ============= DISPLAY EXPLAIN CHART AI OUTPUT =============
-                        if st.session_state.pro_explain_ai:
-                            st.markdown("---")
-                            st.markdown("#### 🔍 AI Chart Explanation")
-                            
-                            output = st.session_state.pro_explain_ai
-                            
-                            # Summary
-                            if "summary_one_liner" in output:
-                                st.markdown(f"**{output['summary_one_liner']}**")
-                                st.markdown("")
-                            
-                            # ── TRADE SETUP CARD ──────────────────────────────
-                            if "trade_setup" in output and output["trade_setup"]:
-                                ts = output["trade_setup"]
-                                
-                                # Dollar upside/downside pill
-                                upside_d  = ts.get("upside_dollars")
-                                downside_d = ts.get("downside_dollars")
-                                rr_str = ""
-                                if upside_d and downside_d and float(downside_d) != 0:
-                                    rr = abs(float(upside_d) / float(downside_d))
-                                    rr_str = f" &nbsp;|&nbsp; ⚖️ R/R: <b>{rr:.1f}:1</b>"
-                                upside_pill  = f"<span style='color:#00C851;'>▲ <b>${float(upside_d):,.0f} upside</b></span>" if upside_d else ""
-                                downside_pill = f"<span style='color:#FF4444;'>▼ <b>${float(downside_d):,.0f} downside</b></span>" if downside_d else ""
+                        st.session_state.pro_bull_bear_ai = None
 
-                                st.markdown(f"""
+            if st.session_state.pro_explain_ai:
+                _out = st.session_state.pro_explain_ai
+                if "summary_one_liner" in _out:
+                    st.markdown(f"**{_out['summary_one_liner']}**")
+                if "trade_setup" in _out and _out["trade_setup"]:
+                    _ts  = _out["trade_setup"]
+                    _upd = _ts.get("upside_dollars")
+                    _dnd = _ts.get("downside_dollars")
+                    _rrs = ""
+                    if _upd and _dnd and float(_dnd) != 0:
+                        _rrs = f" &nbsp;|&nbsp; ⚖️ R/R: <b>{abs(float(_upd)/float(_dnd)):.1f}:1</b>"
+                    _u_pill = (f"<span style='color:#00C851;'>▲ <b>${float(_upd):,.0f} upside</b></span>" if _upd else "")
+                    _d_pill = (f"<span style='color:#FF4444;'>▼ <b>${float(_dnd):,.0f} downside</b></span>" if _dnd else "")
+                    st.markdown(f"""
 <div style="background:#111827; border-radius:12px; padding:18px; margin:8px 0; border:1px solid #2d3748;">
-  <div style="font-size:13px; color:#9ca3af; margin-bottom:12px;">
-    {upside_pill} &nbsp;{downside_pill}{rr_str}
+  <div style="font-size:13px; color:#9ca3af; margin-bottom:12px;">{_u_pill}&nbsp;{_d_pill}{_rrs}</div>
+  <div style="padding:10px; background:#0d2818; border-radius:8px; border-left:3px solid #00C851; margin-bottom:8px;">
+    <span style="color:#00C851; font-weight:700;">🟢 Bull Case</span><br>
+    <span style="color:#d1fae5; font-size:13px;">{clean_citation_tags(_ts.get("bull_case","—"))}</span>
   </div>
-
-  <div style="margin-bottom:12px; padding:10px; background:#0d2818; border-radius:8px; border-left:3px solid #00C851;">
-    <span style="color:#00C851; font-weight:700; font-size:14px;">🟢 Bull Case</span><br>
-    <span style="color:#d1fae5; font-size:13px;">{clean_citation_tags(ts.get('bull_case', '—'))}</span>
+  <div style="padding:10px; background:#2d0a0a; border-radius:8px; border-left:3px solid #FF4444; margin-bottom:8px;">
+    <span style="color:#FF4444; font-weight:700;">🔴 Bear Case</span><br>
+    <span style="color:#fee2e2; font-size:13px;">{clean_citation_tags(_ts.get("bear_case","—"))}</span>
   </div>
-
-  <div style="margin-bottom:12px; padding:10px; background:#2d0a0a; border-radius:8px; border-left:3px solid #FF4444;">
-    <span style="color:#FF4444; font-weight:700; font-size:14px;">🔴 Bear Case</span><br>
-    <span style="color:#fee2e2; font-size:13px;">{clean_citation_tags(ts.get('bear_case', '—'))}</span>
-  </div>
-
-  <div style="margin-bottom:12px; padding:10px; background:#1a1a0d; border-radius:8px; border-left:3px solid #FBBF24;">
-    <span style="color:#FBBF24; font-weight:700; font-size:14px;">📉 Deeper Buy Zone</span><br>
-    <span style="color:#fef3c7; font-size:13px;">{clean_citation_tags(ts.get('deeper_buy_zone', '—'))}</span>
-  </div>
-
-  <div style="margin-bottom:12px; padding:10px; background:#1a0d1a; border-radius:8px; border-left:3px solid #a855f7;">
-    <span style="color:#a855f7; font-weight:700; font-size:14px;">🛑 Stops</span><br>
-    <span style="color:#f3e8ff; font-size:13px;">
-      <b>Momentum:</b> {clean_citation_tags(ts.get('momentum_stop', '—'))}<br>
-      <b>Longer-term:</b> {clean_citation_tags(ts.get('value_stop', '—'))}
-    </span>
-  </div>
-
   <div style="padding:10px; background:#0f172a; border-radius:8px; border:1px solid #374151;">
-    <span style="color:#60a5fa; font-weight:700; font-size:14px;">⚡ Verdict</span><br>
-    <span style="color:#bfdbfe; font-size:13px; font-weight:600;">{clean_citation_tags(ts.get('verdict', '—'))}</span>
+    <span style="color:#60a5fa; font-weight:700;">⚡ Verdict</span><br>
+    <span style="color:#bfdbfe; font-size:13px; font-weight:600;">{clean_citation_tags(_ts.get("verdict","—"))}</span>
   </div>
-</div>
-""", unsafe_allow_html=True)
-                                st.markdown("")
-                            
-                            # Trend
-                            if "trend" in output and output["trend"]:
-                                st.markdown("**📈 Trend:**")
-                                for bullet in output["trend"]:
-                                    clean_bullet = clean_citation_tags(bullet)
-                                    st.markdown(f"- {clean_bullet}")
-                                st.markdown("")
-                            
-                            # Momentum
-                            if "momentum" in output and output["momentum"]:
-                                st.markdown("**🚀 Momentum:**")
-                                for bullet in output["momentum"]:
-                                    clean_bullet = clean_citation_tags(bullet)
-                                    st.markdown(f"- {clean_bullet}")
-                                st.markdown("")
-                            
-                            # Key Levels
-                            if "key_levels" in output:
-                                st.markdown("**📍 Key Levels:**")
-                                levels = output["key_levels"]
-                                
-                                if "support" in levels and levels["support"].get("level"):
-                                    sup_level = levels["support"]["level"]
-                                    sup_dist = levels["support"].get("distance_pct", 0)
-                                    st.markdown(f"- **Support:** ${sup_level:.2f} ({sup_dist:+.1f}% away)")
-                                
-                                if "resistance" in levels and levels["resistance"].get("level"):
-                                    res_level = levels["resistance"]["level"]
-                                    res_dist = levels["resistance"].get("distance_pct", 0)
-                                    st.markdown(f"- **Resistance:** ${res_level:.2f} ({res_dist:+.1f}% away)")
-                                
-                                if "watch_level" in levels and levels["watch_level"].get("level"):
-                                    watch_lvl = levels["watch_level"]["level"]
-                                    watch_note = levels["watch_level"].get("note", "")
-                                    st.markdown(f"- **Watch:** ${watch_lvl:.2f} — {watch_note}")
-                                
-                                st.markdown("")
-                            
-                            # What to Watch Next 5 Days
-                            if "what_to_watch_next_5_days" in output and output["what_to_watch_next_5_days"]:
-                                st.markdown("**👀 Watch Next 5 Days:**")
-                                for bullet in output["what_to_watch_next_5_days"]:
-                                    clean_bullet = clean_citation_tags(bullet)
-                                    st.markdown(f"- {clean_bullet}")
-                            
-                            st.info("✅ **Fact-locked AI**: All statements grounded in technical facts above")
-                        
-                        # ============= DISPLAY BULL VS BEAR AI OUTPUT =============
-                        if st.session_state.pro_bull_bear_ai:
-                            st.markdown("---")
-                            st.markdown("####⚖️ Bull vs Bear Analysis (AI)")
-                            
-                            output = st.session_state.pro_bull_bear_ai
-                            
-                            # Bull Case
-                            if "bull_case" in output and output["bull_case"]:
-                                st.markdown("##### 🐂 Bull Case:")
-                                for item in output["bull_case"]:
-                                    # Handle both old format (dict with "point") and new format (string)
-                                    if isinstance(item, dict):
-                                        point = item.get("point", "")
-                                    else:
-                                        point = str(item)
-                                    clean_point = clean_citation_tags(point)
-                                    st.markdown(f"- {clean_point}")
-                                st.markdown("")
-                            
-                            # Bear Case
-                            if "bear_case" in output and output["bear_case"]:
-                                st.markdown("##### 🐻 Bear Case:")
-                                for item in output["bear_case"]:
-                                    # Handle both old format (dict with "point") and new format (string)
-                                    if isinstance(item, dict):
-                                        point = item.get("point", "")
-                                    else:
-                                        point = str(item)
-                                    clean_point = clean_citation_tags(point)
-                                    st.markdown(f"- {clean_point}")
-                                st.markdown("")
-                            
-                            # Neutral Take
-                            if "neutral_take" in output:
-                                clean_neutral = clean_citation_tags(output["neutral_take"])
-                                st.markdown(f"**⚖️ Neutral Take:** {clean_neutral}")
-                                st.markdown("")
-                            
-                            # Conditions to Change View
-                            if "two_conditions_to_change_view" in output and output["two_conditions_to_change_view"]:
-                                st.markdown("**🔄 Conditions That Would Change This View:**")
-                                for cond in output["two_conditions_to_change_view"]:
-                                    # Handle both old format (dict with "condition") and new format (string)
-                                    if isinstance(cond, dict):
-                                        condition_text = cond.get("condition", "")
-                                    else:
-                                        condition_text = str(cond)
-                                    clean_condition = clean_citation_tags(condition_text)
-                                    st.markdown(f"- {clean_condition}")
-                            
-                            st.info("✅ **Fact-locked AI**: All arguments based on technical facts above")
-                
-                else:
-                    st.warning("⚠️ Not enough data to detect patterns. Try a different ticker or timeframe.")
-        
-        
-        # ✅ Disabled celebrations (balloons/confetti) on Pro tab
-        # Pro tab is a professional tool - no gamification elements
-        
-        # ✅ Removed Fundamental Screening from Pro (Pro is technical + AI only)
-        
-        # ✅ PRO CLEANUP + THEME FIX COMPLETE
-    
-    # AI Coach integration
-    #REMOVED: render_ai_coach("Pro Checklist", ticker=ticker_check if 'ticker_check' in locals() else None, facts=None)
+</div>""", unsafe_allow_html=True)
+                for _sec, _sec_lbl in [("trend", "📈 Trend"), ("momentum", "🚀 Momentum")]:
+                    if _sec in _out and _out[_sec]:
+                        st.markdown(f"**{_sec_lbl}:**")
+                        for _b in _out[_sec]:
+                            st.markdown(f"- {clean_citation_tags(_b)}")
+                if "key_levels" in _out:
+                    _kl = _out["key_levels"]
+                    st.markdown("**📍 Key Levels (AI):**")
+                    for _k, _kl_label in [("support","Support"),("resistance","Resistance")]:
+                        if _k in _kl and _kl[_k].get("level"):
+                            st.markdown(f"- **{_kl_label}:** ${_kl[_k]['level']:.2f} ({_kl[_k].get('distance_pct',0):+.1f}% away)")
+                st.info("✅ Fact-locked AI — grounded in technical facts above")
 
+            if st.session_state.pro_bull_bear_ai:
+                _out = st.session_state.pro_bull_bear_ai
+                _bb1, _bb2 = st.columns(2)
+                with _bb1:
+                    if "bull_case" in _out:
+                        st.markdown("##### 🐂 Bull Case")
+                        for _item in _out["bull_case"]:
+                            _pt = _item.get("point","") if isinstance(_item, dict) else str(_item)
+                            st.markdown(f"- {clean_citation_tags(_pt)}")
+                with _bb2:
+                    if "bear_case" in _out:
+                        st.markdown("##### 🐻 Bear Case")
+                        for _item in _out["bear_case"]:
+                            _pt = _item.get("point","") if isinstance(_item, dict) else str(_item)
+                            st.markdown(f"- {clean_citation_tags(_pt)}")
+                if "neutral_take" in _out:
+                    st.markdown(f"**⚖️ Neutral Take:** {clean_citation_tags(_out['neutral_take'])}")
+                st.info("✅ Fact-locked AI")
 
-
-    # ============= STRESS TEST - PRO FEATURE =============
+    # ── Stress Test ──────────────────────────────────────────────────────────────
     st.markdown("---")
     st.markdown("## 💥 Portfolio Stress Test")
     st.caption("*See how your paper portfolio would survive historical market crashes*")
     render_stress_test_page()
+
+
+# ============= TRADE IDEAS PAGE =============
+elif selected_page == "💡 Trade Ideas":
+
+    st.markdown("""
+    <div style="background:#0D0D20; border:1px solid rgba(255,255,255,0.12);
+                border-radius:12px; padding:16px 24px; margin-bottom:16px;">
+        <div style="font-size:22px; font-weight:700; color:#FFFFFF;">💡 Trade Ideas</div>
+        <div style="font-size:13px; color:rgba(255,255,255,0.55); margin-top:4px;">
+            AI-generated setups — entry, stop loss, targets, catalyst, conviction
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    st.caption("*Educational only — not financial advice. Always do your own research.*")
+
+    _ti_c1, _ti_c2 = st.columns([3, 1])
+    with _ti_c1:
+        _ti_input = st.text_input(
+            "Ticker or company:",
+            value=st.session_state.get("selected_ticker", ""),
+            placeholder="e.g. AAPL, NVDA, TSLA",
+            key="trade_ideas_ticker",
+        )
+    with _ti_c2:
+        st.write("")
+        _ti_gen = st.button("Generate Setup →", key="trade_ideas_generate",
+                             use_container_width=True, type="primary")
+
+    if "ti_last_ticker" not in st.session_state:
+        st.session_state.ti_last_ticker = None
+    if "ti_result" not in st.session_state:
+        st.session_state.ti_result = None
+    if "ti_quote" not in st.session_state:
+        st.session_state.ti_quote = None
+
+    if _ti_input != st.session_state.ti_last_ticker:
+        st.session_state.ti_result     = None
+        st.session_state.ti_quote      = None
+        st.session_state.ti_last_ticker = _ti_input
+
+    if _ti_gen and _ti_input:
+        _ti_resolved = resolve_company_to_ticker(_ti_input)
+        if not _ti_resolved:
+            st.error(f"Could not find ticker: {_ti_input}")
+        else:
+            _ti_q = get_quote(_ti_resolved)
+            if not _ti_q:
+                st.error(f"Could not fetch data for {_ti_resolved}")
+            else:
+                _ti_price = float(_ti_q.get("price", 0) or 0)
+                _ti_name  = _ti_q.get("name", _ti_resolved)
+                _ti_pe    = _ti_q.get("pe", None)
+                _ti_chg   = float(_ti_q.get("changesPercentage", 0) or 0)
+                _ti_52h   = _ti_q.get("yearHigh")
+                _ti_52l   = _ti_q.get("yearLow")
+
+                _ti_hist  = get_historical_ohlc(_ti_resolved, 1.0)
+                _ti_facts = compute_technical_facts(_ti_hist) if not _ti_hist.empty else {}
+                _ti_rsi   = _ti_facts.get("rsi14_last")
+                _ti_sma50 = _ti_facts.get("sma50")
+                _ti_sma200= _ti_facts.get("sma200")
+                _ti_sup   = _ti_facts.get("support_level")
+                _ti_res   = _ti_facts.get("resistance_level")
+
+                _ti_ctx = f"""Stock: {_ti_name} ({_ti_resolved})
+Current Price: ${_ti_price:.2f}
+Today Change: {_ti_chg:+.2f}%
+52W High: ${f'{_ti_52h:.2f}' if _ti_52h else 'N/A'}
+52W Low:  ${f'{_ti_52l:.2f}' if _ti_52l else 'N/A'}
+P/E: {_ti_pe if _ti_pe else 'N/A'}
+RSI(14): {f'{_ti_rsi:.1f}' if _ti_rsi else 'N/A'}
+SMA50:  ${f'{_ti_sma50:.2f}' if _ti_sma50 else 'N/A'}
+SMA200: ${f'{_ti_sma200:.2f}' if _ti_sma200 else 'N/A'}
+Support:    ${f'{_ti_sup:.2f}' if _ti_sup else 'N/A'}
+Resistance: ${f'{_ti_res:.2f}' if _ti_res else 'N/A'}"""
+
+                _ti_prompt = (
+                    "You are a professional technical analyst. Based ONLY on the data below, "
+                    "generate a specific, actionable trade setup.\n\n"
+                    + _ti_ctx
+                    + "\n\nReturn a JSON object with these EXACT keys:\n"
+                    '{"setup_type": "e.g. Bullish Breakout / Oversold Bounce / Trend Continuation / '
+                    'Resistance Rejection / Consolidation Break",\n'
+                    ' "bias": "bullish" | "bearish" | "neutral",\n'
+                    ' "entry_zone": "specific price range like \'$182 – $185\'",\n'
+                    ' "stop_loss": "specific price with % risk like \'$175 (-4.2%)\'",\n'
+                    ' "take_profit_1": "first target with % gain",\n'
+                    ' "take_profit_2": "second target with % gain",\n'
+                    ' "take_profit_3": "third target with % gain",\n'
+                    ' "risk_reward": "like \'1:2.5\'",\n'
+                    ' "time_horizon": "like \'2–4 weeks\'",\n'
+                    ' "catalyst": "1-2 sentences on what could drive the move",\n'
+                    ' "conviction": "High" | "Medium" | "Low",\n'
+                    ' "conviction_reason": "one sentence",\n'
+                    ' "key_risk": "main risk to the thesis"}\n\n'
+                    "Return pure JSON only. No markdown, no explanation."
+                )
+
+                with st.spinner(f"Generating trade setup for {_ti_name}…"):
+                    _ti_result = call_perplexity_json(_ti_prompt, max_tokens=1000, temperature=0.2)
+                st.session_state.ti_result   = _ti_result
+                st.session_state.ti_quote    = _ti_q
+                st.session_state.ti_resolved = _ti_resolved
+
+    # ── Display result ────────────────────────────────────────────────────────
+    if st.session_state.ti_result and st.session_state.ti_quote:
+        _r  = st.session_state.ti_result
+        _q  = st.session_state.ti_quote
+        _tk = st.session_state.get("ti_resolved", _ti_input)
+        _p  = float(_q.get("price", 0) or 0)
+        _nm = _q.get("name", _tk)
+        _ch = float(_q.get("changesPercentage", 0) or 0)
+
+        _bias  = (_r.get("bias", "neutral") or "neutral").lower()
+        _bcol  = "#00C851" if _bias == "bullish" else "#FF4444" if _bias == "bearish" else "#FFA500"
+        _conv  = _r.get("conviction", "Medium") or "Medium"
+        _ccol  = {"High": "#00C851", "Medium": "#FFA500", "Low": "#FF4444"}.get(_conv, "#FFA500")
+
+        # Header card
+        st.markdown(f"""
+        <div style="background:#0D0D20; border:1px solid rgba(255,255,255,0.12);
+                    border-radius:14px; padding:20px 24px; margin:16px 0;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
+                <div>
+                    <div style="font-size:22px; font-weight:700; color:#FFFFFF;">{_nm}</div>
+                    <div style="font-size:14px; color:rgba(255,255,255,0.5); margin-top:2px;">{_tk}</div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-size:22px; font-weight:700; color:#00E5FF;">${_p:.2f}</div>
+                    <div style="font-size:13px; color:{'#00C851' if _ch >= 0 else '#FF4444'};">{_ch:+.2f}% today</div>
+                </div>
+            </div>
+            <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;">
+                <span style="background:{_bcol}22; color:{_bcol}; padding:4px 14px; border-radius:20px;
+                             font-size:13px; font-weight:600; border:1px solid {_bcol}44;">
+                    {_bias.capitalize()}
+                </span>
+                <span style="background:rgba(255,255,255,0.08); color:#FFFFFF; padding:4px 14px;
+                             border-radius:20px; font-size:13px;">
+                    {_r.get('setup_type','Trade Setup')}
+                </span>
+                <span style="background:{_ccol}22; color:{_ccol}; padding:4px 14px; border-radius:20px;
+                             font-size:13px; font-weight:600; border:1px solid {_ccol}44;">
+                    {_conv} Conviction
+                </span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Metrics row 1
+        _m1, _m2, _m3, _m4 = st.columns(4)
+        _m1.metric("Entry Zone",    _r.get("entry_zone",    "—"))
+        _m2.metric("Stop Loss",     _r.get("stop_loss",     "—"))
+        _m3.metric("Take Profit 1", _r.get("take_profit_1", "—"))
+        _m4.metric("Risk / Reward", _r.get("risk_reward",   "—"))
+
+        # Metrics row 2
+        _t2 = _r.get("take_profit_2")
+        _t3 = _r.get("take_profit_3")
+        _th = _r.get("time_horizon")
+        if _t2 or _t3 or _th:
+            _m5, _m6, _m7, _m8 = st.columns(4)
+            if _t2: _m5.metric("Take Profit 2", _t2)
+            if _t3: _m6.metric("Take Profit 3", _t3)
+            if _th: _m7.metric("Time Horizon",  _th)
+
+        st.markdown("")
+
+        # Catalyst + Key Risk cards
+        _dc1, _dc2 = st.columns(2)
+        with _dc1:
+            if _r.get("catalyst"):
+                st.markdown(f"""
+                <div style="background:#0A1A0A; border:1px solid #00C85144; border-radius:10px; padding:14px 16px;">
+                    <div style="color:#00C851; font-weight:700; font-size:13px; margin-bottom:6px;">💡 Catalyst</div>
+                    <div style="color:rgba(255,255,255,0.85); font-size:13px; line-height:1.5;">{_r['catalyst']}</div>
+                </div>
+                """, unsafe_allow_html=True)
+        with _dc2:
+            if _r.get("key_risk"):
+                st.markdown(f"""
+                <div style="background:#1A0A0A; border:1px solid #FF444444; border-radius:10px; padding:14px 16px;">
+                    <div style="color:#FF4444; font-weight:700; font-size:13px; margin-bottom:6px;">⚠️ Key Risk</div>
+                    <div style="color:rgba(255,255,255,0.85); font-size:13px; line-height:1.5;">{_r['key_risk']}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+        if _r.get("conviction_reason"):
+            st.caption(f"**Why {_conv} conviction:** {_r['conviction_reason']}")
+
+        st.markdown("")
+        st.caption("⚠️ *AI-generated trade idea. Not financial advice. Levels are illustrative. Always do your own research.*")
+
+    elif not _ti_gen and not st.session_state.ti_result:
+        st.markdown("""
+        <div style="background:#0D0D20; border:1px dashed rgba(255,255,255,0.15); border-radius:12px;
+                    padding:40px 24px; text-align:center; margin-top:20px;">
+            <div style="font-size:44px; margin-bottom:14px;">💡</div>
+            <div style="color:rgba(255,255,255,0.7); font-size:15px; line-height:1.6;">
+                Enter a ticker above and click
+                <strong style="color:#FFFFFF;">Generate Setup →</strong>
+                to get an AI trade idea with entry, stop loss,
+                take profit targets, catalyst, and conviction level.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
 
 # ============================================================================
 # 👑 ULTIMATE TAB - PREMIUM AI-FIRST ANALYSIS
