@@ -22034,14 +22034,14 @@ elif selected_page == "👤 Naman's Portfolio":
 elif selected_page == "👑 Become a VIP":
 
     st.markdown("""
-    <div style="background:linear-gradient(135deg,#0A0A1A 0%,#1A1A2E 100%);
-                border:1px solid rgba(255,215,0,0.3); border-radius:14px;
+    <div style="background:linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 50%, #E8F5E9 100%);
+                border:2px solid #90CAF9; border-radius:14px;
                 padding:24px 32px; margin-bottom:24px; text-align:center;">
-        <div style="font-size:28px; font-weight:800; color:#FFFFFF;">👑 Go Ultimate</div>
-        <div style="font-size:15px; color:rgba(255,255,255,0.75); margin-top:6px;">
+        <div style="font-size:28px; font-weight:800; color:#1a1a1a;">👑 Go Ultimate</div>
+        <div style="font-size:15px; color:#555; margin-top:6px;">
             Unlock every feature — AI analysis, trade setups, Dip Radar, advanced charts & more.
         </div>
-        <div style="font-size:18px; font-weight:700; color:#00C851; margin-top:12px;">
+        <div style="font-size:18px; font-weight:700; color:#2E7D32; margin-top:12px;">
             🎉 First month FREE — then $10/month · Cancel anytime
         </div>
     </div>
@@ -22128,17 +22128,17 @@ elif selected_page == "👑 Become a VIP":
         st.markdown("---")
         if not st.session_state.get("is_logged_in"):
             st.markdown("""
-            <div style="background:linear-gradient(135deg,#0A0A1A 0%,#1A1A2E 100%);
+            <div style="background:linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%);
                         border:2px solid #FFD700; border-radius:15px; padding:36px;
                         text-align:center; margin:20px 0;">
-                <h2 style="color:#FFD700; margin-bottom:16px;">👑 Go Ultimate</h2>
-                <p style="color:#00C851; font-size:20px; font-weight:700; margin-bottom:6px;">
+                <h2 style="color:#E6A800; margin-bottom:16px;">👑 Go Ultimate</h2>
+                <p style="color:#2E7D32; font-size:20px; font-weight:700; margin-bottom:6px;">
                     🎉 First month FREE — then $10/month
                 </p>
-                <p style="color:rgba(255,255,255,0.7); font-size:14px; margin-bottom:10px;">
+                <p style="color:#555; font-size:14px; margin-bottom:10px;">
                     Cancel anytime · No charge for 30 days · Secure payment via Stripe
                 </p>
-                <p style="color:#FF6B6B; font-size:15px; font-weight:600; margin-top:16px;">
+                <p style="color:#C62828; font-size:15px; font-weight:600; margin-top:16px;">
                     ⚠️ Please sign up / sign in first to start your free trial
                 </p>
             </div>
@@ -22155,17 +22155,17 @@ elif selected_page == "👑 Become a VIP":
             ultimate_link = get_stripe_payment_link("ultimate")
             if ultimate_link:
                 st.markdown("""
-                <div style="background:linear-gradient(135deg,#0A0A1A 0%,#1A1A2E 100%);
+                <div style="background:linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%);
                             border:2px solid #FFD700; border-radius:15px; padding:36px;
                             text-align:center; margin:20px 0;">
-                    <h2 style="color:#FFD700; margin-bottom:16px;">👑 Start Your Free Month</h2>
-                    <p style="color:#00C851; font-size:20px; font-weight:700; margin-bottom:6px;">
+                    <h2 style="color:#E6A800; margin-bottom:16px;">👑 Start Your Free Month</h2>
+                    <p style="color:#2E7D32; font-size:20px; font-weight:700; margin-bottom:6px;">
                         🎉 First month FREE — then $10/month
                     </p>
-                    <p style="color:rgba(255,255,255,0.7); font-size:13px; margin-bottom:4px;">
+                    <p style="color:#555; font-size:13px; margin-bottom:4px;">
                         Cancel anytime · No charge for 30 days · Secure payment via Stripe
                     </p>
-                    <p style="color:rgba(255,255,255,0.55); font-size:12px;">
+                    <p style="color:#777; font-size:12px;">
                         Refer a friend → both get an extra free month!
                     </p>
                 </div>
@@ -22176,11 +22176,11 @@ elif selected_page == "👑 Become a VIP":
                     st.caption("🔒 Secured by Stripe · 256-bit encryption")
             else:
                 st.markdown("""
-                <div style="background:linear-gradient(135deg,#0A0A1A 0%,#1A1A2E 100%);
+                <div style="background:linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%);
                             border:2px solid #FFD700; border-radius:15px; padding:36px;
                             text-align:center; margin:20px 0;">
-                    <h2 style="color:#FFD700; margin-bottom:16px;">🎉 Join the Waitlist</h2>
-                    <p style="color:rgba(255,255,255,0.8); font-size:16px; margin-bottom:20px;">
+                    <h2 style="color:#E6A800; margin-bottom:16px;">🎉 Join the Waitlist</h2>
+                    <p style="color:#555; font-size:16px; margin-bottom:20px;">
                         Be among the first to access Ultimate when spots open!
                     </p>
                 </div>
@@ -22353,29 +22353,30 @@ elif selected_page == "💡 Trade Ideas":
         _ccol  = {"High": "#00C851", "Medium": "#FFA500", "Low": "#FF4444"}.get(_conv, "#FFA500")
 
         st.markdown(f"""
-        <div style="background:#0D0D20; border:1px solid rgba(255,255,255,0.12);
-                    border-radius:14px; padding:20px 24px; margin:16px 0; color:#FFFFFF !important;">
+        <div style="background:linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%);
+                    border:1px solid #90CAF9;
+                    border-radius:14px; padding:20px 24px; margin:16px 0;">
             <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
                 <div>
-                    <div style="font-size:22px; font-weight:700; color:#FFFFFF !important;">{_nm}</div>
-                    <div style="font-size:14px; color:rgba(255,255,255,0.6) !important; margin-top:2px;">{_tk}</div>
+                    <div style="font-size:22px; font-weight:700; color:#1a1a1a !important;">{_nm}</div>
+                    <div style="font-size:14px; color:#555 !important; margin-top:2px;">{_tk}</div>
                 </div>
                 <div style="text-align:right;">
-                    <div style="font-size:22px; font-weight:700; color:#00E5FF !important;">${_p:.2f}</div>
-                    <div style="font-size:13px; color:{'#00C851' if _ch >= 0 else '#FF4444'} !important;">{_ch:+.2f}% today</div>
+                    <div style="font-size:22px; font-weight:700; color:#0D47A1 !important;">${_p:.2f}</div>
+                    <div style="font-size:13px; color:{'#2E7D32' if _ch >= 0 else '#C62828'} !important;">{_ch:+.2f}% today</div>
                 </div>
             </div>
             <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;">
                 <span style="background:{_bcol}22; color:{_bcol} !important; padding:4px 14px; border-radius:20px;
-                             font-size:13px; font-weight:600; border:1px solid {_bcol}44;">
+                             font-size:13px; font-weight:600; border:1px solid {_bcol}66;">
                     {_bias.capitalize()}
                 </span>
-                <span style="background:rgba(255,255,255,0.08); color:#FFFFFF !important; padding:4px 14px;
+                <span style="background:rgba(0,0,0,0.06); color:#1a1a1a !important; padding:4px 14px;
                              border-radius:20px; font-size:13px;">
                     {_r.get('setup_type','Trade Setup')}
                 </span>
                 <span style="background:{_ccol}22; color:{_ccol} !important; padding:4px 14px; border-radius:20px;
-                             font-size:13px; font-weight:600; border:1px solid {_ccol}44;">
+                             font-size:13px; font-weight:600; border:1px solid {_ccol}66;">
                     {_conv} Conviction
                 </span>
             </div>
@@ -22402,17 +22403,17 @@ elif selected_page == "💡 Trade Ideas":
         with _dc1:
             if _r.get("catalyst"):
                 st.markdown(f"""
-                <div style="background:#0A1A0A; border:1px solid #00C85144; border-radius:10px; padding:14px 16px;">
-                    <div style="color:#00C851 !important; font-weight:700; font-size:13px; margin-bottom:6px;">💡 Catalyst</div>
-                    <div style="color:#FFFFFF !important; font-size:13px; line-height:1.5;">{_r['catalyst']}</div>
+                <div style="background:#E8F5E9; border:1px solid #A5D6A7; border-radius:10px; padding:14px 16px;">
+                    <div style="color:#2E7D32 !important; font-weight:700; font-size:13px; margin-bottom:6px;">💡 Catalyst</div>
+                    <div style="color:#1a1a1a !important; font-size:13px; line-height:1.5;">{_r['catalyst']}</div>
                 </div>
                 """, unsafe_allow_html=True)
         with _dc2:
             if _r.get("key_risk"):
                 st.markdown(f"""
-                <div style="background:#1A0A0A; border:1px solid #FF444444; border-radius:10px; padding:14px 16px;">
-                    <div style="color:#FF4444 !important; font-weight:700; font-size:13px; margin-bottom:6px;">⚠️ Key Risk</div>
-                    <div style="color:#FFFFFF !important; font-size:13px; line-height:1.5;">{_r['key_risk']}</div>
+                <div style="background:#FFEBEE; border:1px solid #EF9A9A; border-radius:10px; padding:14px 16px;">
+                    <div style="color:#C62828 !important; font-weight:700; font-size:13px; margin-bottom:6px;">⚠️ Key Risk</div>
+                    <div style="color:#1a1a1a !important; font-size:13px; line-height:1.5;">{_r['key_risk']}</div>
                 </div>
                 """, unsafe_allow_html=True)
 
@@ -22423,12 +22424,13 @@ elif selected_page == "💡 Trade Ideas":
 
     elif not _ti_gen and not st.session_state.ti_result:
         st.markdown("""
-        <div style="background:#0D0D20; border:1px dashed rgba(255,255,255,0.15); border-radius:12px;
+        <div style="background:linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%);
+                    border:1px dashed #90CAF9; border-radius:12px;
                     padding:40px 24px; text-align:center; margin-top:20px;">
             <div style="font-size:44px; margin-bottom:14px;">💡</div>
-            <div style="color:#FFFFFF !important; font-size:15px; line-height:1.6;">
+            <div style="color:#1a1a1a !important; font-size:15px; line-height:1.6;">
                 Enter a ticker above and click
-                <strong style="color:#00E5FF !important;">Generate Setup →</strong>
+                <strong style="color:#0D47A1 !important;">Generate Setup →</strong>
                 to get an AI trade idea with entry, stop loss, take profit targets, catalyst, and conviction.
             </div>
         </div>
@@ -22440,42 +22442,114 @@ elif selected_page == "💡 Trade Ideas":
 elif selected_page == "📡 Dip Radar":
 
     st.markdown("""
-    <div style="background:#0D0D20 !important; border:1px solid rgba(255,255,255,0.15);
-                border-radius:12px; padding:16px 24px; margin-bottom:16px; color:#FFFFFF !important;">
-        <div style="font-size:22px; font-weight:700; color:#FFFFFF !important;">📡 Dip Radar</div>
-        <div style="font-size:13px; color:rgba(255,255,255,0.75) !important; margin-top:4px;">
+    <div class="hero-container-simple">
+        <div style="font-size:22px; font-weight:700; color:#1a1a1a !important;">📡 Dip Radar</div>
+        <div style="font-size:13px; color:rgba(26,26,26,0.7) !important; margin-top:4px;">
             Stocks ranked by how far they've dipped from their 52-week high
         </div>
     </div>
     """, unsafe_allow_html=True)
     st.caption("*Auto-loads from your paper portfolio. Add stocks in 💼 Paper Portfolio first.*")
 
+    # ── Initialize watchlist in session state ──
+    if "dip_radar_watchlist" not in st.session_state:
+        st.session_state.dip_radar_watchlist = []
+
     # Try to auto-load from Supabase portfolio
-    _dr_tickers = []
+    _dr_portfolio_tickers = []
     try:
         if st.session_state.get("is_logged_in") and st.session_state.get("user_id"):
             _dr_trades = load_trades_from_db(st.session_state.user_id, "user")
             if _dr_trades:
                 _dr_positions = rebuild_portfolio_from_trades(_dr_trades)
-                _dr_tickers   = [p["ticker"] for p in _dr_positions if p.get("shares", 0) > 0]
+                _dr_portfolio_tickers = [p["ticker"] for p in _dr_positions if p.get("shares", 0) > 0]
     except Exception:
-        _dr_tickers = []
+        _dr_portfolio_tickers = []
 
-    if _dr_tickers:
-        render_dip_radar(_dr_tickers, chart_title="My Portfolio")
-    else:
-        st.info("No portfolio positions found. Add stocks to **💼 Paper Portfolio** to auto-populate.")
+    if _dr_portfolio_tickers:
+        st.markdown("#### 📂 My Portfolio")
+        render_dip_radar(_dr_portfolio_tickers, chart_title="My Portfolio")
+        st.markdown("---")
 
-    st.markdown("**Want to try it?** Paste tickers manually:")
-    _dr_manual = st.text_input(
-        "Tickers (comma-separated):",
+    # ── Add stocks section ──
+    st.markdown("#### ➕ Add Stocks to Watchlist")
+    _dr_add_col1, _dr_add_col2 = st.columns([3, 1])
+    with _dr_add_col1:
+        _dr_new_ticker = st.text_input(
+            "Ticker or company name:",
+            placeholder="e.g. AAPL or Apple",
+            key="dip_radar_add_ticker",
+        )
+    with _dr_add_col2:
+        st.write("")
+        _dr_add_btn = st.button("Add →", key="dip_radar_add_btn", use_container_width=True, type="primary")
+
+    if _dr_add_btn and _dr_new_ticker:
+        _resolved = resolve_company_to_ticker(_dr_new_ticker.strip())
+        if _resolved:
+            if _resolved not in st.session_state.dip_radar_watchlist:
+                st.session_state.dip_radar_watchlist.append(_resolved)
+                st.success(f"Added **{_resolved}** to watchlist")
+                st.rerun()
+            else:
+                st.warning(f"**{_resolved}** is already in your watchlist")
+        else:
+            st.error(f"Could not find ticker: {_dr_new_ticker}")
+
+    st.caption("Or paste multiple tickers at once (comma-separated):")
+    _dr_bulk = st.text_input(
+        "Bulk add:",
         placeholder="e.g. AAPL, NVDA, TSLA, MSFT, GOOGL",
-        key="dip_radar_manual_standalone",
+        key="dip_radar_bulk_add",
     )
-    if _dr_manual:
-        _dr_manual_tickers = [t.strip().upper() for t in _dr_manual.split(",") if t.strip()]
-        if _dr_manual_tickers:
-            render_dip_radar(_dr_manual_tickers, chart_title="Custom Watchlist")
+    if _dr_bulk:
+        _dr_bulk_tickers = [t.strip().upper() for t in _dr_bulk.split(",") if t.strip()]
+        for _bt in _dr_bulk_tickers:
+            if _bt and _bt not in st.session_state.dip_radar_watchlist:
+                st.session_state.dip_radar_watchlist.append(_bt)
+
+    # ── Show watchlist ──
+    if st.session_state.dip_radar_watchlist:
+        st.markdown("---")
+        st.markdown(f"#### 📡 Your Watchlist ({len(st.session_state.dip_radar_watchlist)} stocks)")
+
+        # Show tickers as removable pills
+        _dr_pill_cols = st.columns(min(len(st.session_state.dip_radar_watchlist), 8))
+        _dr_to_remove = None
+        for _idx, _tk in enumerate(st.session_state.dip_radar_watchlist):
+            with _dr_pill_cols[_idx % min(len(st.session_state.dip_radar_watchlist), 8)]:
+                if st.button(f"✕ {_tk}", key=f"dr_remove_{_tk}", use_container_width=True):
+                    _dr_to_remove = _tk
+
+        if _dr_to_remove:
+            st.session_state.dip_radar_watchlist.remove(_dr_to_remove)
+            st.rerun()
+
+        render_dip_radar(st.session_state.dip_radar_watchlist, chart_title="Custom Watchlist")
+
+        # Clear all button
+        if st.button("🗑️ Clear Watchlist", key="dip_radar_clear_all"):
+            st.session_state.dip_radar_watchlist = []
+            st.rerun()
+
+    if not _dr_portfolio_tickers and not st.session_state.dip_radar_watchlist and not _dr_bulk:
+        st.info("Add stocks above to see them ranked by dip from their 52-week high.")
+
+    # ── Save prompt for non-logged-in users ──
+    if not st.session_state.get("is_logged_in") and st.session_state.dip_radar_watchlist:
+        st.markdown("---")
+        st.markdown("""
+        <div style="background:linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%);
+                    border:2px solid #90CAF9; border-radius:12px; padding:18px 24px; text-align:center;">
+            <div style="font-size:15px; font-weight:600; color:#1a1a1a;">🔒 Sign in to save your watchlist</div>
+            <div style="font-size:13px; color:#555; margin-top:6px;">
+                Your watchlist will be lost when you leave. Sign in to keep it across sessions.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("📝 Sign In to Save", key="dip_radar_signin", type="primary", use_container_width=True):
+            st.session_state.show_login_popup = True
+            st.rerun()
 
     st.markdown("---")
     st.caption("*Data from FMP API. Educational purposes only. Not financial advice.*")
