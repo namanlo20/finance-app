@@ -22482,1567 +22482,1018 @@ elif selected_page == "📡 Dip Radar":
 
 
 elif selected_page == "👑 Ultimate":
-    
-    # Page popup removed - user requested no popups except welcome
-    
-    # ============= PURPLE PILL HEADER =============
-    st.markdown("""
-    <div style="background: linear-gradient(135deg, #9D4EDD 0%, #7B2CBF 100%); 
-                padding: 15px 25px; 
-                border-radius: 15px; 
-                text-align: center; 
-                margin-bottom: 25px;
-                box-shadow: 0 4px 15px rgba(157, 78, 221, 0.3);">
-        <h2 style="margin: 0; color: white; font-size: 24px;">
-            🟣 ULTIMATE — AI Planner + Backtest-Lite
-        </h2>
-        <p style="margin: 5px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">
-            Institutional-grade analysis • 7-10 bullet deep-dives • Premium exclusive
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    st.caption("*Premium AI-powered analysis with fact-locked insights. Everything adapts to your selected ticker.*")
-    
-    # ============= RED THEME STYLING =============
+
+    # ============= ULTIMATE TAB — COMPLETE REBUILD =============
+    # Focused on: Signal Dashboard, Trader Alerts, Visual Key Levels,
+    # Clean Trade Setup, Scenarios, and one unified AI Deep Dive.
+
+    # ── CSS ─────────────────────────────────────────────────────────────────────
     st.markdown("""
     <style>
-    /* Red theme for Ultimate tab */
-    [data-testid="stExpander"] {
-        background-color: rgba(255, 75, 75, 0.1) !important;
-        border: 1px solid #FF4B4B !important;
+    /* Signal cards */
+    .ult-signal-card {
+        border-radius: 12px;
+        padding: 14px 16px;
+        margin-bottom: 6px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
     }
-    
-    [data-testid="stExpander"] summary {
-        background-color: #FF4B4B !important;
-        color: white !important;
-        font-weight: bold !important;
+    .ult-signal-card.bullish  { background: rgba(0,200,81,0.13); border: 1px solid rgba(0,200,81,0.45); }
+    .ult-signal-card.bearish  { background: rgba(255,68,68,0.13); border: 1px solid rgba(255,68,68,0.45); }
+    .ult-signal-card.neutral  { background: rgba(255,200,0,0.10); border: 1px solid rgba(255,200,0,0.40); }
+
+    /* Alert cards */
+    .ult-alert { border-radius:10px; padding:14px 18px; margin:8px 0; }
+    .ult-alert.hot    { background:rgba(255,68,68,0.14); border-left:4px solid #FF4444; }
+    .ult-alert.warm   { background:rgba(255,165,0,0.14); border-left:4px solid #FFA500; }
+    .ult-alert.cold   { background:rgba(0,200,81,0.13);  border-left:4px solid #00C851; }
+    .ult-alert.info   { background:rgba(0,200,255,0.10); border-left:4px solid #00C8FF; }
+
+    /* Trade setup cards */
+    .ult-trade-card {
+        border-radius: 12px;
+        padding: 18px 20px;
+        text-align: center;
     }
-    
-    /* Selectbox styling */
-    [data-testid="stSelectbox"] > div > div {
-        background-color: #FF4B4B !important;
-        color: white !important;
-    }
-    
-    [data-testid="stSelectbox"] [data-baseweb="select"] > div {
-        background-color: #FF4B4B !important;
-        color: white !important;
-    }
-    
-    /* Dropdown menu styling */
-    div[data-baseweb="popover"] {
-        background-color: #FF4B4B !important;
-    }
-    
-    div[data-baseweb="popover"] ul[role="listbox"] {
-        background-color: #FF4B4B !important;
-    }
-    
-    div[data-baseweb="popover"] li[role="option"] {
-        background-color: #FF4B4B !important;
-        color: white !important;
-    }
-    
-    div[data-baseweb="popover"] li[role="option"]:hover {
-        background-color: #CC3333 !important;
-    }
+    .ult-trade-card.entry { background:rgba(0,200,255,0.12); border:1px solid rgba(0,200,255,0.4); }
+    .ult-trade-card.stop  { background:rgba(255,68,68,0.12);  border:1px solid rgba(255,68,68,0.4); }
+    .ult-trade-card.target{ background:rgba(0,200,81,0.12);   border:1px solid rgba(0,200,81,0.4); }
+
+    /* Scenario cards */
+    .ult-scenario { border-radius:12px; padding:18px 20px; }
+    .ult-scenario.bull { background:rgba(0,200,81,0.10); border:1px solid rgba(0,200,81,0.35); }
+    .ult-scenario.base { background:rgba(255,200,0,0.09); border:1px solid rgba(255,200,0,0.35); }
+    .ult-scenario.bear { background:rgba(255,68,68,0.10); border:1px solid rgba(255,68,68,0.35); }
+
+    /* Price ladder */
+    .ult-price-row { display:flex; align-items:center; padding:7px 14px; border-radius:8px; margin:3px 0; font-size:14px; }
+    .ult-price-row.resistance { background:rgba(255,68,68,0.12); }
+    .ult-price-row.current    { background:rgba(0,200,255,0.18); font-weight:700; font-size:16px; }
+    .ult-price-row.support    { background:rgba(0,200,81,0.11); }
+
+    /* AI output */
+    .ult-ai-section { background:#0D0D20; border:1px solid rgba(157,78,221,0.4); border-radius:14px; padding:22px 26px; margin:12px 0; }
+    .ult-ai-bullet  { padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.06); font-size:14px; line-height:1.6; }
+    .ult-ai-bullet:last-child { border-bottom:none; }
+
+    /* Header pill */
+    .ult-header { background:linear-gradient(135deg,#4A0E8F 0%,#7B2CBF 60%,#9D4EDD 100%);
+                  padding:16px 26px; border-radius:14px; margin-bottom:20px;
+                  box-shadow:0 4px 20px rgba(157,78,221,0.35); }
     </style>
     """, unsafe_allow_html=True)
-    
-    # ============= REUSE PRO DATA LOADING =============
-    # Use exact same data loading as Pro - DO NOT DUPLICATE
-    
-    col1, col2, col3, col4 = st.columns([2, 2, 2, 1])
-    
-    # Use demo ticker if coming from VIP page
-    default_ticker = st.session_state.get('demo_ticker', "GOOGL")
-    
-    with col1:
-        ticker = st.text_input("Ticker", value=default_ticker, key="ultimate_ticker").upper().strip()
-    
-    with col2:
-        timeframe_options = ["6mo", "1y", "2y", "5y"]
-        timeframe = st.selectbox("Timeframe", timeframe_options, index=1, key="ultimate_timeframe")
-    
-    with col3:
-        interval_options = ["1d", "1wk", "1mo"]
-        interval = st.selectbox("Interval", interval_options, index=0, key="ultimate_interval")
-    
-    with col4:
-        simple_mode = st.toggle("ELI5", value=False, key="ultimate_simple_mode",
-                               help="Explain Like I'm 5 - simpler language")
-    
-    analyze_btn = st.button("🔍 Analyze", key="ultimate_analyze", use_container_width=True)
-    
-    # ============= ACCESS GATE: Ultimate only =============
-    user_tier = get_user_tier()
-    if analyze_btn and user_tier != "ultimate":
-        analyze_btn = False  # Block the analyze
-        tier_label = user_tier.title() if user_tier != "free" else "Free"
-        st.markdown(f"""
-        <div style="background: linear-gradient(135deg, #F3E5F5 0%, #E1BEE7 100%); border: 2px solid #9C27B0; 
-                    border-radius: 12px; padding: 25px; text-align: center; margin: 20px 0;">
-            <h3 style="color: #6A1B9A; margin: 0 0 10px 0;">🔒 Ultimate Feature</h3>
-            <p style="color: #333; margin: 0;">AI Planner & Backtest-Lite requires an <strong>Ultimate</strong> subscription.</p>
-            <p style="color: #555; font-size: 14px; margin-top: 10px;">You're on the <strong>{tier_label}</strong> plan. Upgrade to access this feature.</p>
+
+    # ── HEADER ──────────────────────────────────────────────────────────────────
+    st.markdown("""
+    <div class="ult-header">
+        <div style="font-size:22px;font-weight:800;color:#fff;">👑 Ultimate — Trader Intelligence</div>
+        <div style="font-size:13px;color:rgba(255,255,255,0.75);margin-top:4px;">
+            Signal dashboard · Trader alerts · Key levels · Trade setup · AI deep dive
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── INPUT ROW ────────────────────────────────────────────────────────────────
+    _u_c1, _u_c2, _u_c3, _u_c4 = st.columns([3, 1.5, 1.5, 1.2])
+    _default_ticker = st.session_state.get("demo_ticker", st.session_state.get("selected_ticker", "AAPL"))
+    with _u_c1:
+        _ult_ticker = st.text_input("Ticker or company name:", value=_default_ticker, key="ult_ticker_v2", label_visibility="collapsed", placeholder="e.g. AAPL, TSLA, NVDA...").strip()
+    with _u_c2:
+        _ult_timeframe = st.selectbox("Timeframe", ["3M", "6M", "1Y", "2Y"], index=2, key="ult_tf_v2", label_visibility="collapsed")
+    with _u_c3:
+        _ult_overlays = st.multiselect("Chart extras", ["Bollinger Bands", "MACD", "Volume"], default=["Volume"], key="ult_overlays", label_visibility="collapsed")
+    with _u_c4:
+        _ult_btn = st.button("⚡ Analyze", key="ult_analyze_v2", use_container_width=True, type="primary")
+
+    # ── ACCESS GATE ──────────────────────────────────────────────────────────────
+    _ult_user_tier = get_user_tier()
+    if _ult_btn and _ult_user_tier != "ultimate":
+        _ult_btn = False
+        st.markdown("""
+        <div style="background:linear-gradient(135deg,#1a0030,#3a0060);border:2px solid #9D4EDD;
+                    border-radius:14px;padding:28px;text-align:center;margin:20px 0;">
+            <div style="font-size:26px;margin-bottom:8px;">🔒</div>
+            <div style="font-size:18px;font-weight:700;color:#fff;margin-bottom:6px;">Ultimate Feature</div>
+            <div style="font-size:14px;color:rgba(255,255,255,0.7);">Trader Intelligence requires an Ultimate subscription ($10/mo)</div>
         </div>
         """, unsafe_allow_html=True)
-        if st.button("👑 Upgrade to Ultimate", key="ultimate_gate_upgrade", type="primary", use_container_width=True):
+        if st.button("👑 Upgrade to Ultimate", key="ult_gate_up_v2", type="primary", use_container_width=True):
             st.session_state.selected_page = "👑 Become a VIP"
             st.rerun()
-    
-    # ============= CHART PREVIEW + LOCKED TITLES FOR NON-ULTIMATE USERS =============
-    if user_tier != "ultimate":
-        # --- Load data and show the candlestick chart as a teaser ---
-        with st.spinner(f"Loading {ticker} preview..."):
-            timeframe_to_years = {"6mo": 0.5, "1y": 1, "2y": 2, "5y": 5}
-            years = timeframe_to_years.get(timeframe, 1)
-            preview_data = get_historical_ohlc(ticker, years)
-        
-        if preview_data is not None and len(preview_data) > 0:
-            st.markdown("---")
-            st.markdown(f"### 📊 {ticker} Price Chart")
-            
-            price_history = preview_data
-            has_ohlc = all(col in price_history.columns for col in ['open', 'high', 'low', 'close'])
-            
-            if has_ohlc:
-                num_rows = 1
-                subplot_titles_list = [f'{ticker} Price']
-                
-                if len(price_history) >= 14:
-                    num_rows += 1
-                    subplot_titles_list.append('RSI (14)')
-                
-                if 'volume' in price_history.columns:
-                    num_rows += 1
-                    subplot_titles_list.append('Volume')
-                
-                if num_rows == 1:
-                    row_heights = [1.0]
-                elif num_rows == 2:
-                    row_heights = [0.7, 0.3]
-                else:
-                    row_heights = [0.6, 0.2, 0.2]
-                
-                fig_preview = make_subplots(
-                    rows=num_rows, cols=1, shared_xaxes=True,
-                    vertical_spacing=0.03, row_heights=row_heights,
-                    subplot_titles=tuple(subplot_titles_list)
-                )
-                
-                fig_preview.add_trace(
-                    go.Candlestick(
-                        x=price_history['date'], open=price_history['open'],
-                        high=price_history['high'], low=price_history['low'],
-                        close=price_history['close'], name='Price',
-                        increasing_line_color='#00FF00', decreasing_line_color='#FF4444'
-                    ), row=1, col=1
-                )
-                
-                if 'volume' in price_history.columns:
-                    colors = ['#00FF00' if price_history['close'].iloc[i] >= price_history['open'].iloc[i] else '#FF4444'
-                              for i in range(len(price_history))]
-                    fig_preview.add_trace(
-                        go.Bar(x=price_history['date'], y=price_history['volume'],
-                               name='Volume', marker_color=colors, opacity=0.5),
-                        row=num_rows, col=1
-                    )
-                
-                close_col = 'close'
-                if len(price_history) >= 50:
-                    sma50 = price_history[close_col].rolling(window=50, min_periods=1).mean()
-                    fig_preview.add_trace(
-                        go.Scatter(x=price_history['date'], y=sma50, mode='lines',
-                                   name='SMA 50', line=dict(color='#FFA500', width=2)),
-                        row=1, col=1
-                    )
-                if len(price_history) >= 200:
-                    sma200 = price_history[close_col].rolling(window=200, min_periods=1).mean()
-                    fig_preview.add_trace(
-                        go.Scatter(x=price_history['date'], y=sma200, mode='lines',
-                                   name='SMA 200', line=dict(color='#9D4EDD', width=2)),
-                        row=1, col=1
-                    )
-                
-                if len(price_history) >= 14:
-                    delta = price_history[close_col].diff()
-                    gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-                    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-                    rs = gain / loss
-                    rsi = 100 - (100 / (1 + rs))
-                    rsi_row = 2
-                    fig_preview.add_trace(
-                        go.Scatter(x=price_history['date'], y=rsi, mode='lines',
-                                   name='RSI', line=dict(color='#FFD700', width=2)),
-                        row=rsi_row, col=1
-                    )
-                    fig_preview.add_hline(y=70, line_dash="dash", line_color="red", opacity=0.5, row=rsi_row, col=1)
-                    fig_preview.add_hline(y=30, line_dash="dash", line_color="green", opacity=0.5, row=rsi_row, col=1)
-                    fig_preview.update_yaxes(title_text="RSI", range=[0, 100], row=rsi_row, col=1)
-                
-                fig_preview.update_layout(
-                    title=f"{ticker} Price History ({timeframe})",
-                    xaxis_title="Date", yaxis_title="Price ($)",
-                    height=600, template='plotly_dark',
-                    margin=dict(l=0, r=0, t=40, b=0),
-                    hovermode='x unified', showlegend=True,
-                    xaxis_rangeslider_visible=False
-                )
-                fig_preview.update_xaxes(
-                    rangeslider=dict(visible=True, thickness=0.05,
-                                    bgcolor="rgba(150, 150, 150, 0.1)"),
-                    row=num_rows, col=1
-                )
-                fig_preview.update_yaxes(title_text="Price ($)", row=1, col=1)
-                if 'volume' in price_history.columns:
-                    fig_preview.update_yaxes(title_text="Volume", row=num_rows, col=1)
-                
-                st.plotly_chart(fig_preview, use_container_width=True)
-                st.success(f"✅ Chart preview loaded — Upgrade to Ultimate for full analysis below")
-            else:
-                st.info(f"Preview not available for {ticker}")
-        
-        # --- Now show locked section titles ---
-        st.markdown("---")
-        st.markdown("#### 🔒 Unlock the rest with Ultimate:")
-        
-        preview_features = [
-            ("🎯", "Key Levels Map", "Top 3 supports and resistances derived from price history"),
-            ("📋", "Trade Plan Builder (Educational)", "Entry zones, invalidation levels, and targets"),
-            ("📊", "Historical Similar Setups (Backtest-Lite)", "Find past dates when the setup looked similar + forward returns"),
-            ("🎲", "Scenario Simulator (Bull/Base/Bear)", "Three potential scenarios based on key levels and volatility"),
-            ("🤖", "Ultimate AI Deep Dive", "Trade Plan Rationale + What Would Change View (AI-powered)"),
+
+    # ── TEASER FOR NON-ULTIMATE (chart preview + locked list) ─────────────────
+    if _ult_user_tier != "ultimate":
+        with st.spinner(f"Loading {_ult_ticker} preview..."):
+            _ult_tf_map = {"3M": 0.25, "6M": 0.5, "1Y": 1, "2Y": 2}
+            _ult_years  = _ult_tf_map.get(_ult_timeframe, 1)
+            _teaser_df  = get_historical_ohlc(_ult_ticker, _ult_years)
+        if _teaser_df is not None and len(_teaser_df) > 0:
+            _t_fig = make_subplots(rows=1, cols=1)
+            _t_fig.add_trace(go.Candlestick(
+                x=_teaser_df["date"], open=_teaser_df["open"], high=_teaser_df["high"],
+                low=_teaser_df["low"], close=_teaser_df["close"], name="Price",
+                increasing_line_color="#00C851", decreasing_line_color="#FF4444"
+            ))
+            if len(_teaser_df) >= 50:
+                _t_fig.add_trace(go.Scatter(x=_teaser_df["date"],
+                    y=_teaser_df["close"].rolling(50).mean(), mode="lines",
+                    name="SMA50", line=dict(color="#FFA500", width=1.5, dash="dot")))
+            _t_fig.update_layout(height=420, template="plotly_dark", margin=dict(l=0,r=0,t=20,b=0),
+                showlegend=True, xaxis_rangeslider_visible=False,
+                paper_bgcolor="#0A0A1A", plot_bgcolor="#0D0D20")
+            st.plotly_chart(_t_fig, use_container_width=True)
+
+        st.markdown("#### 🔒 Upgrade to unlock:")
+        _locked = [
+            ("⚡", "Signal Dashboard", "Instant BULLISH / BEARISH / NEUTRAL verdict on 6 key signals"),
+            ("🚨", "Trader Alerts", "Exact price triggers — know before they happen"),
+            ("🗺️", "Visual Key Levels", "Price ladder showing where you stand vs support & resistance"),
+            ("📐", "Trade Setup Card", "Entry zone · Stop loss · Target · R:R ratio in one view"),
+            ("🎲", "Scenario Simulator", "Bull / Base / Bear — precise prices, not vague ranges"),
+            ("🤖", "AI Deep Dive", "One-tap institutional-grade analysis with IF/THEN alerts"),
         ]
-        
-        for emoji, title, subtitle in preview_features:
+        for _ico, _ttl, _sub in _locked:
             st.markdown(f"""
-            <div style="background: linear-gradient(135deg, #F5F5F5 0%, #EEEEEE 100%); 
-                        border: 1px solid #E0E0E0; border-radius: 10px; padding: 16px 20px; margin: 8px 0;
-                        display: flex; align-items: center; gap: 12px;">
-                <span style="font-size: 24px;">{emoji}</span>
+            <div style="background:rgba(157,78,221,0.08);border:1px solid rgba(157,78,221,0.25);
+                        border-radius:10px;padding:14px 18px;margin:6px 0;display:flex;align-items:center;gap:14px;">
+                <span style="font-size:22px;">{_ico}</span>
                 <div>
-                    <span style="font-size: 16px; font-weight: 600; color: #333;">🔒 {title}</span><br>
-                    <span style="font-size: 13px; color: #888;">{subtitle}</span>
+                    <span style="font-size:15px;font-weight:600;color:#ccc;">🔒 {_ttl}</span><br>
+                    <span style="font-size:12px;color:#888;">{_sub}</span>
                 </div>
-            </div>
-            """, unsafe_allow_html=True)
-        
+            </div>""", unsafe_allow_html=True)
         st.markdown("")
-        if st.button("👑 Unlock Ultimate Features", key="ultimate_preview_upgrade", type="primary", use_container_width=True):
+        if st.button("👑 Unlock Ultimate — $10/mo", key="ult_preview_up_v2", type="primary", use_container_width=True):
             st.session_state.selected_page = "👑 Become a VIP"
             st.rerun()
         st.stop()
-    
-    # ============= ULTIMATE CONTENT (ULTIMATE USERS ONLY) =============
-    # Generate cache key for this ticker/timeframe/interval combo
-    cache_key = f"{ticker}|{timeframe}|{interval}"
-    
-    # Initialize cache if needed
-    if 'ultimate_cache_key' not in st.session_state:
-        st.session_state.ultimate_cache_key = None
-    if 'ultimate_price_data' not in st.session_state:
-        st.session_state.ultimate_price_data = None
-    if 'ultimate_tech_facts' not in st.session_state:
-        st.session_state.ultimate_tech_facts = None
-    
-    # Load data if analyze clicked OR cache invalid
-    if analyze_btn or st.session_state.ultimate_cache_key != cache_key:
-        with st.spinner(f"Loading {ticker} data..."):
-            # Convert timeframe to years
-            timeframe_to_years = {
-                "6mo": 0.5,
-                "1y": 1,
-                "2y": 2,
-                "5y": 5
-            }
-            years = timeframe_to_years.get(timeframe, 1)
-            
-            # Use correct function - get_historical_ohlc
-            price_data = get_historical_ohlc(ticker, years)
-            
-            if price_data is not None and len(price_data) > 0:
-                # Update cache
-                st.session_state.ultimate_cache_key = cache_key
-                st.session_state.ultimate_price_data = price_data
-                
-                # Compute technical facts
-                tech_facts = compute_technical_facts(price_data)
-                # CRITICAL: Add ticker to tech_facts so AI knows which stock
-                tech_facts['ticker'] = ticker
-                # Get company name from quote
-                quote = get_quote(ticker)
-                tech_facts['company_name'] = quote.get('name', ticker) if quote else ticker
-                
-                st.session_state.ultimate_tech_facts = tech_facts
-                
-                st.success(f"✅ Loaded {len(price_data)} data points for {ticker}")
-            else:
-                st.error(f"⚠️ Could not load data for {ticker}")
-                st.session_state.ultimate_cache_key = None
-                st.session_state.ultimate_price_data = None
-                st.session_state.ultimate_tech_facts = None
-    
-    # Check if we have data
-    if st.session_state.ultimate_price_data is None or st.session_state.ultimate_tech_facts is None:
-        st.info("👆 Enter a ticker and click Analyze to start")
+
+    # ─────────────────────────────────────────────────────────────────────────────
+    # ULTIMATE CONTENT STARTS HERE
+    # ─────────────────────────────────────────────────────────────────────────────
+
+    # ── RESOLVE TICKER ────────────────────────────────────────────────────────────
+    _ult_resolved = resolve_company_to_ticker(_ult_ticker) if _ult_ticker else None
+    if not _ult_resolved:
+        st.info("Enter a ticker or company name and click ⚡ Analyze.")
         st.stop()
-    
-    # Get cached data
-    df = st.session_state.ultimate_price_data
-    tech_facts = st.session_state.ultimate_tech_facts
-    
-    # ============= PREMIUM CANDLESTICK CHART =============
-    st.markdown("---")
-    st.markdown(f"### 📊 {ticker} Price Chart")
-    
-    # Chart setup
-    price_history = df
-    show_sma50 = True
-    show_sma200 = True
-    show_rsi = True
-    show_volume = True
-    
-    # Check if we have OHLC data
-    has_ohlc = all(col in price_history.columns for col in ['open', 'high', 'low', 'close'])
-    chart_features = []
-    
-    if has_ohlc:
-        chart_features.append("OHLC")
-        
-        # Determine number of rows
-        num_rows = 1
-        subplot_titles_list = [f'{ticker} Price']
-        
-        if show_rsi:
-            num_rows += 1
-            subplot_titles_list.append('RSI (14)')
-        
-        if show_volume and 'volume' in price_history.columns:
-            num_rows += 1
-            subplot_titles_list.append('Volume')
-        
-        # Calculate row heights
-        if num_rows == 1:
-            row_heights = [1.0]
-        elif num_rows == 2:
-            row_heights = [0.7, 0.3]
-        else:  # 3 rows
-            row_heights = [0.6, 0.2, 0.2]
-        
-        # Create candlestick chart
-        fig_price = make_subplots(
-            rows=num_rows,
-            cols=1,
-            shared_xaxes=True,
-            vertical_spacing=0.03,
-            row_heights=row_heights,
-            subplot_titles=tuple(subplot_titles_list)
-        )
-        
-        # Add candlestick
-        fig_price.add_trace(
-            go.Candlestick(
-                x=price_history['date'],
-                open=price_history['open'],
-                high=price_history['high'],
-                low=price_history['low'],
-                close=price_history['close'],
-                name='Price',
-                increasing_line_color='#00FF00',
-                decreasing_line_color='#FF4444'
-            ),
-            row=1, col=1
-        )
-        
-        # Add volume
-        if show_volume and 'volume' in price_history.columns:
-            colors = ['#00FF00' if price_history['close'].iloc[i] >= price_history['open'].iloc[i] else '#FF4444' 
-                      for i in range(len(price_history))]
-            
-            volume_row = num_rows
-            
-            fig_price.add_trace(
-                go.Bar(
-                    x=price_history['date'],
-                    y=price_history['volume'],
-                    name='Volume',
-                    marker_color=colors,
-                    opacity=0.5
-                ),
-                row=volume_row, col=1
-            )
-            chart_features.append("Volume")
-    else:
-        # Fallback line chart
-        chart_features.append("Line")
-        fig_price = go.Figure()
-        price_col = 'close' if 'close' in price_history.columns else 'price'
-        
-        fig_price.add_trace(go.Scatter(
-            x=price_history['date'],
-            y=price_history[price_col],
-            mode='lines',
-            name='Price',
-            line=dict(color='#9D4EDD', width=2),
-            fill='tozeroy',
-            fillcolor='rgba(157, 78, 221, 0.2)',
-            hovertemplate='%{x}<br>Price: $%{y:.2f}<extra></extra>'
-        ))
-    
-    # Add SMAs
-    close_col = 'close' if 'close' in price_history.columns else 'price'
-    
-    if show_sma50 and len(price_history) >= 50:
-        sma50 = price_history[close_col].rolling(window=50, min_periods=1).mean()
-        sma_trace_50 = go.Scatter(
-            x=price_history['date'],
-            y=sma50,
-            mode='lines',
-            name='SMA 50',
-            line=dict(color='#FFA500', width=2)
-        )
-        
-        if has_ohlc:
-            fig_price.add_trace(sma_trace_50, row=1, col=1)
+    _ult_ticker = _ult_resolved
+
+    # ── CACHE KEY ────────────────────────────────────────────────────────────────
+    _ult_cache_key = f"v2|{_ult_ticker}|{_ult_timeframe}"
+    if "ult_cache_key_v2"    not in st.session_state: st.session_state.ult_cache_key_v2    = None
+    if "ult_df_v2"           not in st.session_state: st.session_state.ult_df_v2           = None
+    if "ult_facts_v2"        not in st.session_state: st.session_state.ult_facts_v2        = None
+    if "ult_ai_output_v2"    not in st.session_state: st.session_state.ult_ai_output_v2    = None
+    if "ult_ai_ticker_v2"    not in st.session_state: st.session_state.ult_ai_ticker_v2    = None
+
+    # Clear AI output if ticker changed
+    if st.session_state.ult_ai_ticker_v2 != _ult_ticker:
+        st.session_state.ult_ai_output_v2 = None
+        st.session_state.ult_ai_ticker_v2 = _ult_ticker
+
+    # ── LOAD DATA ────────────────────────────────────────────────────────────────
+    if _ult_btn or st.session_state.ult_cache_key_v2 != _ult_cache_key:
+        _ult_tf_years = {"3M": 0.25, "6M": 0.5, "1Y": 1, "2Y": 2}
+        _ult_yrs = _ult_tf_years.get(_ult_timeframe, 1)
+        with st.spinner(f"Loading {_ult_ticker} data..."):
+            _ult_df    = get_historical_ohlc(_ult_ticker, _ult_yrs)
+            _ult_quote = get_quote(_ult_ticker)
+        if _ult_df is not None and len(_ult_df) > 10:
+            _ult_facts = compute_technical_facts(_ult_df)
+            _ult_facts["ticker"]       = _ult_ticker
+            _ult_facts["company_name"] = _ult_quote.get("name", _ult_ticker) if _ult_quote else _ult_ticker
+            st.session_state.ult_cache_key_v2 = _ult_cache_key
+            st.session_state.ult_df_v2        = _ult_df
+            st.session_state.ult_facts_v2     = _ult_facts
         else:
-            fig_price.add_trace(sma_trace_50)
-        
-        chart_features.append("SMA50")
-    
-    if show_sma200 and len(price_history) >= 200:
-        sma200 = price_history[close_col].rolling(window=200, min_periods=1).mean()
-        sma_trace_200 = go.Scatter(
-            x=price_history['date'],
-            y=sma200,
-            mode='lines',
-            name='SMA 200',
-            line=dict(color='#9D4EDD', width=2)
-        )
-        
-        if has_ohlc:
-            fig_price.add_trace(sma_trace_200, row=1, col=1)
-        else:
-            fig_price.add_trace(sma_trace_200)
-        
-        chart_features.append("SMA200")
-    
-    # Add RSI
-    if show_rsi and len(price_history) >= 14:
-        delta = price_history[close_col].diff()
-        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-        rs = gain / loss
-        rsi = 100 - (100 / (1 + rs))
-        
-        rsi_row = 2 if show_rsi else None
-        if rsi_row and has_ohlc:
-            fig_price.add_trace(
-                go.Scatter(
-                    x=price_history['date'],
-                    y=rsi,
-                    mode='lines',
-                    name='RSI',
-                    line=dict(color='#FFD700', width=2)
-                ),
-                row=rsi_row, col=1
-            )
-            
-            # Add overbought/oversold lines
-            fig_price.add_hline(y=70, line_dash="dash", line_color="red", opacity=0.5, row=rsi_row, col=1)
-            fig_price.add_hline(y=30, line_dash="dash", line_color="green", opacity=0.5, row=rsi_row, col=1)
-            
-            fig_price.update_yaxes(title_text="RSI", range=[0, 100], row=rsi_row, col=1)
-            
-            chart_features.append("RSI")
-    
-    # Update layout
-    fig_price.update_layout(
-        title=f"{ticker} Price History ({timeframe})",
-        xaxis_title="Date",
-        yaxis_title="Price ($)",
-        height=600,
-        template='plotly_dark',
-        margin=dict(l=0, r=0, t=40, b=0),
-        hovermode='x unified',
-        showlegend=True,
-        xaxis_rangeslider_visible=False
-    )
-    
-    # Add rangeslider
-    if has_ohlc:
-        fig_price.update_xaxes(
-            rangeslider=dict(
-                visible=True,
-                thickness=0.05,
-                bgcolor="rgba(150, 150, 150, 0.1)"
-            ),
-            row=num_rows, col=1
-        )
-    else:
-        fig_price.update_xaxes(
-            rangeslider=dict(
-                visible=True,
-                thickness=0.05,
-                bgcolor="rgba(150, 150, 150, 0.1)"
-            )
-        )
-    
-    # Update axis labels
-    if has_ohlc:
-        fig_price.update_yaxes(title_text="Price ($)", row=1, col=1)
-        if show_volume:
-            fig_price.update_yaxes(title_text="Volume", row=num_rows, col=1)
-    
-    # Display chart
-    st.plotly_chart(fig_price, use_container_width=True)
-    
-    # Status line
-    if has_ohlc:
-        status_parts = [f"{feat} ✓" for feat in chart_features]
-        st.success(f"✅ Chart ready: {' | '.join(status_parts)}")
-    else:
-        st.warning("⚠️ OHLC not available — showing line chart fallback.")
-    
-    st.markdown("---")
-    
-    # ============= INCLUDE PRO CONTENT (COLLAPSED) =============
-    with st.expander("✅ Pro Analysis (included)", expanded=False):
-        st.caption("*Standard Pro analysis is included in Ultimate - expand to view*")
-        
-        # Show compact Pro analysis
-        st.markdown("### 📌 Key Observations")
-        callouts = render_chart_callouts(tech_facts)
-        for callout in callouts[:5]:  # Max 5
-            st.markdown(f"- {callout}")
-        
-        # Pattern detection
-        pattern_label, confidence, reasons, watch_level, watch_note = detect_rule_based_pattern(tech_facts, simple_mode)
-        
-        st.markdown("### 🔍 Pattern Detected")
-        conf_color = {"High": "🟢", "Medium": "🟡", "Low": "🔴"}.get(confidence, "⚪")
-        st.markdown(f"**{conf_color} {pattern_label}** (Confidence: {confidence})")
-        
-        for reason in reasons[:3]:  # Max 3
-            st.markdown(f"- {reason}")
-    
-    st.markdown("---")
-    
-    # ============= MODULE A: KEY LEVELS MAP =============
-    st.markdown("### 🎯 Key Levels Map (Ultimate)")
-    st.caption("*Top 3 supports and resistances derived from price history*")
-    
-    last_close = tech_facts.get("last_close")
-    
-    if last_close:
-        # Compute multiple support/resistance levels
-        supports = []
-        resistances = []
-        
-        # Method 1: Swing lows/highs at different windows
+            st.error(f"Could not load data for **{_ult_ticker}**. Check the ticker and try again.")
+            st.stop()
+
+    if st.session_state.ult_df_v2 is None:
+        st.info("Enter a ticker above and click ⚡ Analyze.")
+        st.stop()
+
+    _df    = st.session_state.ult_df_v2
+    _facts = st.session_state.ult_facts_v2
+    _q     = get_quote(_ult_ticker) or {}
+    _co_name   = _facts.get("company_name", _ult_ticker)
+    _last_close = _facts.get("last_close") or 0.0
+    _live_price = float(_q.get("price") or _last_close)
+    _change_pct = float(_q.get("changesPercentage") or 0.0)
+    _change_dir = "▲" if _change_pct >= 0 else "▼"
+    _change_color = "#00C851" if _change_pct >= 0 else "#FF4444"
+
+    # ── COMPUTE INDICATORS ──────────────────────────────────────────────────────
+    _sma50  = _facts.get("sma50")
+    _sma200 = _facts.get("sma200")
+    _rsi    = _facts.get("rsi14_last")
+    _rsi_prev = _facts.get("rsi14_prev")
+    _vol_regime = _facts.get("vol_regime", "normal")
+    _vol_spike  = _facts.get("volume_spike", False)
+    _vol_spike_x = _facts.get("volume_spike_x", 1.0)
+    _atr_pct = _facts.get("atr_pct", 2.0) or 2.0
+    _ret20  = _facts.get("return_20d")
+    _ret5   = _facts.get("return_5d")
+    _sma50_slope = _facts.get("sma50_slope")
+
+    # ── KEY LEVELS CALCULATION ──────────────────────────────────────────────────
+    def _compute_levels(df, last_close):
+        supports, resistances = [], []
         for window in [20, 50, 90]:
             if len(df) >= window:
-                swing_low = df['close'].rolling(window=window, center=True).min().dropna()
-                swing_high = df['close'].rolling(window=window, center=True).max().dropna()
-                
-                # Find recent swing lows below current price
-                recent_lows = swing_low[swing_low < last_close].tail(10)
-                for low in recent_lows.unique():
-                    if low < last_close:
-                        supports.append({"level": float(low), "source": f"Swing-{window}d"})
-                
-                # Find recent swing highs above current price
-                recent_highs = swing_high[swing_high > last_close].tail(10)
-                for high in recent_highs.unique():
-                    if high > last_close:
-                        resistances.append({"level": float(high), "source": f"Swing-{window}d"})
-        
-        # Method 2: Quantile levels
-        for q, label in [(0.10, "Q10"), (0.25, "Q25"), (0.75, "Q75"), (0.90, "Q90")]:
-            level = float(df['close'].quantile(q))
-            if level < last_close * 0.98:
-                supports.append({"level": level, "source": label})
-            elif level > last_close * 1.02:
-                resistances.append({"level": level, "source": label})
-        
-        # Method 3: Add SMA50/SMA200 if relevant
-        sma50 = tech_facts.get("sma50")
-        sma200 = tech_facts.get("sma200")
-        
-        if sma50 and abs(sma50 - last_close) / last_close < 0.10:  # Within 10%
-            if sma50 < last_close:
-                supports.append({"level": float(sma50), "source": "SMA50"})
-            elif sma50 > last_close:
-                resistances.append({"level": float(sma50), "source": "SMA50"})
-        
-        if sma200 and abs(sma200 - last_close) / last_close < 0.15:  # Within 15%
-            if sma200 < last_close:
-                supports.append({"level": float(sma200), "source": "SMA200"})
-            elif sma200 > last_close:
-                resistances.append({"level": float(sma200), "source": "SMA200"})
-        
-        # Create synthetic levels if needed
-        atr_pct = tech_facts.get("atr_pct", 2.0)
-        atr_decimal = atr_pct / 100.0 if atr_pct > 1 else atr_pct
-        
-        if len(supports) == 0:
-            # At new lows - create synthetic support
-            synth_dist = min(0.05, max(0.03, 2 * atr_decimal))
-            supports.append({"level": last_close * (1 - synth_dist), "source": "Synthetic"})
-        
-        if len(resistances) == 0:
-            # At new highs - create synthetic resistance
-            synth_dist = min(0.05, max(0.03, 2 * atr_decimal))
-            resistances.append({"level": last_close * (1 + synth_dist), "source": "Synthetic"})
-        
-        # Sort and deduplicate
-        supports = sorted(supports, key=lambda x: x["level"], reverse=True)  # Closest first
-        resistances = sorted(resistances, key=lambda x: x["level"])  # Closest first
-        
-        # Deduplicate levels within 1%
-        def dedupe_levels(levels_list):
-            if not levels_list:
-                return []
-            deduped = [levels_list[0]]
-            for level_dict in levels_list[1:]:
-                if all(abs(level_dict["level"] - d["level"]) / d["level"] > 0.01 for d in deduped):
-                    deduped.append(level_dict)
-            return deduped
-        
-        supports = dedupe_levels(supports)[:3]  # Top 3
-        resistances = dedupe_levels(resistances)[:3]  # Top 3
-        
-        # Display as table
-        import pandas as pd
-        
-        levels_data = []
-        
-        for sup in supports:
-            dist_pct = ((sup["level"] - last_close) / last_close) * 100
-            levels_data.append({
-                "Type": "Support",
-                "Level": f"${sup['level']:.2f}",
-                "Distance": f"{dist_pct:+.2f}%",
-                "Source": sup["source"]
-            })
-        
-        for res in resistances:
-            dist_pct = ((res["level"] - last_close) / last_close) * 100
-            levels_data.append({
-                "Type": "Resistance",
-                "Level": f"${res['level']:.2f}",
-                "Distance": f"{dist_pct:+.2f}%",
-                "Source": res["source"]
-            })
-        
-        if levels_data:
-            levels_df = pd.DataFrame(levels_data)
-            st.dataframe(levels_df, use_container_width=True, hide_index=True)
-        else:
-            st.caption("Could not compute key levels")
-        
-        # ============= COMPUTE NEAREST LEVELS (FOR USE IN LATER MODULES) =============
-        # These are needed by Trade Plan Builder AND Scenario Simulator
-        nearest_support = supports[0]["level"] if supports else last_close * 0.97
-        nearest_resistance = resistances[0]["level"] if resistances else last_close * 1.03
-    
-    st.markdown("---")
-    
-    # ============= MODULE B: TRADE PLAN BUILDER =============
-    st.markdown("### 📋 Trade Plan Builder (Educational)")
-    st.caption("*Educational template - NOT financial advice*")
-    
-    col_dir, col_hor, col_risk = st.columns(3)
-    
-    with col_dir:
-        direction = st.selectbox("Direction", ["Long", "Short"], key="ultimate_direction")
-    
-    with col_hor:
-        horizon = st.selectbox("Horizon", ["Day", "Swing", "Position"], key="ultimate_horizon")
-    
-    with col_risk:
-        risk_style = st.selectbox("Risk Style", ["Conservative", "Moderate", "Aggressive"], key="ultimate_risk")
-    
-    if st.button("🔨 Build Plan", key="build_plan"):
-        # Build educational plan based on facts (using pre-computed nearest levels)
-        
-        st.markdown("**📊 Plan Summary:**")
-        
-        bullets = []
-        
-        if direction == "Long":
-            entry_zone = f"${nearest_support:.2f} - ${last_close:.2f}"
-            invalidation = f"${nearest_support * 0.985:.2f} (below nearest support)"
-            target1 = f"${nearest_resistance:.2f}"
-            target2 = f"${resistances[1]['level']:.2f}" if len(resistances) > 1 else f"${nearest_resistance * 1.03:.2f}"
-            
-            bullets.append(f"**Entry Zone:** {entry_zone} (near support)")
-            bullets.append(f"**Invalidation:** Below {invalidation}")
-            bullets.append(f"**Target 1 (1R):** {target1}")
-            bullets.append(f"**Target 2 (2R):** {target2}")
-            bullets.append(f"**Horizon:** {horizon} trade (adjust time accordingly)")
-        
-        else:  # Short
-            entry_zone = f"${last_close:.2f} - ${nearest_resistance:.2f}"
-            invalidation = f"${nearest_resistance * 1.015:.2f} (above nearest resistance)"
-            target1 = f"${nearest_support:.2f}"
-            target2 = f"${supports[1]['level']:.2f}" if len(supports) > 1 else f"${nearest_support * 0.97:.2f}"
-            
-            bullets.append(f"**Entry Zone:** {entry_zone} (near resistance)")
-            bullets.append(f"**Invalidation:** Above {invalidation}")
-            bullets.append(f"**Target 1 (1R):** {target1}")
-            bullets.append(f"**Target 2 (2R):** {target2}")
-            bullets.append(f"**Horizon:** {horizon} trade (adjust time accordingly)")
-        
-        for bullet in bullets[:5]:
-            st.markdown(f"- {bullet}")
-        
-        st.info("📚 Educational template only. Not financial advice. Always do your own research.")
-    
-    st.markdown("---")
-    
-    # ============= MODULE C: HISTORICAL SIMILAR SETUPS =============
-    with st.expander("📊 Historical Similar Setups (Backtest-Lite)", expanded=False):
-        st.caption("*Find past dates when the setup looked similar*")
-        
-        if st.button("🔍 Find Similar Setups", key="find_similar"):
-            with st.spinner("Analyzing historical patterns..."):
-                # Compute feature vectors for all historical dates
-                if len(df) < 120:
-                    st.warning("Need at least 120 days of data for similarity analysis")
+                _sl = df["close"].rolling(window=window, center=True).min().dropna()
+                _sh = df["close"].rolling(window=window, center=True).max().dropna()
+                for v in _sl[_sl < last_close * 0.999].unique():
+                    supports.append({"level": float(v), "source": f"{window}d swing"})
+                for v in _sh[_sh > last_close * 1.001].unique():
+                    resistances.append({"level": float(v), "source": f"{window}d swing"})
+        for q, lbl in [(0.10, "hist 10%"), (0.25, "hist 25%"), (0.75, "hist 75%"), (0.90, "hist 90%")]:
+            lvl = float(df["close"].quantile(q))
+            if lvl < last_close * 0.99:
+                supports.append({"level": lvl, "source": lbl})
+            elif lvl > last_close * 1.01:
+                resistances.append({"level": lvl, "source": lbl})
+        for lvl, src in [(_sma50, "SMA 50"), (_sma200, "SMA 200")]:
+            if lvl and abs(lvl - last_close) / last_close < 0.15:
+                (supports if lvl < last_close else resistances).append({"level": float(lvl), "source": src})
+        def _dedup(lst):
+            out = []
+            for d in sorted(lst, key=lambda x: x["level"], reverse=True):
+                if all(abs(d["level"] - e["level"]) / (e["level"] or 1) > 0.01 for e in out):
+                    out.append(d)
+            return out
+        supports    = _dedup(supports)[:4]
+        resistances = sorted(_dedup(resistances), key=lambda x: x["level"])[:4]
+        if not supports:    supports    = [{"level": last_close * 0.97, "source": "est."}]
+        if not resistances: resistances = [{"level": last_close * 1.03, "source": "est."}]
+        return supports, resistances
+
+    _supports, _resistances = _compute_levels(_df, _last_close)
+    _near_sup = _supports[0]["level"]   if _supports    else _last_close * 0.97
+    _near_res = _resistances[0]["level"] if _resistances else _last_close * 1.03
+
+    # ── PATTERN ─────────────────────────────────────────────────────────────────
+    _pattern_label, _pattern_conf, _pattern_reasons, _pattern_watch, _pattern_note = \
+        detect_rule_based_pattern(_facts, simple_mode=False)
+
+    # ─────────────────────────────────────────────────────────────────────────────
+    # SECTION 1 — LIVE QUOTE + SIGNAL DASHBOARD
+    # ─────────────────────────────────────────────────────────────────────────────
+
+    # Live quote bar
+    st.markdown(f"""
+    <div style="background:#0D0D20;border:1px solid rgba(255,255,255,0.1);border-radius:12px;
+                padding:16px 22px;margin-bottom:18px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+        <div>
+            <div style="font-size:13px;color:#aaa;font-weight:600;letter-spacing:1px;">{_co_name} · {_ult_ticker}</div>
+            <div style="font-size:32px;font-weight:800;color:#fff;">${_live_price:,.2f}
+                <span style="font-size:18px;color:{_change_color};margin-left:8px;">
+                    {_change_dir} {abs(_change_pct):.2f}%
+                </span>
+            </div>
+        </div>
+        <div style="margin-left:auto;display:flex;gap:20px;flex-wrap:wrap;">
+            {"<div style='text-align:center'><div style='font-size:11px;color:#888;'>RSI (14)</div><div style='font-size:20px;font-weight:700;color:" + ("#FF4444" if _rsi and _rsi>70 else "#00C851" if _rsi and _rsi<30 else "#FFD700") + ";'>" + (f"{_rsi:.0f}" if _rsi else "—") + "</div></div>" if _rsi else ""}
+            {"<div style='text-align:center'><div style='font-size:11px;color:#888;'>SMA 50</div><div style='font-size:20px;font-weight:700;color:" + ("#00C851" if _sma50 and _live_price > _sma50 else "#FF4444") + ";'>$" + (f"{_sma50:,.0f}" if _sma50 else "—") + "</div></div>" if _sma50 else ""}
+            {"<div style='text-align:center'><div style='font-size:11px;color:#888;'>SMA 200</div><div style='font-size:20px;font-weight:700;color:" + ("#00C851" if _sma200 and _live_price > _sma200 else "#FF4444") + ";'>$" + (f"{_sma200:,.0f}" if _sma200 else "—") + "</div></div>" if _sma200 else ""}
+            <div style='text-align:center'><div style='font-size:11px;color:#888;'>Pattern</div><div style='font-size:13px;font-weight:700;color:#9D4EDD;max-width:120px;line-height:1.2;'>{_pattern_label}</div></div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Signal dashboard — 6 signals in a 3-column grid
+    st.markdown("### ⚡ Signal Dashboard")
+
+    def _signal_card(label, value, signal, note):
+        """signal: 'bullish' | 'bearish' | 'neutral'"""
+        icon  = {"bullish": "🟢", "bearish": "🔴", "neutral": "🟡"}.get(signal, "⚪")
+        color = {"bullish": "#00C851", "bearish": "#FF4444", "neutral": "#FFD700"}.get(signal, "#aaa")
+        return f"""
+        <div class="ult-signal-card {signal}">
+            <span style="font-size:20px;">{icon}</span>
+            <div>
+                <div style="font-size:12px;color:#aaa;font-weight:600;letter-spacing:.6px;">{label}</div>
+                <div style="font-size:16px;font-weight:700;color:{color};">{value}</div>
+                <div style="font-size:12px;color:#888;margin-top:2px;">{note}</div>
+            </div>
+        </div>"""
+
+    _sc1, _sc2, _sc3 = st.columns(3)
+
+    # Signal 1: Trend (vs SMA50)
+    if _sma50:
+        _s1_val  = f"${_live_price:,.2f} {'above' if _live_price>_sma50 else 'below'} SMA50"
+        _s1_sig  = "bullish" if _live_price > _sma50 else "bearish"
+        _s1_note = f"SMA50 @ ${_sma50:,.2f} · slope {'rising' if _sma50_slope and _sma50_slope>0 else 'falling' if _sma50_slope and _sma50_slope<0 else 'flat'}"
+    else:
+        _s1_val, _s1_sig, _s1_note = "Insufficient data", "neutral", "Need 50+ days"
+
+    # Signal 2: Long-term trend (vs SMA200)
+    if _sma200:
+        _s2_val  = f"{'Above' if _live_price>_sma200 else 'Below'} SMA200"
+        _s2_sig  = "bullish" if _live_price > _sma200 else "bearish"
+        _s2_note = f"SMA200 @ ${_sma200:,.2f} · {abs((_live_price/_sma200-1)*100):.1f}% away"
+    else:
+        _s2_val, _s2_sig, _s2_note = "Insufficient data", "neutral", "Need 200+ days"
+
+    # Signal 3: Momentum (RSI)
+    if _rsi:
+        if _rsi >= 70:   _s3_sig, _s3_val = "bearish", f"RSI {_rsi:.0f} — Overbought"
+        elif _rsi <= 30: _s3_sig, _s3_val = "bullish", f"RSI {_rsi:.0f} — Oversold"
+        else:            _s3_sig, _s3_val = "neutral", f"RSI {_rsi:.0f} — Neutral"
+        _rsi_dir = ("↑ rising" if _rsi_prev and _rsi > _rsi_prev else "↓ falling" if _rsi_prev and _rsi < _rsi_prev else "flat")
+        _s3_note = f"Momentum {_rsi_dir}"
+    else:
+        _s3_val, _s3_sig, _s3_note = "No RSI data", "neutral", ""
+
+    # Signal 4: Volume
+    if _vol_spike:
+        _s4_sig, _s4_val = "bullish" if _change_pct >= 0 else "bearish", f"{_vol_spike_x:.1f}× avg volume — Spike"
+        _s4_note = "High-conviction move"
+    elif _vol_regime == "low":
+        _s4_sig, _s4_val, _s4_note = "neutral", "Volume quiet", "Watch for breakout trigger"
+    else:
+        _s4_sig, _s4_val, _s4_note = "neutral", "Volume normal", "No unusual activity"
+
+    # Signal 5: Pattern
+    _s5_conf_sig = {"High": "bullish", "Medium": "neutral", "Low": "bearish"}.get(_pattern_conf, "neutral")
+    # Adjust based on pattern direction
+    _bearish_patterns = ["Breakdown risk", "Overbought momentum", "Mean reversion zone"]
+    if any(p in _pattern_label for p in _bearish_patterns):
+        _s5_conf_sig = "bearish" if _pattern_conf == "High" else "neutral"
+    _s5_note = f"Confidence: {_pattern_conf}"
+
+    # Signal 6: 20-day return momentum
+    if _ret20 is not None:
+        if _ret20 > 5:   _s6_sig, _s6_val = "bullish",  f"+{_ret20:.1f}% (20d)"
+        elif _ret20 < -5: _s6_sig, _s6_val = "bearish", f"{_ret20:.1f}% (20d)"
+        else:             _s6_sig, _s6_val = "neutral",  f"{_ret20:+.1f}% (20d)"
+        _s6_note = f"5d: {_ret5:+.1f}%" if _ret5 else "Short-term momentum"
+    else:
+        _s6_sig, _s6_val, _s6_note = "neutral", "No data", ""
+
+    with _sc1:
+        st.markdown(_signal_card("SHORT-TERM TREND", _s1_val, _s1_sig, _s1_note), unsafe_allow_html=True)
+        st.markdown(_signal_card("RSI MOMENTUM", _s3_val, _s3_sig, _s3_note), unsafe_allow_html=True)
+    with _sc2:
+        st.markdown(_signal_card("LONG-TERM TREND", _s2_val, _s2_sig, _s2_note), unsafe_allow_html=True)
+        st.markdown(_signal_card("VOLUME", _s4_val, _s4_sig, _s4_note), unsafe_allow_html=True)
+    with _sc3:
+        st.markdown(_signal_card("CHART PATTERN", _pattern_label, _s5_conf_sig, _s5_note), unsafe_allow_html=True)
+        st.markdown(_signal_card("20-DAY RETURN", _s6_val, _s6_sig, _s6_note), unsafe_allow_html=True)
+
+    # Overall verdict badge
+    _bull_count  = sum(1 for s in [_s1_sig, _s2_sig, _s3_sig, _s4_sig, _s5_conf_sig, _s6_sig] if s == "bullish")
+    _bear_count  = sum(1 for s in [_s1_sig, _s2_sig, _s3_sig, _s4_sig, _s5_conf_sig, _s6_sig] if s == "bearish")
+    if _bull_count >= 4:   _verdict, _vcolor, _vbg = "BULLISH", "#00C851", "rgba(0,200,81,0.15)"
+    elif _bear_count >= 4: _verdict, _vcolor, _vbg = "BEARISH", "#FF4444", "rgba(255,68,68,0.15)"
+    else:                  _verdict, _vcolor, _vbg = "MIXED / NEUTRAL", "#FFD700", "rgba(255,200,0,0.12)"
+
+    st.markdown(f"""
+    <div style="background:{_vbg};border:1px solid {_vcolor};border-radius:10px;
+                padding:12px 20px;margin:12px 0 20px;display:flex;align-items:center;gap:16px;">
+        <div style="font-size:13px;color:#aaa;font-weight:600;">OVERALL SIGNAL</div>
+        <div style="font-size:20px;font-weight:800;color:{_vcolor};">{_verdict}</div>
+        <div style="font-size:13px;color:#888;margin-left:auto;">{_bull_count} bullish · {_bear_count} bearish · {6-_bull_count-_bear_count} neutral</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ─────────────────────────────────────────────────────────────────────────────
+    # SECTION 2 — CHART
+    # ─────────────────────────────────────────────────────────────────────────────
+    st.markdown("### 📊 Chart")
+
+    _ph = _df
+    _has_ohlc = all(c in _ph.columns for c in ["open", "high", "low", "close"])
+    _close_col = "close"
+    _show_macd  = "MACD" in _ult_overlays
+    _show_bb    = "Bollinger Bands" in _ult_overlays
+    _show_vol   = "Volume" in _ult_overlays and "volume" in _ph.columns
+
+    _n_rows = 1
+    _row_titles = [f"{_ult_ticker} ({_ult_timeframe})"]
+    if _show_macd:    _n_rows += 1; _row_titles.append("MACD")
+    if len(_ph) >= 14:
+        _n_rows += 1; _row_titles.append("RSI (14)")
+    if _show_vol:     _n_rows += 1; _row_titles.append("Volume")
+
+    _heights = {1: [1.0], 2: [0.65, 0.35], 3: [0.55, 0.25, 0.20], 4: [0.50, 0.20, 0.17, 0.13]}
+    _row_h = _heights.get(_n_rows, [1/_n_rows]*_n_rows)
+
+    _fig = make_subplots(rows=_n_rows, cols=1, shared_xaxes=True,
+        vertical_spacing=0.03, row_heights=_row_h, subplot_titles=tuple(_row_titles))
+
+    # Candlestick or line
+    if _has_ohlc:
+        _fig.add_trace(go.Candlestick(
+            x=_ph["date"], open=_ph["open"], high=_ph["high"], low=_ph["low"], close=_ph["close"],
+            name="Price", increasing_line_color="#00C851", decreasing_line_color="#FF4444"
+        ), row=1, col=1)
+    else:
+        _fig.add_trace(go.Scatter(x=_ph["date"], y=_ph[_close_col], mode="lines",
+            name="Price", line=dict(color="#00E5FF", width=2)), row=1, col=1)
+
+    # SMA overlays
+    if len(_ph) >= 50:
+        _fig.add_trace(go.Scatter(x=_ph["date"], y=_ph[_close_col].rolling(50).mean(),
+            mode="lines", name="SMA50", line=dict(color="#FFA500", width=1.5, dash="dot")), row=1, col=1)
+    if len(_ph) >= 200:
+        _fig.add_trace(go.Scatter(x=_ph["date"], y=_ph[_close_col].rolling(200).mean(),
+            mode="lines", name="SMA200", line=dict(color="#BF5FFF", width=1.5, dash="dot")), row=1, col=1)
+
+    # Bollinger Bands
+    if _show_bb and len(_ph) >= 20:
+        _bb_mid = _ph[_close_col].rolling(20).mean()
+        _bb_std = _ph[_close_col].rolling(20).std()
+        _bb_up  = _bb_mid + 2 * _bb_std
+        _bb_dn  = _bb_mid - 2 * _bb_std
+        _fig.add_trace(go.Scatter(x=_ph["date"], y=_bb_up, mode="lines",
+            name="BB Upper", line=dict(color="rgba(100,180,255,0.6)", width=1, dash="dot")), row=1, col=1)
+        _fig.add_trace(go.Scatter(x=_ph["date"], y=_bb_dn, mode="lines",
+            name="BB Lower", line=dict(color="rgba(100,180,255,0.6)", width=1, dash="dot"),
+            fill="tonexty", fillcolor="rgba(100,180,255,0.04)"), row=1, col=1)
+
+    # Support / Resistance lines on chart
+    _fig.add_hline(y=_near_sup, line_dash="dash", line_color="rgba(0,200,81,0.5)",
+        annotation_text=f"Support ${_near_sup:,.2f}", annotation_position="left",
+        annotation_font_color="rgba(0,200,81,0.8)", row=1, col=1)
+    _fig.add_hline(y=_near_res, line_dash="dash", line_color="rgba(255,68,68,0.5)",
+        annotation_text=f"Resistance ${_near_res:,.2f}", annotation_position="left",
+        annotation_font_color="rgba(255,68,68,0.8)", row=1, col=1)
+
+    _cur_row = 2
+
+    # MACD
+    if _show_macd and len(_ph) >= 26:
+        _ema12   = _ph[_close_col].ewm(span=12, adjust=False).mean()
+        _ema26   = _ph[_close_col].ewm(span=26, adjust=False).mean()
+        _macd_l  = _ema12 - _ema26
+        _sig_l   = _macd_l.ewm(span=9, adjust=False).mean()
+        _hist    = _macd_l - _sig_l
+        _hist_colors = ["#00C851" if v >= 0 else "#FF4444" for v in _hist]
+        _fig.add_trace(go.Bar(x=_ph["date"], y=_hist, name="MACD Hist",
+            marker_color=_hist_colors, opacity=0.7), row=_cur_row, col=1)
+        _fig.add_trace(go.Scatter(x=_ph["date"], y=_macd_l, mode="lines",
+            name="MACD", line=dict(color="#00E5FF", width=1.5)), row=_cur_row, col=1)
+        _fig.add_trace(go.Scatter(x=_ph["date"], y=_sig_l, mode="lines",
+            name="Signal", line=dict(color="#FF9500", width=1.5)), row=_cur_row, col=1)
+        _fig.update_yaxes(title_text="MACD", row=_cur_row, col=1)
+        _cur_row += 1
+
+    # RSI
+    if len(_ph) >= 14:
+        _d   = _ph[_close_col].diff()
+        _g   = _d.where(_d > 0, 0).rolling(14).mean()
+        _lo  = (-_d.where(_d < 0, 0)).rolling(14).mean()
+        _rsi_s = 100 - (100 / (1 + _g / _lo.replace(0, float("nan"))))
+        _fig.add_trace(go.Scatter(x=_ph["date"], y=_rsi_s, mode="lines",
+            name="RSI", line=dict(color="#FFD700", width=2)), row=_cur_row, col=1)
+        _fig.add_hline(y=70, line_dash="dash", line_color="rgba(255,68,68,0.4)", row=_cur_row, col=1)
+        _fig.add_hline(y=30, line_dash="dash", line_color="rgba(0,200,81,0.4)",  row=_cur_row, col=1)
+        _fig.update_yaxes(title_text="RSI", range=[0,100], row=_cur_row, col=1)
+        _cur_row += 1
+
+    # Volume
+    if _show_vol:
+        _vol_colors = ["#00C851" if _ph["close"].iloc[i] >= _ph["open"].iloc[i] else "#FF4444"
+                       for i in range(len(_ph))]
+        _fig.add_trace(go.Bar(x=_ph["date"], y=_ph["volume"], name="Volume",
+            marker_color=_vol_colors, opacity=0.5), row=_cur_row, col=1)
+        _fig.update_yaxes(title_text="Vol", row=_cur_row, col=1)
+
+    _fig.update_layout(height=580, template="plotly_dark", margin=dict(l=0,r=0,t=28,b=0),
+        hovermode="x unified", showlegend=True, xaxis_rangeslider_visible=False,
+        paper_bgcolor="#0A0A1A", plot_bgcolor="#0D0D20",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+    st.plotly_chart(_fig, use_container_width=True)
+
+    # ─────────────────────────────────────────────────────────────────────────────
+    # SECTION 3 — TRADER ALERTS
+    # ─────────────────────────────────────────────────────────────────────────────
+    st.markdown("### 🚨 Trader Alerts")
+    st.caption("*Exact price triggers to watch — based on current technicals*")
+
+    def _alert(level, title, body, urgency="info"):
+        """urgency: hot | warm | cold | info"""
+        icons = {"hot": "🔴", "warm": "🟡", "cold": "🟢", "info": "🔵"}
+        return f"""
+        <div class="ult-alert {urgency}">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+                <span style="font-size:16px;">{icons[urgency]}</span>
+                <span style="font-weight:700;font-size:14px;color:#fff;">{title}</span>
+                {f'<span style="margin-left:auto;font-weight:800;font-size:15px;color:#fff;">${level:,.2f}</span>' if level else ''}
+            </div>
+            <div style="font-size:13px;color:#ccc;padding-left:26px;">{body}</div>
+        </div>"""
+
+    _alerts_html = ""
+    _alert_count = 0
+
+    # Alert: RSI overbought / oversold
+    if _rsi and _rsi >= 70:
+        _alerts_html += _alert(None, f"RSI Overbought ({_rsi:.0f})",
+            f"Momentum is stretched. Historically, RSI above 70 increases pullback risk. Watch for RSI to roll over below 65 as an early exit signal.", "hot")
+        _alert_count += 1
+    elif _rsi and _rsi <= 30:
+        _alerts_html += _alert(None, f"RSI Oversold ({_rsi:.0f})",
+            f"Selling may be exhausted. RSI below 30 often precedes short bounces. Confirm with a green candle + volume before acting.", "cold")
+        _alert_count += 1
+
+    # Alert: Near resistance
+    _dist_res = ((_near_res - _live_price) / _live_price * 100) if _live_price else None
+    if _dist_res is not None and _dist_res <= 3:
+        _alerts_html += _alert(_near_res, "Approaching Key Resistance",
+            f"Price is {_dist_res:.1f}% from resistance at ${_near_res:,.2f}. A clean break + hold above triggers a bullish continuation. Rejection here risks a pullback to ${_near_sup:,.2f}.", "warm")
+        _alert_count += 1
+    elif _dist_res is not None and _dist_res <= 6:
+        _alerts_html += _alert(_near_res, "Resistance in Range",
+            f"Key resistance at ${_near_res:,.2f} is {_dist_res:.1f}% away. Watch for price action near this level on volume.", "info")
+        _alert_count += 1
+
+    # Alert: Near support
+    _dist_sup = ((_live_price - _near_sup) / _live_price * 100) if _live_price else None
+    if _dist_sup is not None and _dist_sup <= 3:
+        _alerts_html += _alert(_near_sup, "Testing Support Zone",
+            f"Price is just {_dist_sup:.1f}% above support at ${_near_sup:,.2f}. This is a critical hold-or-break level. A daily close below here could accelerate selling.", "hot")
+        _alert_count += 1
+
+    # Alert: SMA50 crossover
+    if _sma50:
+        _dist_sma50 = ((_live_price - _sma50) / _sma50 * 100)
+        if abs(_dist_sma50) <= 1.5:
+            _cross_dir = "above" if _live_price > _sma50 else "below"
+            _urgency = "warm"
+            _alerts_html += _alert(_sma50, f"SMA50 Crossover Zone",
+                f"Price is within 1.5% of the 50-day MA (${_sma50:,.2f}). Currently {_cross_dir} it. A confirmed cross changes the short-term trend signal.", _urgency)
+            _alert_count += 1
+
+    # Alert: SMA200 crossover
+    if _sma200:
+        _dist_sma200 = ((_live_price - _sma200) / _sma200 * 100)
+        if abs(_dist_sma200) <= 2.0:
+            _cross_dir200 = "above" if _live_price > _sma200 else "below"
+            _alerts_html += _alert(_sma200, "SMA200 Crossover Zone — High Importance",
+                f"Price is within 2% of the 200-day MA (${_sma200:,.2f}), currently {_cross_dir200}. The 200-day is a major trend line watched by institutions. A sustained cross is a significant signal.", "hot")
+            _alert_count += 1
+
+    # Alert: Volume spike
+    if _vol_spike:
+        _vol_urgency = "cold" if _change_pct >= 0 else "hot"
+        _vol_text = "bullish accumulation" if _change_pct >= 0 else "distribution/selling pressure"
+        _alerts_html += _alert(None, f"Volume Spike Detected ({_vol_spike_x:.1f}× Average)",
+            f"Today's volume is {_vol_spike_x:.1f}× the 20-day average — this suggests {_vol_text}. High-volume moves are more likely to continue.", _vol_urgency)
+        _alert_count += 1
+
+    # Alert: Volatility squeeze → breakout watch
+    if _vol_regime == "low":
+        _alerts_html += _alert(None, "Volatility Squeeze — Breakout Watch",
+            f"Short-term volatility is compressed below its 60-day average. Squeezes often precede sharp moves in either direction. Watch for a surge in volume to signal the breakout direction.", "warm")
+        _alert_count += 1
+
+    # Alert: Golden / Death cross proximity
+    if _sma50 and _sma200:
+        _cross_gap_pct = ((_sma50 - _sma200) / _sma200 * 100) if _sma200 else None
+        if _cross_gap_pct is not None and abs(_cross_gap_pct) <= 2:
+            _cx_type = "Golden Cross" if _sma50 > _sma200 else "Death Cross"
+            _cx_urgency = "cold" if _sma50 > _sma200 else "hot"
+            _alerts_html += _alert(None, f"{_cx_type} — SMA50/200 Converging",
+                f"SMA50 (${_sma50:,.2f}) and SMA200 (${_sma200:,.2f}) are within 2% of each other. A {_cx_type} is forming — a confirmed crossover is a major long-term trend signal.", _cx_urgency)
+            _alert_count += 1
+
+    if _alert_count == 0:
+        _alerts_html = _alert(None, "No Critical Alerts Right Now",
+            f"{_ult_ticker} is not near any major trigger levels at the moment. Set your watchlist and revisit when price approaches ${_near_res:,.2f} (resistance) or ${_near_sup:,.2f} (support).", "info")
+
+    st.markdown(_alerts_html, unsafe_allow_html=True)
+
+    # ─────────────────────────────────────────────────────────────────────────────
+    # SECTION 4 — VISUAL KEY LEVELS (Price Ladder)
+    # ─────────────────────────────────────────────────────────────────────────────
+    st.markdown("### 🗺️ Key Levels")
+
+    _ladder_html = ""
+
+    # Resistances (highest first)
+    for _r in reversed(_resistances[:3]):
+        _d = ((_r["level"] - _live_price) / _live_price * 100)
+        _ladder_html += f"""
+        <div class="ult-price-row resistance">
+            <span style="color:#FF4444;font-weight:700;min-width:90px;">RESISTANCE</span>
+            <span style="font-weight:700;color:#fff;min-width:100px;">${_r['level']:,.2f}</span>
+            <span style="color:#FF8888;font-size:12px;min-width:80px;">{_d:+.1f}%</span>
+            <span style="color:#888;font-size:12px;">{_r['source']}</span>
+        </div>"""
+
+    # Current price row
+    _ladder_html += f"""
+    <div class="ult-price-row current">
+        <span style="color:#00E5FF;font-weight:800;min-width:90px;">▶ PRICE NOW</span>
+        <span style="font-weight:800;color:#00E5FF;min-width:100px;">${_live_price:,.2f}</span>
+        <span style="color:{_change_color};font-size:13px;min-width:80px;">{_change_dir} {abs(_change_pct):.2f}%</span>
+        <span style="color:#aaa;font-size:12px;">today</span>
+    </div>"""
+
+    # Supports (closest first)
+    for _s in _supports[:3]:
+        _d = ((_s["level"] - _live_price) / _live_price * 100)
+        _ladder_html += f"""
+        <div class="ult-price-row support">
+            <span style="color:#00C851;font-weight:700;min-width:90px;">SUPPORT</span>
+            <span style="font-weight:700;color:#fff;min-width:100px;">${_s['level']:,.2f}</span>
+            <span style="color:#88CC88;font-size:12px;min-width:80px;">{_d:+.1f}%</span>
+            <span style="color:#888;font-size:12px;">{_s['source']}</span>
+        </div>"""
+
+    st.markdown(_ladder_html, unsafe_allow_html=True)
+
+    # ─────────────────────────────────────────────────────────────────────────────
+    # SECTION 5 — TRADE SETUP CARD
+    # ─────────────────────────────────────────────────────────────────────────────
+    st.markdown("### 📐 Trade Setup")
+    st.caption("*Educational only — not financial advice*")
+
+    _t_col1, _t_col2 = st.columns([2, 1])
+    with _t_col1:
+        _dir = st.radio("Direction", ["Long (buy)", "Short (sell)"], key="ult_dir_v2", horizontal=True, label_visibility="collapsed")
+    with _t_col2:
+        _horizon = st.selectbox("Horizon", ["Swing (days)", "Position (weeks)", "Day (hours)"], key="ult_hor_v2", label_visibility="collapsed")
+
+    _is_long = "Long" in _dir
+
+    if _is_long:
+        _entry     = (_near_sup * 1.005)
+        _stop      = (_near_sup * 0.975)
+        _target1   = _near_res
+        _target2   = (_resistances[1]["level"] if len(_resistances) > 1 else _near_res * 1.04)
+    else:
+        _entry     = (_near_res * 0.995)
+        _stop      = (_near_res * 1.025)
+        _target1   = _near_sup
+        _target2   = (_supports[1]["level"] if len(_supports) > 1 else _near_sup * 0.96)
+
+    # ATR-based stop: use 1.5× ATR from entry instead of a fixed % off support
+    _atr_stop_dist = max(_live_price * (_atr_pct / 100.0) * 1.5, abs(_entry - _stop))
+    if _is_long:
+        _stop = _entry - _atr_stop_dist
+        # Don't let stop go below nearest support (would be unrealistic)
+        _stop = max(_stop, _near_sup * 0.97)
+    else:
+        _stop = _entry + _atr_stop_dist
+        _stop = min(_stop, _near_res * 1.03)
+    _risk    = abs(_entry - _stop)
+    _reward1 = abs(_target1 - _entry)
+    _rr1     = (_reward1 / _risk) if _risk > 0 else 0
+    _reward2 = abs(_target2 - _entry)
+    _rr2     = (_reward2 / _risk) if _risk > 0 else 0
+
+    _tc1, _tc2, _tc3 = st.columns(3)
+    with _tc1:
+        st.markdown(f"""
+        <div class="ult-trade-card entry">
+            <div style="font-size:11px;color:#aaa;font-weight:700;letter-spacing:1px;">ENTRY ZONE</div>
+            <div style="font-size:26px;font-weight:800;color:#00E5FF;margin:6px 0;">${_entry:,.2f}</div>
+            <div style="font-size:12px;color:#888;">{'Near support' if _is_long else 'Near resistance'}</div>
+        </div>""", unsafe_allow_html=True)
+    with _tc2:
+        st.markdown(f"""
+        <div class="ult-trade-card stop">
+            <div style="font-size:11px;color:#aaa;font-weight:700;letter-spacing:1px;">STOP LOSS</div>
+            <div style="font-size:26px;font-weight:800;color:#FF4444;margin:6px 0;">${_stop:,.2f}</div>
+            <div style="font-size:12px;color:#888;">Risk: ${_risk:,.2f} / share</div>
+        </div>""", unsafe_allow_html=True)
+    with _tc3:
+        st.markdown(f"""
+        <div class="ult-trade-card target">
+            <div style="font-size:11px;color:#aaa;font-weight:700;letter-spacing:1px;">TARGETS</div>
+            <div style="font-size:22px;font-weight:800;color:#00C851;margin:6px 0;">${_target1:,.2f}</div>
+            <div style="font-size:12px;color:#aaa;margin-top:2px;">T2: ${_target2:,.2f}</div>
+        </div>""", unsafe_allow_html=True)
+
+    _rr_color = "#00C851" if _rr1 >= 2 else "#FFD700" if _rr1 >= 1.5 else "#FF4444"
+    st.markdown(f"""
+    <div style="background:rgba(255,255,255,0.04);border-radius:10px;padding:12px 18px;margin-top:8px;display:flex;gap:24px;align-items:center;flex-wrap:wrap;">
+        <span style="font-size:13px;color:#aaa;">Risk/Reward to T1:</span>
+        <span style="font-size:22px;font-weight:800;color:{_rr_color};">{_rr1:.1f}:1</span>
+        <span style="font-size:13px;color:#aaa;margin-left:8px;">To T2:</span>
+        <span style="font-size:18px;font-weight:700;color:{_rr_color};">{_rr2:.1f}:1</span>
+        <span style="font-size:12px;color:#666;margin-left:auto;">{'✅ Favorable' if _rr1>=2 else '⚠️ Tight — be selective' if _rr1>=1.5 else '❌ Unfavorable R:R'}</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ─────────────────────────────────────────────────────────────────────────────
+    # SECTION 6 — SCENARIO SIMULATOR
+    # ─────────────────────────────────────────────────────────────────────────────
+    st.markdown("### 🎲 Scenarios")
+
+    _atr_d   = _atr_pct / 100.0
+    # Cap ATR-based move at 8% so high-vol stocks don't show wild targets
+    _move_cap = 0.08
+    _bull_move = min(_atr_d * 2, _move_cap)
+    _bear_move = min(_atr_d * 2, _move_cap)
+    # Use second resistance/support as target if available, else ATR-derived
+    _bull_t  = _resistances[1]["level"] if len(_resistances) > 1 else _near_res * (1 + _bull_move)
+    _bear_t  = _supports[1]["level"]    if len(_supports)    > 1 else _near_sup * (1 - _bear_move)
+    _bull_pct = ((_bull_t - _live_price) / _live_price * 100) if _live_price else 0
+    _bear_pct = ((_bear_t - _live_price) / _live_price * 100) if _live_price else 0
+    # Sanity-clamp: if second level produces >20% move it's probably a data artifact
+    if abs(_bull_pct) > 20: _bull_t = _near_res * (1 + min(_atr_d * 2, _move_cap)); _bull_pct = ((_bull_t - _live_price) / _live_price * 100)
+    if abs(_bear_pct) > 20: _bear_t = _near_sup * (1 - min(_atr_d * 2, _move_cap)); _bear_pct = ((_bear_t - _live_price) / _live_price * 100)
+
+    _s1, _s2, _s3 = st.columns(3)
+    with _s1:
+        st.markdown(f"""
+        <div class="ult-scenario bull">
+            <div style="font-size:13px;font-weight:700;color:#00C851;margin-bottom:8px;">🐂 BULL CASE</div>
+            <div style="font-size:12px;color:#aaa;margin-bottom:4px;">Trigger</div>
+            <div style="font-size:14px;font-weight:600;color:#fff;margin-bottom:10px;">Break + hold above ${_near_res:,.2f}</div>
+            <div style="font-size:12px;color:#aaa;margin-bottom:4px;">Price Target</div>
+            <div style="font-size:18px;font-weight:800;color:#00C851;margin-bottom:6px;">${_bull_t:,.2f} <span style="font-size:13px;">({_bull_pct:+.1f}%)</span></div>
+            <div style="font-size:12px;color:#aaa;margin-bottom:4px;">Invalidated if</div>
+            <div style="font-size:13px;color:#ff8888;">Drops below ${_near_sup:,.2f}</div>
+        </div>""", unsafe_allow_html=True)
+    with _s2:
+        _range_mid = (_near_sup + _near_res) / 2
+        st.markdown(f"""
+        <div class="ult-scenario base">
+            <div style="font-size:13px;font-weight:700;color:#FFD700;margin-bottom:8px;">⚖️ BASE CASE</div>
+            <div style="font-size:12px;color:#aaa;margin-bottom:4px;">Setup</div>
+            <div style="font-size:14px;font-weight:600;color:#fff;margin-bottom:10px;">Range between ${_near_sup:,.2f} – ${_near_res:,.2f}</div>
+            <div style="font-size:12px;color:#aaa;margin-bottom:4px;">Expected Range</div>
+            <div style="font-size:18px;font-weight:800;color:#FFD700;margin-bottom:6px;">±{_atr_pct:.1f}% chop</div>
+            <div style="font-size:12px;color:#aaa;margin-bottom:4px;">Invalidated by</div>
+            <div style="font-size:13px;color:#ccc;">High-volume break of either level</div>
+        </div>""", unsafe_allow_html=True)
+    with _s3:
+        st.markdown(f"""
+        <div class="ult-scenario bear">
+            <div style="font-size:13px;font-weight:700;color:#FF4444;margin-bottom:8px;">🐻 BEAR CASE</div>
+            <div style="font-size:12px;color:#aaa;margin-bottom:4px;">Trigger</div>
+            <div style="font-size:14px;font-weight:600;color:#fff;margin-bottom:10px;">Daily close below ${_near_sup:,.2f}</div>
+            <div style="font-size:12px;color:#aaa;margin-bottom:4px;">Price Target</div>
+            <div style="font-size:18px;font-weight:800;color:#FF4444;margin-bottom:6px;">${_bear_t:,.2f} <span style="font-size:13px;">({_bear_pct:+.1f}%)</span></div>
+            <div style="font-size:12px;color:#aaa;margin-bottom:4px;">Invalidated if</div>
+            <div style="font-size:13px;color:#88ff88;">Reclaims ${_near_res:,.2f}</div>
+        </div>""", unsafe_allow_html=True)
+
+    # ─────────────────────────────────────────────────────────────────────────────
+    # SECTION 7 — HISTORICAL SIMILAR SETUPS (collapsed)
+    # ─────────────────────────────────────────────────────────────────────────────
+    with st.expander("🕰️ Historical Similar Setups", expanded=False):
+        st.caption("*Find past dates when technicals looked similar to today — and what happened next*")
+        if st.button("Find Similar Setups", key="ult_sim_v2"):
+            with st.spinner("Scanning history (vectorized)..."):
+                if len(_df) < 80:
+                    st.warning("Need at least 80 days of data.")
                 else:
-                    # Current setup features - handle None values safely
-                    curr_pct_above_sma50 = tech_facts.get("pct_above_sma50") or 0
-                    curr_pct_above_sma200 = tech_facts.get("pct_above_sma200") or 0
-                    
-                    current_features = {
-                        "above_sma50": curr_pct_above_sma50 > 0,
-                        "above_sma200": curr_pct_above_sma200 > 0,
-                        "rsi_state": tech_facts.get("rsi_state", "neutral"),
-                        "vol_regime": tech_facts.get("vol_regime", "medium"),
-                        "dist_sma50": curr_pct_above_sma50,
-                        "dist_sma200": curr_pct_above_sma200,
-                        "volume_spike": tech_facts.get("volume_spike", False)
-                    }
-                    
-                    # Compute features for historical windows
-                    similar_dates = []
-                    
-                    for i in range(60, len(df) - 20):  # Skip last 20 days to avoid trivial matches
-                        hist_slice = df.iloc[:i+1]
-                        
-                        if len(hist_slice) < 60:
-                            continue
-                        
-                        # Compute features for this historical point
-                        hist_facts = compute_technical_facts(hist_slice)
-                        
-                        # Handle None values safely
-                        pct_above_sma50 = hist_facts.get("pct_above_sma50") or 0
-                        pct_above_sma200 = hist_facts.get("pct_above_sma200") or 0
-                        
-                        hist_features = {
-                            "above_sma50": pct_above_sma50 > 0,
-                            "above_sma200": pct_above_sma200 > 0,
-                            "rsi_state": hist_facts.get("rsi_state", "neutral"),
-                            "vol_regime": hist_facts.get("vol_regime", "medium"),
-                            "dist_sma50": pct_above_sma50,
-                            "dist_sma200": pct_above_sma200,
-                            "volume_spike": hist_facts.get("volume_spike", False)
-                        }
-                        
-                        # Compute similarity score
-                        score = 0
-                        
-                        if hist_features["above_sma50"] == current_features["above_sma50"]:
-                            score += 1
-                        if hist_features["above_sma200"] == current_features["above_sma200"]:
-                            score += 1
-                        if hist_features["rsi_state"] == current_features["rsi_state"]:
-                            score += 2
-                        if hist_features["vol_regime"] == current_features["vol_regime"]:
-                            score += 1
-                        if hist_features["volume_spike"] == current_features["volume_spike"]:
-                            score += 1
-                        
-                        # Distance penalty
-                        dist_penalty = abs(hist_features["dist_sma50"] - current_features["dist_sma50"]) / 10.0
-                        score -= min(dist_penalty, 2)
-                        
-                        # Compute forward returns
-                        date_idx = hist_slice.index[-1]
-                        try:
-                            future_5d = ((df.loc[date_idx:].iloc[5]["close"] / df.loc[date_idx]["close"]) - 1) * 100 if i + 5 < len(df) else None
-                            future_20d = ((df.loc[date_idx:].iloc[20]["close"] / df.loc[date_idx]["close"]) - 1) * 100 if i + 20 < len(df) else None
-                            future_60d = ((df.loc[date_idx:].iloc[60]["close"] / df.loc[date_idx]["close"]) - 1) * 100 if i + 60 < len(df) else None
-                        except Exception:
-                            future_5d = future_20d = future_60d = None
-                        
-                        similar_dates.append({
-                            "date": date_idx,
-                            "score": score,
-                            "fwd_5d": future_5d,
-                            "fwd_20d": future_20d,
-                            "fwd_60d": future_60d
-                        })
-                    
-                    # Sort by score
-                    similar_dates = sorted(similar_dates, key=lambda x: x["score"], reverse=True)[:10]
-                    
-                    if similar_dates:
-                        st.markdown("**Top 10 Similar Historical Setups:**")
-                        
-                        sim_data = []
-                        for match in similar_dates:
-                            outcome = "Continuation" if (match["fwd_20d"] or 0) > 2 else "Reversal" if (match["fwd_20d"] or 0) < -2 else "Chop"
-                            
-                            sim_data.append({
-                                "Date": match["date"].strftime("%Y-%m-%d") if hasattr(match["date"], "strftime") else str(match["date"]),
-                                "Similarity": f"{match['score']:.1f}",
-                                "+5d": f"{match['fwd_5d']:+.2f}%" if match["fwd_5d"] else "N/A",
-                                "+20d": f"{match['fwd_20d']:+.2f}%" if match["fwd_20d"] else "N/A",
-                                "+60d": f"{match['fwd_60d']:+.2f}%" if match["fwd_60d"] else "N/A",
-                                "Outcome": outcome
+                    # ── VECTORIZED similarity — no per-row compute_technical_facts calls ──
+                    _sv = _df.copy().reset_index(drop=True)
+                    _c  = _sv["close"]
+
+                    # Pre-compute indicators across all rows at once
+                    _sv["sma50"]  = _c.rolling(50, min_periods=1).mean()
+                    _sv["sma200"] = _c.rolling(200, min_periods=1).mean()
+                    _sv["above50"]  = (_c > _sv["sma50"]).astype(int)
+                    _sv["above200"] = (_c > _sv["sma200"]).astype(int)
+                    _sv["pct_vs_sma50"] = (_c / _sv["sma50"] - 1) * 100
+
+                    # RSI(14) vectorized
+                    _dlt = _c.diff()
+                    _gain = _dlt.where(_dlt > 0, 0).rolling(14, min_periods=1).mean()
+                    _loss = (-_dlt.where(_dlt < 0, 0)).rolling(14, min_periods=1).mean()
+                    _rs   = _gain / _loss.replace(0, float("nan"))
+                    _sv["rsi"] = (100 - 100 / (1 + _rs)).fillna(50)
+                    # RSI state buckets: 0=oversold(<35), 1=neutral, 2=overbought(>65)
+                    _sv["rsi_bucket"] = pd.cut(_sv["rsi"], bins=[0,35,65,100], labels=[0,1,2]).astype(float).fillna(1)
+
+                    # Volatility regime: 1=low, 2=normal, 3=high
+                    _sv["vol20"] = _c.pct_change().rolling(20, min_periods=1).std()
+                    _sv["vol60"] = _c.pct_change().rolling(60, min_periods=1).std()
+                    _vol_ratio   = _sv["vol20"] / _sv["vol60"].replace(0, float("nan"))
+                    _sv["vol_bucket"] = pd.cut(_vol_ratio, bins=[0, 0.7, 1.3, 99], labels=[1,2,3]).astype(float).fillna(2)
+
+                    # Current state
+                    _c_above50  = int((_facts.get("pct_above_sma50") or 0) > 0)
+                    _c_above200 = int((_facts.get("pct_above_sma200") or 0) > 0)
+                    _c_rsi_b    = 0 if (_facts.get("rsi14_last") or 50) < 35 else (2 if (_facts.get("rsi14_last") or 50) > 65 else 1)
+                    _c_vol_b    = 1 if (_facts.get("vol_regime") == "low") else (3 if _facts.get("vol_regime") == "high" else 2)
+                    _c_pct50    = _facts.get("pct_above_sma50") or 0
+
+                    # Score each historical row (vectorized)
+                    _sv["score"] = (
+                        (_sv["above50"]   == _c_above50).astype(float) +
+                        (_sv["above200"]  == _c_above200).astype(float) +
+                        2.0 * (_sv["rsi_bucket"] == _c_rsi_b).astype(float) +
+                        (_sv["vol_bucket"] == _c_vol_b).astype(float) -
+                        ((_sv["pct_vs_sma50"] - _c_pct50).abs() / 10.0).clip(upper=2)
+                    )
+
+                    # Only consider rows with enough history and not the last 20 days
+                    _valid = _sv.iloc[59: len(_sv)-20].copy()
+
+                    # Forward returns (vectorized with shift)
+                    _sv["fwd5"]  = _c.shift(-5)  / _c - 1
+                    _sv["fwd20"] = _c.shift(-20) / _c - 1
+                    _sv["fwd60"] = _c.shift(-60) / _c - 1
+
+                    _valid = _valid.join(_sv[["fwd5","fwd20","fwd60"]], rsuffix="_fwd")
+                    _top   = _valid.nlargest(8, "score")
+
+                    if len(_top) > 0:
+                        _sim_rows = []
+                        for _, _row in _top.iterrows():
+                            _f20v  = _row.get("fwd20", None)
+                            _out   = "↑ Continued" if ((_f20v or 0)*100 > 2) else "↓ Reversed" if ((_f20v or 0)*100 < -2) else "→ Sideways"
+                            _date_val = _row.get("date", "")
+                            _date_str = _date_val.strftime("%Y-%m-%d") if hasattr(_date_val, "strftime") else str(_date_val)
+                            _sim_rows.append({
+                                "Date":   _date_str,
+                                "Match":  f"{_row['score']:.1f}",
+                                "+5d":    f"{_row.get('fwd5',0)*100:+.1f}%" if _row.get('fwd5') is not None else "—",
+                                "+20d":   f"{_row.get('fwd20',0)*100:+.1f}%" if _row.get('fwd20') is not None else "—",
+                                "+60d":   f"{_row.get('fwd60',0)*100:+.1f}%" if _row.get('fwd60') is not None else "—",
+                                "Outcome": _out
                             })
-                        
-                        sim_df = pd.DataFrame(sim_data)
-                        st.dataframe(sim_df, use_container_width=True, hide_index=True)
-                        
-                        st.info("📊 Historical analysis for educational purposes only")
+                        st.dataframe(pd.DataFrame(_sim_rows), use_container_width=True, hide_index=True)
+                        _pos20 = sum(1 for r in _sim_rows if "↑" in r["Outcome"])
+                        st.caption(f"{_pos20}/{len(_sim_rows)} similar setups led to gains over 20 days — educational only.")
                     else:
-                        st.caption("No similar setups found in history")
-    
-    st.markdown("---")
-    
-    # ============= MODULE D: SCENARIO SIMULATOR =============
-    st.markdown("### 🎲 Scenario Simulator (Bull/Base/Bear)")
-    st.caption("*Three potential scenarios based on key levels and volatility*")
-    
-    atr_pct = tech_facts.get("atr_pct", 2.0)
-    
-    col_bull, col_base, col_bear = st.columns(3)
-    
-    with col_bull:
-        st.markdown("#### 🐂 Bull Scenario")
-        st.markdown(f"**Trigger:** Break above ${nearest_resistance:.2f}")
-        st.markdown(f"**Expected Move:** +{atr_pct:.1f}% to +{atr_pct*2:.1f}%")
-        st.markdown(f"**Invalidation:** Fails if drops below ${nearest_support:.2f}")
-    
-    with col_base:
-        st.markdown("#### ⚖️ Base Scenario")
-        st.markdown(f"**Trigger:** Range between ${nearest_support:.2f} - ${nearest_resistance:.2f}")
-        st.markdown(f"**Expected Move:** ±{atr_pct*0.5:.1f}% (choppy)")
-        st.markdown(f"**Invalidation:** Break either way with volume")
-    
-    with col_bear:
-        st.markdown("#### 🐻 Bear Scenario")
-        st.markdown(f"**Trigger:** Break below ${nearest_support:.2f}")
-        st.markdown(f"**Expected Move:** -{atr_pct:.1f}% to -{atr_pct*2:.1f}%")
-        st.markdown(f"**Invalidation:** Fails if rises above ${nearest_resistance:.2f}")
-    
-    st.markdown("---")
-    
-    # ============= MODULE E: ULTIMATE AI DEEP DIVE =============
-    st.markdown("### 🤖 Ultimate AI Deep Dive")
-    st.caption("*AI-powered analysis using OpenAI GPT-4o-mini - Institutional-grade insights*")
-    
-    # Check if OpenAI is available
-    openai_available = bool(os.environ.get('OPENAI_API_KEY', ''))
-    
-    if not openai_available:
-        st.warning("⚠️ **OpenAI API Key Required**")
-        st.info("""
-        **Setup Steps:**
-        1. Get API key from: https://platform.openai.com/api-keys
-        2. Set environment variable: `OPENAI_API_KEY=sk-xxxxx`
-        3. Restart the app
-        
-        **Cost:** ~$0.0004 per request (token-based pricing)
-        """)
-    
-    # ALWAYS show buttons (even without API key)
-    col_ai1, col_ai2 = st.columns(2)
-    
-    with col_ai1:
-        trade_plan_btn = st.button("📝 Trade Plan Rationale (AI)", key="ultimate_trade_plan_ai", use_container_width=True, type="primary")
-    
-    with col_ai2:
-        change_view_btn = st.button("🔄 What Would Change View? (AI)", key="ultimate_change_view_ai", use_container_width=True, type="primary")
-    
-    # Initialize session state
-    if 'ultimate_trade_plan_output' not in st.session_state:
-        st.session_state.ultimate_trade_plan_output = None
-    if 'ultimate_change_view_output' not in st.session_state:
-        st.session_state.ultimate_change_view_output = None
-    
-    # Build allowed fact keys list
-    allowed_fact_keys = list(tech_facts.keys()) + [f"support_{i}" for i in range(1, 4)] + [f"resistance_{i}" for i in range(1, 4)]
-    
-    # Add support/resistance levels to facts
-    for i, sup in enumerate(supports, 1):
-        tech_facts[f"support_{i}"] = sup["level"]
-    for i, res in enumerate(resistances, 1):
-        tech_facts[f"resistance_{i}"] = res["level"]
-    
-    # ============= TRADE PLAN RATIONALE AI =============
-    if trade_plan_btn:
-        if not openai_available:
-            st.error("⚠️ Cannot proceed - OPENAI_API_KEY not set. See setup instructions above.")
-        else:
-            # Clear the other output
-            st.session_state.ultimate_change_view_output = None
-            
-            with st.spinner("🤖 AI building comprehensive trade plan rationale..."):
-                prompt = f"""You are an ELITE trading education AI for premium subscribers. Provide comprehensive, institutional-grade analysis.
+                        st.caption("No strong historical matches found.")
 
-CRITICAL FORMATTING:
-1. Format ALL dollar amounts: $XXX.XX
-2. Format ALL percentages: XX.XX%
-3. Format ALL numbers with commas if >999
-4. NO brackets like [sma50] anywhere
-5. Use professional but accessible language
-6. Provide 7-10 detailed bullets (this is PREMIUM)
+    # ─────────────────────────────────────────────────────────────────────────────
+    # SECTION 8 — AI DEEP DIVE (unified, one button)
+    # ─────────────────────────────────────────────────────────────────────────────
+    st.markdown("### 🤖 AI Deep Dive")
+    st.caption("*Institutional-grade analysis + precise IF/THEN alerts — powered by OpenAI*")
 
-FACTS (USE ONLY THESE):
-{json.dumps({k: v for k, v in tech_facts.items() if v is not None}, indent=2)}
+    _openai_ok = bool(os.environ.get("OPENAI_API_KEY", ""))
+    if not _openai_ok:
+        st.warning("OpenAI API key not configured. Add `OPENAI_API_KEY` to your environment variables to unlock this section.")
 
-Return ONLY this JSON (no markdown, no code blocks):
+    _ai_btn = st.button("⚡ Generate AI Deep Dive", key="ult_ai_btn_v2", type="primary",
+                         use_container_width=True, disabled=not _openai_ok)
 
-{{
-  "ticker": "{ticker}",
-  "summary": "2-3 sentences providing a sophisticated overview of the current setup, market context, and what makes this particularly interesting or concerning right now",
-  "bullets": [
-    "Point 1: Current price action and positioning relative to key moving averages - what does this tell us about institutional sentiment?",
-    "Point 2: Momentum analysis - RSI state, recent performance, and what this suggests about near-term direction",
-    "Point 3: Volume analysis - what is volume telling us about conviction behind recent moves?",
-    "Point 4: Volatility regime - is this a low-vol grind or high-vol environment? What does that mean for position sizing?",
-    "Point 5: Key support level - where is the nearest meaningful support and why does it matter?",
-    "Point 6: Key resistance level - what's the upside target and what would need to happen to reach it?",
-    "Point 7: Risk/reward setup - given current positioning, what's the risk/reward profile?",
-    "Point 8: Timeframe consideration - is this a day trade, swing trade, or position trade setup?",
-    "Point 9: Catalyst or watch items - what events or levels should traders monitor?",
-    "Point 10: Contrarian view - what's the counter-argument to this setup?"
-  ],
-  "fact_keys_used": ["list", "of", "fact", "keys", "used"]
-}}
+    if _ai_btn and _openai_ok:
+        st.session_state.ult_ai_output_v2 = None
+        _ult_support_facts = {}
+        for _idx, _sv in enumerate(_supports[:3],    1): _ult_support_facts[f"support_{_idx}"]    = _sv["level"]
+        for _idx, _rv in enumerate(_resistances[:3], 1): _ult_support_facts[f"resistance_{_idx}"] = _rv["level"]
+        _ai_facts = {**_facts, **_ult_support_facts}
+        _ai_clean = {k: v for k, v in _ai_facts.items() if v is not None}
 
-CRITICAL REQUIREMENTS:
-- Provide 7-10 comprehensive bullets (NOT just 5)
-- NO [bracket] tags anywhere
-- Every bullet must cite specific numbers from facts
-- All numbers properly formatted with $, %, commas
-- Think like an institutional trader - what really matters?
-- Consider multiple timeframes and scenarios
-- Address BOTH bullish AND bearish perspectives"""
-
-                ai_response = call_openai_json(prompt, max_tokens=3500, temperature=0.1)
-                
-                if ai_response:
-                    # Validate
-                    is_valid = True
-                    error_msg = ""
-                    
-                    # Check structure
-                    if not isinstance(ai_response, dict):
-                        is_valid = False
-                        error_msg = "Invalid JSON structure"
-                    
-                    # Check ticker matches
-                    if is_valid and ai_response.get("ticker", "").upper() != ticker.upper():
-                        is_valid = False
-                        error_msg = f"Ticker mismatch: expected {ticker}, got {ai_response.get('ticker')}"
-                    
-                    # Check for bracket tags
-                    if is_valid:
-                        import re
-                        all_text = json.dumps(ai_response)
-                        if re.search(r'\[[a-zA-Z0-9_]+\]', all_text):
-                            is_valid = False
-                            error_msg = "AI output contains bracket tags"
-                    
-                    # For premium, allow 7-10 bullets (not just 5)
-                    if is_valid and "bullets" in ai_response:
-                        ai_response["bullets"] = ai_response["bullets"][:10]
-                    
-                    if is_valid:
-                        st.session_state.ultimate_trade_plan_output = ai_response
-                        st.success("✅ AI analysis complete! Check below for results.")
-                        st.rerun()  # Auto-refresh to show output
-                    else:
-                        st.error(f"⚠️ AI validation failed: {error_msg}")
-                        st.info("Try clicking the button again. If it persists, check your API key.")
-                        st.session_state.ultimate_trade_plan_output = None
-                else:
-                    st.error("⚠️ OpenAI API request failed - no response received")
-                    st.info("""
-                    **Check these:**
-                    - Is OPENAI_API_KEY set correctly?
-                    - Do you have API credits? (check https://platform.openai.com/account/billing)
-                    - Check debug logs in console for actual error
-                    """)
-                    st.session_state.ultimate_trade_plan_output = None
-    
-    # ============= WHAT WOULD CHANGE VIEW AI =============
-    if change_view_btn:
-        if not openai_available:
-            st.error("⚠️ Cannot proceed - OPENAI_API_KEY not set. See setup instructions above.")
-        else:
-            # Clear the other output
-            st.session_state.ultimate_trade_plan_output = None
-            
-            with st.spinner("🤖 AI analyzing comprehensive scenario triggers..."):
-                prompt = f"""You are an ELITE trading education AI for premium subscribers. Provide comprehensive scenario analysis with specific trigger conditions.
-
-CRITICAL FORMATTING:
-1. Format ALL dollar amounts: $XXX.XX
-2. Format ALL percentages: XX.XX%
-3. Format ALL numbers with commas if >999
-4. NO brackets like [sma50] anywhere
-5. Use professional but accessible language
-6. Provide 7-10 detailed IF/THEN conditions (this is PREMIUM)
-7. Be specific about price levels, timeframes, and follow-through
-
-FACTS (USE ONLY THESE):
-{json.dumps({k: v for k, v in tech_facts.items() if v is not None}, indent=2)}
-
-Return ONLY this JSON (no markdown, no code blocks):
-
-{{
-  "ticker": "{ticker}",
-  "summary": "2-3 sentences about the current state, key inflection points, and what would need to change to shift the narrative",
-  "bullets": [
-    "IF price breaks above $XXX (resistance) with volume > YYY... THEN expect move to next resistance at $ZZZ (momentum breakout scenario)",
-    "IF price breaks below $XXX (support) on increasing volume... THEN expect retest of $YYY (breakdown scenario)",
-    "IF RSI crosses above/below XX while price is at $YYY... THEN suggests momentum shift (divergence scenario)",
-    "IF volume spikes above X% of 20-day average at current levels... THEN indicates institutional accumulation/distribution",
-    "IF price consolidates between $XXX-$YYY for X+ days... THEN coiling pattern suggests directional move brewing",
-    "IF SMA50 crosses above/below SMA200 (Golden/Death Cross)... THEN confirms long-term trend change",
-    "IF volatility (ATR) drops below X% while at resistance... THEN suggests breakout imminent (volatility compression)",
-    "IF price gaps above/below $XXX on open... THEN watch for gap fill or continuation pattern",
-    "IF fails to hold $XXX support for 2+ consecutive days... THEN reassess bull case entirely",
-    "IF breaks above $XXX AND holds it as support for 3+ days... THEN new higher range established"
-  ],
-  "fact_keys_used": ["list", "of", "fact", "keys", "used"]
-}}
-
-CRITICAL REQUIREMENTS:
-- Provide 7-10 comprehensive IF/THEN conditions (NOT just 5)
-- NO [bracket] tags anywhere
-- Every condition must cite specific $ prices and % levels from facts
-- Include BOTH bullish AND bearish triggers
-- Consider volume, volatility, and time elements
-- Think about what institutional traders watch
-- Address multiple timeframes (intraday, swing, position)
-- All numbers properly formatted with $, %, commas"""
-
-                ai_response = call_openai_json(prompt, max_tokens=3500, temperature=0.1)
-                
-                if ai_response:
-                    # Validate (same as above)
-                    is_valid = True
-                    error_msg = ""
-                    
-                    if not isinstance(ai_response, dict):
-                        is_valid = False
-                        error_msg = "Invalid JSON structure"
-                    
-                    if is_valid and ai_response.get("ticker", "").upper() != ticker.upper():
-                        is_valid = False
-                        error_msg = f"Ticker mismatch"
-                    
-                    if is_valid:
-                        import re
-                        all_text = json.dumps(ai_response)
-                        if re.search(r'\[[a-zA-Z0-9_]+\]', all_text):
-                            is_valid = False
-                            error_msg = "AI output contains bracket tags"
-                    
-                    # For premium, allow 7-10 bullets
-                    if is_valid and "bullets" in ai_response:
-                        ai_response["bullets"] = ai_response["bullets"][:10]
-                    
-                    if is_valid:
-                        st.session_state.ultimate_change_view_output = ai_response
-                        st.success("✅ AI analysis complete! Check below for results.")
-                        st.rerun()  # Auto-refresh to show output
-                    else:
-                        st.error(f"⚠️ AI validation failed: {error_msg}")
-                        st.info("Try clicking the button again. If it persists, check your API key.")
-                        st.session_state.ultimate_change_view_output = None
-                else:
-                    st.error("⚠️ OpenAI API request failed - no response received")
-                    st.info("""
-                    **Check these:**
-                    - Is OPENAI_API_KEY set correctly?
-                    - Do you have API credits? (check https://platform.openai.com/account/billing)
-                    - Check debug logs in console for actual error
-                    """)
-                    st.session_state.ultimate_change_view_output = None
-    
-    # ============= DISPLAY TRADE PLAN RATIONALE AI =============
-    if st.session_state.ultimate_trade_plan_output:
-        st.markdown("---")
-        st.markdown("#### 📝 Comprehensive Trade Plan Rationale (Premium AI)")
-        
-        output = st.session_state.ultimate_trade_plan_output
-        
-        if "summary" in output:
-            st.markdown(f"**{output['summary']}**")
-            st.markdown("")
-        
-        if "bullets" in output:
-            st.markdown("**Institutional-Grade Analysis:**")
-            for i, bullet in enumerate(output["bullets"], 1):
-                cleaned = clean_citation_tags(str(bullet))
-                st.markdown(f"{i}. {cleaned}")
-        
-            st.info("✅ Premium Fact-Locked AI: Comprehensive analysis grounded in technical facts • Ultimate tier exclusive")
-        
-        # ============= DISPLAY WHAT WOULD CHANGE VIEW AI =============
-        if st.session_state.ultimate_change_view_output:
-            st.markdown("---")
-            st.markdown("#### 🔄 Scenario Triggers & Inflection Points (Premium AI)")
-            
-            output = st.session_state.ultimate_change_view_output
-            
-            if "summary" in output:
-                st.markdown(f"**{output['summary']}**")
-                st.markdown("")
-            
-            if "bullets" in output:
-                st.markdown("**Key Conditions to Monitor:**")
-                for i, bullet in enumerate(output["bullets"], 1):
-                    cleaned = clean_citation_tags(str(bullet))
-                    st.markdown(f"{i}. {cleaned}")
-            
-            st.info("✅ Premium Fact-Locked AI: Comprehensive scenario analysis • Ultimate tier exclusive")
-    
-    
-    # ============= PORTFOLIO REVIEW (ULTIMATE EXCLUSIVE) =============
-    st.markdown("---")
-    st.markdown("### 💼 Portfolio Review (Ultimate)")
-    st.caption("*Upload screenshots or analyze your paper portfolio - AI-powered insights*")
-    
-    # Sub-tabs for different input methods
-    review_tab1, review_tab2 = st.tabs(["📸 Upload Screenshots (Recommended)", "📊 Review My Paper Portfolio"])
-    
-    with review_tab1:
-        st.markdown("#### Upload Portfolio Screenshots")
-        st.info("📱 Take screenshots from Robinhood, Fidelity, Schwab, or any broker. AI will extract your holdings.")
-        
-        # RED BACKGROUND for upload area (matches app theme)
-        st.markdown("""
-        <style>
-        div[data-testid="stFileUploader"] {
-            background-color: rgba(255, 50, 50, 0.1);
-            border: 2px solid #ff3333;
-            border-radius: 10px;
-            padding: 20px;
-        }
-        div[data-testid="stFileUploader"] > label {
-            color: #ff3333 !important;
-            font-weight: bold;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-        
-        # File uploader for 1-5 images
-        uploaded_files = st.file_uploader(
-            "Upload 1-5 screenshots of your portfolio",
-            type=["png", "jpg", "jpeg", "webp"],
-            accept_multiple_files=True,
-            help="Clear screenshots work best. Multiple images OK if portfolio is long."
-        )
-        
-        if uploaded_files:
-            if len(uploaded_files) > 5:
-                st.warning("⚠️ Maximum 5 screenshots. Using first 5 only.")
-                uploaded_files = uploaded_files[:5]
-            
-            st.success(f"✅ {len(uploaded_files)} screenshot(s) uploaded")
-            
-            # Show thumbnails
-            cols = st.columns(len(uploaded_files))
-            for idx, (col, file) in enumerate(zip(cols, uploaded_files)):
-                with col:
-                    st.image(file, caption=f"Screenshot {idx+1}", use_column_width=True)
-            
-            if st.button("🔍 Extract & Analyze Portfolio", type="primary", use_container_width=True):
-                with st.spinner("🤖 AI extracting holdings from screenshots..."):
-                    # Convert images to base64
-                    image_data_list = []
-                    for file in uploaded_files:
-                        import base64
-                        bytes_data = file.getvalue()
-                        base64_data = base64.b64encode(bytes_data).decode('utf-8')
-                        image_data_list.append(base64_data)
-                    
-                    # Extract with OpenAI Vision
-                    extraction = extract_portfolio_from_screenshot(image_data_list)
-                    
-                    if not extraction:
-                        st.error("❌ Failed to extract portfolio. Please try clearer screenshots or use CSV upload.")
-                    else:
-                        confidence = extraction.get('confidence', 'Low')
-                        holdings = extraction.get('holdings', [])
-                        unreadable = extraction.get('unreadable_items', [])
-                        
-                        # Fail-soft if confidence != High
-                        if confidence != "High":
-                            st.warning(f"⚠️ Extraction confidence: **{confidence}**. Results may be incomplete.")
-                            if unreadable:
-                                st.warning(f"Could not read: {', '.join(unreadable)}")
-                            st.info("💡 **Tip:** Try uploading clearer screenshots or use the CSV upload option for best results.")
-                        
-                        # Show extracted holdings (just ticker + weight)
-                        st.markdown("#### 📋 Extracted Holdings")
-                        if holdings:
-                            # Display simplified - just ticker and weight
-                            display_holdings = []
-                            for h in holdings:
-                                display_holdings.append({
-                                    "ticker_or_name": h.get('ticker_or_name', ''),
-                                    "weight": h.get('weight', 0)
-                                })
-                            holdings_df = pd.DataFrame(display_holdings)
-                            st.dataframe(holdings_df, use_container_width=True)
-                            
-                            # ============= RISK QUIZ CHECK =============
-                            risk_profile = st.session_state.get('risk_profile')
-                            has_taken_quiz = risk_profile is not None and risk_profile != {}
-                            
-                            if not has_taken_quiz:
-                                st.markdown("""
-                                <div style="background: linear-gradient(135deg, #FFF3E0 0%, #FFE0B2 100%); border: 2px solid #FF9800; 
-                                            border-radius: 12px; padding: 20px; text-align: center; margin: 15px 0;">
-                                    <h3 style="color: #E65100; margin: 0 0 10px 0;">📝 Take the Risk Quiz First!</h3>
-                                    <p style="color: #333; margin: 0;">For a personalized portfolio analysis, we recommend taking the Risk Quiz first. 
-                                    It helps us tailor recommendations to your risk tolerance and investment goals.</p>
-                                </div>
-                                """, unsafe_allow_html=True)
-                                if st.button("🧠 Take Risk Quiz Now", key="quiz_from_portfolio", type="primary", use_container_width=True):
-                                    st.session_state.selected_page = "🧠 Risk Quiz"
-                                    st.rerun()
-                                st.markdown("---")
-                                st.caption("*Continuing without Risk Quiz — analysis will use general assumptions.*")
-                            
-                            # Normalize tickers and get sector data
-                            normalized_holdings = []
-                            
-                            with st.spinner("📊 Fetching sector data..."):
-                                for holding in holdings:
-                                    ticker_raw = holding.get('ticker_or_name', '').upper().strip()
-                                    ticker = ticker_raw.split(' ')[0].split('-')[0].strip()
-                                    
-                                    # Get sector from FMP
-                                    sector = "Unknown"
-                                    try:
-                                        profile_url = f"{BASE_URL}/profile/{ticker}?apikey={FMP_API_KEY}"
-                                        profile_resp = requests.get(profile_url, timeout=5)
-                                        if profile_resp.status_code == 200:
-                                            profile_data = profile_resp.json()
-                                            if profile_data and len(profile_data) > 0:
-                                                sector = profile_data[0].get('sector', 'Unknown')
-                                    except Exception:
-                                        pass
-                                    
-                                    weight = holding.get('weight') or 0
-                                    
-                                    normalized_holdings.append({
-                                        'ticker': ticker,
-                                        'sector': sector,
-                                        'weight_pct': float(weight) if weight else 0
-                                    })
-                            
-                            # Compute deterministic metrics
-                            if normalized_holdings:
-                                # If no weights provided, distribute evenly
-                                total_weight = sum(h['weight_pct'] for h in normalized_holdings)
-                                if total_weight == 0:
-                                    equal_weight = 100 / len(normalized_holdings)
-                                    for h in normalized_holdings:
-                                        h['weight_pct'] = equal_weight
-                                elif total_weight != 100:
-                                    # Normalize to 100%
-                                    for h in normalized_holdings:
-                                        h['weight_pct'] = (h['weight_pct'] / total_weight) * 100
-                                
-                                # Sector allocation
-                                sector_totals = {}
-                                for holding in normalized_holdings:
-                                    sector = holding['sector']
-                                    sector_totals[sector] = sector_totals.get(sector, 0) + holding['weight_pct']
-                                
-                                # Find largest holding
-                                largest_holding = max(normalized_holdings, key=lambda x: x['weight_pct'])
-                                
-                                # Concentration risk
-                                concentration_risk = largest_holding['weight_pct']
-                                
-                                # Diversification score
-                                hhi = sum([(h['weight_pct'] ** 2) for h in normalized_holdings])
-                                diversification_score = max(0, min(10, 10 - (hhi / 1000)))
-                                
-                                # Display Summary Card
-                                st.markdown("#### 📊 Portfolio Summary")
-                                col1, col2, col3 = st.columns(3)
-                                col1.metric("Positions", len(normalized_holdings), help="Total number of stocks in your portfolio")
-                                col2.metric("Largest", f"{largest_holding['ticker']} ({largest_holding['weight_pct']:.1f}%)", help="Your biggest holding and its % weight")
-                                col3.metric("Diversification", f"{diversification_score:.1f}/10", help="How spread out your portfolio is. 10 = very diversified, 1 = concentrated in few stocks")
-                                
-                                # Sector Chart
-                                if len(sector_totals) > 0:
-                                    import plotly.graph_objects as go
-                                    fig_sector = go.Figure(data=[go.Pie(
-                                        labels=list(sector_totals.keys()),
-                                        values=list(sector_totals.values()),
-                                        hole=0.3
-                                    )])
-                                    fig_sector.update_layout(
-                                        title="Sector Allocation",
-                                        height=400,
-                                        template="plotly_dark"
-                                    )
-                                    st.plotly_chart(fig_sector, use_container_width=True)
-                                
-                                # Build risk quiz context for AI
-                                risk_context = ""
-                                if has_taken_quiz:
-                                    risk_label = risk_profile.get('label', 'Unknown')
-                                    risk_score = risk_profile.get('score', 'N/A')
-                                    risk_context = f"""
-USER'S RISK PROFILE (from Risk Quiz):
-- Risk Label: {risk_label}
-- Risk Score: {risk_score}
-- Use this to assess if the portfolio matches their risk tolerance.
-- If portfolio is too aggressive for their profile, note it.
-- If portfolio is too conservative for their profile, note it.
-"""
-                                else:
-                                    risk_context = """
-USER'S RISK PROFILE: Not taken yet. Use general assumptions (moderate risk tolerance).
-"""
-                                
-                                # AI Analysis
-                                with st.spinner("🤖 AI analyzing your portfolio..."):
-                                    holdings_list = [{"ticker": h['ticker'], "weight": h['weight_pct'], "sector": h['sector']} for h in normalized_holdings]
-                                    holdings_json = json.dumps(holdings_list)
-                                    sector_json = json.dumps(sector_totals)
-                                    
-                                    ai_prompt = f"""Analyze this portfolio (facts provided). Educational analysis only - no specific buy/sell advice.
-
-PORTFOLIO METRICS (DETERMINISTIC):
-- Number of Positions: {len(normalized_holdings)}
-- Largest Holding: {largest_holding['ticker']} at {largest_holding['weight_pct']:.1f}%
-- Concentration Risk: {concentration_risk:.1f}%
-- Diversification Score: {diversification_score:.1f}/10
-- Sector Breakdown: {sector_json}
-- Holdings: {holdings_json}
-
-{risk_context}
-
-Return ONLY this JSON structure:
-{{
-  "grade": "A" or "B" or "C" or "D",
-  "summary": "One sentence portfolio assessment",
-  "risk_alignment": "How well portfolio matches user's risk profile (or general assessment if no quiz taken)",
-  "top_risks": [
-    "Risk 1 with specific % from facts (MAX 5 BULLETS)",
-    "Risk 2...",
-    "..."
-  ],
-  "improvement_playbook": [
-    "Improvement 1 in educational conditional phrasing (MAX 5 BULLETS)",
-    "Improvement 2...",
-    "..."
-  ],
-  "confidence": "High" or "Medium" or "Low"
-}}
+        _ai_prompt = f"""You are an elite trading education AI for Ultimate subscribers of aistockinvesting101.com. 
+Analyze {_co_name} ({_ult_ticker}) and give a crisp, scannable, institutional-quality analysis.
 
 CRITICAL RULES:
-- MAX 5 bullets for top_risks
-- MAX 5 bullets for improvement_playbook
-- Cite specific numbers from facts
-- Assess diversification across sectors, individual stock concentration
-- If risk quiz taken, analyze alignment between portfolio and risk tolerance
-- Use conditional phrasing: "Consider", "If seeking", "For those targeting"
-- NO specific "sell X%" advice
-- Educational tone only"""
-                                    
-                                    ai_review = call_openai_json(ai_prompt, max_tokens=2000, temperature=0.1)
-                                    
-                                    if ai_review:
-                                        with st.expander("🤖 AI Portfolio Review", expanded=True):
-                                            grade = ai_review.get('grade', 'C')
-                                            grade_colors = {'A': '#4CAF50', 'B': '#8BC34A', 'C': '#FFC107', 'D': '#FF5722'}
-                                            grade_color = grade_colors.get(grade, '#FFC107')
-                                            
-                                            st.markdown(f"""
-                                            <div style="background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%); 
-                                                        padding: 20px; border-radius: 12px; border: 2px solid {grade_color}; margin-bottom: 15px;">
-                                                <h2 style="color: {grade_color}; margin: 0;">Grade: {grade}</h2>
-                                                <p style="color: #e0e0e0; margin: 10px 0 0 0; font-size: 16px;">{ai_review.get('summary', '')}</p>
-                                            </div>
-                                            """, unsafe_allow_html=True)
-                                            
-                                            # Risk Alignment
-                                            risk_alignment = ai_review.get('risk_alignment', '')
-                                            if risk_alignment:
-                                                quiz_icon = "✅" if has_taken_quiz else "ℹ️"
-                                                st.info(f"{quiz_icon} **Risk Alignment:** {risk_alignment}")
-                                            
-                                            st.markdown("**⚠️ Top Risks:**")
-                                            top_risks = ai_review.get('top_risks', [])[:5]
-                                            for i, risk in enumerate(top_risks, 1):
-                                                st.markdown(f"{i}. {risk}")
-                                            
-                                            st.markdown("")
-                                            st.markdown("**📈 Improvement Playbook:**")
-                                            improvements = ai_review.get('improvement_playbook', [])[:5]
-                                            for i, improvement in enumerate(improvements, 1):
-                                                st.markdown(f"{i}. {improvement}")
-                                            
-                                            confidence = ai_review.get('confidence', 'Medium')
-                                            confidence_icon = "✅" if confidence == "High" else "⚠️"
-                                            st.info(f"{confidence_icon} Analysis based on extracted portfolio data • Confidence: {confidence} • Ultimate tier exclusive")
-                                    
-                                    else:
-                                        st.warning("⚠️ AI analysis unavailable. Showing deterministic summary:")
-                                        st.markdown(f"""
-                                        **Portfolio Grade:** {"A" if diversification_score >= 8 else "B" if diversification_score >= 6 else "C" if diversification_score >= 4 else "D"}
-                                        
-                                        **Key Facts:**
-                                        - Your largest holding ({largest_holding['ticker']}) represents {largest_holding['weight_pct']:.1f}% of portfolio
-                                        - Diversification score: {diversification_score:.1f}/10
-                                        - {len(normalized_holdings)} total positions
-                                        """)
-                            
-                            else:
-                                st.warning("Could not calculate portfolio metrics. Please check holdings data.")
-                        
-                        else:
-                            st.error("No holdings extracted. Please try different screenshots.")
-    
-    with review_tab2:
-        st.markdown("#### Review Your Paper Portfolio")
-        
-        # Check if user has paper portfolio
-        if 'portfolio' in st.session_state and len(st.session_state.portfolio) > 0:
-            paper_portfolio = st.session_state.portfolio
-            
-            st.info(f"📊 Found {len(paper_portfolio)} position(s) in your Paper Portfolio")
-            
-            if st.button("🔍 Analyze Paper Portfolio", type="primary", use_container_width=True):
-                with st.spinner("🤖 AI analyzing your paper portfolio..."):
-                    # Calculate metrics deterministically
-                    total_value = 0
-                    normalized_holdings = []
-                    
-                    for pos in paper_portfolio:
-                        quote = get_quote(pos['ticker'])
-                        if quote:
-                            current_price = quote['price']
-                            market_value = pos['shares'] * current_price
-                            total_value += market_value
-                            
-                            # Get sector
-                            sector = "Unknown"
-                            try:
-                                profile_url = f"{BASE_URL}/profile/{pos['ticker']}?apikey={FMP_API_KEY}"
-                                profile_resp = requests.get(profile_url, timeout=5)
-                                if profile_resp.status_code == 200:
-                                    profile_data = profile_resp.json()
-                                    if profile_data and len(profile_data) > 0:
-                                        sector = profile_data[0].get('sector', 'Unknown')
-                            except Exception:
-                                pass
-                            
-                            normalized_holdings.append({
-                                'ticker': pos['ticker'],
-                                'sector': sector,
-                                'shares': pos['shares'],
-                                'market_value': market_value,
-                                'avg_price': pos['avg_price']
-                            })
-                    
-                    if total_value > 0:
-                        # Calculate weights
-                        for holding in normalized_holdings:
-                            holding['weight_pct'] = (holding['market_value'] / total_value) * 100
-                        
-                        # Sector allocation
-                        sector_totals = {}
-                        for holding in normalized_holdings:
-                            sector = holding['sector']
-                            sector_totals[sector] = sector_totals.get(sector, 0) + holding['market_value']
-                        
-                        sector_allocation = {sector: (value / total_value) * 100 for sector, value in sector_totals.items()}
-                        
-                        # Metrics
-                        largest_holding = max(normalized_holdings, key=lambda x: x['market_value'])
-                        concentration_risk = largest_holding['weight_pct']
-                        hhi = sum([(h['weight_pct'] ** 2) for h in normalized_holdings])
-                        diversification_score = max(0, min(10, 10 - (hhi / 1000)))
-                        
-                        # Display
-                        st.markdown("#### 📊 Portfolio Summary")
-                        col1, col2, col3, col4 = st.columns(4)
-                        col1.metric("Total Value", f"${total_value:,.2f}")
-                        col2.metric("Positions", len(normalized_holdings))
-                        col3.metric("Largest", f"{largest_holding['ticker']} ({largest_holding['weight_pct']:.1f}%)")
-                        col4.metric("Diversification", f"{diversification_score:.1f}/10")
-                        
-                        # Run same AI analysis as screenshot flow
-                        portfolio_metrics = {
-                            "total_value": total_value,
-                            "num_positions": len(normalized_holdings),
-                            "largest_holding": {
-                                "ticker": largest_holding['ticker'],
-                                "percent": largest_holding['weight_pct']
-                            },
-                            "sector_allocation": sector_allocation,
-                            "concentration_risk": concentration_risk,
-                            "diversification_score": diversification_score
-                        }
-                        
-                        ai_prompt = f"""Analyze this paper portfolio. Educational analysis only.
+1. Every number must use the facts below — never invent prices.
+2. Format: $XXX.XX for prices, XX.X% for percentages. No brackets like [sma50].
+3. Be direct and specific — traders hate vague analysis.
+4. Write like a head of trading desk briefing a junior trader.
 
-PORTFOLIO METRICS:
-{json.dumps(portfolio_metrics, indent=2)}
+FACTS:
+{json.dumps(_ai_clean, indent=2)}
+PATTERN DETECTED: {_pattern_label} (Confidence: {_pattern_conf})
+NEAREST SUPPORT: ${_near_sup:,.2f} | NEAREST RESISTANCE: ${_near_res:,.2f}
 
-Return JSON with grade, summary, top_risks (MAX 5), improvement_playbook (MAX 5), confidence."""
-                        
-                        ai_review = call_openai_json(ai_prompt, max_tokens=2000, temperature=0.1)
-                        
-                        if ai_review:
-                            with st.expander("🤖 AI Portfolio Review", expanded=True):
-                                grade = ai_review.get('grade', 'C')
-                                st.markdown(f"### Grade: {grade}")
-                                st.markdown(ai_review.get('summary', ''))
-                                
-                                st.markdown("**⚠️ Top Risks:**")
-                                for i, risk in enumerate(ai_review.get('top_risks', [])[:5], 1):
-                                    st.markdown(f"{i}. {risk}")
-                                
-                                st.markdown("**📈 Improvement Playbook:**")
-                                for i, improvement in enumerate(ai_review.get('improvement_playbook', [])[:5], 1):
-                                    st.markdown(f"{i}. {improvement}")
-                                
-                                st.info(f"✅ Analysis based on paper portfolio data • Confidence: {ai_review.get('confidence', 'Medium')}")
-        
+Return ONLY this JSON (no markdown, no code blocks):
+{{
+  "headline": "One sentence verdict — what is {_ult_ticker} doing and what matters most right now?",
+  "key_insight": "2-3 sentence paragraph: the most important thing to understand about {_ult_ticker}'s technical setup right now. What are institutions watching?",
+  "analysis_bullets": [
+    "Trend: where price stands vs SMA50/200, what slope tells us, and what that means",
+    "Momentum: RSI reading, direction it's heading, and whether it confirms price action",
+    "Volume: what volume is saying — accumulation, distribution, or quiet/neutral",
+    "Key levels: the specific prices that matter most and WHY they matter",
+    "Pattern context: what {_pattern_label} means in plain terms for {_ult_ticker} right now",
+    "Risk/reward: upside to resistance vs downside to support — is this a good entry zone?",
+    "Timeframe note: is this a day trade, swing, or position trade setup based on these technicals?"
+  ],
+  "if_then_alerts": [
+    "IF {_ult_ticker} breaks above $XXX with volume above average THEN expect move to $YYY — that's +X% and confirms bull case",
+    "IF {_ult_ticker} closes below $XXX support THEN next level is $YYY (-X%) — exit longs, trend turns bearish",
+    "IF RSI crosses below 65 while price is near $XXX THEN momentum is fading — reduce position",
+    "IF volume spikes 2x average on a green day near current levels THEN institutional buying signal — strong hold",
+    "IF price consolidates within X% of current price for 3+ days THEN watch for squeeze breakout with volume"
+  ],
+  "bottom_line": "Final verdict in 1-2 sentences: risk/reward skews [bullish/bearish/neutral] above/below $X. What's the one thing to watch this week?"
+}}
+
+CRITICAL: No [bracket] tags. All prices with $. All % with %. Be specific — cite exact numbers from facts."""
+
+        with st.spinner("Running AI deep dive on " + _ult_ticker + "..."):
+            _ai_result = call_openai_json(_ai_prompt, max_tokens=2000, temperature=0.1)
+
+        if _ai_result:
+            import re as _re
+            _all_text = json.dumps(_ai_result)
+            if not _re.search(r'\[[a-zA-Z0-9_]+\]', _all_text):
+                st.session_state.ult_ai_output_v2 = _ai_result
+                st.rerun()
+            else:
+                st.error("AI output contained formatting issues. Please try again.")
         else:
-            st.info("💼 You don't have any positions in your Paper Portfolio yet. Go to the Paper Portfolio tab to start trading!")
-    
-    # ============= STRESS TEST - ULTIMATE FEATURE =============
-    st.markdown("---")
-    st.markdown("## 💥 Portfolio Stress Test")
-    st.caption("*See how your paper portfolio would survive historical market crashes*")
-    render_stress_test_page()
-    
-    # AI Coach integration
-    #REMOVED: render_ai_coach("Portfolio Review", ticker=None, facts=None)
+            st.error("AI request failed. Check your OpenAI API key and credits, then try again.")
 
+    # ── DISPLAY AI OUTPUT ─────────────────────────────────────────────────────
+    if st.session_state.get("ult_ai_output_v2"):
+        _ao = st.session_state.ult_ai_output_v2
+
+        # Headline
+        if _ao.get("headline"):
+            st.markdown(f"""
+            <div style="background:linear-gradient(135deg,rgba(157,78,221,0.2),rgba(100,50,180,0.2));
+                        border:1px solid rgba(157,78,221,0.5);border-radius:12px;padding:16px 22px;margin:12px 0;">
+                <div style="font-size:16px;font-weight:700;color:#fff;line-height:1.5;">{clean_citation_tags(str(_ao['headline']))}</div>
+            </div>""", unsafe_allow_html=True)
+
+        # Key insight
+        if _ao.get("key_insight"):
+            st.markdown(f"""
+            <div class="ult-ai-section">
+                <div style="font-size:12px;color:#9D4EDD;font-weight:700;letter-spacing:1px;margin-bottom:8px;">KEY INSIGHT</div>
+                <div style="font-size:14px;color:#ddd;line-height:1.7;">{clean_citation_tags(str(_ao['key_insight']))}</div>
+            </div>""", unsafe_allow_html=True)
+
+        # Analysis bullets
+        if _ao.get("analysis_bullets"):
+            _bullets_html = '<div class="ult-ai-section"><div style="font-size:12px;color:#9D4EDD;font-weight:700;letter-spacing:1px;margin-bottom:10px;">ANALYSIS</div>'
+            for _b in _ao["analysis_bullets"]:
+                _bullets_html += f'<div class="ult-ai-bullet">• {clean_citation_tags(str(_b))}</div>'
+            _bullets_html += "</div>"
+            st.markdown(_bullets_html, unsafe_allow_html=True)
+
+        # IF/THEN alerts
+        if _ao.get("if_then_alerts"):
+            _ifthen_html = '<div class="ult-ai-section"><div style="font-size:12px;color:#00E5FF;font-weight:700;letter-spacing:1px;margin-bottom:10px;">🚨 IF/THEN TRADER ALERTS</div>'
+            for _at in _ao["if_then_alerts"]:
+                _clean_at = clean_citation_tags(str(_at))
+                _at_color = "rgba(255,68,68,0.1)" if "below" in _clean_at.lower() else "rgba(0,200,81,0.1)"
+                _at_border = "#FF4444" if "below" in _clean_at.lower() else "#00C851"
+                _ifthen_html += f'<div style="background:{_at_color};border-left:3px solid {_at_border};border-radius:6px;padding:10px 14px;margin:6px 0;font-size:13px;color:#ddd;line-height:1.6;">{_clean_at}</div>'
+            _ifthen_html += "</div>"
+            st.markdown(_ifthen_html, unsafe_allow_html=True)
+
+        # Bottom line
+        if _ao.get("bottom_line"):
+            st.markdown(f"""
+            <div style="background:rgba(255,200,0,0.08);border:1px solid rgba(255,200,0,0.3);
+                        border-radius:10px;padding:14px 20px;margin-top:10px;">
+                <span style="font-size:12px;color:#FFD700;font-weight:700;letter-spacing:1px;">BOTTOM LINE &nbsp;</span>
+                <span style="font-size:14px;color:#fff;font-weight:600;">{clean_citation_tags(str(_ao['bottom_line']))}</span>
+            </div>""", unsafe_allow_html=True)
+
+        st.caption("✅ AI analysis grounded in live technical data — Ultimate tier exclusive · Not financial advice")
+
+    # ─────────────────────────────────────────────────────────────────────────────
+    # SECTION 9 — PORTFOLIO REVIEW (kept from original, cleaned up)
+    # ─────────────────────────────────────────────────────────────────────────────
+    st.markdown("---")
+    st.markdown("### 💼 Portfolio Review")
+    st.caption("Upload brokerage screenshots — AI extracts your holdings and reviews diversification.")
+
+    _pr_tab1, _pr_tab2 = st.tabs(["📸 Upload Screenshots", "📊 Paper Portfolio"])
+
+    with _pr_tab1:
+        st.info("Take a screenshot from Robinhood, Fidelity, Schwab, or any broker. AI reads your holdings automatically.")
+        _uploaded = st.file_uploader("Upload 1–5 portfolio screenshots",
+            type=["png","jpg","jpeg","webp"], accept_multiple_files=True, key="ult_portfolio_upload_v2")
+        if _uploaded:
+            if len(_uploaded) > 5:
+                st.warning("Max 5 screenshots — using the first 5.")
+                _uploaded = _uploaded[:5]
+            st.success(f"{len(_uploaded)} screenshot(s) uploaded")
+            _thumb_cols = st.columns(len(_uploaded))
+            for _idx, (_tc, _f) in enumerate(zip(_thumb_cols, _uploaded)):
+                with _tc:
+                    st.image(_f, caption=f"#{_idx+1}", use_column_width=True)
+            if st.button("🔍 Analyze Portfolio", type="primary", use_container_width=True, key="ult_analyze_portfolio_v2"):
+                with st.spinner("AI reading your portfolio..."):
+                    import base64
+                    _img_b64 = [base64.b64encode(f.getvalue()).decode("utf-8") for f in _uploaded]
+                    _extraction = extract_portfolio_from_screenshot(_img_b64)
+                if not _extraction:
+                    st.error("Could not extract holdings. Try clearer screenshots or use the paper portfolio tab.")
+                else:
+                    _conf    = _extraction.get("confidence", "Low")
+                    _holdings = _extraction.get("holdings", [])
+                    if _conf != "High":
+                        st.warning(f"Extraction confidence: {_conf}. Results may be incomplete — try clearer screenshots.")
+                    if _holdings:
+                        st.markdown("**Extracted Holdings:**")
+                        st.dataframe(pd.DataFrame([{"Ticker": h.get("ticker_or_name",""), "Weight %": h.get("weight",0)} for h in _holdings]),
+                            use_container_width=True, hide_index=True)
+                    else:
+                        st.warning("No holdings detected. Try a clearer screenshot.")
+
+    with _pr_tab2:
+        _pp = st.session_state.get("paper_portfolio", {})
+        _positions = _pp.get("positions", []) if isinstance(_pp, dict) else []
+        if _positions:
+            st.markdown("**Your Paper Portfolio:**")
+            st.dataframe(pd.DataFrame(_positions), use_container_width=True, hide_index=True)
+        else:
+            st.info("No paper portfolio positions yet. Head to the Paper Portfolio tab to start tracking trades.")
 
 elif selected_page == "💼 Paper Portfolio":
     
