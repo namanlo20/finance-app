@@ -3468,7 +3468,7 @@ def is_feature_available(feature):
     tier_config = TIER_LIMITS.get(tier, TIER_LIMITS["free"])
     return tier_config.get(feature, False)
 
-def show_premium_gate(feature_name, required_tier="pro", show_preview=True):
+def show_premium_gate(feature_name, required_tier="ultimate", show_preview=True):
     """Show a premium gate with upgrade CTA
     
     Args:
@@ -4746,9 +4746,9 @@ _UNIFIED_LINE_COLORS = [
 
 def create_unified_ratio_chart(df, selected_items, company_name, sector=None):
     """
-    Single dark-themed multi-line chart for any mix of financial ratios.
+    Dark-themed grouped bar chart for financial ratios over time.
     selected_items: list of (display_name, col_name) tuples.
-    Solid lines = company values; dashed lines = S&P 500 avg (where benchmarks exist).
+    Bars = company values; horizontal dashed lines = S&P 500 avg benchmarks.
     """
     if df.empty or not selected_items:
         return None
@@ -4778,38 +4778,46 @@ def create_unified_ratio_chart(df, selected_items, company_name, sector=None):
         color = _UNIFIED_LINE_COLORS[added % len(_UNIFIED_LINE_COLORS)]
         added += 1
 
-        # Company line
-        fig.add_trace(go.Scatter(
+        # Company bars
+        fig.add_trace(go.Bar(
             x=df_sorted['date'],
             y=plot_values,
-            mode='lines+markers',
             name=display_name,
-            line=dict(color=color, width=2.5, shape='spline'),
-            marker=dict(size=5, color=color, line=dict(width=1.5, color='white')),
+            marker=dict(
+                color=color,
+                opacity=0.85,
+                line=dict(width=0),
+            ),
             hovertemplate=f'<b>{display_name}</b>: %{{y:.2f}}{y_suffix}<extra></extra>',
         ))
 
-        # Dashed S&P 500 benchmark (same hue, thinner, semi-transparent)
+        # Dashed S&P 500 benchmark line (horizontal, full width, clearly visible)
         if col in SP500_BENCHMARKS:
             sp500_val = SP500_BENCHMARKS[col] * multiplier
             bench_label = (
                 f'S&P 500 Avg ({display_name})' if len(selected_items) > 1
                 else 'S&P 500 Avg'
             )
-            fig.add_trace(go.Scatter(
-                x=[df_sorted['date'].iloc[0], df_sorted['date'].iloc[-1]],
-                y=[sp500_val, sp500_val],
-                mode='lines',
-                name=bench_label,
-                line=dict(color=color, width=1.5, dash='dash'),
-                opacity=0.5,
-                hovertemplate=f'S&P 500 Avg ({display_name}): {sp500_val:.2f}{y_suffix}<extra></extra>',
-            ))
+            fig.add_hline(
+                y=sp500_val,
+                line=dict(color=color, width=2.5, dash='dash'),
+                opacity=0.8,
+                annotation_text=f"S&P 500: {sp500_val:.1f}{y_suffix}",
+                annotation_position="top right",
+                annotation=dict(
+                    font=dict(size=12, color=color, family='Inter, system-ui, sans-serif'),
+                    bgcolor='rgba(0,0,0,0.6)',
+                    bordercolor=color,
+                    borderwidth=1,
+                    borderpad=4,
+                ),
+            )
 
     if added == 0:
         return None
 
     fig.update_layout(
+        barmode='group',
         title=dict(
             text=f'<b>{company_name} — Financial Ratios Over Time</b>',
             font=dict(size=17, color=TEXT_BRIGHT, family='Inter, system-ui, sans-serif'),
@@ -8228,11 +8236,11 @@ TOUR_PAGES = [
         "nav_page": "🔍 AI Stock Screener"
     },
     {
-        "title": "📊 Pro Checklist",
-        "icon": "📊",
-        "subtitle": "Pro tier feature",
-        "description": "10-point investment checklist, technical analysis (RSI, moving averages), AI chart screenshot analysis, and risk assessment. Requires Pro.",
-        "nav_page": "📊 Pro Checklist"
+        "title": "📡 Dip Radar",
+        "icon": "📡",
+        "subtitle": "Find dipped stocks",
+        "description": "Stocks ranked by how far they've dipped from their 52-week high. Auto-loads from your paper portfolio or paste tickers manually. Detail panel shows P/E, revenue growth, analyst consensus, and valuation label.",
+        "nav_page": "📡 Dip Radar"
     },
     {
         "title": "👑 Ultimate",
@@ -10591,15 +10599,15 @@ with header_cols[2]:
         if st.button("📰 Market Intelligence", key="nav_market_intel", use_container_width=True):
             st.session_state.selected_page = "📰 Market Intelligence"
             st.rerun()
+        if st.button("📡 Dip Radar", key="nav_dip_radar", use_container_width=True):
+            st.session_state.selected_page = "📡 Dip Radar"
+            st.rerun()
         if st.button("🎬 Company Deep Dives", key="nav_deep_dives", use_container_width=True):
             st.session_state.selected_page = "🎬 Company Deep Dives"
             st.rerun()
 
 with header_cols[3]:
-    with st.popover("📊 Pro Checklist ▼", use_container_width=True):
-        if st.button("📊 Pro Checklist", key="nav_pro_checklist", use_container_width=True):
-            st.session_state.selected_page = "📊 Pro Checklist"
-            st.rerun()
+    with st.popover("👑 Premium ▼", use_container_width=True):
         if st.button("💡 Trade Ideas", key="nav_trade_ideas", use_container_width=True):
             st.session_state.selected_page = "💡 Trade Ideas"
             st.rerun()
@@ -13585,7 +13593,7 @@ def render_stress_test_page():
     st.caption("*See how your paper portfolio would have performed in the worst market crashes in history.*")
 
     # Tier gate - Pro+
-    if not show_premium_gate("Portfolio Stress Test", required_tier="pro"):
+    if not show_premium_gate("Portfolio Stress Test", required_tier="ultimate"):
         st.markdown("""
         <div style='background:rgba(255,75,75,0.08);border:1px solid rgba(255,75,75,0.2);
         border-radius:12px;padding:20px;margin-top:16px;'>
@@ -14945,13 +14953,13 @@ if selected_page == "🏠 Dashboard":
     with promo_col1:
         st.markdown("""
         <div style="background: linear-gradient(135deg, #FFD60A 0%, #FFA500 100%); padding: 20px; border-radius: 15px; text-align: center;">
-            <div style="font-size: 32px; margin-bottom: 10px;">📊</div>
-            <div style="font-weight: bold; font-size: 16px; color: #1a1a1a;">Pro Checklist</div>
-            <div style="font-size: 13px; color: rgba(26,26,26,0.7); margin-top: 5px;">AI chart analysis & patterns</div>
+            <div style="font-size: 32px; margin-bottom: 10px;">📡</div>
+            <div style="font-weight: bold; font-size: 16px; color: #1a1a1a;">Dip Radar</div>
+            <div style="font-size: 13px; color: rgba(26,26,26,0.7); margin-top: 5px;">Stocks ranked by dip from 52W high</div>
         </div>
         """, unsafe_allow_html=True)
-        if st.button("Go to Pro →", key="goto_pro", use_container_width=True):
-            st.session_state.selected_page = "📊 Pro Checklist"
+        if st.button("Go to Dip Radar →", key="goto_dip_radar", use_container_width=True):
+            st.session_state.selected_page = "📡 Dip Radar"
             st.rerun()
     
     with promo_col2:
@@ -21296,20 +21304,6 @@ elif selected_page == "📈 Financial Health":
         else:
             st.info("No ratio data available for this company.")
         
-        # ============= PRO FEATURE TEASER FOR FREE USERS =============
-        user_tier = get_user_tier()
-        if user_tier == "free":
-            st.markdown("---")
-            show_pro_feature_teaser(
-                "Advanced Ratio Analysis",
-                "Unlock deeper insights with Pro tier features",
-                benefits=[
-                    "📊 AI-powered ratio interpretation",
-                    "📈 Historical pattern recognition",
-                    "🎯 Personalized investment fit scoring"
-                ]
-            )
-        
         # Disclaimer at bottom of page
         st.markdown("---")
         st.caption("*Data based on historical filings; past performance does not guarantee future results. S&P 500 benchmark values are approximate averages.*")
@@ -22230,418 +22224,11 @@ elif selected_page == "👑 Become a VIP":
 
 
 elif selected_page == "📊 Pro Checklist":
+    # Pro Checklist has been merged into Ultimate
+    st.session_state.selected_page = "👑 Ultimate"
+    st.rerun()
 
-    # ── Header ─────────────────────────────────────────────────────────────────
-    st.markdown("""
-    <div style="background:#0D0D20; border:1px solid rgba(255,255,255,0.12);
-                border-radius:12px; padding:16px 24px; margin-bottom:20px;">
-        <div style="font-size:22px; font-weight:700; color:#FFFFFF;">📊 Technical Analysis</div>
-        <div style="font-size:13px; color:rgba(255,255,255,0.55); margin-top:4px;">
-            Pattern detection · Key levels · Trade setup · Scenarios
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
 
-    # ── Input row ───────────────────────────────────────────────────────────────
-    default_ticker = st.session_state.get("demo_ticker", st.session_state.selected_ticker)
-    _pc_c1, _pc_c2, _pc_c3 = st.columns([3, 1, 1])
-    with _pc_c1:
-        ticker_check = st.text_input("Ticker or Company:", value=default_ticker, key="checklist_ticker")
-    with _pc_c2:
-        timeframe = st.selectbox("Timeframe", ["3M", "6M", "1Y", "2Y", "5Y"], index=2, key="checklist_timeframe")
-    with _pc_c3:
-        st.write("")
-        analyze_button = st.button("Analyze →", key="checklist_analyze", use_container_width=True, type="primary")
-
-    # Clear outputs when ticker changes
-    if "last_pro_ticker" not in st.session_state:
-        st.session_state.last_pro_ticker = None
-    if ticker_check != st.session_state.last_pro_ticker:
-        st.session_state.pro_explain_ai  = None
-        st.session_state.pro_bull_bear_ai = None
-        st.session_state.pattern_detected = False
-        st.session_state.checklist_analyzed = False
-        st.session_state.last_pro_ticker = ticker_check
-
-    if "checklist_analyzed" not in st.session_state:
-        st.session_state.checklist_analyzed = False
-    if "pro_explain_ai" not in st.session_state:
-        st.session_state.pro_explain_ai = None
-    if "pro_bull_bear_ai" not in st.session_state:
-        st.session_state.pro_bull_bear_ai = None
-
-    # ── Access gate ─────────────────────────────────────────────────────────────
-    user_tier = get_user_tier()
-    if analyze_button and user_tier == "free":
-        analyze_button = False
-        st.warning("🔒 Technical Analysis requires an Ultimate subscription.")
-        if st.button("👑 Go Ultimate", key="pro_gate_upgrade", type="primary"):
-            st.session_state.selected_page = "👑 Become a VIP"
-            st.rerun()
-
-    if user_tier == "free":
-        st.markdown("---")
-        st.markdown("**🔒 Ultimate members see:**")
-        for _lbl in [
-            "Bold market summary for the stock",
-            "Interactive candlestick chart — SMA 50, SMA 200, RSI auto-shown",
-            "Key Levels table: support, resistance, MAs with % from current price",
-            "Pattern detection with confidence rating and reasons",
-            "Entry · Stop Loss · Take Profit trade setup",
-            "Bull / Base / Bear scenario cards",
-            "AI-powered deep dive (Perplexity fact-locked)",
-        ]:
-            st.markdown(f"&nbsp;&nbsp;🔒 {_lbl}")
-        st.markdown("")
-        if st.button("⭐ Unlock Pro Features", key="pro_preview_upgrade", type="primary", use_container_width=True):
-            st.session_state.selected_page = "👑 Become a VIP"
-            st.rerun()
-
-    # ── Main analysis ────────────────────────────────────────────────────────────
-    if (analyze_button or st.session_state.checklist_analyzed) and user_tier != "free":
-        st.session_state.checklist_analyzed = True
-
-        resolved_ticker = resolve_company_to_ticker(ticker_check)
-        if not resolved_ticker:
-            st.error(f"❌ Could not find ticker: {ticker_check}")
-            st.stop()
-        ticker_check = resolved_ticker
-
-        quote = get_quote(ticker_check)
-        if not quote:
-            st.error(f"❌ Could not fetch data for {ticker_check}")
-            st.stop()
-
-        current_price  = float(quote.get("price", 0) or 0)
-        company_name_ta = quote.get("name", ticker_check)
-
-        timeframe_days = {"3M": 90, "6M": 180, "1Y": 365, "2Y": 730, "5Y": 1825}
-        days = timeframe_days.get(timeframe, 365)
-        price_history = get_historical_ohlc(ticker_check, days / 365.0)
-
-        if price_history.empty:
-            st.error(f"❌ No price data for {ticker_check}")
-            st.stop()
-
-        tech_facts = compute_technical_facts(price_history)
-        tech_facts["ticker"]       = ticker_check
-        tech_facts["company_name"] = company_name_ta
-        st.session_state.pro_tech_facts = tech_facts
-
-        features = calculate_pattern_features(price_history)
-        if features:
-            pattern_label, confidence, reasons, watch_level, watch_note = detect_rule_based_pattern(tech_facts)
-        else:
-            pattern_label, confidence, reasons, watch_level, watch_note = "Insufficient Data", "Low", [], None, "Not enough data"
-
-        sma50_val  = tech_facts.get("sma50")
-        sma200_val = tech_facts.get("sma200")
-        rsi_val    = tech_facts.get("rsi14_last")
-        rsi_state  = (tech_facts.get("rsi_state") or "neutral")
-        sup_lvl    = tech_facts.get("support_level")
-        res_lvl    = tech_facts.get("resistance_level")
-        sup_dist   = tech_facts.get("distance_to_support_pct")
-        res_dist   = tech_facts.get("distance_to_resistance_pct")
-
-        # ── 1. BOLD SUMMARY ──────────────────────────────────────────────────────
-        _trend_vs   = "above" if sma50_val and current_price > sma50_val else "below"
-        _trend_word = "uptrend" if _trend_vs == "above" else "downtrend"
-        _rsi_str    = f"RSI {rsi_val:.0f} ({rsi_state})" if rsi_val else ""
-        _summary    = (
-            f"{company_name_ta} ({ticker_check}) is trading at "
-            f"<span style='color:#00E5FF;font-weight:700;'>${current_price:.2f}</span>"
-            f" — {_trend_vs} its 50-day MA in a {_trend_word}, "
-            f"pattern: <span style='color:#FFD700;font-weight:700;'>{pattern_label}</span>"
-            f"{f', {_rsi_str}' if _rsi_str else ''}."
-        )
-        st.markdown(f"""
-        <div style="background:#0D0D20; border:1px solid rgba(255,255,255,0.15);
-                    border-radius:12px; padding:18px 24px; margin:12px 0 20px 0;">
-            <div style="font-size:17px; font-weight:600; color:#FFFFFF; line-height:1.6;">
-                {_summary}
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        # ── 2. PRICE CHART ───────────────────────────────────────────────────────
-        st.markdown("### 📈 Price Chart")
-        _close_col = "close" if "close" in price_history.columns else "price"
-        _has_ohlc  = all(c in price_history.columns for c in ["open", "high", "low", "close"])
-        _rsi_rows  = 2 if len(price_history) >= 14 else 1
-        _row_h     = [0.70, 0.30] if _rsi_rows == 2 else [1.0]
-        _subtitles = (f"{ticker_check} ({timeframe})", "RSI (14)") if _rsi_rows == 2 else (f"{ticker_check} ({timeframe})",)
-
-        _fig_ta = make_subplots(
-            rows=_rsi_rows, cols=1, shared_xaxes=True,
-            vertical_spacing=0.04, row_heights=_row_h,
-            subplot_titles=_subtitles
-        )
-
-        if _has_ohlc:
-            _fig_ta.add_trace(go.Candlestick(
-                x=price_history["date"],
-                open=price_history["open"], high=price_history["high"],
-                low=price_history["low"],  close=price_history["close"],
-                name="Price",
-                increasing_line_color="#00C851", decreasing_line_color="#FF4444"
-            ), row=1, col=1)
-        else:
-            _fig_ta.add_trace(go.Scatter(
-                x=price_history["date"], y=price_history[_close_col],
-                mode="lines", name="Price", line=dict(color="#00E5FF", width=2)
-            ), row=1, col=1)
-
-        if len(price_history) >= 50:
-            _sma50s = price_history[_close_col].rolling(50, min_periods=1).mean()
-            _fig_ta.add_trace(go.Scatter(
-                x=price_history["date"], y=_sma50s,
-                mode="lines", name="SMA 50", line=dict(color="#FFA500", width=1.5, dash="dot")
-            ), row=1, col=1)
-        if len(price_history) >= 200:
-            _sma200s = price_history[_close_col].rolling(200, min_periods=1).mean()
-            _fig_ta.add_trace(go.Scatter(
-                x=price_history["date"], y=_sma200s,
-                mode="lines", name="SMA 200", line=dict(color="#BF5FFF", width=1.5, dash="dot")
-            ), row=1, col=1)
-
-        if _rsi_rows == 2:
-            _delta  = price_history[_close_col].diff()
-            _gain   = _delta.where(_delta > 0, 0).rolling(14).mean()
-            _loss   = (-_delta.where(_delta < 0, 0)).rolling(14).mean()
-            _rsi_s  = 100 - (100 / (1 + _gain / _loss.replace(0, float("nan"))))
-            _fig_ta.add_trace(go.Scatter(
-                x=price_history["date"], y=_rsi_s,
-                mode="lines", name="RSI", line=dict(color="#FFD700", width=2)
-            ), row=2, col=1)
-            _fig_ta.add_hline(y=70, line_dash="dash", line_color="rgba(255,68,68,0.4)",   row=2, col=1)
-            _fig_ta.add_hline(y=30, line_dash="dash", line_color="rgba(0,200,81,0.4)",   row=2, col=1)
-            _fig_ta.update_yaxes(title_text="RSI", range=[0, 100], row=2, col=1)
-
-        _fig_ta.update_layout(
-            height=520, template="plotly_dark",
-            margin=dict(l=0, r=0, t=30, b=0),
-            hovermode="x unified", showlegend=True,
-            xaxis_rangeslider_visible=False,
-            paper_bgcolor="#0A0A1A", plot_bgcolor="#0D0D20",
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        )
-        st.plotly_chart(_fig_ta, use_container_width=True)
-
-        # ── 3. KEY LEVELS ────────────────────────────────────────────────────────
-        st.markdown("### 📍 Key Levels")
-        _levels = []
-        if sup_lvl:
-            _p = sup_dist if sup_dist is not None else ((sup_lvl - current_price) / current_price * 100 if current_price else 0)
-            _levels.append({"Level": "Support",     "Price": f"${sup_lvl:.2f}",    "% from Current": f"{_p:+.1f}%",  "Signal": "🟢"})
-        if res_lvl:
-            _p = res_dist if res_dist is not None else ((res_lvl - current_price) / current_price * 100 if current_price else 0)
-            _levels.append({"Level": "Resistance",  "Price": f"${res_lvl:.2f}",    "% from Current": f"{_p:+.1f}%",  "Signal": "🔴"})
-        if sma50_val and current_price:
-            _p = (sma50_val - current_price) / current_price * 100
-            _levels.append({"Level": "SMA 50",      "Price": f"${sma50_val:.2f}",  "% from Current": f"{_p:+.1f}%",  "Signal": "🟡"})
-        if sma200_val and current_price:
-            _p = (sma200_val - current_price) / current_price * 100
-            _levels.append({"Level": "SMA 200",     "Price": f"${sma200_val:.2f}", "% from Current": f"{_p:+.1f}%",  "Signal": "🟣"})
-        if watch_level:
-            try:
-                _wl = float(watch_level)
-                _p  = (_wl - current_price) / current_price * 100 if current_price else 0
-                _levels.append({"Level": "Watch Level", "Price": f"${_wl:.2f}",  "% from Current": f"{_p:+.1f}%", "Signal": "👀"})
-            except Exception:
-                pass
-
-        if _levels:
-            st.dataframe(pd.DataFrame(_levels), use_container_width=True, hide_index=True)
-            st.caption(f"Current price: **${current_price:.2f}**")
-        else:
-            st.caption("Insufficient price data for key levels.")
-
-        # ── 4. PATTERN ───────────────────────────────────────────────────────────
-        st.markdown("### 🔍 Pattern")
-        _cc = {"High": "#00C851", "Medium": "#FFA500", "Low": "#FF4444"}.get(confidence, "#888")
-        _reasons_html = "".join(
-            f'<div style="color:rgba(255,255,255,0.75);font-size:13px;margin:5px 0;">• {r}</div>'
-            for r in (reasons or [])[:4]
-        )
-        st.markdown(f"""
-        <div style="background:#0D0D20; border-left:4px solid {_cc};
-                    border-radius:8px; padding:16px 20px; margin:8px 0 16px 0;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                <span style="font-size:17px; font-weight:700; color:#FFFFFF;">{pattern_label}</span>
-                <span style="background:{_cc}22; color:{_cc}; padding:3px 12px; border-radius:20px;
-                             font-size:12px; font-weight:600; border:1px solid {_cc}44;">
-                    {confidence} Confidence
-                </span>
-            </div>
-            {_reasons_html}
-        </div>
-        """, unsafe_allow_html=True)
-
-        # ── 5. TRADE SETUP ───────────────────────────────────────────────────────
-        st.markdown("### 🎯 Trade Setup")
-        trader_actions = generate_trader_actions(tech_facts, pattern_label)
-        if trader_actions:
-            for _action in trader_actions:
-                st.markdown(_action)
-        else:
-            _entry = current_price
-            _stop  = sup_lvl if sup_lvl and sup_lvl < current_price else round(current_price * 0.95, 2)
-            _tgt   = res_lvl if res_lvl and res_lvl > current_price else round(current_price * 1.10, 2)
-            _risk_pct   = abs((_entry - _stop) / _entry * 100) if _entry else 0
-            _reward_pct = abs((_tgt - _entry) / _entry * 100)  if _entry else 0
-            _rr         = _reward_pct / _risk_pct if _risk_pct else 0
-            _tce, _tcs, _tct = st.columns(3)
-            _tce.metric("Entry Zone",  f"${_entry:.2f}")
-            _tcs.metric("Stop Loss",   f"${_stop:.2f}",  f"-{_risk_pct:.1f}%")
-            _tct.metric("Take Profit", f"${_tgt:.2f}",   f"+{_reward_pct:.1f}%")
-            if _rr > 0:
-                st.caption(f"⚖️ Risk / Reward: **{_rr:.1f} : 1**")
-        st.caption("*⚠️ Educational only — not financial advice.*")
-
-        # ── 6. SCENARIOS ─────────────────────────────────────────────────────────
-        st.markdown("### 📊 Bull / Base / Bear Scenarios")
-        _vol        = (tech_facts.get("vol_regime") or "normal").lower()
-        _bull_trig  = f"breaks above ${res_lvl:.2f}" if res_lvl else "breaks key resistance"
-        _bull_tgt   = f"${res_lvl * 1.05:.2f}" if res_lvl else f"${current_price * 1.15:.2f} (+15%)"
-        _bear_trig  = f"breaks below ${sup_lvl:.2f}" if sup_lvl else "breaks key support"
-        _bear_tgt   = f"${sup_lvl * 0.95:.2f}" if sup_lvl else f"${current_price * 0.85:.2f} (-15%)"
-
-        _sc1, _sc2, _sc3 = st.columns(3)
-        with _sc1:
-            st.markdown(f"""
-            <div style="background:#081A10; border:1px solid #00C851; border-radius:10px;
-                        padding:16px; min-height:110px;">
-                <div style="color:#00C851; font-weight:700; font-size:14px; margin-bottom:8px;">🐂 Bull Case</div>
-                <div style="color:#d1fae5; font-size:13px; line-height:1.5;">
-                    {ticker_check} {_bull_trig}, momentum confirms uptrend.
-                    Target: <strong>{_bull_tgt}</strong>.
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-        with _sc2:
-            st.markdown(f"""
-            <div style="background:#0D0D1F; border:1px solid rgba(255,255,255,0.2); border-radius:10px;
-                        padding:16px; min-height:110px;">
-                <div style="color:#FFFFFF; font-weight:700; font-size:14px; margin-bottom:8px;">📊 Base Case</div>
-                <div style="color:rgba(255,255,255,0.75); font-size:13px; line-height:1.5;">
-                    Consolidates near <strong>${current_price:.2f}</strong> with {_vol} volatility.
-                    Watches key levels before next directional move.
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-        with _sc3:
-            st.markdown(f"""
-            <div style="background:#1A0808; border:1px solid #FF4444; border-radius:10px;
-                        padding:16px; min-height:110px;">
-                <div style="color:#FF4444; font-weight:700; font-size:14px; margin-bottom:8px;">🐻 Bear Case</div>
-                <div style="color:#fee2e2; font-size:13px; line-height:1.5;">
-                    {ticker_check} {_bear_trig}, selling pressure builds.
-                    Risk target: <strong>{_bear_tgt}</strong>.
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-        # ── 7. AI DEEP DIVE ──────────────────────────────────────────────────────
-        if bool(os.environ.get("PERPLEXITY_API_KEY", "")):
-            st.markdown("---")
-            st.markdown("### 🤖 AI Deep Dive")
-
-            _ai_c1, _ai_c2 = st.columns(2)
-            with _ai_c1:
-                explain_btn = st.button("🔍 Explain this chart (AI)", key="explain_chart_ai", use_container_width=True)
-            with _ai_c2:
-                bull_bear_btn = st.button("⚖️ Bull vs Bear (AI)", key="bull_bear_ai", use_container_width=True)
-
-            if explain_btn:
-                st.session_state.pro_bull_bear_ai = None
-                with st.spinner("AI analyzing chart…"):
-                    _rule_dict = {"label": pattern_label, "confidence": confidence,
-                                  "reasons": reasons, "watch_level": watch_level, "watch_note": watch_note}
-                    _prompt = build_explain_chart_prompt(tech_facts, _rule_dict, False)
-                    _resp   = call_perplexity_json(_prompt, max_tokens=2500, temperature=0.1)
-                    if _resp:
-                        _valid, _ = validate_ai_response(_resp, tech_facts, "explain")
-                        st.session_state.pro_explain_ai = _resp if _valid else None
-                    else:
-                        st.session_state.pro_explain_ai = None
-
-            if bull_bear_btn:
-                st.session_state.pro_explain_ai = None
-                with st.spinner("Building cases…"):
-                    _prompt = build_bull_bear_prompt(tech_facts, False)
-                    _resp   = call_perplexity_json(_prompt, max_tokens=2000, temperature=0.1)
-                    if _resp:
-                        _valid, _ = validate_ai_response(_resp, tech_facts, "bull_bear")
-                        st.session_state.pro_bull_bear_ai = _resp if _valid else None
-                    else:
-                        st.session_state.pro_bull_bear_ai = None
-
-            if st.session_state.pro_explain_ai:
-                _out = st.session_state.pro_explain_ai
-                if "summary_one_liner" in _out:
-                    st.markdown(f"**{_out['summary_one_liner']}**")
-                if "trade_setup" in _out and _out["trade_setup"]:
-                    _ts  = _out["trade_setup"]
-                    _upd = _ts.get("upside_dollars")
-                    _dnd = _ts.get("downside_dollars")
-                    _rrs = ""
-                    if _upd and _dnd and float(_dnd) != 0:
-                        _rrs = f" &nbsp;|&nbsp; ⚖️ R/R: <b>{abs(float(_upd)/float(_dnd)):.1f}:1</b>"
-                    _u_pill = (f"<span style='color:#00C851;'>▲ <b>${float(_upd):,.0f} upside</b></span>" if _upd else "")
-                    _d_pill = (f"<span style='color:#FF4444;'>▼ <b>${float(_dnd):,.0f} downside</b></span>" if _dnd else "")
-                    st.markdown(f"""
-<div style="background:#111827; border-radius:12px; padding:18px; margin:8px 0; border:1px solid #2d3748;">
-  <div style="font-size:13px; color:#9ca3af; margin-bottom:12px;">{_u_pill}&nbsp;{_d_pill}{_rrs}</div>
-  <div style="padding:10px; background:#0d2818; border-radius:8px; border-left:3px solid #00C851; margin-bottom:8px;">
-    <span style="color:#00C851; font-weight:700;">🟢 Bull Case</span><br>
-    <span style="color:#d1fae5; font-size:13px;">{clean_citation_tags(_ts.get("bull_case","—"))}</span>
-  </div>
-  <div style="padding:10px; background:#2d0a0a; border-radius:8px; border-left:3px solid #FF4444; margin-bottom:8px;">
-    <span style="color:#FF4444; font-weight:700;">🔴 Bear Case</span><br>
-    <span style="color:#fee2e2; font-size:13px;">{clean_citation_tags(_ts.get("bear_case","—"))}</span>
-  </div>
-  <div style="padding:10px; background:#0f172a; border-radius:8px; border:1px solid #374151;">
-    <span style="color:#60a5fa; font-weight:700;">⚡ Verdict</span><br>
-    <span style="color:#bfdbfe; font-size:13px; font-weight:600;">{clean_citation_tags(_ts.get("verdict","—"))}</span>
-  </div>
-</div>""", unsafe_allow_html=True)
-                for _sec, _sec_lbl in [("trend", "📈 Trend"), ("momentum", "🚀 Momentum")]:
-                    if _sec in _out and _out[_sec]:
-                        st.markdown(f"**{_sec_lbl}:**")
-                        for _b in _out[_sec]:
-                            st.markdown(f"- {clean_citation_tags(_b)}")
-                if "key_levels" in _out:
-                    _kl = _out["key_levels"]
-                    st.markdown("**📍 Key Levels (AI):**")
-                    for _k, _kl_label in [("support","Support"),("resistance","Resistance")]:
-                        if _k in _kl and _kl[_k].get("level"):
-                            st.markdown(f"- **{_kl_label}:** ${_kl[_k]['level']:.2f} ({_kl[_k].get('distance_pct',0):+.1f}% away)")
-                st.info("✅ Fact-locked AI — grounded in technical facts above")
-
-            if st.session_state.pro_bull_bear_ai:
-                _out = st.session_state.pro_bull_bear_ai
-                _bb1, _bb2 = st.columns(2)
-                with _bb1:
-                    if "bull_case" in _out:
-                        st.markdown("##### 🐂 Bull Case")
-                        for _item in _out["bull_case"]:
-                            _pt = _item.get("point","") if isinstance(_item, dict) else str(_item)
-                            st.markdown(f"- {clean_citation_tags(_pt)}")
-                with _bb2:
-                    if "bear_case" in _out:
-                        st.markdown("##### 🐻 Bear Case")
-                        for _item in _out["bear_case"]:
-                            _pt = _item.get("point","") if isinstance(_item, dict) else str(_item)
-                            st.markdown(f"- {clean_citation_tags(_pt)}")
-                if "neutral_take" in _out:
-                    st.markdown(f"**⚖️ Neutral Take:** {clean_citation_tags(_out['neutral_take'])}")
-                st.info("✅ Fact-locked AI")
-
-    # ── Stress Test ──────────────────────────────────────────────────────────────
-    st.markdown("---")
-    st.markdown("## 💥 Portfolio Stress Test")
-    st.caption("*See how your paper portfolio would survive historical market crashes*")
-    render_stress_test_page()
 
 
 # ============= TRADE IDEAS PAGE =============
@@ -22649,241 +22236,249 @@ elif selected_page == "💡 Trade Ideas":
 
     # ── Header ──────────────────────────────────────────────────────────────
     st.markdown("""
-    <div style="background:#0D0D20 !important; border:1px solid rgba(255,255,255,0.15);
-                border-radius:12px; padding:16px 24px; margin-bottom:16px; color:#FFFFFF !important;">
-        <div style="font-size:22px; font-weight:700; color:#FFFFFF !important;">💡 Trade Ideas</div>
-        <div style="font-size:13px; color:rgba(255,255,255,0.75) !important; margin-top:4px;">
+    <div class="hero-container-simple">
+        <div style="font-size:22px; font-weight:700; color:#1a1a1a !important;">💡 Trade Ideas</div>
+        <div style="font-size:13px; color:rgba(26,26,26,0.7) !important; margin-top:4px;">
             AI-generated setups — entry, stop loss, targets, catalyst, conviction
         </div>
     </div>
     """, unsafe_allow_html=True)
     st.caption("*Educational only — not financial advice. Always do your own research.*")
 
-    _ti_tab1, _ti_tab2 = st.tabs(["💡 AI Trade Ideas", "📡 Dip Radar"])
-
     # ═════════════════════════════════════════════
-    # TAB 1: AI TRADE IDEAS
+    # AI TRADE IDEAS
     # ═════════════════════════════════════════════
-    with _ti_tab1:
-        _ti_c1, _ti_c2 = st.columns([3, 1])
-        with _ti_c1:
-            _ti_input = st.text_input(
-                "Ticker or company:",
-                value=st.session_state.get("selected_ticker", ""),
-                placeholder="e.g. AAPL, NVDA, TSLA",
-                key="trade_ideas_ticker",
-            )
-        with _ti_c2:
-            st.write("")
-            _ti_gen = st.button("Generate Setup →", key="trade_ideas_generate",
-                                 use_container_width=True, type="primary")
+    _ti_c1, _ti_c2 = st.columns([3, 1])
+    with _ti_c1:
+        _ti_input = st.text_input(
+            "Ticker or company:",
+            value=st.session_state.get("selected_ticker", ""),
+            placeholder="e.g. AAPL, NVDA, TSLA",
+            key="trade_ideas_ticker",
+        )
+    with _ti_c2:
+        st.write("")
+        _ti_gen = st.button("Generate Setup →", key="trade_ideas_generate",
+                             use_container_width=True, type="primary")
 
-        if "ti_last_ticker" not in st.session_state:
-            st.session_state.ti_last_ticker = None
-        if "ti_result" not in st.session_state:
-            st.session_state.ti_result = None
-        if "ti_quote" not in st.session_state:
-            st.session_state.ti_quote = None
+    if "ti_last_ticker" not in st.session_state:
+        st.session_state.ti_last_ticker = None
+    if "ti_result" not in st.session_state:
+        st.session_state.ti_result = None
+    if "ti_quote" not in st.session_state:
+        st.session_state.ti_quote = None
 
-        if _ti_input != st.session_state.ti_last_ticker:
-            st.session_state.ti_result      = None
-            st.session_state.ti_quote       = None
-            st.session_state.ti_last_ticker = _ti_input
+    if _ti_input != st.session_state.ti_last_ticker:
+        st.session_state.ti_result      = None
+        st.session_state.ti_quote       = None
+        st.session_state.ti_last_ticker = _ti_input
 
-        if _ti_gen and _ti_input:
-            _ti_resolved = resolve_company_to_ticker(_ti_input)
-            if not _ti_resolved:
-                st.error(f"Could not find ticker: {_ti_input}")
-            else:
-                _ti_q = get_quote(_ti_resolved)
-                if not _ti_q:
-                    st.error(f"Could not fetch data for {_ti_resolved}")
-                else:
-                    _ti_price  = float(_ti_q.get("price", 0) or 0)
-                    _ti_name   = _ti_q.get("name", _ti_resolved)
-                    _ti_pe     = _ti_q.get("pe", None)
-                    _ti_chg    = float(_ti_q.get("changesPercentage", 0) or 0)
-                    _ti_52h    = _ti_q.get("yearHigh")
-                    _ti_52l    = _ti_q.get("yearLow")
-
-                    _ti_hist   = get_historical_ohlc(_ti_resolved, 1.0)
-                    _ti_facts  = compute_technical_facts(_ti_hist) if not _ti_hist.empty else {}
-                    _ti_rsi    = _ti_facts.get("rsi14_last")
-                    _ti_sma50  = _ti_facts.get("sma50")
-                    _ti_sma200 = _ti_facts.get("sma200")
-                    _ti_sup    = _ti_facts.get("support_level")
-                    _ti_res    = _ti_facts.get("resistance_level")
-
-                    _ti_ctx = (
-                        f"Stock: {_ti_name} ({_ti_resolved})\n"
-                        f"Current Price: ${_ti_price:.2f}\n"
-                        f"Today Change: {_ti_chg:+.2f}%\n"
-                        f"52W High: ${f'{_ti_52h:.2f}' if _ti_52h else 'N/A'}\n"
-                        f"52W Low:  ${f'{_ti_52l:.2f}' if _ti_52l else 'N/A'}\n"
-                        f"P/E: {_ti_pe if _ti_pe else 'N/A'}\n"
-                        f"RSI(14): {f'{_ti_rsi:.1f}' if _ti_rsi else 'N/A'}\n"
-                        f"SMA50:  ${f'{_ti_sma50:.2f}' if _ti_sma50 else 'N/A'}\n"
-                        f"SMA200: ${f'{_ti_sma200:.2f}' if _ti_sma200 else 'N/A'}\n"
-                        f"Support:    ${f'{_ti_sup:.2f}' if _ti_sup else 'N/A'}\n"
-                        f"Resistance: ${f'{_ti_res:.2f}' if _ti_res else 'N/A'}"
-                    )
-
-                    _ti_prompt = (
-                        "You are a professional technical analyst. Based ONLY on the data below, "
-                        "generate a specific, actionable trade setup.\n\n"
-                        + _ti_ctx
-                        + '\n\nReturn a JSON object with these EXACT keys:\n'
-                        '{"setup_type":"e.g. Bullish Breakout / Oversold Bounce / Trend Continuation",'
-                        '"bias":"bullish"|"bearish"|"neutral",'
-                        '"entry_zone":"specific price range like \'$182 – $185\'",'
-                        '"stop_loss":"specific price with % risk like \'$175 (-4.2%)\'",'
-                        '"take_profit_1":"first target with % gain",'
-                        '"take_profit_2":"second target with % gain",'
-                        '"take_profit_3":"third target with % gain",'
-                        '"risk_reward":"like \'1:2.5\'",'
-                        '"time_horizon":"like \'2–4 weeks\'",'
-                        '"catalyst":"1-2 sentences on what could drive the move",'
-                        '"conviction":"High"|"Medium"|"Low",'
-                        '"conviction_reason":"one sentence",'
-                        '"key_risk":"main risk to the thesis"}\n\n'
-                        'Return pure JSON only. No markdown, no explanation.'
-                    )
-
-                    with st.spinner(f"Generating trade setup for {_ti_name}…"):
-                        _ti_result = call_perplexity_json(_ti_prompt, max_tokens=1000, temperature=0.2)
-                    st.session_state.ti_result   = _ti_result
-                    st.session_state.ti_quote    = _ti_q
-                    st.session_state.ti_resolved = _ti_resolved
-
-        # ── Display result ──────────────────────────────────────────────────
-        if st.session_state.ti_result and st.session_state.ti_quote:
-            _r  = st.session_state.ti_result
-            _q  = st.session_state.ti_quote
-            _tk = st.session_state.get("ti_resolved", "")
-            _p  = float(_q.get("price", 0) or 0)
-            _nm = _q.get("name", _tk)
-            _ch = float(_q.get("changesPercentage", 0) or 0)
-
-            _bias  = (_r.get("bias", "neutral") or "neutral").lower()
-            _bcol  = "#00C851" if _bias == "bullish" else "#FF4444" if _bias == "bearish" else "#FFA500"
-            _conv  = _r.get("conviction", "Medium") or "Medium"
-            _ccol  = {"High": "#00C851", "Medium": "#FFA500", "Low": "#FF4444"}.get(_conv, "#FFA500")
-
-            st.markdown(f"""
-            <div style="background:#0D0D20; border:1px solid rgba(255,255,255,0.12);
-                        border-radius:14px; padding:20px 24px; margin:16px 0; color:#FFFFFF !important;">
-                <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
-                    <div>
-                        <div style="font-size:22px; font-weight:700; color:#FFFFFF !important;">{_nm}</div>
-                        <div style="font-size:14px; color:rgba(255,255,255,0.6) !important; margin-top:2px;">{_tk}</div>
-                    </div>
-                    <div style="text-align:right;">
-                        <div style="font-size:22px; font-weight:700; color:#00E5FF !important;">${_p:.2f}</div>
-                        <div style="font-size:13px; color:{'#00C851' if _ch >= 0 else '#FF4444'} !important;">{_ch:+.2f}% today</div>
-                    </div>
-                </div>
-                <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;">
-                    <span style="background:{_bcol}22; color:{_bcol} !important; padding:4px 14px; border-radius:20px;
-                                 font-size:13px; font-weight:600; border:1px solid {_bcol}44;">
-                        {_bias.capitalize()}
-                    </span>
-                    <span style="background:rgba(255,255,255,0.08); color:#FFFFFF !important; padding:4px 14px;
-                                 border-radius:20px; font-size:13px;">
-                        {_r.get('setup_type','Trade Setup')}
-                    </span>
-                    <span style="background:{_ccol}22; color:{_ccol} !important; padding:4px 14px; border-radius:20px;
-                                 font-size:13px; font-weight:600; border:1px solid {_ccol}44;">
-                        {_conv} Conviction
-                    </span>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-            _m1, _m2, _m3, _m4 = st.columns(4)
-            _m1.metric("Entry Zone",    _r.get("entry_zone",    "—"))
-            _m2.metric("Stop Loss",     _r.get("stop_loss",     "—"))
-            _m3.metric("Take Profit 1", _r.get("take_profit_1", "—"))
-            _m4.metric("Risk / Reward", _r.get("risk_reward",   "—"))
-
-            _t2 = _r.get("take_profit_2")
-            _t3 = _r.get("take_profit_3")
-            _th = _r.get("time_horizon")
-            if _t2 or _t3 or _th:
-                _m5, _m6, _m7, _ = st.columns(4)
-                if _t2: _m5.metric("Take Profit 2", _t2)
-                if _t3: _m6.metric("Take Profit 3", _t3)
-                if _th: _m7.metric("Time Horizon",  _th)
-
-            st.markdown("")
-            _dc1, _dc2 = st.columns(2)
-            with _dc1:
-                if _r.get("catalyst"):
-                    st.markdown(f"""
-                    <div style="background:#0A1A0A; border:1px solid #00C85144; border-radius:10px; padding:14px 16px;">
-                        <div style="color:#00C851 !important; font-weight:700; font-size:13px; margin-bottom:6px;">💡 Catalyst</div>
-                        <div style="color:#FFFFFF !important; font-size:13px; line-height:1.5;">{_r['catalyst']}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-            with _dc2:
-                if _r.get("key_risk"):
-                    st.markdown(f"""
-                    <div style="background:#1A0A0A; border:1px solid #FF444444; border-radius:10px; padding:14px 16px;">
-                        <div style="color:#FF4444 !important; font-weight:700; font-size:13px; margin-bottom:6px;">⚠️ Key Risk</div>
-                        <div style="color:#FFFFFF !important; font-size:13px; line-height:1.5;">{_r['key_risk']}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-            if _r.get("conviction_reason"):
-                st.caption(f"**Why {_conv} conviction:** {_r['conviction_reason']}")
-            st.markdown("")
-            st.caption("⚠️ *AI-generated trade idea. Not financial advice. Levels are illustrative. Always do your own research.*")
-
-        elif not _ti_gen and not st.session_state.ti_result:
-            st.markdown("""
-            <div style="background:#0D0D20; border:1px dashed rgba(255,255,255,0.15); border-radius:12px;
-                        padding:40px 24px; text-align:center; margin-top:20px;">
-                <div style="font-size:44px; margin-bottom:14px;">💡</div>
-                <div style="color:#FFFFFF !important; font-size:15px; line-height:1.6;">
-                    Enter a ticker above and click
-                    <strong style="color:#00E5FF !important;">Generate Setup →</strong>
-                    to get an AI trade idea with entry, stop loss, take profit targets, catalyst, and conviction.
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-    # ═════════════════════════════════════════════
-    # TAB 2: DIP RADAR
-    # ═════════════════════════════════════════════
-    with _ti_tab2:
-        st.markdown("**📡 Dip Radar** — stocks ranked by how far they've dipped from their 52-week high")
-        st.caption("Auto-loads from your paper portfolio. Add stocks in 💼 Paper Portfolio first.")
-
-        # Try to auto-load from Supabase portfolio
-        _dr_tickers = []
-        _dr_source  = "portfolio"
-        try:
-            if st.session_state.get("is_logged_in") and st.session_state.get("user_id"):
-                _dr_trades = load_trades_from_db(st.session_state.user_id, "user")
-                if _dr_trades:
-                    _dr_positions = rebuild_portfolio_from_trades(_dr_trades)
-                    _dr_tickers   = [p["ticker"] for p in _dr_positions if p.get("shares", 0) > 0]
-        except Exception:
-            _dr_tickers = []
-
-        if _dr_tickers:
-            render_dip_radar(_dr_tickers, chart_title="My Portfolio")
+    if _ti_gen and _ti_input:
+        _ti_resolved = resolve_company_to_ticker(_ti_input)
+        if not _ti_resolved:
+            st.error(f"Could not find ticker: {_ti_input}")
         else:
-            st.info("No portfolio positions found. Add stocks to **💼 Paper Portfolio** to auto-populate.")
-            st.markdown("**Want to try it?** Paste tickers manually:")
-            _dr_manual = st.text_input(
-                "Tickers (comma-separated):",
-                placeholder="e.g. AAPL, NVDA, TSLA",
-                key="ti_dip_radar_manual",
-            )
-            if _dr_manual:
-                _dr_manual_tickers = [t.strip().upper() for t in _dr_manual.split(",") if t.strip()]
-                if _dr_manual_tickers:
-                    render_dip_radar(_dr_manual_tickers, chart_title="Custom Watchlist")
+            _ti_q = get_quote(_ti_resolved)
+            if not _ti_q:
+                st.error(f"Could not fetch data for {_ti_resolved}")
+            else:
+                _ti_price  = float(_ti_q.get("price", 0) or 0)
+                _ti_name   = _ti_q.get("name", _ti_resolved)
+                _ti_pe     = _ti_q.get("pe", None)
+                _ti_chg    = float(_ti_q.get("changesPercentage", 0) or 0)
+                _ti_52h    = _ti_q.get("yearHigh")
+                _ti_52l    = _ti_q.get("yearLow")
+
+                _ti_hist   = get_historical_ohlc(_ti_resolved, 1.0)
+                _ti_facts  = compute_technical_facts(_ti_hist) if not _ti_hist.empty else {}
+                _ti_rsi    = _ti_facts.get("rsi14_last")
+                _ti_sma50  = _ti_facts.get("sma50")
+                _ti_sma200 = _ti_facts.get("sma200")
+                _ti_sup    = _ti_facts.get("support_level")
+                _ti_res    = _ti_facts.get("resistance_level")
+
+                _ti_ctx = (
+                    f"Stock: {_ti_name} ({_ti_resolved})\n"
+                    f"Current Price: ${_ti_price:.2f}\n"
+                    f"Today Change: {_ti_chg:+.2f}%\n"
+                    f"52W High: ${f'{_ti_52h:.2f}' if _ti_52h else 'N/A'}\n"
+                    f"52W Low:  ${f'{_ti_52l:.2f}' if _ti_52l else 'N/A'}\n"
+                    f"P/E: {_ti_pe if _ti_pe else 'N/A'}\n"
+                    f"RSI(14): {f'{_ti_rsi:.1f}' if _ti_rsi else 'N/A'}\n"
+                    f"SMA50:  ${f'{_ti_sma50:.2f}' if _ti_sma50 else 'N/A'}\n"
+                    f"SMA200: ${f'{_ti_sma200:.2f}' if _ti_sma200 else 'N/A'}\n"
+                    f"Support:    ${f'{_ti_sup:.2f}' if _ti_sup else 'N/A'}\n"
+                    f"Resistance: ${f'{_ti_res:.2f}' if _ti_res else 'N/A'}"
+                )
+
+                _ti_prompt = (
+                    "You are a professional technical analyst. Based ONLY on the data below, "
+                    "generate a specific, actionable trade setup.\n\n"
+                    + _ti_ctx
+                    + '\n\nReturn a JSON object with these EXACT keys:\n'
+                    '{"setup_type":"e.g. Bullish Breakout / Oversold Bounce / Trend Continuation",'
+                    '"bias":"bullish"|"bearish"|"neutral",'
+                    '"entry_zone":"specific price range like \'$182 – $185\'",'
+                    '"stop_loss":"specific price with % risk like \'$175 (-4.2%)\'",'
+                    '"take_profit_1":"first target with % gain",'
+                    '"take_profit_2":"second target with % gain",'
+                    '"take_profit_3":"third target with % gain",'
+                    '"risk_reward":"like \'1:2.5\'",'
+                    '"time_horizon":"like \'2–4 weeks\'",'
+                    '"catalyst":"1-2 sentences on what could drive the move",'
+                    '"conviction":"High"|"Medium"|"Low",'
+                    '"conviction_reason":"one sentence",'
+                    '"key_risk":"main risk to the thesis"}\n\n'
+                    'Return pure JSON only. No markdown, no explanation.'
+                )
+
+                with st.spinner(f"Generating trade setup for {_ti_name}…"):
+                    _ti_result = call_perplexity_json(_ti_prompt, max_tokens=1000, temperature=0.2)
+                st.session_state.ti_result   = _ti_result
+                st.session_state.ti_quote    = _ti_q
+                st.session_state.ti_resolved = _ti_resolved
+
+    # ── Display result ──────────────────────────────────────────────────
+    if st.session_state.ti_result and st.session_state.ti_quote:
+        _r  = st.session_state.ti_result
+        _q  = st.session_state.ti_quote
+        _tk = st.session_state.get("ti_resolved", "")
+        _p  = float(_q.get("price", 0) or 0)
+        _nm = _q.get("name", _tk)
+        _ch = float(_q.get("changesPercentage", 0) or 0)
+
+        _bias  = (_r.get("bias", "neutral") or "neutral").lower()
+        _bcol  = "#00C851" if _bias == "bullish" else "#FF4444" if _bias == "bearish" else "#FFA500"
+        _conv  = _r.get("conviction", "Medium") or "Medium"
+        _ccol  = {"High": "#00C851", "Medium": "#FFA500", "Low": "#FF4444"}.get(_conv, "#FFA500")
+
+        st.markdown(f"""
+        <div style="background:#0D0D20; border:1px solid rgba(255,255,255,0.12);
+                    border-radius:14px; padding:20px 24px; margin:16px 0; color:#FFFFFF !important;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
+                <div>
+                    <div style="font-size:22px; font-weight:700; color:#FFFFFF !important;">{_nm}</div>
+                    <div style="font-size:14px; color:rgba(255,255,255,0.6) !important; margin-top:2px;">{_tk}</div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-size:22px; font-weight:700; color:#00E5FF !important;">${_p:.2f}</div>
+                    <div style="font-size:13px; color:{'#00C851' if _ch >= 0 else '#FF4444'} !important;">{_ch:+.2f}% today</div>
+                </div>
+            </div>
+            <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;">
+                <span style="background:{_bcol}22; color:{_bcol} !important; padding:4px 14px; border-radius:20px;
+                             font-size:13px; font-weight:600; border:1px solid {_bcol}44;">
+                    {_bias.capitalize()}
+                </span>
+                <span style="background:rgba(255,255,255,0.08); color:#FFFFFF !important; padding:4px 14px;
+                             border-radius:20px; font-size:13px;">
+                    {_r.get('setup_type','Trade Setup')}
+                </span>
+                <span style="background:{_ccol}22; color:{_ccol} !important; padding:4px 14px; border-radius:20px;
+                             font-size:13px; font-weight:600; border:1px solid {_ccol}44;">
+                    {_conv} Conviction
+                </span>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        _m1, _m2, _m3, _m4 = st.columns(4)
+        _m1.metric("Entry Zone",    _r.get("entry_zone",    "—"))
+        _m2.metric("Stop Loss",     _r.get("stop_loss",     "—"))
+        _m3.metric("Take Profit 1", _r.get("take_profit_1", "—"))
+        _m4.metric("Risk / Reward", _r.get("risk_reward",   "—"))
+
+        _t2 = _r.get("take_profit_2")
+        _t3 = _r.get("take_profit_3")
+        _th = _r.get("time_horizon")
+        if _t2 or _t3 or _th:
+            _m5, _m6, _m7, _ = st.columns(4)
+            if _t2: _m5.metric("Take Profit 2", _t2)
+            if _t3: _m6.metric("Take Profit 3", _t3)
+            if _th: _m7.metric("Time Horizon",  _th)
+
+        st.markdown("")
+        _dc1, _dc2 = st.columns(2)
+        with _dc1:
+            if _r.get("catalyst"):
+                st.markdown(f"""
+                <div style="background:#0A1A0A; border:1px solid #00C85144; border-radius:10px; padding:14px 16px;">
+                    <div style="color:#00C851 !important; font-weight:700; font-size:13px; margin-bottom:6px;">💡 Catalyst</div>
+                    <div style="color:#FFFFFF !important; font-size:13px; line-height:1.5;">{_r['catalyst']}</div>
+                </div>
+                """, unsafe_allow_html=True)
+        with _dc2:
+            if _r.get("key_risk"):
+                st.markdown(f"""
+                <div style="background:#1A0A0A; border:1px solid #FF444444; border-radius:10px; padding:14px 16px;">
+                    <div style="color:#FF4444 !important; font-weight:700; font-size:13px; margin-bottom:6px;">⚠️ Key Risk</div>
+                    <div style="color:#FFFFFF !important; font-size:13px; line-height:1.5;">{_r['key_risk']}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+        if _r.get("conviction_reason"):
+            st.caption(f"**Why {_conv} conviction:** {_r['conviction_reason']}")
+        st.markdown("")
+        st.caption("⚠️ *AI-generated trade idea. Not financial advice. Levels are illustrative. Always do your own research.*")
+
+    elif not _ti_gen and not st.session_state.ti_result:
+        st.markdown("""
+        <div style="background:#0D0D20; border:1px dashed rgba(255,255,255,0.15); border-radius:12px;
+                    padding:40px 24px; text-align:center; margin-top:20px;">
+            <div style="font-size:44px; margin-bottom:14px;">💡</div>
+            <div style="color:#FFFFFF !important; font-size:15px; line-height:1.6;">
+                Enter a ticker above and click
+                <strong style="color:#00E5FF !important;">Generate Setup →</strong>
+                to get an AI trade idea with entry, stop loss, take profit targets, catalyst, and conviction.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+
+
+# ============= DIP RADAR PAGE (standalone) =============
+elif selected_page == "📡 Dip Radar":
+
+    st.markdown("""
+    <div style="background:#0D0D20 !important; border:1px solid rgba(255,255,255,0.15);
+                border-radius:12px; padding:16px 24px; margin-bottom:16px; color:#FFFFFF !important;">
+        <div style="font-size:22px; font-weight:700; color:#FFFFFF !important;">📡 Dip Radar</div>
+        <div style="font-size:13px; color:rgba(255,255,255,0.75) !important; margin-top:4px;">
+            Stocks ranked by how far they've dipped from their 52-week high
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    st.caption("*Auto-loads from your paper portfolio. Add stocks in 💼 Paper Portfolio first.*")
+
+    # Try to auto-load from Supabase portfolio
+    _dr_tickers = []
+    try:
+        if st.session_state.get("is_logged_in") and st.session_state.get("user_id"):
+            _dr_trades = load_trades_from_db(st.session_state.user_id, "user")
+            if _dr_trades:
+                _dr_positions = rebuild_portfolio_from_trades(_dr_trades)
+                _dr_tickers   = [p["ticker"] for p in _dr_positions if p.get("shares", 0) > 0]
+    except Exception:
+        _dr_tickers = []
+
+    if _dr_tickers:
+        render_dip_radar(_dr_tickers, chart_title="My Portfolio")
+    else:
+        st.info("No portfolio positions found. Add stocks to **💼 Paper Portfolio** to auto-populate.")
+
+    st.markdown("**Want to try it?** Paste tickers manually:")
+    _dr_manual = st.text_input(
+        "Tickers (comma-separated):",
+        placeholder="e.g. AAPL, NVDA, TSLA, MSFT, GOOGL",
+        key="dip_radar_manual_standalone",
+    )
+    if _dr_manual:
+        _dr_manual_tickers = [t.strip().upper() for t in _dr_manual.split(",") if t.strip()]
+        if _dr_manual_tickers:
+            render_dip_radar(_dr_manual_tickers, chart_title="Custom Watchlist")
+
+    st.markdown("---")
+    st.caption("*Data from FMP API. Educational purposes only. Not financial advice.*")
 
 
 elif selected_page == "👑 Ultimate":
