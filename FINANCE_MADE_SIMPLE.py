@@ -10594,9 +10594,6 @@ with header_cols[2]:
         if st.button("🤖 AI Stock Screener", key="nav_ai_screener", use_container_width=True):
             st.session_state.selected_page = "🔍 AI Stock Screener"
             st.rerun()
-        if st.button("📡 Dip Radar", key="nav_dip_radar", use_container_width=True):
-            st.session_state.selected_page = "📡 Dip Radar"
-            st.rerun()
         if st.button("🎬 Company Deep Dives", key="nav_deep_dives", use_container_width=True):
             st.session_state.selected_page = "🎬 Company Deep Dives"
             st.rerun()
@@ -20189,9 +20186,9 @@ elif selected_page == "📊 Company Analysis":
     
     if view == "🌟 The Big Picture":
         
-        income_df = get_income_statement(ticker, period, years*4 if period == 'quarter' else years)
-        cash_df = get_cash_flow(ticker, period, years*4 if period == 'quarter' else years)
-        balance_df = get_balance_sheet(ticker, period, years*4 if period == 'quarter' else years)
+        income_df = get_income_statement(ticker, 'annual', years)
+        cash_df = get_cash_flow(ticker, 'annual', years)
+        balance_df = get_balance_sheet(ticker, 'annual', years)
         
         # Stock chart is already shown above - removed duplicate here
         
@@ -20270,7 +20267,7 @@ elif selected_page == "📊 Company Analysis":
                     f"{company_name} - Cash Flow",
                     "Period",
                     "Amount ($)",
-                    period_type=period
+                    period_type='annual'
                 )
 
                 if fig:
@@ -20365,7 +20362,7 @@ elif selected_page == "📊 Company Analysis":
                     f"{company_name} - Income Statement",
                     "Period",
                     "Amount ($)",
-                    period_type=period
+                    period_type='annual'
                 )
 
                 if fig:
@@ -20460,7 +20457,7 @@ elif selected_page == "📊 Company Analysis":
                     f"{company_name} - Balance Sheet",
                     "Period",
                     "Amount ($)",
-                    period_type=period
+                    period_type='annual'
                 )
 
                 if fig:
@@ -21770,263 +21767,58 @@ elif selected_page == "📈 Financial Health":
         
         st.markdown("---")
         
-        # S&P 500 benchmarks - PROFITABILITY FIRST, then valuation (user's "Profitability First" order)
-        # Each tuple: (api_col, display_name, benchmark, comparison_type, short_desc, tooltip_definition, tooltip_example)
-        all_ratios = [
-            # 1. PROFITABILITY METRICS (Quality First)
-            ("freeCashFlowPerShare", "FCF Per Share (Truth Meter)", 5.0, "higher_is_better", "The actual cash a company keeps after paying for everything.",
-             "The actual cash a company keeps after paying for everything - salaries, rent, equipment, taxes.",
-             "If a company reports $10B in profit but only has $2B in FCF, the 'profit' might be accounting tricks."),
-            ("grossProfitMargin", "Gross Margin", 0.40, "higher_is_better", "Profit left after the direct cost of making the product.",
-             "The percentage of revenue left after paying the direct costs of producing goods.",
-             "If a company sells a shirt for $100 and it costs $40 to make, the Gross Margin is 60%."),
-            ("operatingProfitMargin", "Operating Margin", 0.15, "higher_is_better", "Profit left after paying the bills (Rent, Salaries, Marketing).",
-             "Profit left after paying operating expenses like rent, salaries, and marketing.",
-             "A 20% operating margin means for every $100 in sales, $20 is left after paying all operating costs."),
-            ("netProfitMargin", "Net Income Margin", 0.10, "higher_is_better", "The final 'Bottom Line' profit after everything, including taxes.",
-             "The final profit percentage after ALL expenses including taxes and interest.",
-             "A 15% net margin means the company keeps $15 for every $100 in revenue after everything is paid."),
-            
-            # 2. VALUATION METRICS
-            ("priceEarningsRatio", "P/E Ratio", 22, "lower_is_better", "Price vs. Profit. How much you pay for $1 of earnings.",
-             "A tool used to see if a stock is overvalued or undervalued by comparing its price to its profit.",
-             "If a stock is $20 and the company earns $2 per share, the P/E is 10. You are paying $10 for every $1 of profit."),
-            ("priceToSalesRatio", "P/S Ratio", 2.5, "lower_is_better", "Price vs. Sales. Best for checking companies that aren't profitable yet.",
-             "Compares stock price to revenue - useful for companies that aren't profitable yet.",
-             "A P/S of 5 means investors pay $5 for every $1 of sales the company generates."),
-            ("priceToBookRatio", "P/B Ratio", 4.0, "lower_is_better", "Price vs. Assets. Compares the stock price to what the company actually owns.",
-             "Compares the stock price to the company's book value (assets minus liabilities).",
-             "A P/B of 2 means the stock trades at twice the value of what the company actually owns."),
-            
-            # 3. SAFETY METRICS
-            ("debtEquityRatio", "Debt-to-Equity", 1.5, "lower_is_better", "How much debt a company uses to grow. Lower is safer.",
-             "Measures how much a company is using debt to run its business compared to its own money.",
-             "A ratio of 2.0 means the company has twice as much debt as it has 'own cash' (equity)."),
-            ("returnOnEquity", "Return on Equity (ROE)", 0.15, "higher_is_better", "How efficiently a company uses investors' money.",
-             "Shows how efficiently a company uses investors' money to generate profit.",
-             "An ROE of 15% means the company generated $0.15 in profit for every $1 of shareholder money.")
+        # ============= UNIFIED MULTISELECT RATIO CHART =============
+        _fh_ratio_options = [
+            ("Gross Margin",           "grossProfitMargin"),
+            ("Operating Margin",       "operatingProfitMargin"),
+            ("Net Margin",             "netProfitMargin"),
+            ("ROE",                    "returnOnEquity"),
+            ("ROA",                    "returnOnAssets"),
+            ("ROCE",                   "returnOnCapitalEmployed"),
+            ("P/E Ratio",              "priceEarningsRatio"),
+            ("P/S Ratio",              "priceToSalesRatio"),
+            ("P/B Ratio",              "priceToBookRatio"),
+            ("EV/EBITDA",              "enterpriseValueMultiple"),
+            ("FCF Yield",              "freeCashFlowYield"),
+            ("Current Ratio",          "currentRatio"),
+            ("Quick Ratio",            "quickRatio"),
+            ("Debt-to-Equity",         "debtToEquity"),
+            ("Dividend Yield",         "dividendYield"),
         ]
-        
-        # ============= THE TRUTH METER (FCF vs Net Income) =============
-        st.markdown("---")
-        st.markdown("### 🔍 The Truth Meter: FCF vs Net Income")
-        st.markdown("""
-        <div class="growth-note">
-        <strong>💡 Naman's Note:</strong> I call this the "Truth Meter." It shows if a company is making real cash or just playing with accounting numbers. 
-        If Net Income is high but Free Cash Flow is low, someone is hiding something! Look for FCF that's close to or higher than Net Income.
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Fetch cash flow and income data for Truth Meter
-        cash_flow_data = get_cash_flow(ticker, period_type, years * 4 if period_type == 'quarter' else years)
-        income_data = get_income_statement(ticker, period_type, years * 4 if period_type == 'quarter' else years)
-        
-        if not cash_flow_data.empty and not income_data.empty:
-            # Merge on date
-            truth_df = pd.merge(
-                cash_flow_data[['date', 'freeCashFlow']],
-                income_data[['date', 'netIncome']],
-                on='date',
-                how='inner'
+        _fh_available = [(d, c) for d, c in _fh_ratio_options if c in ratios_df.columns]
+
+        if _fh_available:
+            _fh_display_names = [d for d, _ in _fh_available]
+            _fh_defaults = [d for d, c in _fh_available if c in ('grossProfitMargin', 'operatingProfitMargin')]
+            if not _fh_defaults:
+                _fh_defaults = _fh_display_names[:2]
+
+            _fh_selected_names = st.multiselect(
+                "Select ratios to compare:",
+                options=_fh_display_names,
+                default=_fh_defaults,
+                key="fh_standalone_multiselect",
+                help="Choose one or more ratios to plot over time. Dashed lines show S&P 500 averages."
             )
-            
-            if not truth_df.empty and len(truth_df) > 1:
-                truth_df['date'] = pd.to_datetime(truth_df['date'], errors='coerce')
-                truth_df = truth_df.dropna().sort_values('date')
-                
-                # Create Truth Meter chart
-                fig_truth = go.Figure()
-                
-                fig_truth.add_trace(go.Scatter(
-                    x=truth_df['date'],
-                    y=truth_df['netIncome'] / 1e9,
-                    mode='lines+markers',
-                    name='Net Income',
-                    line=dict(color='#9D4EDD', width=2),
-                    marker=dict(size=6)
-                ))
-                
-                fig_truth.add_trace(go.Scatter(
-                    x=truth_df['date'],
-                    y=truth_df['freeCashFlow'] / 1e9,
-                    mode='lines+markers',
-                    name='Free Cash Flow',
-                    line=dict(color='#00C853', width=2),
-                    marker=dict(size=6)
-                ))
-                
-                # Y-axis with 10% padding
-                all_y = list(truth_df['netIncome'] / 1e9) + list(truth_df['freeCashFlow'] / 1e9)
-                y_min, y_max = min(all_y), max(all_y)
-                y_range = y_max - y_min if y_max != y_min else abs(y_max) * 0.1 or 1
-                
-                fig_truth.update_layout(
-                    title="Net Income vs Free Cash Flow (Billions $)",
-                    xaxis_title="Date",
-                    yaxis_title="Amount (Billions $)",
-                    yaxis=dict(range=[y_min - y_range * 0.1, y_max + y_range * 0.1]),
-                    height=350,
-                    margin=dict(l=0, r=0, t=40, b=0),
-                    hovermode='x unified',
-                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-                )
-                
-                st.plotly_chart(fig_truth, use_container_width=True)
-                
-                # Truth Meter insight
-                latest_ni = truth_df['netIncome'].iloc[-1]
-                latest_fcf = truth_df['freeCashFlow'].iloc[-1]
-                
-                if latest_fcf > 0 and latest_ni > 0:
-                    fcf_to_ni_ratio = latest_fcf / latest_ni
-                    if fcf_to_ni_ratio >= 0.8:
-                        st.success(f"**Truth Meter: PASS** - FCF is {fcf_to_ni_ratio:.0%} of Net Income. This company generates real cash!")
-                    elif fcf_to_ni_ratio >= 0.5:
-                        st.info(f"**Truth Meter: CAUTION** - FCF is {fcf_to_ni_ratio:.0%} of Net Income. Some earnings may not be cash.")
-                    else:
-                        st.warning(f"**Truth Meter: WARNING** - FCF is only {fcf_to_ni_ratio:.0%} of Net Income. Earnings quality may be poor.")
-                elif latest_fcf < 0:
-                    st.error(f"**Truth Meter: FAIL** - Negative FCF! This company is burning cash despite reported profits.")
-                else:
-                    st.info("**Truth Meter:** Unable to calculate - check the data above.")
-        
-        st.markdown("---")
-        
-        def create_ratio_chart_with_table(ratio_col, ratio_name, benchmark_val, comparison_type, ratios_data, description):
-            """Create a ratio chart with historical benchmarking table"""
-            if ratio_col not in ratios_data.columns:
-                return False
-            
-            ratio_data = ratios_data[['date', ratio_col]].dropna()
-            if len(ratio_data) == 0:
-                return False
-            
-            # Convert date column to datetime for comparison
-            ratio_data = ratio_data.copy()
-            ratio_data['date'] = pd.to_datetime(ratio_data['date'], errors='coerce')
-            ratio_data = ratio_data.dropna(subset=['date'])
-            
-            if len(ratio_data) == 0:
-                return False
-            
-            col_chart, col_table = st.columns([2, 1])
-            
-            with col_chart:
-                fig = go.Figure()
-                
-                # Add company ratio line
-                fig.add_trace(go.Scatter(
-                    x=ratio_data['date'],
-                    y=ratio_data[ratio_col],
-                    mode='lines+markers',
-                    name=f'{ticker}',
-                    line=dict(color='#9D4EDD', width=2),
-                    marker=dict(size=6)
-                ))
-                
-                # Add S&P 500 benchmark line
-                fig.add_trace(go.Scatter(
-                    x=ratio_data['date'],
-                    y=[benchmark_val] * len(ratio_data),
-                    mode='lines',
-                    name='S&P 500 Avg',
-                    line=dict(color='#00C853', width=2, dash='dash')
-                ))
-                
-                # Y-axis with 15% padding to ensure data never exceeds axis
-                all_y = list(ratio_data[ratio_col]) + [benchmark_val]
-                y_min, y_max = min(all_y), max(all_y)
-                y_range = y_max - y_min if y_max != y_min else abs(y_max) * 0.1 or 1
-                
-                fig.update_layout(
-                    title=f"{ratio_name} Over Time",
-                    xaxis_title="Date",
-                    yaxis_title=ratio_name,
-                    yaxis=dict(range=[y_min - y_range * 0.15, y_max + y_range * 0.15]),
-                    height=300,
-                    margin=dict(l=0, r=0, t=40, b=0),
-                    hovermode='x unified',
-                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-                )
-                
-                st.plotly_chart(fig, use_container_width=True)
-                
-                # Description
-                st.caption(description)
-                
-                # Dynamic warning/insight box
-                latest_val = ratio_data[ratio_col].iloc[-1] if len(ratio_data) > 0 else None
-                if latest_val is not None:
-                    if comparison_type == "lower_is_better":
-                        if latest_val > benchmark_val * 1.1:
-                            st.warning(f"{ticker}'s {ratio_name} ({latest_val:.2f}) is HIGHER than S&P 500 average ({benchmark_val:.2f})")
-                        elif latest_val < benchmark_val * 0.9:
-                            st.success(f"{ticker}'s {ratio_name} ({latest_val:.2f}) is LOWER than S&P 500 average ({benchmark_val:.2f})")
-                        else:
-                            st.info(f"{ticker}'s {ratio_name} ({latest_val:.2f}) is near S&P 500 average ({benchmark_val:.2f})")
-                    else:
-                        if latest_val > benchmark_val * 1.1:
-                            st.success(f"{ticker}'s {ratio_name} ({latest_val:.2f}) is HIGHER than S&P 500 average ({benchmark_val:.2f})")
-                        elif latest_val < benchmark_val * 0.9:
-                            st.warning(f"{ticker}'s {ratio_name} ({latest_val:.2f}) is LOWER than S&P 500 average ({benchmark_val:.2f})")
-                        else:
-                            st.info(f"{ticker}'s {ratio_name} ({latest_val:.2f}) is near S&P 500 average ({benchmark_val:.2f})")
-            
-            with col_table:
-                st.markdown("**Historical Benchmarks**")
-                
-                values = ratio_data[ratio_col].values
-                latest_val = values[-1] if len(values) > 0 else None
-                
-                # Calculate stats
-                period_avg = values.mean() if len(values) > 0 else None
-                period_median = pd.Series(values).median() if len(values) > 0 else None
-                
-                # 5-year and 10-year averages (always show if data available)
-                five_year_cutoff = datetime.now() - timedelta(days=5*365)
-                ten_year_cutoff = datetime.now() - timedelta(days=10*365)
-                
-                five_year_data = ratio_data[ratio_data['date'] >= five_year_cutoff][ratio_col]
-                ten_year_data = ratio_data[ratio_data['date'] >= ten_year_cutoff][ratio_col]
-                
-                five_year_avg = five_year_data.mean() if len(five_year_data) > 0 else None
-                ten_year_avg = ten_year_data.mean() if len(ten_year_data) > 0 else None
-                
-                # Display metrics
-                st.metric("Current", f"{latest_val:.2f}" if latest_val else "N/A")
-                st.metric("5Y Average", f"{five_year_avg:.2f}" if five_year_avg else "N/A")
-                st.metric("10Y Average", f"{ten_year_avg:.2f}" if ten_year_avg else "N/A")
-                st.metric("Historical Median", f"{period_median:.2f}" if period_median else "N/A")
-                st.metric("S&P 500 Avg", f"{benchmark_val:.2f}")
-            
-            return True
-        
-        # Display all ratio charts vertically (no sub-tabs) with hover tooltips
-        charts_displayed = 0
-        for ratio_tuple in all_ratios:
-            ratio_col, ratio_name, benchmark_val, comparison_type, description, tooltip_def, tooltip_example = ratio_tuple
-            if ratio_col in ratios_df.columns:
-                # Title with clickable info button
-                col1, col2 = st.columns([12, 1])
-                with col1:
-                    st.markdown(f"### {ratio_name}")
-                with col2:
-                    with st.popover("❓", use_container_width=True):
-                        st.markdown(f"**📖 Definition:**")
-                        st.info(tooltip_def)
-                        st.markdown(f"**💡 Example:**")
-                        st.success(tooltip_example)
-                
-                if create_ratio_chart_with_table(ratio_col, ratio_name, benchmark_val, comparison_type, ratios_df, description):
-                    charts_displayed += 1
-                st.markdown("---")
-        
-        if charts_displayed == 0:
-            st.info("No ratio data available for this company")
-        
-        # Note: News has been moved to Market Intelligence page per page separation rules
-        st.markdown("---")
-        st.info("📰 **Looking for news?** Check out the **Market Intelligence** tab in the sidebar for AI-powered news analysis and market insights!")
+
+            _fh_selected_items = [(d, c) for d, c in _fh_available if d in _fh_selected_names]
+
+            if _fh_selected_items:
+                _fh_fig = create_unified_ratio_chart(ratios_df, _fh_selected_items, full_company_name if profile else ticker, sector if profile else None)
+                st.plotly_chart(_fh_fig, use_container_width=True)
+
+                # Latest values row
+                _fh_cols = st.columns(min(len(_fh_selected_items), 4))
+                for _idx, (d_name, col_name) in enumerate(_fh_selected_items[:4]):
+                    _col_data = ratios_df[col_name].dropna()
+                    if not _col_data.empty:
+                        _latest = _col_data.iloc[-1]
+                        _display = f"{_latest*100:.1f}%" if col_name in _PCT_RATIO_COLS else f"{_latest:.2f}x" if col_name in ('priceEarningsRatio','priceToSalesRatio','priceToBookRatio','enterpriseValueMultiple','currentRatio','quickRatio') else f"{_latest:.2f}"
+                        _fh_cols[_idx % 4].metric(f"Latest {d_name}", _display)
+            else:
+                st.info("Select at least one ratio above to view the chart.")
+        else:
+            st.info("No ratio data available for this company.")
         
         # ============= PRO FEATURE TEASER FOR FREE USERS =============
         user_tier = get_user_tier()
@@ -26939,42 +26731,6 @@ elif selected_page == "📓 Investing Journal":
     # Redirect to Paper Portfolio (Journal is now a tab there)
     st.session_state.selected_page = "💼 Paper Portfolio"
     st.rerun()
-
-
-elif selected_page == "📡 Dip Radar":
-    st.markdown("""
-    <div style="background:linear-gradient(135deg,#0A0A1A 0%,#1A0A2E 100%);
-                padding:18px 28px; border-radius:14px; margin-bottom:20px;
-                border-left:4px solid #BF5FFF;">
-        <h2 style="margin:0; color:#FFFFFF; font-size:26px;">📡 Dip Radar</h2>
-        <p style="margin:6px 0 0; color:rgba(255,255,255,0.65); font-size:14px;">
-            Rank any watchlist by how far each stock has fallen from its 52-week high.
-            Biggest dips at the top — tap a ticker for the full breakdown.
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    raw_input = st.text_input(
-        "Enter tickers (comma-separated):",
-        placeholder="e.g. AAPL, NVDA, TSLA, MSFT, AMZN",
-        key="dip_radar_tickers_input",
-    )
-
-    tickers_list = []
-    if raw_input:
-        tickers_list = [t.strip().upper() for t in raw_input.split(",") if t.strip()]
-
-    if tickers_list:
-        render_dip_radar(tickers_list, chart_title="Custom Watchlist")
-    else:
-        st.info("Enter one or more ticker symbols above to scan for dips.")
-        st.markdown("""
-        **How it works:**
-        - Fetches live price and 52-week high for each ticker
-        - Ranks them by how far they've dipped (worst first)
-        - Red bars = biggest dips · Green bars = closest to 52W high
-        - Select any ticker to see P/E, analyst consensus, revenue growth, and valuation label
-        """)
 
 
 # ============= FOOTER =============
