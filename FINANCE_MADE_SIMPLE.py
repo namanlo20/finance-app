@@ -1251,36 +1251,36 @@ def show_error_state(title="Something went wrong", message="We couldn't load thi
 
 
 def show_pro_feature_teaser(feature_name, description, benefits=None):
-    """Display a blurred teaser for Pro features to entice upgrades"""
+    """Display a blurred teaser for Ultimate features to entice upgrades"""
     benefits_html = ""
     if benefits:
         benefits_html = "<ul style='text-align: left; margin: 15px 0; color: #666;'>"
         for benefit in benefits[:3]:
             benefits_html += f"<li>{benefit}</li>"
         benefits_html += "</ul>"
-    
+
     st.markdown(f"""
     <div style="
         position: relative;
         padding: 30px;
-        background: linear-gradient(135deg, rgba(157,78,221,0.1) 0%, rgba(255,215,0,0.1) 100%);
+        background: linear-gradient(135deg, rgba(255,215,0,0.08) 0%, rgba(255,165,0,0.08) 100%);
         border-radius: 15px;
         margin: 20px 0;
-        border: 2px solid rgba(157,78,221,0.3);
+        border: 2px solid rgba(255,215,0,0.35);
         overflow: hidden;
     ">
         <div style="
             position: absolute;
             top: 10px;
             right: 10px;
-            background: linear-gradient(135deg, #9D4EDD 0%, #7B2CBF 100%);
-            color: white;
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            color: #000;
             padding: 5px 12px;
             border-radius: 20px;
             font-size: 12px;
             font-weight: bold;
-        ">⭐ PRO</div>
-        <h3 style="margin: 0 0 10px 0; color: #7B2CBF;">🔒 {feature_name}</h3>
+        ">👑 ULTIMATE</div>
+        <h3 style="margin: 0 0 10px 0; color: #E6A800;">🔒 {feature_name}</h3>
         <p style="color: #666; margin: 0 0 15px 0;">{description}</p>
         {benefits_html}
         <div style="
@@ -1295,10 +1295,10 @@ def show_pro_feature_teaser(feature_name, description, benefits=None):
         </div>
     </div>
     """, unsafe_allow_html=True)
-    
+
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        if st.button("🚀 Unlock with Pro", key=f"unlock_{feature_name.replace(' ', '_')}", type="primary", use_container_width=True):
+        if st.button("👑 Go Ultimate", key=f"unlock_{feature_name.replace(' ', '_')}", type="primary", use_container_width=True):
             st.session_state.selected_page = "👑 Become a VIP"
             st.rerun()
 
@@ -3439,6 +3439,7 @@ def get_user_tier():
                 if result.data and result.data.get("tier"):
                     tier = result.data["tier"]
                     if tier in ["pro", "ultimate"]:
+                        tier = "ultimate"  # Pro merged into Ultimate
                         st.session_state.user_tier = tier
                         return tier
         except Exception:
@@ -3449,7 +3450,9 @@ def get_user_tier():
 
 def set_user_tier(tier):
     """Set the user's subscription tier (for testing/demo)"""
-    if tier in ["free", "pro", "ultimate"]:
+    if tier == "pro":
+        tier = "ultimate"  # Pro merged into Ultimate
+    if tier in ["free", "ultimate"]:
         st.session_state.user_tier = tier
         return True
     return False
@@ -3477,19 +3480,19 @@ def show_premium_gate(feature_name, required_tier="pro", show_preview=True):
         True if feature is accessible, False if gated
     """
     current_tier = get_user_tier()
-    tier_order = {"free": 0, "pro": 1, "ultimate": 2}
-    
-    # Check if user has access
-    if tier_order.get(current_tier, 0) >= tier_order.get(required_tier, 1):
+    tier_order = {"free": 0, "ultimate": 1}
+
+    # Treat any required_tier as "ultimate" (only one paid tier now)
+    if tier_order.get(current_tier, 0) >= 1:
         return True
-    
-    # Show locked state
-    tier_color = "#9D4EDD" if required_tier == "pro" else "#FFD700"
-    tier_label = "Pro" if required_tier == "pro" else "Ultimate"
-    
+
+    # Show locked state (always Ultimate)
+    tier_color = "#FFD700"
+    tier_label = "Ultimate"
+
     st.markdown(f"""
     <div style="
-        background: linear-gradient(135deg, rgba(157, 78, 221, 0.1), rgba(157, 78, 221, 0.05));
+        background: linear-gradient(135deg, rgba(255,215,0,0.1), rgba(255,215,0,0.05));
         border: 2px solid {tier_color};
         border-radius: 15px;
         padding: 30px;
@@ -3498,24 +3501,24 @@ def show_premium_gate(feature_name, required_tier="pro", show_preview=True):
     ">
         <div style="font-size: 48px; margin-bottom: 15px;">🔒</div>
         <h3 style="color: {tier_color}; margin-bottom: 10px;">{feature_name}</h3>
-        <p style="color: #888; margin-bottom: 20px;">This feature requires <strong style="color: {tier_color};">{tier_label}</strong> tier</p>
+        <p style="color: #888; margin-bottom: 20px;">This feature requires <strong style="color: {tier_color};">{tier_label}</strong></p>
     </div>
     """, unsafe_allow_html=True)
-    
-    if st.button(f"🚀 Upgrade to {tier_label}", key=f"upgrade_{feature_name.replace(' ', '_')}", use_container_width=True):
+
+    if st.button(f"👑 Go Ultimate", key=f"upgrade_{feature_name.replace(' ', '_')}", use_container_width=True):
         st.session_state.selected_page = "👑 Become a VIP"
         st.rerun()
-    
+
     return False
 
-def show_upgrade_prompt(message, cta_text="Upgrade Now", tier="pro"):
+def show_upgrade_prompt(message, cta_text="Upgrade Now", tier="ultimate"):
     """Show a subtle upgrade prompt inline"""
-    tier_color = "#9D4EDD" if tier == "pro" else "#FFD700"
-    tier_label = "Pro" if tier == "pro" else "Ultimate"
-    
+    tier_color = "#FFD700"
+    tier_label = "Ultimate"
+
     st.markdown(f"""
     <div style="
-        background: rgba(157, 78, 221, 0.1);
+        background: rgba(255,215,0,0.08);
         border-left: 4px solid {tier_color};
         padding: 15px;
         border-radius: 8px;
@@ -3529,7 +3532,7 @@ def show_upgrade_prompt(message, cta_text="Upgrade Now", tier="pro"):
 def show_limit_warning(current, limit, feature_name):
     """Show warning when approaching or at limit"""
     if current >= limit:
-        st.warning(f"⚠️ You've reached your {feature_name} limit ({limit}). Upgrade to Pro for more!")
+        st.warning(f"⚠️ You've reached your {feature_name} limit ({limit}). Upgrade to Ultimate for more!")
         return True
     elif current >= limit * 0.8:
         st.info(f"📊 You're using {current}/{limit} {feature_name}. Upgrade for unlimited!")
@@ -7377,7 +7380,7 @@ Respond in JSON format when asked for structured output."""
 def get_ai_investment_verdict(ticker, context):
     """Get AI investment verdict using unified context and schema"""
     if context.get('user_tier') == 'free':
-        return {"error": "Investment verdicts require Pro or Ultimate tier"}
+        return {"error": "Investment verdicts require Ultimate tier"}
     
     prompt = f"""Analyze {ticker} and provide an investment verdict.
 
@@ -8043,7 +8046,7 @@ def render_ai_chatbot():
             if st.session_state.get("ai_query_count", 0) >= ai_limit:
                 tier = get_user_tier()
                 if tier == "free":
-                    st.warning(f"⚡ You've used your {ai_limit} free AI questions today. Upgrade to Pro for 50/day.")
+                    st.warning(f"⚡ You've used your {ai_limit} free AI questions today. Upgrade to Ultimate for unlimited.")
                 else:
                     st.warning(f"You've reached your {ai_limit} AI questions for today. Resets at midnight.")
             else:
@@ -10633,11 +10636,11 @@ with header_cols[-1]:
             """, unsafe_allow_html=True)
         else:
             st.markdown("""
-            <div style="background: linear-gradient(135deg, #9D4EDD 0%, #7B2CBF 100%);
+            <div style="background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
                         padding: 10px 20px; border-radius: 25px; text-align: center;
-                        color: #FFF; font-weight: bold; font-size: 14px;
-                        box-shadow: 0 2px 8px rgba(157,78,221,0.4);">
-                ⭐ Pro
+                        color: #000; font-weight: bold; font-size: 14px;
+                        box-shadow: 0 2px 8px rgba(255,215,0,0.4);">
+                👑 Ultimate
             </div>
             """, unsafe_allow_html=True)
 
@@ -14567,8 +14570,8 @@ if selected_page == "🏠 Dashboard":
                 st.success(f"📌 Added {ticker_upper} to your watchlist!")
                 st.rerun()
             else:
-                st.warning(f"📌 You've reached the limit of {pin_limit} pinned tickers. Upgrade to Pro for more!")
-                if st.button("🚀 Upgrade to Pro", key="upgrade_from_pin_limit"):
+                st.warning(f"📌 You've reached the limit of {pin_limit} pinned tickers. Upgrade to Ultimate for more!")
+                if st.button("👑 Go Ultimate", key="upgrade_from_pin_limit"):
                     st.session_state.selected_page = "👑 Become a VIP"
                     st.rerun()
         elif ticker_upper in st.session_state.pinned_tickers:
@@ -21935,11 +21938,11 @@ elif selected_page == "👤 Naman's Portfolio":
         st.markdown("""
         <div style="background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%); border: 2px solid #42A5F5; border-radius: 10px; padding: 20px; text-align: center;">
             <p style="color: #333; font-size: 16px;">Holdings #4-14 are exclusive to Pro & Ultimate members.</p>
-            <p style="color: #1976D2; font-size: 14px; font-weight: bold;">Upgrade to Pro to see my full portfolio!</p>
+            <p style="color: #E6A800; font-size: 14px; font-weight: bold;">Upgrade to Ultimate to see my full portfolio!</p>
         </div>
         """, unsafe_allow_html=True)
         
-        if st.button("🚀 Upgrade to Pro", key="upgrade_from_portfolio", type="primary", use_container_width=True):
+        if st.button("👑 Go Ultimate", key="upgrade_from_portfolio", type="primary", use_container_width=True):
             st.session_state.selected_page = "👑 Become a VIP"
             st.rerun()
     
@@ -22035,217 +22038,119 @@ elif selected_page == "👤 Naman's Portfolio":
 
 
 elif selected_page == "👑 Become a VIP":
-    st.header("👑 Become a VIP")
-    st.markdown("**Unlock Premium Features & Exclusive Insights**")
 
-    # --- Premium value proposition (detailed, skimmable) ---
-    st.markdown(
-        "Upgrade to get **AI-powered technical insights**, faster workflows, and tools that help you "
-        "**understand what the chart is saying** — without pretending to give financial advice."
-    )
+    st.markdown("""
+    <div style="background:linear-gradient(135deg,#0A0A1A 0%,#1A1A2E 100%);
+                border:1px solid rgba(255,215,0,0.3); border-radius:14px;
+                padding:24px 32px; margin-bottom:24px; text-align:center;">
+        <div style="font-size:28px; font-weight:800; color:#FFFFFF;">👑 Go Ultimate</div>
+        <div style="font-size:15px; color:rgba(255,255,255,0.75); margin-top:6px;">
+            Unlock every feature — AI analysis, trade setups, Dip Radar, advanced charts & more.
+        </div>
+        <div style="font-size:18px; font-weight:700; color:#00C851; margin-top:12px;">
+            🎉 First month FREE — then $10/month · Cancel anytime
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    with st.expander("👀 Quick preview: what you’ll get", expanded=True):
+    with st.expander("👀 What's included in Ultimate?", expanded=True):
         st.markdown(
-            "**Pro includes:**\n"
-            "- Candlestick chart + SMA50/SMA200/RSI/Volume toggles\n"
-            "- **Technical Facts** summary (trend, momentum, volume, volatility, key levels)\n"
-            "- **Chart Callouts** (rule-based highlights that always match the data)\n"
-            "- **Pattern Detection (AI + Rules)** with confidence + key levels\n"
-            "- “What traders generally do next” educational checklist\n"
-            "\n"
-            "**Ultimate adds:**\n"
-            "- **🤖 AI Stock Research Agent** - Ask any stock question, get a full analysis with real data!\n"
-            "- **🤖 AI Assistant** - Ask stock questions in plain English, get AI answers!\n"
-            "- **Historical Similar Setups** (find past periods that looked like today)\n"
-            "- Outcome stats (next 5D/20D returns, drawdowns, hit rate)\n"
-            "- Alerts / watchlists + exportable reports (coming next)"
+            "**Everything, unlocked:**\n"
+            "- 📊 **Technical Analysis** — candlestick chart, SMA50/SMA200/RSI, key levels, pattern detection\n"
+            "- 💡 **AI Trade Ideas** — entry, stop loss, take profit targets, catalyst, conviction\n"
+            "- 📡 **Dip Radar** — rank your portfolio by % below 52-week high\n"
+            "- 🤖 **AI Deep Dive** — fact-locked AI explains charts, builds Bull vs Bear cases\n"
+            "- 📈 **Financial Health** — unified ratio chart vs S&P 500 benchmarks over time\n"
+            "- 💼 **Paper Portfolio** — full tracking, stress tests, and performance analysis\n"
+            "- 🎓 **All educational content** — lessons, risk quiz, investment calculator\n"
+            "- Priority support + early access to new features"
         )
 
-    
-    # Initialize selected tier in session state
-    if 'selected_tier' not in st.session_state:
-        st.session_state.selected_tier = "Free"
-    
-    # ============= TIERED PRICING COMPARISON TABLE =============
-    st.markdown("### 🔐 Choose Your Access Tier")
-    st.markdown("*All 3 tiers are always visible. Click to select your tier.*")
-    
-    # Create 3 columns for the tier cards
-    col_free, col_pro, col_ultimate = st.columns(3)
-    
+    # ── Tier cards ─────────────────────────────────────────────────────────────
+    if "selected_tier" not in st.session_state:
+        st.session_state.selected_tier = "Ultimate"
+
+    st.markdown("### 🔐 Choose Your Plan")
+    col_free, col_ult = st.columns(2)
+
     with col_free:
-        # Highlight if selected
-        border_color = "#00C853" if st.session_state.selected_tier == "Free" else "#ddd"
-        shadow = "0 0 20px rgba(0,200,83,0.5)" if st.session_state.selected_tier == "Free" else "0 2px 8px rgba(0,0,0,0.1)"
-        bg = "linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%)" if st.session_state.selected_tier == "Free" else "linear-gradient(135deg, #FFFFFF 0%, #F5F5F5 100%)"
+        _fc = "#00C853" if st.session_state.selected_tier == "Free" else "#ddd"
+        _fb = "linear-gradient(135deg,#E8F5E9 0%,#C8E6C9 100%)" if st.session_state.selected_tier == "Free" else "linear-gradient(135deg,#FFF 0%,#F5F5F5 100%)"
+        _fs = "0 0 20px rgba(0,200,83,0.4)" if st.session_state.selected_tier == "Free" else "0 2px 8px rgba(0,0,0,0.08)"
         st.markdown(f"""
-        <div style="background: {bg}; border: 3px solid {border_color}; border-radius: 15px; 
-                    padding: 20px; text-align: center; box-shadow: {shadow};">
-            <h3 style="color: #00C853; margin-bottom: 10px;">Free</h3>
-            <p style="color: #1a1a1a; font-size: 24px; margin: 10px 0;"><strong>$0</strong>/mo</p>
-            <p style="color: #555; font-size: 14px;">Preview Access</p>
+        <div style="background:{_fb}; border:3px solid {_fc}; border-radius:15px;
+                    padding:22px; text-align:center; box-shadow:{_fs};">
+            <h3 style="color:#00C853; margin-bottom:8px;">Free</h3>
+            <p style="color:#1a1a1a; font-size:26px; font-weight:700; margin:8px 0;">$0<span style="font-size:14px; font-weight:400;">/mo</span></p>
+            <p style="color:#555; font-size:13px;">Great for getting started</p>
+            <ul style="color:#555; font-size:13px; text-align:left; margin:10px 0;">
+                <li>Company Analysis essentials</li>
+                <li>Educational content + Risk Quiz</li>
+                <li>Limited paper portfolio</li>
+            </ul>
         </div>
         """, unsafe_allow_html=True)
         if st.button("Select Free", key="select_free_vip", use_container_width=True):
             st.session_state.selected_tier = "Free"
             st.rerun()
-    
-    with col_pro:
-        border_color = "#9D4EDD" if st.session_state.selected_tier == "Pro" else "#ddd"
-        shadow = "0 0 20px rgba(157,78,221,0.5)" if st.session_state.selected_tier == "Pro" else "0 2px 8px rgba(0,0,0,0.1)"
-        bg = "linear-gradient(135deg, #F3E5F5 0%, #E1BEE7 100%)" if st.session_state.selected_tier == "Pro" else "linear-gradient(135deg, #FFFFFF 0%, #F5F5F5 100%)"
+
+    with col_ult:
+        _uc = "#FFD700" if st.session_state.selected_tier == "Ultimate" else "#ddd"
+        _ub = "linear-gradient(135deg,#FFF8E1 0%,#FFECB3 100%)" if st.session_state.selected_tier == "Ultimate" else "linear-gradient(135deg,#FFF 0%,#F5F5F5 100%)"
+        _us = "0 0 24px rgba(255,215,0,0.5)" if st.session_state.selected_tier == "Ultimate" else "0 2px 8px rgba(0,0,0,0.08)"
         st.markdown(f"""
-        <div style="background: {bg}; border: 3px solid {border_color}; border-radius: 15px; 
-                    padding: 20px; text-align: center; box-shadow: {shadow};">
-            <h3 style="color: #9D4EDD; margin-bottom: 5px;">Pro</h3>
-            <p style="color: #1a1a1a; font-size: 24px; margin: 10px 0;"><strong>$5</strong>/mo</p>
-            <p style="color: #00C853; font-size: 14px; font-weight: bold; margin: 5px 0;">🎉 First month FREE</p>
-            <p style="color: #555; font-size: 14px;">Full Portfolio Access</p>
-        </div>
-        """, unsafe_allow_html=True)
-        if st.button("Select Pro", key="select_pro_vip", use_container_width=True):
-            st.session_state.selected_tier = "Pro"
-            st.rerun()
-        
-        # Deep-link demo button
-        if st.button("🎯 Try Pro Demo →", key="try_pro_demo", use_container_width=True, type="secondary"):
-            st.session_state.selected_page = "📊 Pro Checklist"
-            if 'demo_ticker' not in st.session_state or not st.session_state.demo_ticker:
-                st.session_state.demo_ticker = "NVDA"
-            st.rerun()
-    
-    with col_ultimate:
-        border_color = "#FFD700" if st.session_state.selected_tier == "Ultimate" else "#ddd"
-        shadow = "0 0 20px rgba(255,215,0,0.5)" if st.session_state.selected_tier == "Ultimate" else "0 2px 8px rgba(0,0,0,0.1)"
-        bg = "linear-gradient(135deg, #FFF8E1 0%, #FFECB3 100%)" if st.session_state.selected_tier == "Ultimate" else "linear-gradient(135deg, #FFFFFF 0%, #F5F5F5 100%)"
-        st.markdown(f"""
-        <div style="background: {bg}; border: 3px solid {border_color}; border-radius: 15px; 
-                    padding: 20px; text-align: center; box-shadow: {shadow};">
-            <h3 style="color: #E6A800; margin-bottom: 5px;">Ultimate</h3>
-            <p style="color: #1a1a1a; font-size: 24px; margin: 10px 0;"><strong>$10</strong>/mo</p>
-            <p style="color: #00C853; font-size: 14px; font-weight: bold; margin: 5px 0;">🎉 First month FREE</p>
-            <p style="color: #555; font-size: 14px;">VIP Access + Support</p>
+        <div style="background:{_ub}; border:3px solid {_uc}; border-radius:15px;
+                    padding:22px; text-align:center; box-shadow:{_us}; position:relative;">
+            <div style="position:absolute; top:-1px; left:50%; transform:translateX(-50%);
+                        background:#FFD700; color:#000; padding:3px 16px; border-radius:0 0 10px 10px;
+                        font-size:12px; font-weight:700;">MOST POPULAR</div>
+            <h3 style="color:#E6A800; margin-bottom:8px; margin-top:12px;">👑 Ultimate</h3>
+            <p style="color:#1a1a1a; font-size:26px; font-weight:700; margin:8px 0;">$10<span style="font-size:14px; font-weight:400;">/mo</span></p>
+            <p style="color:#00C853; font-size:14px; font-weight:700; margin:4px 0;">🎉 First month FREE</p>
+            <p style="color:#555; font-size:13px;">Every feature unlocked</p>
+            <ul style="color:#333; font-size:13px; text-align:left; margin:10px 0; line-height:1.7;">
+                <li><b>AI Trade Ideas</b> — entry, stop, targets</li>
+                <li><b>Technical Analysis</b> — patterns + key levels</li>
+                <li><b>Dip Radar</b> — portfolio dip tracker</li>
+                <li><b>AI Deep Dive</b> — fact-locked chart analysis</li>
+                <li><b>Full Financial Health</b> charts</li>
+                <li>Unlimited paper portfolio + stress tests</li>
+                <li>Priority support</li>
+            </ul>
         </div>
         """, unsafe_allow_html=True)
         if st.button("Select Ultimate", key="select_ultimate_vip", use_container_width=True):
             st.session_state.selected_tier = "Ultimate"
             st.rerun()
-        
-        # Deep-link demo button
         if st.button("🎯 Try Ultimate Demo →", key="try_ultimate_demo", use_container_width=True, type="secondary"):
             st.session_state.selected_page = "👑 Ultimate"
-            if 'demo_ticker' not in st.session_state or not st.session_state.demo_ticker:
+            if "demo_ticker" not in st.session_state or not st.session_state.demo_ticker:
                 st.session_state.demo_ticker = "NVDA"
             st.rerun()
-    
-    # Feature Comparison Table
-    st.markdown("---")
-    st.markdown("### What you get (by tier)")
-    st.markdown("Pick a tier above, then skim what’s included below. **Everything is educational** — not financial advice.")
 
-    col_free2, col_pro2, col_ult2 = st.columns(3)
-
-    with col_free2:
-        st.markdown(
-            """
-            <div style="background:#E3F2FD;border:1px solid #4FC3F7;border-radius:14px;padding:16px;min-height:420px;">
-              <h3 style="color:#00C853;margin:0 0 6px 0;">Free</h3>
-              <div style="color:#555;font-size:14px;margin-bottom:10px;">Great for getting started</div>
-              <ul style="color:#333;line-height:1.6;">
-                <li>Market Overview + Sector Explorer basics</li>
-                <li>Company Analysis essentials</li>
-                <li>Educational content + Risk Quiz</li>
-              </ul>
-              <div style="color:#666;font-size:12px;margin-top:12px;">
-                Tip: Free stays useful — paid tiers add speed + deeper tooling.
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    with col_pro2:
-        st.markdown(
-            """
-            <div style="background:#E3F2FD;border:2px solid #9D4EDD;border-radius:14px;padding:16px;min-height:420px;box-shadow:0 0 18px rgba(157,78,221,0.25);">
-              <h3 style="color:#9D4EDD;margin:0 0 6px 0;">Pro</h3>
-              <div style="color:#555;font-size:14px;margin-bottom:10px;">For technical learners + faster decisions</div>
-              <ul style="color:#333;line-height:1.6;">
-                <li><b>Pro Chart Lab</b>: candlesticks + SMA50/SMA200/RSI/Volume toggles</li>
-                <li><b>Technical Facts</b>: trend regime, momentum, volume/volatility context</li>
-                <li><b>Chart Callouts</b>: 3–5 grounded takeaways under every chart</li>
-                <li><b>Pattern Detection (AI + Rules)</b>: label + confidence + key levels</li>
-                <li><b>Next Steps Checklist</b>: “what traders generally do next” (educational)</li>
-              </ul>
-              <div style="color:#666;font-size:12px;margin-top:12px;">
-                Designed to be <b>accurate per ticker</b> (AI is constrained to computed facts).
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    with col_ult2:
-        st.markdown(
-            """
-            <div style="background:#E3F2FD;border:2px solid #FFD700;border-radius:14px;padding:16px;min-height:420px;box-shadow:0 0 18px rgba(255,215,0,0.20);">
-              <h3 style="color:#FFD700;margin:0 0 6px 0;">Ultimate</h3>
-              <div style="color:#555;font-size:14px;margin-bottom:10px;">For “show me the receipts” users</div>
-              <ul style="color:#333;line-height:1.6;">
-                <li>Everything in <b>Pro</b></li>
-                <li><b>🤖 AI Assistant</b>: Ask stock questions via the sidebar chatbot!</li>
-                <li><b>Historical Similar Setups</b>: find past charts that looked like today</li>
-                <li><b>Outcome stats</b>: typical next 5D/20D returns + drawdowns (educational)</li>
-                <li><b>Backtest-style insights</b> (coming next)</li>
-                <li><b>Alerts & watchlists</b> (coming next)</li>
-                <li><b>Exportable reports</b> (coming next)</li>
-              </ul>
-              <div style="color:#666;font-size:12px;margin-top:12px;">
-                Ultimate is where we add <b>history + outcomes</b>, not just interpretation.
-              </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    st.markdown("")
-    with st.expander("FAQ", expanded=False):
-        st.markdown(
-            "- **Is this financial advice?** No — educational only.\n"
-            "- **Why AI at all?** We compute the facts first; AI is used to explain them in plain English.\n"
-            "- **What’s the difference between Pro and Ultimate?** Ultimate adds historical analogs + outcome stats + alerts/exports."
-        )
-
-    
-    st.markdown("---")
-    
-    # Set access_tier based on selected_tier
+    # ── Payment section ─────────────────────────────────────────────────────────
     access_tier = st.session_state.selected_tier
-    
-    # ============= PAYMENT SECTION =============
-    if access_tier != "Free":
+    if access_tier == "Ultimate":
         st.markdown("---")
-        
-        # MUST be signed in before accessing Stripe
-        if not st.session_state.get('is_logged_in'):
-            st.markdown(f"""
-            <div style="background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%); 
-                        border: 2px solid {'#9D4EDD' if access_tier == 'Pro' else '#FFD700'}; border-radius: 15px; padding: 40px; 
-                        text-align: center; margin: 20px 0;">
-                <h2 style="color: {'#9D4EDD' if access_tier == 'Pro' else '#E6A800'}; margin-bottom: 20px;">
-                    {'⭐' if access_tier == 'Pro' else '👑'} Upgrade to {access_tier}
-                </h2>
-                <p style="color: #00C853; font-size: 20px; font-weight: bold; margin-bottom: 5px;">
-                    🎉 First month FREE — then {'$5' if access_tier == 'Pro' else '$10'}/month
+        if not st.session_state.get("is_logged_in"):
+            st.markdown("""
+            <div style="background:linear-gradient(135deg,#0A0A1A 0%,#1A1A2E 100%);
+                        border:2px solid #FFD700; border-radius:15px; padding:36px;
+                        text-align:center; margin:20px 0;">
+                <h2 style="color:#FFD700; margin-bottom:16px;">👑 Go Ultimate</h2>
+                <p style="color:#00C851; font-size:20px; font-weight:700; margin-bottom:6px;">
+                    🎉 First month FREE — then $10/month
                 </p>
-                <p style="color: #D32F2F; font-size: 16px; font-weight: bold; margin-top: 20px;">
+                <p style="color:rgba(255,255,255,0.7); font-size:14px; margin-bottom:10px;">
+                    Cancel anytime · No charge for 30 days · Secure payment via Stripe
+                </p>
+                <p style="color:#FF6B6B; font-size:15px; font-weight:600; margin-top:16px;">
                     ⚠️ Please sign up / sign in first to start your free trial
                 </p>
             </div>
             """, unsafe_allow_html=True)
-            
-            col1, col2, col3 = st.columns([1, 2, 1])
-            with col2:
+            _vc1, _vc2, _vc3 = st.columns([1, 2, 1])
+            with _vc2:
                 if st.button("📝 Sign Up First", key="vip_signup_first", type="primary", use_container_width=True):
                     st.session_state.show_signup_popup = True
                     st.rerun()
@@ -22253,99 +22158,75 @@ elif selected_page == "👑 Become a VIP":
                     st.session_state.show_login_popup = True
                     st.rerun()
         else:
-            # User IS logged in - show payment options
-            # Check if Stripe is configured
-            pro_link = get_stripe_payment_link("pro")
             ultimate_link = get_stripe_payment_link("ultimate")
-            
-            if pro_link or ultimate_link:
-                # Stripe is configured - show payment buttons
-                st.markdown(f"""
-                <div style="background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%); 
-                            border: 2px solid {'#9D4EDD' if access_tier == 'Pro' else '#FFD700'}; border-radius: 15px; padding: 40px; 
-                            text-align: center; margin: 20px 0;">
-                    <h2 style="color: {'#9D4EDD' if access_tier == 'Pro' else '#E6A800'}; margin-bottom: 20px;">
-                        {'⭐' if access_tier == 'Pro' else '👑'} Upgrade to {access_tier}
-                    </h2>
-                    <p style="color: #00C853; font-size: 20px; font-weight: bold; margin-bottom: 5px;">
-                        🎉 First month FREE — then {'$5' if access_tier == 'Pro' else '$10'}/month
-                    </p>
-                    <p style="color: #666; font-size: 14px; margin-bottom: 10px;">
-                        Cancel anytime • No charge for 30 days • Secure payment via Stripe
-                    </p>
-                    <p style="color: #888; font-size: 13px;">
-                        Refer a friend → both of you get an extra free month!
-                    </p>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                col1, col2, col3 = st.columns([1, 2, 1])
-                with col2:
-                    if access_tier == "Pro" and pro_link:
-                        st.link_button("💳 Start Free Trial — Pro", pro_link, type="primary", use_container_width=True)
-                    elif access_tier == "Ultimate" and ultimate_link:
-                        st.link_button("💳 Start Free Trial — Ultimate", ultimate_link, type="primary", use_container_width=True)
-                    
-                    st.caption("🔒 Secured by Stripe • 256-bit encryption")
-            else:
-                # Stripe not configured - show waitlist
+            if ultimate_link:
                 st.markdown("""
-                <div style="background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%); 
-                            border: 2px solid #9D4EDD; border-radius: 15px; padding: 40px; 
-                            text-align: center; margin: 20px 0;">
-                    <h2 style="color: #E6A800; margin-bottom: 20px;">🎉 Join the Waitlist</h2>
-                    <p style="color: #333; font-size: 18px; margin-bottom: 30px;">
-                        Be among the first to access premium features when they launch!
+                <div style="background:linear-gradient(135deg,#0A0A1A 0%,#1A1A2E 100%);
+                            border:2px solid #FFD700; border-radius:15px; padding:36px;
+                            text-align:center; margin:20px 0;">
+                    <h2 style="color:#FFD700; margin-bottom:16px;">👑 Start Your Free Month</h2>
+                    <p style="color:#00C851; font-size:20px; font-weight:700; margin-bottom:6px;">
+                        🎉 First month FREE — then $10/month
+                    </p>
+                    <p style="color:rgba(255,255,255,0.7); font-size:13px; margin-bottom:4px;">
+                        Cancel anytime · No charge for 30 days · Secure payment via Stripe
+                    </p>
+                    <p style="color:rgba(255,255,255,0.55); font-size:12px;">
+                        Refer a friend → both get an extra free month!
                     </p>
                 </div>
                 """, unsafe_allow_html=True)
-                
-                col1, col2, col3 = st.columns([1, 2, 1])
-                with col2:
-                    waitlist_email = st.text_input("Enter your email:", placeholder="your@email.com", key="waitlist_email_vip")
-                    st.markdown("<br>", unsafe_allow_html=True)
+                _vc1, _vc2, _vc3 = st.columns([1, 2, 1])
+                with _vc2:
+                    st.link_button("💳 Start Free Trial — Ultimate", ultimate_link, type="primary", use_container_width=True)
+                    st.caption("🔒 Secured by Stripe · 256-bit encryption")
+            else:
+                st.markdown("""
+                <div style="background:linear-gradient(135deg,#0A0A1A 0%,#1A1A2E 100%);
+                            border:2px solid #FFD700; border-radius:15px; padding:36px;
+                            text-align:center; margin:20px 0;">
+                    <h2 style="color:#FFD700; margin-bottom:16px;">🎉 Join the Waitlist</h2>
+                    <p style="color:rgba(255,255,255,0.8); font-size:16px; margin-bottom:20px;">
+                        Be among the first to access Ultimate when spots open!
+                    </p>
+                </div>
+                """, unsafe_allow_html=True)
+                _vc1, _vc2, _vc3 = st.columns([1, 2, 1])
+                with _vc2:
+                    waitlist_email = st.text_input("Your email:", placeholder="your@email.com", key="waitlist_email_vip")
                     if st.button("🚀 Join Waitlist", key="join_waitlist_vip", type="primary", use_container_width=True):
-                        if waitlist_email and "@" in waitlist_email and "." in waitlist_email:
-                            success, message = save_waitlist_email(waitlist_email, access_tier.lower())
+                        if waitlist_email and "@" in waitlist_email:
+                            success, message = save_waitlist_email(waitlist_email, "ultimate")
                             if success:
-                                if message == "Already on waitlist":
-                                    st.info(f"📧 {waitlist_email} is already on the waitlist!")
-                                else:
-                                    st.success(f"🎉 You're on the list! We'll notify {waitlist_email} when spots open.")
-                                    st.balloons()
-                            else:
                                 st.success(f"🎉 You're on the list! We'll notify {waitlist_email} when spots open.")
+                                st.balloons()
+                            else:
+                                st.success("🎉 You're on the list!")
                         else:
                             st.error("Please enter a valid email address.")
-                
-                # Show dynamic waitlist count
                 waitlist_count = get_waitlist_count()
-                st.info(f"**Current waitlist:** {waitlist_count} people ahead of you. Pro spots open monthly.")
+                st.info(f"**Current waitlist:** {waitlist_count} people waiting. Ultimate spots open monthly.")
     else:
-        st.success("✅ You're currently on the Free tier. Enjoy exploring!")
-    
-    # ============= REFERRAL PROGRAM =============
+        st.success("✅ You're on the Free tier. Enjoy exploring — upgrade anytime to unlock everything!")
+
+    # ── Referral program ────────────────────────────────────────────────────────
     st.markdown("---")
-    if st.session_state.get('is_logged_in'):
+    if st.session_state.get("is_logged_in"):
         show_referral_program()
     else:
         st.markdown("""
-        <div style="
-            background: linear-gradient(135deg, #FFF3E0 0%, #FFE0B2 100%);
-            padding: 25px;
-            border-radius: 15px;
-            margin: 20px 0;
-            border: 2px solid #FFB74D;
-            text-align: center;
-        ">
-            <span style="font-size: 40px;">🎁</span>
-            <h3 style="margin: 15px 0 10px 0; color: #E65100;">Referral Program</h3>
-            <p style="color: #F57C00; margin: 0;">Sign in to get your unique referral link and earn free months!</p>
+        <div style="background:linear-gradient(135deg,#FFF3E0 0%,#FFE0B2 100%);
+                    padding:25px; border-radius:15px; margin:20px 0;
+                    border:2px solid #FFB74D; text-align:center;">
+            <span style="font-size:36px;">🎁</span>
+            <h3 style="margin:12px 0 8px 0; color:#E65100;">Referral Program</h3>
+            <p style="color:#F57C00; margin:0;">Sign in to get your unique referral link and earn free months!</p>
         </div>
         """, unsafe_allow_html=True)
-    
+
     st.markdown("---")
     st.caption("*Pricing subject to change. No credit card required for waitlist. This is not financial advice.*")
+
 
 
 elif selected_page == "📊 Pro Checklist":
@@ -22393,14 +22274,14 @@ elif selected_page == "📊 Pro Checklist":
     user_tier = get_user_tier()
     if analyze_button and user_tier == "free":
         analyze_button = False
-        st.warning("🔒 Technical Analysis requires a Pro or Ultimate subscription.")
-        if st.button("⭐ Upgrade to Pro", key="pro_gate_upgrade", type="primary"):
+        st.warning("🔒 Technical Analysis requires an Ultimate subscription.")
+        if st.button("👑 Go Ultimate", key="pro_gate_upgrade", type="primary"):
             st.session_state.selected_page = "👑 Become a VIP"
             st.rerun()
 
     if user_tier == "free":
         st.markdown("---")
-        st.markdown("**🔒 Pro members see:**")
+        st.markdown("**🔒 Ultimate members see:**")
         for _lbl in [
             "Bold market summary for the stock",
             "Interactive candlestick chart — SMA 50, SMA 200, RSI auto-shown",
@@ -22766,213 +22647,244 @@ elif selected_page == "📊 Pro Checklist":
 # ============= TRADE IDEAS PAGE =============
 elif selected_page == "💡 Trade Ideas":
 
+    # ── Header ──────────────────────────────────────────────────────────────
     st.markdown("""
-    <div style="background:#0D0D20; border:1px solid rgba(255,255,255,0.12);
-                border-radius:12px; padding:16px 24px; margin-bottom:16px;">
-        <div style="font-size:22px; font-weight:700; color:#FFFFFF;">💡 Trade Ideas</div>
-        <div style="font-size:13px; color:rgba(255,255,255,0.55); margin-top:4px;">
+    <div style="background:#0D0D20 !important; border:1px solid rgba(255,255,255,0.15);
+                border-radius:12px; padding:16px 24px; margin-bottom:16px; color:#FFFFFF !important;">
+        <div style="font-size:22px; font-weight:700; color:#FFFFFF !important;">💡 Trade Ideas</div>
+        <div style="font-size:13px; color:rgba(255,255,255,0.75) !important; margin-top:4px;">
             AI-generated setups — entry, stop loss, targets, catalyst, conviction
         </div>
     </div>
     """, unsafe_allow_html=True)
     st.caption("*Educational only — not financial advice. Always do your own research.*")
 
-    _ti_c1, _ti_c2 = st.columns([3, 1])
-    with _ti_c1:
-        _ti_input = st.text_input(
-            "Ticker or company:",
-            value=st.session_state.get("selected_ticker", ""),
-            placeholder="e.g. AAPL, NVDA, TSLA",
-            key="trade_ideas_ticker",
-        )
-    with _ti_c2:
-        st.write("")
-        _ti_gen = st.button("Generate Setup →", key="trade_ideas_generate",
-                             use_container_width=True, type="primary")
+    _ti_tab1, _ti_tab2 = st.tabs(["💡 AI Trade Ideas", "📡 Dip Radar"])
 
-    if "ti_last_ticker" not in st.session_state:
-        st.session_state.ti_last_ticker = None
-    if "ti_result" not in st.session_state:
-        st.session_state.ti_result = None
-    if "ti_quote" not in st.session_state:
-        st.session_state.ti_quote = None
+    # ═════════════════════════════════════════════
+    # TAB 1: AI TRADE IDEAS
+    # ═════════════════════════════════════════════
+    with _ti_tab1:
+        _ti_c1, _ti_c2 = st.columns([3, 1])
+        with _ti_c1:
+            _ti_input = st.text_input(
+                "Ticker or company:",
+                value=st.session_state.get("selected_ticker", ""),
+                placeholder="e.g. AAPL, NVDA, TSLA",
+                key="trade_ideas_ticker",
+            )
+        with _ti_c2:
+            st.write("")
+            _ti_gen = st.button("Generate Setup →", key="trade_ideas_generate",
+                                 use_container_width=True, type="primary")
 
-    if _ti_input != st.session_state.ti_last_ticker:
-        st.session_state.ti_result     = None
-        st.session_state.ti_quote      = None
-        st.session_state.ti_last_ticker = _ti_input
+        if "ti_last_ticker" not in st.session_state:
+            st.session_state.ti_last_ticker = None
+        if "ti_result" not in st.session_state:
+            st.session_state.ti_result = None
+        if "ti_quote" not in st.session_state:
+            st.session_state.ti_quote = None
 
-    if _ti_gen and _ti_input:
-        _ti_resolved = resolve_company_to_ticker(_ti_input)
-        if not _ti_resolved:
-            st.error(f"Could not find ticker: {_ti_input}")
-        else:
-            _ti_q = get_quote(_ti_resolved)
-            if not _ti_q:
-                st.error(f"Could not fetch data for {_ti_resolved}")
+        if _ti_input != st.session_state.ti_last_ticker:
+            st.session_state.ti_result      = None
+            st.session_state.ti_quote       = None
+            st.session_state.ti_last_ticker = _ti_input
+
+        if _ti_gen and _ti_input:
+            _ti_resolved = resolve_company_to_ticker(_ti_input)
+            if not _ti_resolved:
+                st.error(f"Could not find ticker: {_ti_input}")
             else:
-                _ti_price = float(_ti_q.get("price", 0) or 0)
-                _ti_name  = _ti_q.get("name", _ti_resolved)
-                _ti_pe    = _ti_q.get("pe", None)
-                _ti_chg   = float(_ti_q.get("changesPercentage", 0) or 0)
-                _ti_52h   = _ti_q.get("yearHigh")
-                _ti_52l   = _ti_q.get("yearLow")
+                _ti_q = get_quote(_ti_resolved)
+                if not _ti_q:
+                    st.error(f"Could not fetch data for {_ti_resolved}")
+                else:
+                    _ti_price  = float(_ti_q.get("price", 0) or 0)
+                    _ti_name   = _ti_q.get("name", _ti_resolved)
+                    _ti_pe     = _ti_q.get("pe", None)
+                    _ti_chg    = float(_ti_q.get("changesPercentage", 0) or 0)
+                    _ti_52h    = _ti_q.get("yearHigh")
+                    _ti_52l    = _ti_q.get("yearLow")
 
-                _ti_hist  = get_historical_ohlc(_ti_resolved, 1.0)
-                _ti_facts = compute_technical_facts(_ti_hist) if not _ti_hist.empty else {}
-                _ti_rsi   = _ti_facts.get("rsi14_last")
-                _ti_sma50 = _ti_facts.get("sma50")
-                _ti_sma200= _ti_facts.get("sma200")
-                _ti_sup   = _ti_facts.get("support_level")
-                _ti_res   = _ti_facts.get("resistance_level")
+                    _ti_hist   = get_historical_ohlc(_ti_resolved, 1.0)
+                    _ti_facts  = compute_technical_facts(_ti_hist) if not _ti_hist.empty else {}
+                    _ti_rsi    = _ti_facts.get("rsi14_last")
+                    _ti_sma50  = _ti_facts.get("sma50")
+                    _ti_sma200 = _ti_facts.get("sma200")
+                    _ti_sup    = _ti_facts.get("support_level")
+                    _ti_res    = _ti_facts.get("resistance_level")
 
-                _ti_ctx = f"""Stock: {_ti_name} ({_ti_resolved})
-Current Price: ${_ti_price:.2f}
-Today Change: {_ti_chg:+.2f}%
-52W High: ${f'{_ti_52h:.2f}' if _ti_52h else 'N/A'}
-52W Low:  ${f'{_ti_52l:.2f}' if _ti_52l else 'N/A'}
-P/E: {_ti_pe if _ti_pe else 'N/A'}
-RSI(14): {f'{_ti_rsi:.1f}' if _ti_rsi else 'N/A'}
-SMA50:  ${f'{_ti_sma50:.2f}' if _ti_sma50 else 'N/A'}
-SMA200: ${f'{_ti_sma200:.2f}' if _ti_sma200 else 'N/A'}
-Support:    ${f'{_ti_sup:.2f}' if _ti_sup else 'N/A'}
-Resistance: ${f'{_ti_res:.2f}' if _ti_res else 'N/A'}"""
+                    _ti_ctx = (
+                        f"Stock: {_ti_name} ({_ti_resolved})\n"
+                        f"Current Price: ${_ti_price:.2f}\n"
+                        f"Today Change: {_ti_chg:+.2f}%\n"
+                        f"52W High: ${f'{_ti_52h:.2f}' if _ti_52h else 'N/A'}\n"
+                        f"52W Low:  ${f'{_ti_52l:.2f}' if _ti_52l else 'N/A'}\n"
+                        f"P/E: {_ti_pe if _ti_pe else 'N/A'}\n"
+                        f"RSI(14): {f'{_ti_rsi:.1f}' if _ti_rsi else 'N/A'}\n"
+                        f"SMA50:  ${f'{_ti_sma50:.2f}' if _ti_sma50 else 'N/A'}\n"
+                        f"SMA200: ${f'{_ti_sma200:.2f}' if _ti_sma200 else 'N/A'}\n"
+                        f"Support:    ${f'{_ti_sup:.2f}' if _ti_sup else 'N/A'}\n"
+                        f"Resistance: ${f'{_ti_res:.2f}' if _ti_res else 'N/A'}"
+                    )
 
-                _ti_prompt = (
-                    "You are a professional technical analyst. Based ONLY on the data below, "
-                    "generate a specific, actionable trade setup.\n\n"
-                    + _ti_ctx
-                    + "\n\nReturn a JSON object with these EXACT keys:\n"
-                    '{"setup_type": "e.g. Bullish Breakout / Oversold Bounce / Trend Continuation / '
-                    'Resistance Rejection / Consolidation Break",\n'
-                    ' "bias": "bullish" | "bearish" | "neutral",\n'
-                    ' "entry_zone": "specific price range like \'$182 – $185\'",\n'
-                    ' "stop_loss": "specific price with % risk like \'$175 (-4.2%)\'",\n'
-                    ' "take_profit_1": "first target with % gain",\n'
-                    ' "take_profit_2": "second target with % gain",\n'
-                    ' "take_profit_3": "third target with % gain",\n'
-                    ' "risk_reward": "like \'1:2.5\'",\n'
-                    ' "time_horizon": "like \'2–4 weeks\'",\n'
-                    ' "catalyst": "1-2 sentences on what could drive the move",\n'
-                    ' "conviction": "High" | "Medium" | "Low",\n'
-                    ' "conviction_reason": "one sentence",\n'
-                    ' "key_risk": "main risk to the thesis"}\n\n'
-                    "Return pure JSON only. No markdown, no explanation."
-                )
+                    _ti_prompt = (
+                        "You are a professional technical analyst. Based ONLY on the data below, "
+                        "generate a specific, actionable trade setup.\n\n"
+                        + _ti_ctx
+                        + '\n\nReturn a JSON object with these EXACT keys:\n'
+                        '{"setup_type":"e.g. Bullish Breakout / Oversold Bounce / Trend Continuation",'
+                        '"bias":"bullish"|"bearish"|"neutral",'
+                        '"entry_zone":"specific price range like \'$182 – $185\'",'
+                        '"stop_loss":"specific price with % risk like \'$175 (-4.2%)\'",'
+                        '"take_profit_1":"first target with % gain",'
+                        '"take_profit_2":"second target with % gain",'
+                        '"take_profit_3":"third target with % gain",'
+                        '"risk_reward":"like \'1:2.5\'",'
+                        '"time_horizon":"like \'2–4 weeks\'",'
+                        '"catalyst":"1-2 sentences on what could drive the move",'
+                        '"conviction":"High"|"Medium"|"Low",'
+                        '"conviction_reason":"one sentence",'
+                        '"key_risk":"main risk to the thesis"}\n\n'
+                        'Return pure JSON only. No markdown, no explanation.'
+                    )
 
-                with st.spinner(f"Generating trade setup for {_ti_name}…"):
-                    _ti_result = call_perplexity_json(_ti_prompt, max_tokens=1000, temperature=0.2)
-                st.session_state.ti_result   = _ti_result
-                st.session_state.ti_quote    = _ti_q
-                st.session_state.ti_resolved = _ti_resolved
+                    with st.spinner(f"Generating trade setup for {_ti_name}…"):
+                        _ti_result = call_perplexity_json(_ti_prompt, max_tokens=1000, temperature=0.2)
+                    st.session_state.ti_result   = _ti_result
+                    st.session_state.ti_quote    = _ti_q
+                    st.session_state.ti_resolved = _ti_resolved
 
-    # ── Display result ────────────────────────────────────────────────────────
-    if st.session_state.ti_result and st.session_state.ti_quote:
-        _r  = st.session_state.ti_result
-        _q  = st.session_state.ti_quote
-        _tk = st.session_state.get("ti_resolved", _ti_input)
-        _p  = float(_q.get("price", 0) or 0)
-        _nm = _q.get("name", _tk)
-        _ch = float(_q.get("changesPercentage", 0) or 0)
+        # ── Display result ──────────────────────────────────────────────────
+        if st.session_state.ti_result and st.session_state.ti_quote:
+            _r  = st.session_state.ti_result
+            _q  = st.session_state.ti_quote
+            _tk = st.session_state.get("ti_resolved", "")
+            _p  = float(_q.get("price", 0) or 0)
+            _nm = _q.get("name", _tk)
+            _ch = float(_q.get("changesPercentage", 0) or 0)
 
-        _bias  = (_r.get("bias", "neutral") or "neutral").lower()
-        _bcol  = "#00C851" if _bias == "bullish" else "#FF4444" if _bias == "bearish" else "#FFA500"
-        _conv  = _r.get("conviction", "Medium") or "Medium"
-        _ccol  = {"High": "#00C851", "Medium": "#FFA500", "Low": "#FF4444"}.get(_conv, "#FFA500")
+            _bias  = (_r.get("bias", "neutral") or "neutral").lower()
+            _bcol  = "#00C851" if _bias == "bullish" else "#FF4444" if _bias == "bearish" else "#FFA500"
+            _conv  = _r.get("conviction", "Medium") or "Medium"
+            _ccol  = {"High": "#00C851", "Medium": "#FFA500", "Low": "#FF4444"}.get(_conv, "#FFA500")
 
-        # Header card
-        st.markdown(f"""
-        <div style="background:#0D0D20; border:1px solid rgba(255,255,255,0.12);
-                    border-radius:14px; padding:20px 24px; margin:16px 0;">
-            <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
-                <div>
-                    <div style="font-size:22px; font-weight:700; color:#FFFFFF;">{_nm}</div>
-                    <div style="font-size:14px; color:rgba(255,255,255,0.5); margin-top:2px;">{_tk}</div>
+            st.markdown(f"""
+            <div style="background:#0D0D20; border:1px solid rgba(255,255,255,0.12);
+                        border-radius:14px; padding:20px 24px; margin:16px 0; color:#FFFFFF !important;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
+                    <div>
+                        <div style="font-size:22px; font-weight:700; color:#FFFFFF !important;">{_nm}</div>
+                        <div style="font-size:14px; color:rgba(255,255,255,0.6) !important; margin-top:2px;">{_tk}</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:22px; font-weight:700; color:#00E5FF !important;">${_p:.2f}</div>
+                        <div style="font-size:13px; color:{'#00C851' if _ch >= 0 else '#FF4444'} !important;">{_ch:+.2f}% today</div>
+                    </div>
                 </div>
-                <div style="text-align:right;">
-                    <div style="font-size:22px; font-weight:700; color:#00E5FF;">${_p:.2f}</div>
-                    <div style="font-size:13px; color:{'#00C851' if _ch >= 0 else '#FF4444'};">{_ch:+.2f}% today</div>
+                <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;">
+                    <span style="background:{_bcol}22; color:{_bcol} !important; padding:4px 14px; border-radius:20px;
+                                 font-size:13px; font-weight:600; border:1px solid {_bcol}44;">
+                        {_bias.capitalize()}
+                    </span>
+                    <span style="background:rgba(255,255,255,0.08); color:#FFFFFF !important; padding:4px 14px;
+                                 border-radius:20px; font-size:13px;">
+                        {_r.get('setup_type','Trade Setup')}
+                    </span>
+                    <span style="background:{_ccol}22; color:{_ccol} !important; padding:4px 14px; border-radius:20px;
+                                 font-size:13px; font-weight:600; border:1px solid {_ccol}44;">
+                        {_conv} Conviction
+                    </span>
                 </div>
             </div>
-            <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;">
-                <span style="background:{_bcol}22; color:{_bcol}; padding:4px 14px; border-radius:20px;
-                             font-size:13px; font-weight:600; border:1px solid {_bcol}44;">
-                    {_bias.capitalize()}
-                </span>
-                <span style="background:rgba(255,255,255,0.08); color:#FFFFFF; padding:4px 14px;
-                             border-radius:20px; font-size:13px;">
-                    {_r.get('setup_type','Trade Setup')}
-                </span>
-                <span style="background:{_ccol}22; color:{_ccol}; padding:4px 14px; border-radius:20px;
-                             font-size:13px; font-weight:600; border:1px solid {_ccol}44;">
-                    {_conv} Conviction
-                </span>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
 
-        # Metrics row 1
-        _m1, _m2, _m3, _m4 = st.columns(4)
-        _m1.metric("Entry Zone",    _r.get("entry_zone",    "—"))
-        _m2.metric("Stop Loss",     _r.get("stop_loss",     "—"))
-        _m3.metric("Take Profit 1", _r.get("take_profit_1", "—"))
-        _m4.metric("Risk / Reward", _r.get("risk_reward",   "—"))
+            _m1, _m2, _m3, _m4 = st.columns(4)
+            _m1.metric("Entry Zone",    _r.get("entry_zone",    "—"))
+            _m2.metric("Stop Loss",     _r.get("stop_loss",     "—"))
+            _m3.metric("Take Profit 1", _r.get("take_profit_1", "—"))
+            _m4.metric("Risk / Reward", _r.get("risk_reward",   "—"))
 
-        # Metrics row 2
-        _t2 = _r.get("take_profit_2")
-        _t3 = _r.get("take_profit_3")
-        _th = _r.get("time_horizon")
-        if _t2 or _t3 or _th:
-            _m5, _m6, _m7, _m8 = st.columns(4)
-            if _t2: _m5.metric("Take Profit 2", _t2)
-            if _t3: _m6.metric("Take Profit 3", _t3)
-            if _th: _m7.metric("Time Horizon",  _th)
+            _t2 = _r.get("take_profit_2")
+            _t3 = _r.get("take_profit_3")
+            _th = _r.get("time_horizon")
+            if _t2 or _t3 or _th:
+                _m5, _m6, _m7, _ = st.columns(4)
+                if _t2: _m5.metric("Take Profit 2", _t2)
+                if _t3: _m6.metric("Take Profit 3", _t3)
+                if _th: _m7.metric("Time Horizon",  _th)
 
-        st.markdown("")
+            st.markdown("")
+            _dc1, _dc2 = st.columns(2)
+            with _dc1:
+                if _r.get("catalyst"):
+                    st.markdown(f"""
+                    <div style="background:#0A1A0A; border:1px solid #00C85144; border-radius:10px; padding:14px 16px;">
+                        <div style="color:#00C851 !important; font-weight:700; font-size:13px; margin-bottom:6px;">💡 Catalyst</div>
+                        <div style="color:#FFFFFF !important; font-size:13px; line-height:1.5;">{_r['catalyst']}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+            with _dc2:
+                if _r.get("key_risk"):
+                    st.markdown(f"""
+                    <div style="background:#1A0A0A; border:1px solid #FF444444; border-radius:10px; padding:14px 16px;">
+                        <div style="color:#FF4444 !important; font-weight:700; font-size:13px; margin-bottom:6px;">⚠️ Key Risk</div>
+                        <div style="color:#FFFFFF !important; font-size:13px; line-height:1.5;">{_r['key_risk']}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
 
-        # Catalyst + Key Risk cards
-        _dc1, _dc2 = st.columns(2)
-        with _dc1:
-            if _r.get("catalyst"):
-                st.markdown(f"""
-                <div style="background:#0A1A0A; border:1px solid #00C85144; border-radius:10px; padding:14px 16px;">
-                    <div style="color:#00C851; font-weight:700; font-size:13px; margin-bottom:6px;">💡 Catalyst</div>
-                    <div style="color:rgba(255,255,255,0.85); font-size:13px; line-height:1.5;">{_r['catalyst']}</div>
+            if _r.get("conviction_reason"):
+                st.caption(f"**Why {_conv} conviction:** {_r['conviction_reason']}")
+            st.markdown("")
+            st.caption("⚠️ *AI-generated trade idea. Not financial advice. Levels are illustrative. Always do your own research.*")
+
+        elif not _ti_gen and not st.session_state.ti_result:
+            st.markdown("""
+            <div style="background:#0D0D20; border:1px dashed rgba(255,255,255,0.15); border-radius:12px;
+                        padding:40px 24px; text-align:center; margin-top:20px;">
+                <div style="font-size:44px; margin-bottom:14px;">💡</div>
+                <div style="color:#FFFFFF !important; font-size:15px; line-height:1.6;">
+                    Enter a ticker above and click
+                    <strong style="color:#00E5FF !important;">Generate Setup →</strong>
+                    to get an AI trade idea with entry, stop loss, take profit targets, catalyst, and conviction.
                 </div>
-                """, unsafe_allow_html=True)
-        with _dc2:
-            if _r.get("key_risk"):
-                st.markdown(f"""
-                <div style="background:#1A0A0A; border:1px solid #FF444444; border-radius:10px; padding:14px 16px;">
-                    <div style="color:#FF4444; font-weight:700; font-size:13px; margin-bottom:6px;">⚠️ Key Risk</div>
-                    <div style="color:rgba(255,255,255,0.85); font-size:13px; line-height:1.5;">{_r['key_risk']}</div>
-                </div>
-                """, unsafe_allow_html=True)
-
-        if _r.get("conviction_reason"):
-            st.caption(f"**Why {_conv} conviction:** {_r['conviction_reason']}")
-
-        st.markdown("")
-        st.caption("⚠️ *AI-generated trade idea. Not financial advice. Levels are illustrative. Always do your own research.*")
-
-    elif not _ti_gen and not st.session_state.ti_result:
-        st.markdown("""
-        <div style="background:#0D0D20; border:1px dashed rgba(255,255,255,0.15); border-radius:12px;
-                    padding:40px 24px; text-align:center; margin-top:20px;">
-            <div style="font-size:44px; margin-bottom:14px;">💡</div>
-            <div style="color:rgba(255,255,255,0.7); font-size:15px; line-height:1.6;">
-                Enter a ticker above and click
-                <strong style="color:#FFFFFF;">Generate Setup →</strong>
-                to get an AI trade idea with entry, stop loss,
-                take profit targets, catalyst, and conviction level.
             </div>
-        </div>
-        """, unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
 
+    # ═════════════════════════════════════════════
+    # TAB 2: DIP RADAR
+    # ═════════════════════════════════════════════
+    with _ti_tab2:
+        st.markdown("**📡 Dip Radar** — stocks ranked by how far they've dipped from their 52-week high")
+        st.caption("Auto-loads from your paper portfolio. Add stocks in 💼 Paper Portfolio first.")
 
-# ============================================================================
-# 👑 ULTIMATE TAB - PREMIUM AI-FIRST ANALYSIS
-# ============================================================================
+        # Try to auto-load from Supabase portfolio
+        _dr_tickers = []
+        _dr_source  = "portfolio"
+        try:
+            if st.session_state.get("is_logged_in") and st.session_state.get("user_id"):
+                _dr_trades = load_trades_from_db(st.session_state.user_id, "user")
+                if _dr_trades:
+                    _dr_positions = rebuild_portfolio_from_trades(_dr_trades)
+                    _dr_tickers   = [p["ticker"] for p in _dr_positions if p.get("shares", 0) > 0]
+        except Exception:
+            _dr_tickers = []
+
+        if _dr_tickers:
+            render_dip_radar(_dr_tickers, chart_title="My Portfolio")
+        else:
+            st.info("No portfolio positions found. Add stocks to **💼 Paper Portfolio** to auto-populate.")
+            st.markdown("**Want to try it?** Paste tickers manually:")
+            _dr_manual = st.text_input(
+                "Tickers (comma-separated):",
+                placeholder="e.g. AAPL, NVDA, TSLA",
+                key="ti_dip_radar_manual",
+            )
+            if _dr_manual:
+                _dr_manual_tickers = [t.strip().upper() for t in _dr_manual.split(",") if t.strip()]
+                if _dr_manual_tickers:
+                    render_dip_radar(_dr_manual_tickers, chart_title="Custom Watchlist")
+
 
 elif selected_page == "👑 Ultimate":
     
