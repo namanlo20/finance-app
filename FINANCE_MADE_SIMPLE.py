@@ -4340,6 +4340,66 @@ def calculate_growth_rate(df, column, years=None):
     return calculate_cagr(start_val, end_val, years)
 
 
+def overlay_second_ticker_on_chart(fig, df2, metrics, metric_names, company_name2, period_type='annual'):
+    """
+    Overlay a second company's bars onto an existing financial chart figure.
+    Uses semi-transparent bars with a different color palette so both tickers are visible.
+    """
+    if fig is None or df2 is None or df2.empty:
+        return fig
+
+    T2_COLORS = ['#FF6B6B', '#FF9500', '#E040FB']
+
+    def format_fiscal_period_t2(row, ptype):
+        try:
+            if 'period' in row.index and 'calendarYear' in row.index:
+                p = row.get('period', '')
+                cy = row.get('calendarYear', '')
+                if p and cy:
+                    return f"FY {cy}" if ptype == 'annual' or p == 'FY' else f"{p} {cy}"
+            dv = row.get('date', None)
+            if dv is not None:
+                do = pd.to_datetime(dv) if isinstance(dv, str) else dv
+                return f"FY {do.year}" if ptype == 'annual' else f"Q{(do.month-1)//3+1} {do.year}"
+        except Exception:
+            pass
+        return str(row.get('date', ''))
+
+    df2_sorted = df2.sort_values('date', ascending=True).reset_index(drop=True)
+    x_labels = [format_fiscal_period_t2(row, period_type) for _, row in df2_sorted.iterrows()]
+
+    def format_val(val):
+        av = abs(val)
+        s = "-" if val < 0 else ""
+        if av >= 1e12: return f"{s}${av/1e12:.1f}T"
+        elif av >= 1e9: return f"{s}${av/1e9:.1f}B"
+        elif av >= 1e6: return f"{s}${av/1e6:.1f}M"
+        elif av >= 1e3: return f"{s}${av/1e3:.1f}K"
+        return f"{s}${av:.0f}"
+
+    for idx, metric in enumerate(metrics):
+        if metric in df2_sorted.columns:
+            values = df2_sorted[metric].values
+            dname = metric_names[idx] if idx < len(metric_names) else metric
+            c = T2_COLORS[idx % len(T2_COLORS)]
+            fig.add_trace(go.Bar(
+                x=x_labels,
+                y=values,
+                name=f'{dname} ({company_name2})',
+                marker=dict(color=c, opacity=0.55, line=dict(width=0), cornerradius=5),
+                text=[format_val(v) for v in values],
+                textposition='outside',
+                textfont=dict(size=10, color=c, family='Inter, system-ui, sans-serif'),
+                hovertemplate=f'<b>{dname} ({company_name2})</b><br>%{{text}}<extra></extra>',
+            ))
+
+    # Update title to show both companies
+    fig.update_layout(
+        title=dict(text=f'<b>{fig.layout.title.text.replace("<b>","").replace("</b>","")} vs {company_name2}</b>'),
+    )
+    return fig
+
+
 def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_title="Amount ($)", period_type='annual'):
     """Create financial chart with y-axis padding and return growth rates
     Uses FMP's fiscal period/calendarYear for proper fiscal year labeling
@@ -4744,11 +4804,12 @@ _UNIFIED_LINE_COLORS = [
 ]
 
 
-def create_unified_ratio_chart(df, selected_items, company_name, sector=None):
+def create_unified_ratio_chart(df, selected_items, company_name, sector=None, df2=None, company_name2=None):
     """
     Dark-themed grouped bar chart for financial ratios over time.
     selected_items: list of (display_name, col_name) tuples.
     Bars = company values; horizontal dashed lines = S&P 500 avg benchmarks.
+    If df2 and company_name2 are provided, overlays the second company's data.
     """
     if df.empty or not selected_items:
         return None
@@ -4760,7 +4821,15 @@ def create_unified_ratio_chart(df, selected_items, company_name, sector=None):
     GRID_COLOR  = 'rgba(255,255,255,0.06)'
     ZERO_LINE   = 'rgba(255,255,255,0.20)'
 
+    # Colors for ticker 1 and ticker 2
+    T1_COLORS = ['#00E5FF', '#FFD700', '#BF5FFF', '#00FF96', '#FF6B6B', '#FF9500', '#7C83FD', '#50FA7B']
+    T2_COLORS = ['#FF6B6B', '#FF9500', '#7C83FD', '#50FA7B', '#00E5FF', '#FFD700', '#BF5FFF', '#E040FB']
+
     df_sorted = df.sort_values('date').reset_index(drop=True)
+    has_t2 = df2 is not None and not df2.empty and company_name2
+    if has_t2:
+        df2_sorted = df2.sort_values('date').reset_index(drop=True)
+
     fig = go.Figure()
     added = 0
 
@@ -4775,29 +4844,38 @@ def create_unified_ratio_chart(df, selected_items, company_name, sector=None):
         multiplier = 100 if is_pct else 1
         y_suffix = '%' if is_pct else 'x'
         plot_values = col_data * multiplier
-        color = _UNIFIED_LINE_COLORS[added % len(_UNIFIED_LINE_COLORS)]
-        added += 1
+        color = T1_COLORS[added % len(T1_COLORS)]
 
-        # Company bars
+        # Ticker 1 bars
+        label_1 = f'{display_name} ({company_name})' if has_t2 else display_name
         fig.add_trace(go.Bar(
             x=df_sorted['date'],
             y=plot_values,
-            name=display_name,
-            marker=dict(
-                color=color,
-                opacity=0.85,
-                line=dict(width=0),
-            ),
-            hovertemplate=f'<b>{display_name}</b>: %{{y:.2f}}{y_suffix}<extra></extra>',
+            name=label_1,
+            marker=dict(color=color, opacity=0.85, line=dict(width=0)),
+            hovertemplate=f'<b>{label_1}</b>: %{{y:.2f}}{y_suffix}<extra></extra>',
         ))
 
-        # Dashed S&P 500 benchmark line (horizontal, full width, clearly visible)
+        # Ticker 2 bars (same metric)
+        if has_t2 and col in df2_sorted.columns:
+            col_data2 = df2_sorted[col]
+            if not col_data2.isna().all():
+                plot_values2 = col_data2 * multiplier
+                color2 = T2_COLORS[added % len(T2_COLORS)]
+                label_2 = f'{display_name} ({company_name2})'
+                fig.add_trace(go.Bar(
+                    x=df2_sorted['date'],
+                    y=plot_values2,
+                    name=label_2,
+                    marker=dict(color=color2, opacity=0.70, line=dict(width=0)),
+                    hovertemplate=f'<b>{label_2}</b>: %{{y:.2f}}{y_suffix}<extra></extra>',
+                ))
+
+        added += 1
+
+        # Dashed S&P 500 benchmark line
         if col in SP500_BENCHMARKS:
             sp500_val = SP500_BENCHMARKS[col] * multiplier
-            bench_label = (
-                f'S&P 500 Avg ({display_name})' if len(selected_items) > 1
-                else 'S&P 500 Avg'
-            )
             fig.add_hline(
                 y=sp500_val,
                 line=dict(color=color, width=2.5, dash='dash'),
@@ -4816,10 +4894,12 @@ def create_unified_ratio_chart(df, selected_items, company_name, sector=None):
     if added == 0:
         return None
 
+    title_text = f'<b>{company_name} vs {company_name2} — Financial Ratios</b>' if has_t2 else f'<b>{company_name} — Financial Ratios Over Time</b>'
+
     fig.update_layout(
         barmode='group',
         title=dict(
-            text=f'<b>{company_name} — Financial Ratios Over Time</b>',
+            text=title_text,
             font=dict(size=17, color=TEXT_BRIGHT, family='Inter, system-ui, sans-serif'),
             x=0.5, xanchor='center', y=0.97, yanchor='top',
         ),
@@ -19748,13 +19828,52 @@ elif selected_page == "📊 Company Analysis":
     
     st.markdown("---")
     
+    # ── Compare with another ticker ──
+    _ca_compare_input = st.text_input(
+        "📊 Compare with another company (optional):",
+        value="",
+        placeholder="e.g. MSFT, Google, Meta, etc.",
+        help="Add a second ticker to overlay on all financial statement charts",
+        key="ca_compare_ticker"
+    )
+    
+    _ca_ticker2 = None
+    _ca_name2 = None
+    if _ca_compare_input and _ca_compare_input.strip():
+        _ca_ticker2, _ca_name2 = smart_search_ticker(_ca_compare_input.strip())
+        if _ca_ticker2 and _ca_ticker2 != ticker:
+            _ca_profile2 = get_profile(_ca_ticker2)
+            if _ca_profile2:
+                _ca_name2 = _ca_profile2.get('companyName', _ca_ticker2)
+            st.success(f"Comparing with **{_ca_name2}** ({_ca_ticker2})")
+        else:
+            _ca_ticker2 = None
+    
     # Show data source indicator
     show_data_source(source="Financial Modeling Prep API", updated_at=datetime.now())
     
-    income_df = get_income_statement(ticker, 'annual', 5)
-    cash_df = get_cash_flow(ticker, 'annual', 5)
-    balance_df = get_balance_sheet(ticker, 'annual', 5)
-    ratios_df = get_financial_ratios(ticker, 'annual', 5)
+    # Read sidebar settings BEFORE data loading so period/years are available
+    with st.sidebar:
+        years = st.session_state.get('years_of_history', 5)
+        period = st.session_state.get('global_period', 'annual')
+        view = "🌟 The Big Picture"  # Default view
+    
+    _ca_period_type = 'quarter' if period == 'quarterly' else period
+    _ca_limit = years * 4 if _ca_period_type == 'quarter' else years
+    
+    income_df = get_income_statement(ticker, _ca_period_type, _ca_limit)
+    cash_df = get_cash_flow(ticker, _ca_period_type, _ca_limit)
+    balance_df = get_balance_sheet(ticker, _ca_period_type, _ca_limit)
+    ratios_df = get_financial_ratios(ticker, _ca_period_type, _ca_limit)
+    
+    # Load second ticker data if comparing
+    _ca_income2 = pd.DataFrame()
+    _ca_cash2 = pd.DataFrame()
+    _ca_balance2 = pd.DataFrame()
+    if _ca_ticker2:
+        _ca_income2 = get_income_statement(_ca_ticker2, _ca_period_type, _ca_limit)
+        _ca_cash2 = get_cash_flow(_ca_ticker2, _ca_period_type, _ca_limit)
+        _ca_balance2 = get_balance_sheet(_ca_ticker2, _ca_period_type, _ca_limit)
     
     fcf_cagr = None
     if cash_df is not None and not cash_df.empty and 'freeCashFlow' in cash_df.columns:
@@ -19767,12 +19886,6 @@ elif selected_page == "📊 Company Analysis":
                 if years_count > 0:
                     fcf_cagr = calculate_cagr(start_fcf, end_fcf, years_count)
     
-    with st.sidebar:
-        # Use global settings - no duplicate controls needed
-        years = st.session_state.get('years_of_history', 5)
-        period = st.session_state.get('global_period', 'annual')
-        view = "🌟 The Big Picture"  # Default view
-
 
     quote = get_quote(ticker)
     ratios_ttm = get_ratios_ttm(ticker)
@@ -20194,9 +20307,9 @@ elif selected_page == "📊 Company Analysis":
     
     if view == "🌟 The Big Picture":
         
-        income_df = get_income_statement(ticker, 'annual', years)
-        cash_df = get_cash_flow(ticker, 'annual', years)
-        balance_df = get_balance_sheet(ticker, 'annual', years)
+        income_df = get_income_statement(ticker, _ca_period_type, _ca_limit)
+        cash_df = get_cash_flow(ticker, _ca_period_type, _ca_limit)
+        balance_df = get_balance_sheet(ticker, _ca_period_type, _ca_limit)
         
         # Stock chart is already shown above - removed duplicate here
         
@@ -20275,10 +20388,16 @@ elif selected_page == "📊 Company Analysis":
                     f"{company_name} - Cash Flow",
                     "Period",
                     "Amount ($)",
-                    period_type='annual'
+                    period_type=_ca_period_type
                 )
 
                 if fig:
+                    # Overlay second ticker if comparing
+                    if _ca_ticker2 and not _ca_cash2.empty:
+                        if 'stockBasedCompensation' in _ca_cash2.columns and 'freeCashFlow' in _ca_cash2.columns:
+                            _ca_cash2 = _ca_cash2.copy()
+                            _ca_cash2['fcfAfterSBC'] = _ca_cash2['freeCashFlow'] - abs(_ca_cash2['stockBasedCompensation'])
+                        fig = overlay_second_ticker_on_chart(fig, _ca_cash2, metrics_to_plot, metric_names, _ca_name2, period_type=_ca_period_type)
                     st.plotly_chart(fig, use_container_width=True)
 
                     # Display CAGR summary
@@ -20370,10 +20489,12 @@ elif selected_page == "📊 Company Analysis":
                     f"{company_name} - Income Statement",
                     "Period",
                     "Amount ($)",
-                    period_type='annual'
+                    period_type=_ca_period_type
                 )
 
                 if fig:
+                    if _ca_ticker2 and not _ca_income2.empty:
+                        fig = overlay_second_ticker_on_chart(fig, _ca_income2, metrics_to_plot, metric_names, _ca_name2, period_type=_ca_period_type)
                     st.plotly_chart(fig, use_container_width=True)
 
                     # Display CAGR summary
@@ -20465,10 +20586,12 @@ elif selected_page == "📊 Company Analysis":
                     f"{company_name} - Balance Sheet",
                     "Period",
                     "Amount ($)",
-                    period_type='annual'
+                    period_type=_ca_period_type
                 )
 
                 if fig:
+                    if _ca_ticker2 and not _ca_balance2.empty:
+                        fig = overlay_second_ticker_on_chart(fig, _ca_balance2, metrics_to_plot, metric_names, _ca_name2, period_type=_ca_period_type)
                     st.plotly_chart(fig, use_container_width=True)
 
                     # Display CAGR summary
@@ -21190,17 +21313,26 @@ elif selected_page == "📈 Financial Health":
     st.header("📈 Financial Health - Historical Trends")
     st.markdown("**Compare company ratios to S&P 500 averages and historical benchmarks**")
     
-    # Ticker search
-    ratio_search = st.text_input(
-        "Search by Company Name or Ticker:",
-        st.session_state.selected_ticker,
-        help="Enter a ticker symbol to analyze its financial ratios",
-        key="ratio_search"
-    )
+    # Ticker search - two columns for primary + compare
+    _fh_col1, _fh_col2 = st.columns(2)
+    with _fh_col1:
+        ratio_search = st.text_input(
+            "Primary Ticker:",
+            st.session_state.selected_ticker,
+            help="Enter a ticker symbol to analyze its financial ratios",
+            key="ratio_search"
+        )
+    with _fh_col2:
+        _fh_compare_input = st.text_input(
+            "Compare with (optional):",
+            value="",
+            placeholder="e.g. MSFT, Google, etc.",
+            help="Add a second ticker to overlay on the same charts",
+            key="fh_compare_ticker"
+        )
     
     if ratio_search:
         ticker, company_name = smart_search_ticker(ratio_search)
-        # Check if ticker changed - if so, rerun
         old_ticker = st.session_state.get('selected_ticker', '')
         if ticker != old_ticker:
             st.session_state.selected_ticker = ticker
@@ -21211,14 +21343,28 @@ elif selected_page == "📈 Financial Health":
         ticker = st.session_state.selected_ticker
         company_name = ticker
     
+    # Resolve compare ticker
+    _fh_ticker2 = None
+    _fh_name2 = None
+    _fh_ratios2 = pd.DataFrame()
+    if _fh_compare_input and _fh_compare_input.strip():
+        _fh_ticker2, _fh_name2 = smart_search_ticker(_fh_compare_input.strip())
+        if _fh_ticker2 and _fh_ticker2 != ticker:
+            _fh_profile2 = get_profile(_fh_ticker2)
+            if _fh_profile2:
+                _fh_name2 = _fh_profile2.get('companyName', _fh_ticker2)
+        else:
+            _fh_ticker2 = None
+    
     # Sidebar settings
     with st.sidebar:
-        # Use global settings
         years = st.session_state.get('years_of_history', 5)
         period_type = st.session_state.get('global_period', 'annual')
     
     # Fetch ratio data
     ratios_df = get_financial_ratios(ticker, period_type, years * 4 if period_type == 'quarter' else years)
+    if _fh_ticker2:
+        _fh_ratios2 = get_financial_ratios(_fh_ticker2, period_type, years * 4 if period_type == 'quarter' else years)
     
     if not ratios_df.empty:
         # Get full profile for company header (matching Company Analysis style)
@@ -21288,17 +21434,35 @@ elif selected_page == "📈 Financial Health":
             _fh_selected_items = [(d, c) for d, c in _fh_available if d in _fh_selected_names]
 
             if _fh_selected_items:
-                _fh_fig = create_unified_ratio_chart(ratios_df, _fh_selected_items, full_company_name if profile else ticker, sector if profile else None)
+                _fh_fig = create_unified_ratio_chart(
+                    ratios_df, _fh_selected_items,
+                    full_company_name if profile else ticker,
+                    sector if profile else None,
+                    df2=_fh_ratios2 if _fh_ticker2 and not _fh_ratios2.empty else None,
+                    company_name2=_fh_name2 if _fh_ticker2 else None,
+                )
                 st.plotly_chart(_fh_fig, use_container_width=True)
 
-                # Latest values row
+                # Latest values row - show both tickers
                 _fh_cols = st.columns(min(len(_fh_selected_items), 4))
                 for _idx, (d_name, col_name) in enumerate(_fh_selected_items[:4]):
                     _col_data = ratios_df[col_name].dropna()
                     if not _col_data.empty:
                         _latest = _col_data.iloc[-1]
                         _display = f"{_latest*100:.1f}%" if col_name in _PCT_RATIO_COLS else f"{_latest:.2f}x" if col_name in ('priceEarningsRatio','priceToSalesRatio','priceToBookRatio','enterpriseValueMultiple','currentRatio','quickRatio') else f"{_latest:.2f}"
-                        _fh_cols[_idx % 4].metric(f"Latest {d_name}", _display)
+                        _label = f"Latest {d_name}" if not _fh_ticker2 else f"{ticker} {d_name}"
+                        _fh_cols[_idx % 4].metric(_label, _display)
+
+                # Show ticker 2 latest values
+                if _fh_ticker2 and not _fh_ratios2.empty:
+                    _fh_cols2 = st.columns(min(len(_fh_selected_items), 4))
+                    for _idx, (d_name, col_name) in enumerate(_fh_selected_items[:4]):
+                        if col_name in _fh_ratios2.columns:
+                            _col_data2 = _fh_ratios2[col_name].dropna()
+                            if not _col_data2.empty:
+                                _latest2 = _col_data2.iloc[-1]
+                                _display2 = f"{_latest2*100:.1f}%" if col_name in _PCT_RATIO_COLS else f"{_latest2:.2f}x" if col_name in ('priceEarningsRatio','priceToSalesRatio','priceToBookRatio','enterpriseValueMultiple','currentRatio','quickRatio') else f"{_latest2:.2f}"
+                                _fh_cols2[_idx % 4].metric(f"{_fh_ticker2} {d_name}", _display2)
             else:
                 st.info("Select at least one ratio above to view the chart.")
         else:
