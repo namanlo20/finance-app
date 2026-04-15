@@ -5605,7 +5605,7 @@ def get_analyst_consensus(ticker):
 
 _MOAT_DB = {
     # Wide moats — network effects, switching costs, scale
-    "AAPL":  {"moat": "Wide",   "moat_sources": "Ecosystem lock-in, brand, App Store"},
+    "AAPL":  {"moat": "Wide",   "moat_sources": "Ecosystem lock-in, brand, App Store, 2B+ active devices"},
     "MSFT":  {"moat": "Wide",   "moat_sources": "Enterprise switching costs, Azure, Office 365"},
     "GOOGL": {"moat": "Wide",   "moat_sources": "Search monopoly, ad network, Android"},
     "GOOG":  {"moat": "Wide",   "moat_sources": "Search monopoly, ad network, Android"},
@@ -5681,6 +5681,7 @@ _DISRUPTION_DB = {
     "MCO":   {"risk": "Low",    "detail": "Same as SPGI — oligopoly protected by regulation"},
     "LLY":   {"risk": "Low",    "detail": "GLP-1 patents valid through early 2030s; massive production scale advantage"},
     "NVO":   {"risk": "Low",    "detail": "Same GLP-1 pipeline protection"},
+    "AAPL":  {"risk": "Low",    "detail": "Services moat (App Store, iCloud) growing; AI features (Apple Intelligence) embedded in hardware cycle"},
     "AMZN":  {"risk": "Low",    "detail": "AWS is AI infrastructure; retail moat from logistics scale"},
     "GOOGL": {"risk": "Low",    "detail": "AI search transition risk real but Google is building AI into search"},
     "GOOG":  {"risk": "Low",    "detail": "Same as GOOGL"},
@@ -5707,42 +5708,141 @@ _SECTOR_DISRUPTION_DEFAULT = {
 }
 
 
-@st.cache_data(ttl=900)
+@st.cache_data(ttl=3600)
 def _get_technicals_for_dip(ticker):
-    """Pull price history and compute RSI, SMA50, SMA200, Bollinger for DQ scoring."""
+    """
+    Compute technicals using FMP historical data (already cached + authenticated).
+    Returns RSI-14, SMA50/200, Bollinger Bands, ATR-14, volume trend,
+    and plain-English signal summaries for each indicator.
+    """
     try:
-        import yfinance as yf
-        hist = yf.download(ticker, period="1y", interval="1d", progress=False, auto_adjust=True)
-        if hist is None or len(hist) < 20:
+        df = get_historical_ohlc(ticker, years=1)
+        if df is None or df.empty or len(df) < 20:
             return {}
-        close = hist["Close"].squeeze()
 
-        # RSI-14
+        df = df.sort_values("date").reset_index(drop=True)
+
+        # Normalise column names (FMP returns lowercase)
+        df.columns = [c.lower() for c in df.columns]
+        close  = df["close"].astype(float)
+        high   = df["high"].astype(float)   if "high"   in df.columns else close
+        low    = df["low"].astype(float)    if "low"    in df.columns else close
+        volume = df["volume"].astype(float) if "volume" in df.columns else None
+
+        if len(close) < 14:
+            return {}
+
+        price = float(close.iloc[-1])
+
+        # ── RSI-14 ─────────────────────────────────────────────────────────
         delta = close.diff()
-        gain = delta.clip(lower=0).rolling(14).mean()
-        loss = (-delta.clip(upper=0)).rolling(14).mean()
-        rs = gain / loss.replace(0, float('nan'))
-        rsi = float((100 - 100 / (1 + rs)).iloc[-1])
+        gain  = delta.clip(lower=0).rolling(14).mean()
+        loss  = (-delta.clip(upper=0)).rolling(14).mean()
+        rs    = gain / loss.replace(0, float("nan"))
+        rsi_s = 100 - 100 / (1 + rs)
+        rsi   = float(rsi_s.iloc[-1]) if not rsi_s.iloc[-1:].isna().all() else None
 
+        # RSI plain-English
+        if rsi is not None:
+            if rsi < 30:   rsi_signal = "Deeply oversold — strong bounce potential"
+            elif rsi < 40: rsi_signal = "Oversold — possible buying opportunity"
+            elif rsi < 50: rsi_signal = "Slightly below neutral — mild pullback"
+            elif rsi < 60: rsi_signal = "Neutral territory"
+            elif rsi < 70: rsi_signal = "Slightly elevated — not a dip"
+            else:          rsi_signal = "Overbought — avoid chasing"
+        else:
+            rsi_signal = "Not enough data"
+
+        # ── SMAs ────────────────────────────────────────────────────────────
         sma50  = float(close.rolling(50).mean().iloc[-1])  if len(close) >= 50  else None
         sma200 = float(close.rolling(200).mean().iloc[-1]) if len(close) >= 200 else None
+        above50  = (price > sma50)  if sma50  is not None else None
+        above200 = (price > sma200) if sma200 is not None else None
 
-        # Bollinger Bands (20, 2)
-        sma20  = close.rolling(20).mean()
-        std20  = close.rolling(20).std()
-        upper  = float((sma20 + 2 * std20).iloc[-1])
-        lower  = float((sma20 - 2 * std20).iloc[-1])
-        price  = float(close.iloc[-1])
-        bb_pct = (price - lower) / (upper - lower) if upper != lower else 0.5
+        # MA plain-English
+        if above50 is not None and above200 is not None:
+            if not above50 and not above200:
+                ma_signal = "Below both moving averages — deep dip in downtrend"
+            elif not above50 and above200:
+                ma_signal = "Pulling back to SMA50 — healthy dip in an uptrend"
+            elif above50 and not above200:
+                ma_signal = "Above SMA50 but below SMA200 — recovering from downtrend"
+            else:
+                ma_signal = "Above both moving averages — stock in uptrend"
+        else:
+            ma_signal = "Insufficient history for MA signal"
+
+        # ── Bollinger Bands (20, 2σ) ────────────────────────────────────────
+        sma20    = close.rolling(20).mean()
+        std20    = close.rolling(20).std()
+        bb_upper = float((sma20 + 2 * std20).iloc[-1])
+        bb_lower = float((sma20 - 2 * std20).iloc[-1])
+        bb_mid   = float(sma20.iloc[-1])
+        bb_pct   = (price - bb_lower) / (bb_upper - bb_lower) if bb_upper != bb_lower else 0.5
+
+        if bb_pct < 0.1:   bb_signal = "Near lower Bollinger Band — price compressed, bounce likely"
+        elif bb_pct < 0.25: bb_signal = "Below midline, approaching lower band — dip territory"
+        elif bb_pct < 0.5:  bb_signal = "Below midline — mild pullback"
+        elif bb_pct < 0.75: bb_signal = "Above midline — no dip signal"
+        else:               bb_signal = "Near upper Bollinger Band — extended, avoid buying here"
+
+        # ── ATR-14 (Average True Range) — measures volatility ───────────────
+        tr = pd.concat([
+            high - low,
+            (high - close.shift()).abs(),
+            (low  - close.shift()).abs(),
+        ], axis=1).max(axis=1)
+        atr = float(tr.rolling(14).mean().iloc[-1]) if len(tr) >= 14 else None
+        atr_pct = (atr / price * 100) if atr and price > 0 else None
+
+        if atr_pct is not None:
+            if atr_pct < 1.5:   vol_signal = "Low volatility — stable stock"
+            elif atr_pct < 3.0: vol_signal = "Moderate volatility — normal range"
+            elif atr_pct < 5.0: vol_signal = "High volatility — wider stop losses needed"
+            else:               vol_signal = "Very high volatility — high risk, size down"
+        else:
+            vol_signal = "Volatility data unavailable"
+
+        # ── Volume trend (recent 5 days vs 20-day average) ──────────────────
+        vol_spike = None
+        vol_trend_signal = "Volume data unavailable"
+        if volume is not None and len(volume) >= 20:
+            avg_vol_20 = float(volume.rolling(20).mean().iloc[-1])
+            avg_vol_5  = float(volume.iloc[-5:].mean())
+            vol_spike  = (avg_vol_5 / avg_vol_20) if avg_vol_20 > 0 else None
+            if vol_spike is not None:
+                if vol_spike > 1.5:   vol_trend_signal = "Volume surging — strong conviction move"
+                elif vol_spike > 1.1: vol_trend_signal = "Volume slightly elevated — watch direction"
+                elif vol_spike > 0.8: vol_trend_signal = "Normal volume"
+                else:                 vol_trend_signal = "Volume drying up — low conviction"
+
+        # ── % from 52-week high & low ────────────────────────────────────────
+        high_52w = float(close.rolling(252).max().iloc[-1]) if len(close) >= 252 else float(close.max())
+        low_52w  = float(close.rolling(252).min().iloc[-1]) if len(close) >= 252 else float(close.min())
+        pct_from_high = (price - high_52w) / high_52w * 100 if high_52w > 0 else None
+        pct_from_low  = (price - low_52w)  / low_52w  * 100 if low_52w  > 0 else None
 
         return {
-            "rsi": rsi,
-            "sma50": sma50,
-            "sma200": sma200,
-            "bb_pct": bb_pct,    # 0=at lower band, 1=at upper band
-            "price": price,
-            "above_sma50":  price > sma50  if sma50  else None,
-            "above_sma200": price > sma200 if sma200 else None,
+            "rsi":          rsi,
+            "rsi_signal":   rsi_signal,
+            "sma50":        sma50,
+            "sma200":       sma200,
+            "above_sma50":  above50,
+            "above_sma200": above200,
+            "ma_signal":    ma_signal,
+            "bb_pct":       bb_pct,
+            "bb_upper":     bb_upper,
+            "bb_lower":     bb_lower,
+            "bb_mid":       bb_mid,
+            "bb_signal":    bb_signal,
+            "atr":          atr,
+            "atr_pct":      atr_pct,
+            "vol_signal":   vol_signal,
+            "vol_spike":    vol_spike,
+            "vol_trend_signal": vol_trend_signal,
+            "pct_from_52w_high": pct_from_high,
+            "pct_from_52w_low":  pct_from_low,
+            "price":        price,
         }
     except Exception:
         return {}
@@ -5844,40 +5944,47 @@ def _score_dip_quality(quote, profile, ratios_ttm, rev_growth, consensus, pt_con
     tech_score = 0
     tech_detail = "No technical data"
     if tech:
-        rsi    = tech.get("rsi")
-        bb_pct = tech.get("bb_pct")
+        rsi      = tech.get("rsi")
+        bb_pct   = tech.get("bb_pct")
         above50  = tech.get("above_sma50")
         above200 = tech.get("above_sma200")
+        atr_pct  = tech.get("atr_pct")
         tech_parts = []
 
-        # RSI (0-8 pts)
+        # RSI-14 (0-8 pts) — lower RSI = deeper dip = more points
         rsi_pts = 0
         if rsi is not None:
-            if rsi < 30:   rsi_pts = 8   # deeply oversold — contrarian buy
+            if rsi < 30:   rsi_pts = 8   # deeply oversold
             elif rsi < 40: rsi_pts = 6
             elif rsi < 50: rsi_pts = 4
             elif rsi < 60: rsi_pts = 2
             else:          rsi_pts = 0
             tech_parts.append(f"RSI {rsi:.0f}")
 
-        # Bollinger position (0-6 pts)
+        # Bollinger Band position (0-6 pts) — near lower band = potential bounce
         bb_pts = 0
         if bb_pct is not None:
-            if bb_pct < 0.1:   bb_pts = 6  # near/below lower band
+            if bb_pct < 0.1:    bb_pts = 6
             elif bb_pct < 0.25: bb_pts = 4
             elif bb_pct < 0.5:  bb_pts = 2
-            else:               bb_pts = 0
+            else:                bb_pts = 0
             tech_parts.append(f"BB {bb_pct*100:.0f}%ile")
 
-        # MA position (0-6 pts) — below MAs = dip territory
+        # Moving average position (0-5 pts)
         ma_pts = 0
         if above50 is not None and above200 is not None:
-            if not above50 and not above200:   ma_pts = 6  # below both — deep dip
-            elif not above50 and above200:     ma_pts = 4  # pullback within uptrend
-            elif above50 and above200:         ma_pts = 1  # uptrend — less dip
+            if not above50 and not above200:   ma_pts = 5  # below both = deep dip
+            elif not above50 and above200:     ma_pts = 4  # healthy pullback in uptrend
+            elif above50 and above200:         ma_pts = 1  # uptrend, less dip
             tech_parts.append(f"{'Below' if not above50 else 'Above'} SMA50")
 
-        tech_score = rsi_pts + bb_pts + ma_pts
+        # ATR volatility bonus (0-1 pt) — moderate vol is ideal for dip buying
+        atr_pts = 0
+        if atr_pct is not None:
+            if 1.5 <= atr_pct <= 4.0: atr_pts = 1  # sweet spot — not too calm, not too wild
+            tech_parts.append(f"ATR {atr_pct:.1f}%")
+
+        tech_score = rsi_pts + bb_pts + ma_pts + atr_pts
         tech_detail = " · ".join(tech_parts) if tech_parts else "Limited technical data"
 
     scores["technicals"] = tech_score
@@ -6011,47 +6118,66 @@ def render_dip_finder_page(tickers, chart_title="Dip Finder"):
     TEXT_DIM    = "rgba(26,26,26,0.6)"
     PURPLE      = "#1565C0"
 
-    # ── Fetch all data ──────────────────────────────────────────────────────
+    # ── Fetch all data in parallel ──────────────────────────────────────────
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    def _fetch_one(tk):
+        """Fetch all data for a single ticker concurrently."""
+        try:
+            import concurrent.futures as _cf
+            with _cf.ThreadPoolExecutor(max_workers=7) as _inner:
+                f_quote   = _inner.submit(lambda: get_quote(tk) or {})
+                f_profile = _inner.submit(lambda: get_profile(tk) or {})
+                f_ratios  = _inner.submit(lambda: get_ratios_ttm(tk) or {})
+                f_rev_g   = _inner.submit(lambda: get_revenue_growth(tk))
+                f_cons    = _inner.submit(lambda: get_analyst_consensus(tk) or {})
+                f_pt_con  = _inner.submit(lambda: get_price_target_consensus(tk) or {})
+                f_tech    = _inner.submit(lambda: _get_technicals_for_dip(tk))
+
+                quote   = f_quote.result(timeout=15)
+                profile = f_profile.result(timeout=15)
+                ratios  = f_ratios.result(timeout=15)
+                rev_g   = f_rev_g.result(timeout=15)
+                cons    = f_cons.result(timeout=15)
+                pt_con  = f_pt_con.result(timeout=15)
+                tech    = f_tech.result(timeout=15)
+
+            price     = quote.get("price", 0) or 0
+            year_high = quote.get("yearHigh", 0) or 0
+            year_low  = quote.get("yearLow", 0)  or 0
+            pct_high  = ((price - year_high) / year_high * 100) if year_high > 0 else None
+            name      = profile.get("companyName", tk)
+            sector    = profile.get("sector", "")
+            dq        = _score_dip_quality(quote, profile, ratios, rev_g, cons, pt_con, tech)
+
+            return {
+                "ticker": tk.upper(),
+                "name":   name,
+                "price":  price,
+                "year_high": year_high,
+                "year_low":  year_low,
+                "pct_high":  pct_high,
+                "sector": sector,
+                "quote":  quote,
+                "profile": profile,
+                "ratios": ratios,
+                "rev_growth": rev_g,
+                "consensus":  cons,
+                "pt_consensus": pt_con,
+                "tech":   tech,
+                "dq":     dq,
+            }
+        except Exception:
+            return None
+
     all_rows = []
     with st.spinner(f"Crunching signals for {len(tickers)} stock(s)…"):
-        for tk in tickers:
-            try:
-                quote   = get_quote(tk) or {}
-                profile = get_profile(tk) or {}
-                ratios  = get_ratios_ttm(tk) or {}
-                rev_g   = get_revenue_growth(tk)
-                cons    = get_analyst_consensus(tk) or {}
-                pt_con  = get_price_target_consensus(tk) or {}
-                tech    = _get_technicals_for_dip(tk)
-
-                price     = quote.get("price", 0) or 0
-                year_high = quote.get("yearHigh", 0) or 0
-                year_low  = quote.get("yearLow", 0)  or 0
-                pct_high  = ((price - year_high) / year_high * 100) if year_high > 0 else None
-                name      = profile.get("companyName", tk)
-                sector    = profile.get("sector", "")
-
-                dq = _score_dip_quality(quote, profile, ratios, rev_g, cons, pt_con, tech)
-
-                all_rows.append({
-                    "ticker": tk.upper(),
-                    "name":   name,
-                    "price":  price,
-                    "year_high": year_high,
-                    "year_low":  year_low,
-                    "pct_high":  pct_high,
-                    "sector": sector,
-                    "quote":  quote,
-                    "profile": profile,
-                    "ratios": ratios,
-                    "rev_growth": rev_g,
-                    "consensus":  cons,
-                    "pt_consensus": pt_con,
-                    "tech":   tech,
-                    "dq":     dq,
-                })
-            except Exception:
-                continue
+        with ThreadPoolExecutor(max_workers=min(len(tickers), 10)) as outer:
+            futures = {outer.submit(_fetch_one, tk): tk for tk in tickers}
+            for future in as_completed(futures):
+                result = future.result()
+                if result:
+                    all_rows.append(result)
 
     if not all_rows:
         st.warning("Could not fetch data for any tickers. Check that they are valid.")
@@ -6061,20 +6187,36 @@ def render_dip_finder_page(tickers, chart_title="Dip Finder"):
     all_rows.sort(key=lambda r: r["dq"]["total"], reverse=True)
 
     # ── Filters ─────────────────────────────────────────────────────────────
-    st.markdown("#### Filters")
+    # ── DQ Score legend ─────────────────────────────────────────────────────
+    st.markdown("""
+    <div style="background:#EBF5FB; border:1px solid #90CAF9; border-radius:12px;
+                padding:14px 20px; margin-bottom:16px; font-size:13px; color:#1a1a1a;">
+        <b>How the DQ Score works:</b> Each stock gets a score from 0–100 built from
+        6 signals — analyst price targets, valuation (P/E & P/S), technicals (RSI + moving averages),
+        revenue momentum, competitive moat, and AI disruption risk. Higher = better quality dip.
+        <br><br>
+        <span style="color:#00C853; font-weight:700;">■ 72–100 Strong Buy Dip</span> &nbsp;
+        <span style="color:#00BFA5; font-weight:700;">■ 55–71 Quality Dip</span> &nbsp;
+        <span style="color:#E6AC00; font-weight:700;">■ 40–54 Watch Zone</span> &nbsp;
+        <span style="color:#FF6D00; font-weight:700;">■ 25–39 Risky Dip</span> &nbsp;
+        <span style="color:#FF1744; font-weight:700;">■ 0–24 Falling Knife</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("#### Filter Stocks")
     fc1, fc2, fc3 = st.columns(3)
     with fc1:
-        min_dq = st.slider("Min DQ Score", 0, 100, 0, 5, key=f"df_mindq_{chart_title}")
+        min_dq = st.slider("Minimum DQ Score (0 = show all)", 0, 100, 0, 5, key=f"df_mindq_{chart_title}")
     with fc2:
         verdict_filter = st.multiselect(
-            "Verdict",
+            "Filter by verdict",
             ["Strong Buy Dip", "Quality Dip", "Watch Zone", "Risky Dip", "Falling Knife"],
             default=[],
             key=f"df_verdict_{chart_title}",
             placeholder="All verdicts",
         )
     with fc3:
-        max_rsi = st.slider("Max RSI (technicals)", 0, 100, 100, 5, key=f"df_rsi_{chart_title}")
+        max_rsi = st.slider("Only show RSI below (100 = show all)", 0, 100, 100, 5, key=f"df_rsi_{chart_title}")
 
     filtered = []
     for r in all_rows:
@@ -6204,9 +6346,9 @@ def render_dip_finder_page(tickers, chart_title="Dip Finder"):
                                  padding:3px 12px; font-size:12px; font-weight:700;">
                         {dq['verdict']}
                     </span>
-                    <span style="font-size:20px; font-weight:800; color:{dq['badge_color']};">
-                        {dq['total']}<span style="font-size:12px; color:{TEXT_DIM};">/100</span>
-                    </span>
+                    <div style="font-size:20px; font-weight:800; color:{dq['badge_color']}; display:inline-block;">
+                        {dq['total']} <span style="font-size:12px; color:rgba(26,26,26,0.5); font-weight:400;">/100</span>
+                    </div>
                 </div>
                 <div style="display:flex; gap:5px; flex-wrap:wrap; margin-bottom:8px;">
                     {_dq_pillar_dot(dq['scores']['analyst_target'], 25, 'PT')}
@@ -6327,12 +6469,12 @@ def render_dip_finder_page(tickers, chart_title="Dip Finder"):
         y=pillar_names,
         x=pillar_scores,
         orientation='h',
-        marker=dict(color=pillar_colors),
+        marker=dict(color=pillar_colors, opacity=0.9),
         text=[f"{s}/{m}" for s, m in zip(pillar_scores, pillar_maxes)],
         textposition='outside',
-        textfont=dict(size=12, color='#FFFFFF'),
-        customdata=pillar_details,
-        hovertemplate="<b>%{y}</b><br>Score: %{x}<br>%{customdata}<extra></extra>",
+        textfont=dict(size=12, color='#1a1a1a'),
+        customdata=[[d] for d in pillar_details],
+        hovertemplate="<b>%{y}</b><br>Score: %{x}<br>%{customdata[0]}<extra></extra>",
         showlegend=False,
     ))
     fig_pillars.update_layout(
@@ -6401,21 +6543,49 @@ def render_dip_finder_page(tickers, chart_title="Dip Finder"):
         sma200_txt = f"{'Above' if above200 else 'Below'} SMA200 (${sma200:.0f})" if sma200 else "SMA200 N/A"
         bb_txt     = f"Bollinger position: {bb_pct*100:.0f}th percentile" if bb_pct is not None else "BB N/A"
 
-        rsi_display = f"{rsi_val:.0f}" if rsi_val else "—"
+        rsi_display  = f"{rsi_val:.0f}" if rsi_val else "—"
+        rsi_signal   = tech.get("rsi_signal", "")
+        ma_signal    = tech.get("ma_signal", "")
+        bb_signal    = tech.get("bb_signal", "")
+        atr_pct      = tech.get("atr_pct")
+        vol_signal   = tech.get("vol_signal", "")
+        vol_trend    = tech.get("vol_trend_signal", "")
+        vol_spike    = tech.get("vol_spike")
+        pct_52h      = tech.get("pct_from_52w_high")
+        pct_52l      = tech.get("pct_from_52w_low")
         dot50  = "🟢" if above50  else "🔴"
         dot200 = "🟢" if above200 else "🔴"
+
+        atr_str     = f"{atr_pct:.1f}% daily range (ATR)" if atr_pct else ""
+        vol_str     = f"{vol_spike:.1f}x avg volume" if vol_spike else ""
+        pct52h_str  = f"{pct_52h:+.1f}% from 52W high" if pct_52h is not None else ""
+        pct52l_str  = f"+{pct_52l:.1f}% above 52W low" if pct_52l is not None else ""
+
         st.markdown(f"""
         <div style="background:{CARD_BG_SOLID}; border:1px solid {BORDER};
                     border-radius:12px; padding:16px;">
-            <div style="font-size:30px; font-weight:800; color:{rsi_color}; margin-bottom:2px;">
-                {rsi_display}
+            <div style="display:flex; align-items:baseline; gap:10px; margin-bottom:2px;">
+                <div style="font-size:30px; font-weight:800; color:{rsi_color};">{rsi_display}</div>
+                <div style="font-size:11px; color:{TEXT_DIM};">RSI (14)</div>
             </div>
-            <div style="font-size:11px; color:{TEXT_DIM}; margin-bottom:12px;">RSI (14)</div>
-            <div style="font-size:12px; color:{TEXT}; line-height:1.8;">
+            <div style="font-size:11px; color:{rsi_color}; font-weight:600; margin-bottom:12px;">{rsi_signal}</div>
+
+            <div style="font-size:11px; font-weight:700; color:{TEXT_DIM}; text-transform:uppercase;
+                        letter-spacing:1px; margin-bottom:4px;">Moving Averages</div>
+            <div style="font-size:12px; color:{TEXT}; line-height:1.8; margin-bottom:8px;">
                 {dot50} {sma50_txt}<br>
-                {dot200} {sma200_txt}<br>
-                📊 {bb_txt}
+                {dot200} {sma200_txt}
             </div>
+            <div style="font-size:11px; color:{TEXT_DIM}; margin-bottom:10px;">{ma_signal}</div>
+
+            <div style="font-size:11px; font-weight:700; color:{TEXT_DIM}; text-transform:uppercase;
+                        letter-spacing:1px; margin-bottom:4px;">Bollinger Bands</div>
+            <div style="font-size:12px; color:{TEXT}; margin-bottom:4px;">📊 {bb_txt}</div>
+            <div style="font-size:11px; color:{TEXT_DIM}; margin-bottom:10px;">{bb_signal}</div>
+
+            {"<div style='font-size:11px; font-weight:700; color:" + TEXT_DIM + "; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;'>Volatility & Volume</div><div style='font-size:12px; color:" + TEXT + "; line-height:1.8;'>" + (("⚡ " + atr_str + "<br>") if atr_str else "") + (("📦 " + vol_str + " — " + vol_trend) if vol_str else "") + "</div>" if atr_str or vol_str else ""}
+
+            {"<div style='margin-top:10px; font-size:11px; font-weight:700; color:" + TEXT_DIM + "; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;'>52-Week Range</div><div style='font-size:12px; color:" + TEXT + "; line-height:1.8;'>" + (("📉 " + pct52h_str + "<br>") if pct52h_str else "") + (("📈 " + pct52l_str) if pct52l_str else "") + "</div>" if pct52h_str or pct52l_str else ""}
         </div>
         """, unsafe_allow_html=True)
 
