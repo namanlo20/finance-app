@@ -6004,11 +6004,12 @@ def render_dip_finder_page(tickers, chart_title="Dip Finder"):
         st.info("No tickers to display. Add some above.")
         return
 
-    CARD_BG     = "#0D0D20"
-    BORDER      = "rgba(140,100,255,0.25)"
-    TEXT        = "#FFFFFF"
-    TEXT_DIM    = "rgba(255,255,255,0.6)"
-    PURPLE      = "#8C64FF"
+    CARD_BG     = "linear-gradient(135deg,#E3F2FD 0%,#BBDEFB 100%)"
+    CARD_BG_SOLID = "#EBF5FB"
+    BORDER      = "#90CAF9"
+    TEXT        = "#1a1a1a"
+    TEXT_DIM    = "rgba(26,26,26,0.6)"
+    PURPLE      = "#1565C0"
 
     # ── Fetch all data ──────────────────────────────────────────────────────
     all_rows = []
@@ -6181,18 +6182,18 @@ def render_dip_finder_page(tickers, chart_title="Dip Finder"):
             rsi_str = f"RSI {rsi_val:.0f}" if rsi_val is not None else ""
 
             st.markdown(f"""
-            <div style="background:{CARD_BG}; border:1px solid {dq['badge_border']};
+            <div style="background:{CARD_BG_SOLID}; border:2px solid {dq['badge_color']};
                         border-radius:14px; padding:18px 20px; margin-bottom:12px;">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                     <div>
-                        <div style="font-size:18px; font-weight:700; color:{TEXT};">{row['ticker']}</div>
-                        <div style="font-size:11px; color:{TEXT_DIM}; max-width:160px;
+                        <div style="font-size:18px; font-weight:700; color:#1a1a1a;">{row['ticker']}</div>
+                        <div style="font-size:11px; color:rgba(26,26,26,0.6); max-width:160px;
                                     overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
                             {row['name']}
                         </div>
                     </div>
                     <div style="text-align:right;">
-                        <div style="font-size:16px; font-weight:700; color:{TEXT};">${row['price']:.2f}</div>
+                        <div style="font-size:16px; font-weight:700; color:#1a1a1a;">${row['price']:.2f}</div>
                         <div style="font-size:11px; color:#FF6B6B;">{pct_str} from high</div>
                         <div style="font-size:11px; color:#00C853;">{upside_str}</div>
                     </div>
@@ -6255,17 +6256,17 @@ def render_dip_finder_page(tickers, chart_title="Dip Finder"):
     pct  = sel["pct_high"]
 
     st.markdown(f"""
-    <div style="background:{CARD_BG}; border:1px solid {dq['badge_border']};
+    <div style="background:{CARD_BG_SOLID}; border:2px solid {dq["badge_color"]};
                 border-radius:16px; padding:24px 28px; margin-top:8px;">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
             <div>
-                <span style="font-size:22px; font-weight:800; color:{TEXT};">{sel['ticker']}</span>
-                <span style="font-size:14px; color:{TEXT_DIM}; margin-left:10px;">{sel['name']}</span>
+                <span style="font-size:22px; font-weight:800; color:{TEXT};">{sel["ticker"]}</span>
+                <span style="font-size:14px; color:{TEXT_DIM}; margin-left:10px;">{sel["name"]}</span>
             </div>
-            <span style="background:{dq['badge_bg']}; color:{dq['badge_color']};
-                         border:1px solid {dq['badge_border']}; border-radius:20px;
+            <span style="background:{dq["badge_bg"]}; color:{dq["badge_color"]};
+                         border:1px solid {dq["badge_border"]}; border-radius:20px;
                          padding:6px 18px; font-size:15px; font-weight:700;">
-                DQ {dq['total']}/100 — {dq['verdict']}
+                DQ {dq["total"]}/100 — {dq["verdict"]}
             </span>
         </div>
     </div>
@@ -6342,7 +6343,7 @@ def render_dip_finder_page(tickers, chart_title="Dip Finder"):
         plot_bgcolor='rgba(0,0,0,0)',
         xaxis=dict(visible=False),
         yaxis=dict(
-            tickfont=dict(size=12, color='#FFFFFF', family='Inter,sans-serif'),
+            tickfont=dict(size=12, color='#1a1a1a', family='Inter,sans-serif'),
             showgrid=False, showline=False,
             autorange='reversed',
         ),
@@ -6361,21 +6362,23 @@ def render_dip_finder_page(tickers, chart_title="Dip Finder"):
         price   = sel["price"]
         if pt_med and price > 0:
             upside = (pt_med - price) / price * 100
+            pt_low_str  = f"${pt_low:.0f}"  if pt_low  else "—"
+            pt_high_str = f"${pt_high:.0f}" if pt_high else "—"
+            upside_color = "#2E7D32" if upside > 0 else "#C62828"
             st.markdown(f"""
-            <div style="background:{CARD_BG}; border:1px solid {BORDER};
+            <div style="background:{CARD_BG_SOLID}; border:1px solid {BORDER};
                         border-radius:12px; padding:16px;">
-                <div style="font-size:24px; font-weight:700; color:#FFF;">${price:.2f}</div>
-                <div style="font-size:11px; color:rgba(255,255,255,0.5); margin-bottom:12px;">Current Price</div>
-                <div style="display:flex; justify-content:space-between; font-size:12px; color:rgba(255,255,255,0.6);">
+                <div style="font-size:24px; font-weight:700; color:{TEXT};">${price:.2f}</div>
+                <div style="font-size:11px; color:{TEXT_DIM}; margin-bottom:12px;">Current Price</div>
+                <div style="display:flex; justify-content:space-between; font-size:12px; color:{TEXT_DIM};">
                     <span>Bear PT</span><span>Median PT</span><span>Bull PT</span>
                 </div>
-                <div style="display:flex; justify-content:space-between; font-size:13px; font-weight:600; color:#FFF; margin-top:2px;">
-                    <span>${f'{pt_low:.0f}' if pt_low else '—'}</span>
-                    <span style="color:#00C853;">${pt_med:.0f}</span>
-                    <span>${f'{pt_high:.0f}' if pt_high else '—'}</span>
+                <div style="display:flex; justify-content:space-between; font-size:13px; font-weight:600; color:{TEXT}; margin-top:2px;">
+                    <span>{pt_low_str}</span>
+                    <span style="color:#2E7D32;">${pt_med:.0f}</span>
+                    <span>{pt_high_str}</span>
                 </div>
-                <div style="margin-top:12px; font-size:16px; font-weight:700;
-                            color:{'#00C853' if upside > 0 else '#FF1744'};">
+                <div style="margin-top:12px; font-size:16px; font-weight:700; color:{upside_color};">
                     {upside:+.1f}% upside to median PT
                 </div>
             </div>
@@ -6398,16 +6401,19 @@ def render_dip_finder_page(tickers, chart_title="Dip Finder"):
         sma200_txt = f"{'Above' if above200 else 'Below'} SMA200 (${sma200:.0f})" if sma200 else "SMA200 N/A"
         bb_txt     = f"Bollinger position: {bb_pct*100:.0f}th percentile" if bb_pct is not None else "BB N/A"
 
+        rsi_display = f"{rsi_val:.0f}" if rsi_val else "—"
+        dot50  = "🟢" if above50  else "🔴"
+        dot200 = "🟢" if above200 else "🔴"
         st.markdown(f"""
-        <div style="background:{CARD_BG}; border:1px solid {BORDER};
+        <div style="background:{CARD_BG_SOLID}; border:1px solid {BORDER};
                     border-radius:12px; padding:16px;">
             <div style="font-size:30px; font-weight:800; color:{rsi_color}; margin-bottom:2px;">
-                {f'{rsi_val:.0f}' if rsi_val else '—'}
+                {rsi_display}
             </div>
-            <div style="font-size:11px; color:rgba(255,255,255,0.5); margin-bottom:12px;">RSI (14)</div>
-            <div style="font-size:12px; color:rgba(255,255,255,0.7); line-height:1.8;">
-                {'🟢' if above50 else '🔴'} {sma50_txt}<br>
-                {'🟢' if above200 else '🔴'} {sma200_txt}<br>
+            <div style="font-size:11px; color:{TEXT_DIM}; margin-bottom:12px;">RSI (14)</div>
+            <div style="font-size:12px; color:{TEXT}; line-height:1.8;">
+                {dot50} {sma50_txt}<br>
+                {dot200} {sma200_txt}<br>
                 📊 {bb_txt}
             </div>
         </div>
@@ -6419,17 +6425,17 @@ def render_dip_finder_page(tickers, chart_title="Dip Finder"):
         moat_col = {"Wide":"#00C853","Narrow":"#FFD600","None":"#FF1744"}.get(dq["moat_label"], "#9E9E9E")
         dis_col  = {"Low":"#00C853","Medium":"#FFD600","High":"#FF1744"}.get(dq["disruption_label"], "#9E9E9E")
         st.markdown(f"""
-        <div style="background:{CARD_BG}; border:1px solid {BORDER};
+        <div style="background:{CARD_BG_SOLID}; border:1px solid {BORDER};
                     border-radius:12px; padding:16px;">
             <div style="margin-bottom:14px;">
-                <div style="font-size:11px; color:rgba(255,255,255,0.5); margin-bottom:4px; font-weight:600; text-transform:uppercase; letter-spacing:1px;">Competitive Moat</div>
-                <div style="font-size:18px; font-weight:700; color:{moat_col};">{dq['moat_label']}</div>
-                <div style="font-size:11px; color:rgba(255,255,255,0.55); margin-top:3px; line-height:1.5;">{dq['moat_detail']}</div>
+                <div style="font-size:11px; color:{TEXT_DIM}; margin-bottom:4px; font-weight:600; text-transform:uppercase; letter-spacing:1px;">Competitive Moat</div>
+                <div style="font-size:18px; font-weight:700; color:{moat_col};">{dq["moat_label"]}</div>
+                <div style="font-size:11px; color:{TEXT_DIM}; margin-top:3px; line-height:1.5;">{dq["moat_detail"]}</div>
             </div>
             <div>
-                <div style="font-size:11px; color:rgba(255,255,255,0.5); margin-bottom:4px; font-weight:600; text-transform:uppercase; letter-spacing:1px;">AI / Disruption Risk</div>
-                <div style="font-size:18px; font-weight:700; color:{dis_col};">{dq['disruption_label']}</div>
-                <div style="font-size:11px; color:rgba(255,255,255,0.55); margin-top:3px; line-height:1.5;">{dq['disruption_detail']}</div>
+                <div style="font-size:11px; color:{TEXT_DIM}; margin-bottom:4px; font-weight:600; text-transform:uppercase; letter-spacing:1px;">AI / Disruption Risk</div>
+                <div style="font-size:18px; font-weight:700; color:{dis_col};">{dq["disruption_label"]}</div>
+                <div style="font-size:11px; color:{TEXT_DIM}; margin-top:3px; line-height:1.5;">{dq["disruption_detail"]}</div>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -6471,9 +6477,9 @@ def render_dip_finder_page(tickers, chart_title="Dip Finder"):
         if rg is not None:
             rg_color = "#00C853" if rg > 15 else "#FFD600" if rg > 0 else "#FF1744"
             st.markdown(f"""
-            <div style="background:{CARD_BG}; border:1px solid {BORDER};
+            <div style="background:{CARD_BG_SOLID}; border:1px solid {BORDER};
                         border-radius:10px; padding:14px; margin-top:8px;">
-                <div style="font-size:10px; color:rgba(255,255,255,0.5); font-weight:600;
+                <div style="font-size:10px; color:{TEXT_DIM}; font-weight:600;
                             text-transform:uppercase; letter-spacing:1px;">Revenue Growth YoY</div>
                 <div style="font-size:24px; font-weight:700; color:{rg_color}; margin-top:4px;">{rg:+.1f}%</div>
             </div>
@@ -6484,14 +6490,16 @@ def render_dip_finder_page(tickers, chart_title="Dip Finder"):
         ps_raw = sel["ratios"].get("priceToSalesRatioTTM") or sel["ratios"].get("priceSalesRatioTTM")
         ps_v   = float(ps_raw) if ps_raw else None
         if pe_v or ps_v:
+            _pe_str = f"P/E: <b>{pe_v:.1f}x</b>" if pe_v else ""
+            _ps_str = f"P/S: <b>{ps_v:.1f}x</b>" if ps_v else ""
+            _sep    = "<br>" if pe_v and ps_v else ""
             st.markdown(f"""
-            <div style="background:{CARD_BG}; border:1px solid {BORDER};
+            <div style="background:{CARD_BG_SOLID}; border:1px solid {BORDER};
                         border-radius:10px; padding:14px; margin-top:8px;">
-                <div style="font-size:10px; color:rgba(255,255,255,0.5); font-weight:600;
+                <div style="font-size:10px; color:{TEXT_DIM}; font-weight:600;
                             text-transform:uppercase; letter-spacing:1px;">Valuation</div>
-                <div style="margin-top:6px; font-size:13px; color:#FFF; line-height:1.8;">
-                    {f'P/E: <b>{pe_v:.1f}x</b>' if pe_v else ''}{'<br>' if pe_v and ps_v else ''}
-                    {f'P/S: <b>{ps_v:.1f}x</b>' if ps_v else ''}
+                <div style="margin-top:6px; font-size:13px; color:{TEXT}; line-height:1.8;">
+                    {_pe_str}{_sep}{_ps_str}
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -6530,11 +6538,11 @@ def render_dip_finder_page(tickers, chart_title="Dip Finder"):
                 if resp.status_code == 200:
                     blurb = resp.json()["choices"][0]["message"]["content"]
                     st.markdown(f"""
-                    <div style="background:rgba(140,100,255,0.08); border:1px solid rgba(140,100,255,0.3);
+                    <div style="background:#EBF5FB; border:1px solid #90CAF9;
                                 border-radius:12px; padding:16px 20px; margin-top:12px;">
-                        <div style="font-size:11px; font-weight:700; color:{PURPLE}; margin-bottom:8px;
+                        <div style="font-size:11px; font-weight:700; color:#1565C0; margin-bottom:8px;
                                     text-transform:uppercase; letter-spacing:1px;">🤖 AI Context</div>
-                        <div style="font-size:13px; color:rgba(255,255,255,0.85); line-height:1.6;">
+                        <div style="font-size:13px; color:#1a1a1a; line-height:1.6;">
                             {blurb}
                         </div>
                     </div>
