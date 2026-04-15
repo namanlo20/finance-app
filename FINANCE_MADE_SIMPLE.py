@@ -5594,247 +5594,953 @@ def get_analyst_consensus(ticker):
     return None
 
 
-def _dip_radar_valuation_label(pe, pct_from_high):
-    """Return Undervalued / Fair Value / Overvalued label based on P/E and dip depth."""
-    if pe and pe > 0:
-        if pe < 15:
-            return "🟢 Undervalued"
-        elif pe > 35:
-            return "🔴 Overvalued"
-        else:
-            return "🟡 Fair Value"
-    if pct_from_high is not None:
-        if pct_from_high < -30:
-            return "🟢 Deep Dip"
-        elif pct_from_high > -5:
-            return "🔴 Near High"
-    return "🟡 Fair Value"
 
+# ============================================================
+#  SUPERCHARGED DIP FINDER — helper functions + page renderer
+#  Drop-in replacement for _dip_radar_valuation_label,
+#  render_dip_radar, and the "📡 Dip Radar" page block.
+# ============================================================
 
-def render_dip_radar(tickers, chart_title="Dip Radar"):
-    """
-    Shared Dip Radar UI: horizontal bar chart ranked by % below 52-week high,
-    then an expandable detail panel per ticker.
-    tickers: list[str] — uppercase ticker symbols.
-    """
-    if not tickers:
-        st.info("No tickers to display. Enter some tickers above.")
-        return
+# ─── Moat & Disruption heuristics (sector/ticker based) ────────────────────
 
-    BG_SPACE    = '#0A0A1A'
-    BG_PLOT     = '#0D0D20'
-    TEXT_BRIGHT = '#FFFFFF'
-    TEXT_DIM    = 'rgba(255,255,255,0.55)'
-    GRID_COLOR  = 'rgba(255,255,255,0.06)'
-
-    with st.spinner(f"Fetching data for {len(tickers)} ticker(s)…"):
-        rows = []
-        for tk in tickers:
-            q = get_quote(tk)
-            if not q:
-                continue
-            price     = q.get('price', 0) or 0
-            year_high = q.get('yearHigh', 0) or 0
-            year_low  = q.get('yearLow',  0) or 0
-            pe_raw    = q.get('pe', None)
-            pe        = float(pe_raw) if pe_raw and float(pe_raw) > 0 else None
-            pct = ((price - year_high) / year_high * 100) if year_high > 0 else None
-            rows.append({
-                'ticker': tk.upper(),
-                'price': price,
-                'year_high': year_high,
-                'year_low': year_low,
-                'pe': pe,
-                'pct_from_high': pct,
-            })
-
-    if not rows:
-        st.warning("Could not fetch data for any of the requested tickers. Check that tickers are valid.")
-        return
-
-    # Sort worst dip first (most negative pct_from_high)
-    rows.sort(key=lambda r: (r['pct_from_high'] is None, r['pct_from_high'] if r['pct_from_high'] is not None else 0))
-
-    tickers_sorted = [r['ticker'] for r in rows]
-    pcts           = [r['pct_from_high'] if r['pct_from_high'] is not None else 0 for r in rows]
-
-    # Color: deepest dip → red, smallest dip → green
-    import colorsys
-    bar_colors = []
-    min_p, max_p = min(pcts), max(pcts)
-    span = max_p - min_p if max_p != min_p else 1
-    for p in pcts:
-        norm = (p - min_p) / span          # 0 = biggest dip (red), 1 = smallest dip (green)
-        r_c, g_c, b_c = colorsys.hsv_to_rgb(norm * 0.33, 0.85, 0.9)
-        bar_colors.append(f'rgb({int(r_c*255)},{int(g_c*255)},{int(b_c*255)})')
-
-    hover_texts = []
-    for r in rows:
-        p = r['pct_from_high']
-        hover_texts.append(
-            f"<b>{r['ticker']}</b><br>"
-            f"Price: ${r['price']:.2f}<br>"
-            f"52W High: ${r['year_high']:.2f}<br>"
-            f"From High: {p:+.1f}%" if p is not None else f"<b>{r['ticker']}</b><br>No 52W data"
-        )
-
-    fig = go.Figure(go.Bar(
-        x=pcts,
-        y=tickers_sorted,
-        orientation='h',
-        marker=dict(color=bar_colors, line=dict(width=0)),
-        text=[f"{p:+.1f}%" if p is not None else "N/A" for p in pcts],
-        textposition='outside',
-        textfont=dict(size=12, color=TEXT_BRIGHT, family='Inter, system-ui, sans-serif'),
-        hovertext=hover_texts,
-        hoverinfo='text',
-    ))
-
-    # Zero reference line
-    fig.add_vline(x=0, line=dict(color='rgba(255,255,255,0.3)', width=1, dash='dot'))
-
-    fig.update_layout(
-        title=dict(
-            text=f'<b>{chart_title} — % Below 52-Week High</b>',
-            font=dict(size=17, color=TEXT_BRIGHT, family='Inter, system-ui, sans-serif'),
-            x=0.5, xanchor='center',
-        ),
-        xaxis=dict(
-            title='% from 52-Week High',
-            showgrid=True, gridcolor=GRID_COLOR,
-            zeroline=False,
-            tickfont=dict(size=11, color=TEXT_DIM),
-            title_font=dict(color=TEXT_DIM),
-            ticksuffix='%',
-        ),
-        yaxis=dict(
-            showgrid=False, showline=False,
-            tickfont=dict(size=13, color=TEXT_BRIGHT, family='Inter, system-ui, sans-serif'),
-            autorange='reversed',  # worst dip at top
-        ),
-        plot_bgcolor=BG_PLOT,
-        paper_bgcolor=BG_SPACE,
-        margin=dict(t=60, b=50, l=80, r=80),
-        height=max(300, 50 * len(rows) + 80),
-        hoverlabel=dict(
-            bgcolor='#1A1A35', font_size=13,
-            font_family='Inter, system-ui, sans-serif',
-            font_color=TEXT_BRIGHT,
-            bordercolor='rgba(140,100,255,0.5)',
-        ),
-    )
-
-    st.plotly_chart(fig, use_container_width=True)
-    st.caption("🔴 Red = biggest dip from 52-week high  ·  🟢 Green = smallest dip  ·  Select a ticker below for details")
-
-    # Detail panel — selectbox picks which ticker to inspect
-    row_map = {r['ticker']: r for r in rows}
-    selected_tk = st.selectbox(
-        "Select a ticker to see details:",
-        options=tickers_sorted,
-        key=f"dip_radar_select_{chart_title.replace(' ', '_')}",
-    )
-
-    if selected_tk:
-        r = row_map[selected_tk]
-        pct = r['pct_from_high']
-
-        # Fetch supplementary data (cached)
-        rev_growth = get_revenue_growth(selected_tk)
-        consensus  = get_analyst_consensus(selected_tk)
-        val_label  = _dip_radar_valuation_label(r['pe'], pct)
-
-        st.markdown(f"""
-        <div style="background:#0D0D20; border:1px solid rgba(140,100,255,0.35); border-radius:14px; padding:20px 24px; margin-top:8px;">
-            <h3 style="color:#FFFFFF; margin:0 0 14px 0; font-family:Inter,sans-serif;">{selected_tk} &nbsp; <span style="font-size:16px; color:rgba(255,255,255,0.55);">Detail Panel</span></h3>
-        """, unsafe_allow_html=True)
-
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            st.metric("Current Price", f"${r['price']:.2f}")
-            st.metric("52-Week High",  f"${r['year_high']:.2f}")
-        with c2:
-            st.metric("From 52W High", f"{pct:+.1f}%" if pct is not None else "N/A",
-                      delta_color="inverse")
-            pe_display = f"{r['pe']:.1f}x" if r['pe'] else "N/A"
-            st.metric("P/E Ratio (TTM)", pe_display)
-        with c3:
-            rg_display = f"{rev_growth:+.1f}%" if rev_growth is not None else "N/A"
-            st.metric("Revenue Growth YoY", rg_display)
-            st.metric("Valuation", val_label)
-
-        # Analyst consensus bar
-        if consensus and consensus.get('total', 0) > 0:
-            total = consensus['total']
-            buy_n  = consensus['strongBuy'] + consensus['buy']
-            hold_n = consensus['hold']
-            sell_n = consensus['sell'] + consensus['strongSell']
-            buy_pct  = buy_n  / total * 100
-            hold_pct = hold_n / total * 100
-            sell_pct = sell_n / total * 100
-            cons_label = consensus.get('consensus', '') or f"{buy_pct:.0f}% Buy"
-
-            st.markdown(f"**Analyst Consensus** — *{total} analysts* — **{cons_label}**")
-            cons_fig = go.Figure(go.Bar(
-                x=[buy_pct, hold_pct, sell_pct],
-                y=[''],
-                orientation='h',
-                marker=dict(color=['#00FF96', '#FFD700', '#FF6B6B']),
-                text=[f"Buy {buy_pct:.0f}%", f"Hold {hold_pct:.0f}%", f"Sell {sell_pct:.0f}%"],
-                textposition='inside',
-                textfont=dict(size=12, color='#000000', family='Inter,sans-serif'),
-            ))
-            cons_fig.update_layout(
-                barmode='stack', height=55,
-                margin=dict(t=0, b=0, l=0, r=0),
-                plot_bgcolor=BG_PLOT, paper_bgcolor='rgba(0,0,0,0)',
-                xaxis=dict(visible=False), yaxis=dict(visible=False),
-                showlegend=False,
-            )
-            st.plotly_chart(cons_fig, use_container_width=True)
-        else:
-            st.caption("Analyst consensus: not available for this ticker")
-
-        st.markdown("</div>", unsafe_allow_html=True)
-
-
-# Fallback logos for stocks with missing or problematic logos
-# Using reliable sources with PNG format
-FALLBACK_LOGOS = {
-    # TradingView SVG logos - highly reliable
-    "PLTR": "https://s3-symbol-logo.tradingview.com/palantir--big.svg",
-    "BRK.B": "https://s3-symbol-logo.tradingview.com/berkshire-hathaway--big.svg",
-    "BRK-B": "https://s3-symbol-logo.tradingview.com/berkshire-hathaway--big.svg",
-    "GOOG": "https://s3-symbol-logo.tradingview.com/alphabet--big.svg",
-    "GOOGL": "https://s3-symbol-logo.tradingview.com/alphabet--big.svg",
-    "META": "https://s3-symbol-logo.tradingview.com/meta-platforms--big.svg",
-    "AMZN": "https://s3-symbol-logo.tradingview.com/amazon--big.svg",
-    "TSLA": "https://s3-symbol-logo.tradingview.com/tesla--big.svg",
-    # Naman portfolio tickers
-    "NFLX": "https://s3-symbol-logo.tradingview.com/netflix--big.svg",
-    "SPGI": "https://s3-symbol-logo.tradingview.com/s-p-global--big.svg",
-    "MCO": "https://s3-symbol-logo.tradingview.com/moodys--big.svg",
-    "PANW": "https://s3-symbol-logo.tradingview.com/palo-alto-networks--big.svg",
-    "MSFT": "https://s3-symbol-logo.tradingview.com/microsoft--big.svg",
-    "HOOD": "https://s3-symbol-logo.tradingview.com/robinhood--big.svg",
-    "NVDA": "https://s3-symbol-logo.tradingview.com/nvidia--big.svg",
-    "AVGO": "https://s3-symbol-logo.tradingview.com/broadcom--big.svg",
-    "CRWD": "https://s3-symbol-logo.tradingview.com/crowdstrike--big.svg",
-    "ASML": "https://s3-symbol-logo.tradingview.com/asml--big.svg",
-    "CRM": "https://s3-symbol-logo.tradingview.com/salesforce--big.svg",
-    # Common additional tickers
-    "AAPL": "https://s3-symbol-logo.tradingview.com/apple--big.svg",
-    "GOOGL": "https://s3-symbol-logo.tradingview.com/alphabet--big.svg",
-    "JPM": "https://s3-symbol-logo.tradingview.com/jpmorgan-chase--big.svg",
-    "V": "https://s3-symbol-logo.tradingview.com/visa--big.svg",
-    "MA": "https://s3-symbol-logo.tradingview.com/mastercard--big.svg",
-    "AMD": "https://s3-symbol-logo.tradingview.com/advanced-micro-devices--big.svg",
-    "INTC": "https://s3-symbol-logo.tradingview.com/intel--big.svg",
-    "COIN": "https://s3-symbol-logo.tradingview.com/coinbase--big.svg",
-    "SPY": "https://s3-symbol-logo.tradingview.com/amex/spy--big.svg",
-    "QQQ": "https://s3-symbol-logo.tradingview.com/invesco--big.svg",
+_MOAT_DB = {
+    # Wide moats — network effects, switching costs, scale
+    "AAPL":  {"moat": "Wide",   "moat_sources": "Ecosystem lock-in, brand, App Store"},
+    "MSFT":  {"moat": "Wide",   "moat_sources": "Enterprise switching costs, Azure, Office 365"},
+    "GOOGL": {"moat": "Wide",   "moat_sources": "Search monopoly, ad network, Android"},
+    "GOOG":  {"moat": "Wide",   "moat_sources": "Search monopoly, ad network, Android"},
+    "META":  {"moat": "Wide",   "moat_sources": "Social network effects, 3B+ users, ad targeting"},
+    "AMZN":  {"moat": "Wide",   "moat_sources": "AWS margins, Prime flywheel, logistics"},
+    "NVDA":  {"moat": "Wide",   "moat_sources": "CUDA ecosystem, H100/Blackwell hardware lead"},
+    "V":     {"moat": "Wide",   "moat_sources": "Payment network, 4B cards, merchant lock-in"},
+    "MA":    {"moat": "Wide",   "moat_sources": "Payment network, global scale"},
+    "COST":  {"moat": "Wide",   "moat_sources": "Membership loyalty, low-margin pricing discipline"},
+    "BRK.B": {"moat": "Wide",   "moat_sources": "Float from insurance, diversified holdings"},
+    "SPGI":  {"moat": "Wide",   "moat_sources": "Rating oligopoly, data pricing power"},
+    "MCO":   {"moat": "Wide",   "moat_sources": "Rating oligopoly, regulatory moat"},
+    "ASML":  {"moat": "Wide",   "moat_sources": "EUV lithography monopoly — no competitor"},
+    "AVGO":  {"moat": "Wide",   "moat_sources": "Custom chip design, VMware switching costs"},
+    "JPM":   {"moat": "Wide",   "moat_sources": "Scale, deposit base, global IB presence"},
+    "UNH":   {"moat": "Wide",   "moat_sources": "Optum vertical integration, employer lock-in"},
+    "LLY":   {"moat": "Wide",   "moat_sources": "GLP-1 pipeline, Mounjaro patent protection"},
+    "NVO":   {"moat": "Wide",   "moat_sources": "Ozempic/Wegovy patents, GLP-1 first mover"},
+    "NFLX":  {"moat": "Narrow", "moat_sources": "Content library, global scale — but content wars ongoing"},
+    "CRWD":  {"moat": "Narrow", "moat_sources": "Falcon platform stickiness, agent footprint"},
+    "PANW":  {"moat": "Narrow", "moat_sources": "Platformization strategy, enterprise contracts"},
+    "CRM":   {"moat": "Narrow", "moat_sources": "Salesforce CRM lock-in, but AI disruption risk"},
+    "SNOW":  {"moat": "Narrow", "moat_sources": "Data cloud network — but losing share to Databricks"},
+    "PLTR":  {"moat": "Narrow", "moat_sources": "AIP + government contracts — but high valuation risk"},
+    "TSLA":  {"moat": "Narrow", "moat_sources": "Supercharger network, FSD data lead — but EV competition rising"},
+    "COIN":  {"moat": "Narrow", "moat_sources": "Crypto brand trust — highly cyclical"},
+    "HOOD":  {"moat": "Narrow", "moat_sources": "Retail brand — no real switching costs"},
+    "AMD":   {"moat": "Narrow", "moat_sources": "GPU/CPU design — competes with NVDA and Intel"},
+    "INTC":  {"moat": "None",   "moat_sources": "Lost process lead, losing AI chip market"},
 }
 
+_SECTOR_MOAT_DEFAULT = {
+    "Technology":           {"moat": "Narrow", "moat_sources": "Sector average — evaluate per company"},
+    "Healthcare":           {"moat": "Narrow", "moat_sources": "Patent protection varies by company"},
+    "Financial Services":   {"moat": "Narrow", "moat_sources": "Scale and regulatory barriers"},
+    "Consumer Cyclical":    {"moat": "None",   "moat_sources": "Highly competitive consumer markets"},
+    "Communication Services":{"moat":"Narrow", "moat_sources": "Platform effects vary"},
+    "Industrials":          {"moat": "Narrow", "moat_sources": "Scale and switching costs"},
+    "Energy":               {"moat": "None",   "moat_sources": "Commodity business, price-taking"},
+    "Utilities":            {"moat": "Narrow", "moat_sources": "Regulated monopoly in region"},
+    "Real Estate":          {"moat": "None",   "moat_sources": "Location-based, no scalable moat"},
+    "Basic Materials":      {"moat": "None",   "moat_sources": "Commodity business"},
+    "Consumer Defensive":   {"moat": "Narrow", "moat_sources": "Brand loyalty, distribution"},
+}
+
+_DISRUPTION_DB = {
+    # High disruption risk
+    "CRM":   {"risk": "High",   "detail": "AI agents (Salesforce Agentforce) replacing traditional CRM workflows; open-source CRM threat"},
+    "NOW":   {"risk": "High",   "detail": "AI automating IT service workflows that ServiceNow traditionally handles"},
+    "SNOW":  {"risk": "High",   "detail": "Databricks/open-source gaining share; commodity cloud storage pricing pressure"},
+    "ORCL":  {"risk": "Medium", "detail": "Legacy database moat strong but cloud migration and open-source DB pressure"},
+    "SAP":   {"risk": "Medium", "detail": "ERP modernization cycle; AI-native ERP startups emerging"},
+    "INTC":  {"risk": "High",   "detail": "TSMC/AMD/NVDA took AI chip and foundry market; execution risk remains"},
+    "COIN":  {"risk": "High",   "detail": "Regulatory crackdowns, decentralized exchange competition, crypto cycle risk"},
+    "HOOD":  {"risk": "Medium", "detail": "Zero-fee commoditization; crypto/prediction markets pulling younger users"},
+    "NFLX":  {"risk": "Medium", "detail": "Content cost inflation, Disney+/Max competition, password sharing crackdown fading"},
+    "TSLA":  {"risk": "Medium", "detail": "BYD/Chinese EV competition; margin pressure from price cuts; core EV commoditizing"},
+    "LYFT":  {"risk": "High",   "detail": "Waymo/Tesla robotaxi threatening rideshare unit economics"},
+    "UBER":  {"risk": "Medium", "detail": "Robotaxi risk medium-term but platform diversification (food, freight) hedges"},
+    "SHOP":  {"risk": "Medium", "detail": "Amazon direct competition; AI-native ecommerce tools emerging"},
+    "TWLO":  {"risk": "High",   "detail": "AI agents replacing traditional CPaaS; margins structurally pressured"},
+    "ZM":    {"risk": "High",   "detail": "Microsoft Teams bundling; AI meeting tools commoditizing video conferencing"},
+    "DOCU":  {"risk": "High",   "detail": "AI contract analysis tools disrupting e-signature lock-in"},
+    "BOX":   {"risk": "High",   "detail": "Microsoft 365 bundling; cloud storage commoditized"},
+    "DBX":   {"risk": "High",   "detail": "Google Drive/OneDrive commoditization; no clear AI differentiation"},
+    # Low disruption risk
+    "ASML":  {"risk": "Low",    "detail": "Only maker of EUV machines — technically irreplaceable for 5+ years"},
+    "V":     {"risk": "Low",    "detail": "Payment rails deeply embedded; crypto threat minimal at scale"},
+    "MA":    {"risk": "Low",    "detail": "Same as Visa — infrastructure monopoly"},
+    "MSFT":  {"risk": "Low",    "detail": "Azure + Copilot positions MSFT as AI infrastructure, not target"},
+    "NVDA":  {"risk": "Low",    "detail": "CUDA dominance means NVDA benefits from AI wave, not threatened by it"},
+    "SPGI":  {"risk": "Low",    "detail": "Regulatory mandate for ratings; extremely hard to replace"},
+    "MCO":   {"risk": "Low",    "detail": "Same as SPGI — oligopoly protected by regulation"},
+    "LLY":   {"risk": "Low",    "detail": "GLP-1 patents valid through early 2030s; massive production scale advantage"},
+    "NVO":   {"risk": "Low",    "detail": "Same GLP-1 pipeline protection"},
+    "AMZN":  {"risk": "Low",    "detail": "AWS is AI infrastructure; retail moat from logistics scale"},
+    "GOOGL": {"risk": "Low",    "detail": "AI search transition risk real but Google is building AI into search"},
+    "GOOG":  {"risk": "Low",    "detail": "Same as GOOGL"},
+    "META":  {"risk": "Low",    "detail": "Network effects protect social; Meta AI integrations strengthen engagement"},
+    "AVGO":  {"risk": "Low",    "detail": "Custom AI accelerators + VMware = durable revenue streams"},
+    "JPM":   {"risk": "Low",    "detail": "Banking regulation protects; fintech disruption manageable at JPM scale"},
+    "CRWD":  {"risk": "Low",    "detail": "Cybersecurity demand rising with AI; Falcon platform expanding"},
+    "PANW":  {"risk": "Low",    "detail": "Platformization reduces churn; security spend non-discretionary"},
+    "PLTR":  {"risk": "Low",    "detail": "AIP moat growing; govt contracts highly sticky"},
+}
+
+_SECTOR_DISRUPTION_DEFAULT = {
+    "Technology":            {"risk": "Medium", "detail": "AI disruption active across sector — evaluate per company"},
+    "Communication Services":{"risk": "Medium", "detail": "Streaming wars and AI content creation changing dynamics"},
+    "Consumer Cyclical":     {"risk": "Low",    "detail": "Demand-driven; limited AI disruption to business model"},
+    "Healthcare":            {"risk": "Low",    "detail": "Regulatory moat; AI augmenting not replacing"},
+    "Financial Services":    {"risk": "Medium", "detail": "Fintech and AI lending/trading tools evolving"},
+    "Industrials":           {"risk": "Low",    "detail": "Physical assets hard to disrupt digitally"},
+    "Energy":                {"risk": "Medium", "detail": "Clean energy transition poses long-term risk"},
+    "Utilities":             {"risk": "Low",    "detail": "Regulated; AI has minimal disruption effect"},
+    "Real Estate":           {"risk": "Low",    "detail": "Physical assets; PropTech effect manageable"},
+    "Basic Materials":       {"risk": "Low",    "detail": "Commodity; limited digital disruption"},
+    "Consumer Defensive":    {"risk": "Low",    "detail": "Brand and distribution hard to disrupt"},
+}
+
+
+@st.cache_data(ttl=900)
+def _get_technicals_for_dip(ticker):
+    """Pull price history and compute RSI, SMA50, SMA200, Bollinger for DQ scoring."""
+    try:
+        import yfinance as yf
+        hist = yf.download(ticker, period="1y", interval="1d", progress=False, auto_adjust=True)
+        if hist is None or len(hist) < 20:
+            return {}
+        close = hist["Close"].squeeze()
+
+        # RSI-14
+        delta = close.diff()
+        gain = delta.clip(lower=0).rolling(14).mean()
+        loss = (-delta.clip(upper=0)).rolling(14).mean()
+        rs = gain / loss.replace(0, float('nan'))
+        rsi = float((100 - 100 / (1 + rs)).iloc[-1])
+
+        sma50  = float(close.rolling(50).mean().iloc[-1])  if len(close) >= 50  else None
+        sma200 = float(close.rolling(200).mean().iloc[-1]) if len(close) >= 200 else None
+
+        # Bollinger Bands (20, 2)
+        sma20  = close.rolling(20).mean()
+        std20  = close.rolling(20).std()
+        upper  = float((sma20 + 2 * std20).iloc[-1])
+        lower  = float((sma20 - 2 * std20).iloc[-1])
+        price  = float(close.iloc[-1])
+        bb_pct = (price - lower) / (upper - lower) if upper != lower else 0.5
+
+        return {
+            "rsi": rsi,
+            "sma50": sma50,
+            "sma200": sma200,
+            "bb_pct": bb_pct,    # 0=at lower band, 1=at upper band
+            "price": price,
+            "above_sma50":  price > sma50  if sma50  else None,
+            "above_sma200": price > sma200 if sma200 else None,
+        }
+    except Exception:
+        return {}
+
+
+def _get_moat_info(ticker, sector=None):
+    tk = ticker.upper()
+    if tk in _MOAT_DB:
+        return _MOAT_DB[tk]
+    if sector and sector in _SECTOR_MOAT_DEFAULT:
+        return _SECTOR_MOAT_DEFAULT[sector]
+    return {"moat": "Unknown", "moat_sources": "No data available"}
+
+
+def _get_disruption_info(ticker, sector=None):
+    tk = ticker.upper()
+    if tk in _DISRUPTION_DB:
+        return _DISRUPTION_DB[tk]
+    if sector and sector in _SECTOR_DISRUPTION_DEFAULT:
+        return _SECTOR_DISRUPTION_DEFAULT[sector]
+    return {"risk": "Unknown", "detail": "No disruption data available"}
+
+
+def _score_dip_quality(quote, profile, ratios_ttm, rev_growth, consensus, pt_consensus, tech):
+    """
+    Compute a 0-100 DQ (Dip Quality) Score from 6 weighted pillars.
+    Returns: dict with total_score, pillar scores, verdict, badge colour.
+    """
+    scores  = {}
+    details = {}
+
+    price     = (quote or {}).get("price", 0) or 0
+    pe        = None
+    ps        = None
+    pct_high  = None
+
+    # ── 1. ANALYST TARGET UPSIDE (25 pts) ──────────────────────────────────
+    pt_score = 0
+    pt_detail = "No analyst target data"
+    if pt_consensus:
+        target_high   = pt_consensus.get("targetHigh")
+        target_low    = pt_consensus.get("targetLow")
+        target_median = pt_consensus.get("targetMedian") or pt_consensus.get("targetConsensus")
+        if target_median and price > 0:
+            upside_pct = (target_median - price) / price * 100
+            if upside_pct >= 40:   pt_score = 25
+            elif upside_pct >= 25: pt_score = 20
+            elif upside_pct >= 15: pt_score = 15
+            elif upside_pct >= 5:  pt_score = 10
+            elif upside_pct >= 0:  pt_score = 5
+            else:                  pt_score = 0
+            pt_detail = f"Median PT ${target_median:.0f} → {upside_pct:+.1f}% upside"
+            if target_high:
+                pt_detail += f" (bull: ${target_high:.0f})"
+    scores["analyst_target"] = pt_score
+    details["analyst_target"] = pt_detail
+
+    # ── 2. VALUATION (25 pts) ───────────────────────────────────────────────
+    val_score = 0
+    val_detail = "No valuation data"
+    pe_raw = (quote or {}).get("pe")
+    if pe_raw:
+        try: pe = float(pe_raw)
+        except: pe = None
+    if ratios_ttm:
+        ps_raw = ratios_ttm.get("priceToSalesRatioTTM") or ratios_ttm.get("priceSalesRatioTTM")
+        if ps_raw:
+            try: ps = float(ps_raw)
+            except: ps = None
+
+    val_parts = []
+    pe_pts = 0; ps_pts = 0
+    if pe and pe > 0:
+        if pe < 15:   pe_pts = 12
+        elif pe < 25: pe_pts = 9
+        elif pe < 35: pe_pts = 6
+        elif pe < 50: pe_pts = 3
+        else:         pe_pts = 0
+        val_parts.append(f"P/E {pe:.1f}x")
+    else:
+        pe_pts = 5  # neutral if no PE (e.g. growth stock, give benefit of doubt)
+
+    if ps and ps > 0:
+        if ps < 4:    ps_pts = 13
+        elif ps < 8:  ps_pts = 9
+        elif ps < 15: ps_pts = 6
+        elif ps < 25: ps_pts = 3
+        else:         ps_pts = 0
+        val_parts.append(f"P/S {ps:.1f}x")
+    else:
+        ps_pts = 5  # neutral
+
+    val_score = pe_pts + ps_pts
+    val_detail = " · ".join(val_parts) if val_parts else "Valuation data unavailable"
+    scores["valuation"] = val_score
+    details["valuation"] = val_detail
+
+    # ── 3. TECHNICALS (20 pts) ─────────────────────────────────────────────
+    tech_score = 0
+    tech_detail = "No technical data"
+    if tech:
+        rsi    = tech.get("rsi")
+        bb_pct = tech.get("bb_pct")
+        above50  = tech.get("above_sma50")
+        above200 = tech.get("above_sma200")
+        tech_parts = []
+
+        # RSI (0-8 pts)
+        rsi_pts = 0
+        if rsi is not None:
+            if rsi < 30:   rsi_pts = 8   # deeply oversold — contrarian buy
+            elif rsi < 40: rsi_pts = 6
+            elif rsi < 50: rsi_pts = 4
+            elif rsi < 60: rsi_pts = 2
+            else:          rsi_pts = 0
+            tech_parts.append(f"RSI {rsi:.0f}")
+
+        # Bollinger position (0-6 pts)
+        bb_pts = 0
+        if bb_pct is not None:
+            if bb_pct < 0.1:   bb_pts = 6  # near/below lower band
+            elif bb_pct < 0.25: bb_pts = 4
+            elif bb_pct < 0.5:  bb_pts = 2
+            else:               bb_pts = 0
+            tech_parts.append(f"BB {bb_pct*100:.0f}%ile")
+
+        # MA position (0-6 pts) — below MAs = dip territory
+        ma_pts = 0
+        if above50 is not None and above200 is not None:
+            if not above50 and not above200:   ma_pts = 6  # below both — deep dip
+            elif not above50 and above200:     ma_pts = 4  # pullback within uptrend
+            elif above50 and above200:         ma_pts = 1  # uptrend — less dip
+            tech_parts.append(f"{'Below' if not above50 else 'Above'} SMA50")
+
+        tech_score = rsi_pts + bb_pts + ma_pts
+        tech_detail = " · ".join(tech_parts) if tech_parts else "Limited technical data"
+
+    scores["technicals"] = tech_score
+    details["technicals"] = tech_detail
+
+    # ── 4. MOMENTUM / QUALITY (15 pts) ─────────────────────────────────────
+    mom_score = 0
+    mom_detail = "No momentum data"
+    mom_parts = []
+
+    # Revenue growth (0-8 pts)
+    if rev_growth is not None:
+        if rev_growth >= 30:   rg_pts = 8
+        elif rev_growth >= 20: rg_pts = 6
+        elif rev_growth >= 10: rg_pts = 4
+        elif rev_growth >= 0:  rg_pts = 2
+        else:                  rg_pts = 0
+        mom_score += rg_pts
+        mom_parts.append(f"Rev growth {rev_growth:+.1f}%")
+
+    # Analyst buy % (0-7 pts)
+    if consensus and consensus.get("total", 0) > 0:
+        total = consensus["total"]
+        buys  = consensus.get("strongBuy", 0) + consensus.get("buy", 0)
+        buy_pct = buys / total * 100
+        if buy_pct >= 80:   ap_pts = 7
+        elif buy_pct >= 65: ap_pts = 5
+        elif buy_pct >= 50: ap_pts = 3
+        else:               ap_pts = 0
+        mom_score += ap_pts
+        mom_parts.append(f"{buy_pct:.0f}% analyst buy")
+
+    mom_detail = " · ".join(mom_parts) if mom_parts else "No momentum data"
+    scores["momentum"] = mom_score
+    details["momentum"] = mom_detail
+
+    # ── 5. MOAT STRENGTH (10 pts) ──────────────────────────────────────────
+    ticker   = (quote or {}).get("symbol", "")
+    sector   = (profile or {}).get("sector", "")
+    moat_info = _get_moat_info(ticker, sector)
+    moat_label = moat_info.get("moat", "Unknown")
+    moat_pts = {"Wide": 10, "Narrow": 6, "None": 2, "Unknown": 4}.get(moat_label, 4)
+    scores["moat"] = moat_pts
+    details["moat"] = f"{moat_label} moat — {moat_info.get('moat_sources','')}"
+
+    # ── 6. DISRUPTION RISK (5 pts — penalty based) ─────────────────────────
+    dis_info  = _get_disruption_info(ticker, sector)
+    dis_label = dis_info.get("risk", "Unknown")
+    dis_pts   = {"Low": 5, "Medium": 3, "High": 0, "Unknown": 3}.get(dis_label, 3)
+    scores["disruption"] = dis_pts
+    details["disruption"] = f"{dis_label} risk — {dis_info.get('detail','')}"
+
+    # ── TOTAL ───────────────────────────────────────────────────────────────
+    total = sum(scores.values())
+
+    # Clamp to 100
+    total = min(total, 100)
+
+    # Verdict
+    if total >= 72:
+        verdict = "Strong Buy Dip"
+        badge_color = "#00C853"
+        badge_bg    = "rgba(0,200,83,0.15)"
+        badge_border= "rgba(0,200,83,0.5)"
+    elif total >= 55:
+        verdict = "Quality Dip"
+        badge_color = "#00BFA5"
+        badge_bg    = "rgba(0,191,165,0.12)"
+        badge_border= "rgba(0,191,165,0.45)"
+    elif total >= 40:
+        verdict = "Watch Zone"
+        badge_color = "#FFD600"
+        badge_bg    = "rgba(255,214,0,0.12)"
+        badge_border= "rgba(255,214,0,0.45)"
+    elif total >= 25:
+        verdict = "Risky Dip"
+        badge_color = "#FF6D00"
+        badge_bg    = "rgba(255,109,0,0.12)"
+        badge_border= "rgba(255,109,0,0.45)"
+    else:
+        verdict = "Falling Knife"
+        badge_color = "#FF1744"
+        badge_bg    = "rgba(255,23,68,0.12)"
+        badge_border= "rgba(255,23,68,0.45)"
+
+    return {
+        "total": total,
+        "scores": scores,
+        "details": details,
+        "verdict": verdict,
+        "badge_color":  badge_color,
+        "badge_bg":     badge_bg,
+        "badge_border": badge_border,
+        "moat_label":   moat_label,
+        "disruption_label": dis_label,
+        "moat_detail":  moat_info.get("moat_sources",""),
+        "disruption_detail": dis_info.get("detail",""),
+    }
+
+
+def _dq_pillar_dot(score, max_score, label):
+    """Return a green/yellow/red dot pill HTML for a pillar."""
+    pct = score / max_score if max_score else 0
+    if pct >= 0.65:   color = "#00C853"; bg = "rgba(0,200,83,0.15)"
+    elif pct >= 0.35: color = "#FFD600"; bg = "rgba(255,214,0,0.12)"
+    else:             color = "#FF1744"; bg = "rgba(255,23,68,0.12)"
+    return (
+        f'<span style="background:{bg}; color:{color}; border:1px solid {color}44; '
+        f'border-radius:20px; padding:2px 10px; font-size:11px; font-weight:600; '
+        f'white-space:nowrap;">{label} {score}/{max_score}</span>'
+    )
+
+
+def render_dip_finder_page(tickers, chart_title="Dip Finder"):
+    """
+    Supercharged Dip Finder:
+      • DQ Score (0-100) from 6 pillars
+      • Hero "Best Dip" card
+      • Card grid with mini signal dots
+      • Expanded detail with analyst target gauge, technicals,
+        moat badge, disruption risk badge, and AI blurb
+    """
+    if not tickers:
+        st.info("No tickers to display. Add some above.")
+        return
+
+    CARD_BG     = "#0D0D20"
+    BORDER      = "rgba(140,100,255,0.25)"
+    TEXT        = "#FFFFFF"
+    TEXT_DIM    = "rgba(255,255,255,0.6)"
+    PURPLE      = "#8C64FF"
+
+    # ── Fetch all data ──────────────────────────────────────────────────────
+    all_rows = []
+    with st.spinner(f"Crunching signals for {len(tickers)} stock(s)…"):
+        for tk in tickers:
+            try:
+                quote   = get_quote(tk) or {}
+                profile = get_profile(tk) or {}
+                ratios  = get_ratios_ttm(tk) or {}
+                rev_g   = get_revenue_growth(tk)
+                cons    = get_analyst_consensus(tk) or {}
+                pt_con  = get_price_target_consensus(tk) or {}
+                tech    = _get_technicals_for_dip(tk)
+
+                price     = quote.get("price", 0) or 0
+                year_high = quote.get("yearHigh", 0) or 0
+                year_low  = quote.get("yearLow", 0)  or 0
+                pct_high  = ((price - year_high) / year_high * 100) if year_high > 0 else None
+                name      = profile.get("companyName", tk)
+                sector    = profile.get("sector", "")
+
+                dq = _score_dip_quality(quote, profile, ratios, rev_g, cons, pt_con, tech)
+
+                all_rows.append({
+                    "ticker": tk.upper(),
+                    "name":   name,
+                    "price":  price,
+                    "year_high": year_high,
+                    "year_low":  year_low,
+                    "pct_high":  pct_high,
+                    "sector": sector,
+                    "quote":  quote,
+                    "profile": profile,
+                    "ratios": ratios,
+                    "rev_growth": rev_g,
+                    "consensus":  cons,
+                    "pt_consensus": pt_con,
+                    "tech":   tech,
+                    "dq":     dq,
+                })
+            except Exception:
+                continue
+
+    if not all_rows:
+        st.warning("Could not fetch data for any tickers. Check that they are valid.")
+        return
+
+    # Sort by DQ score descending
+    all_rows.sort(key=lambda r: r["dq"]["total"], reverse=True)
+
+    # ── Filters ─────────────────────────────────────────────────────────────
+    st.markdown("#### Filters")
+    fc1, fc2, fc3 = st.columns(3)
+    with fc1:
+        min_dq = st.slider("Min DQ Score", 0, 100, 0, 5, key=f"df_mindq_{chart_title}")
+    with fc2:
+        verdict_filter = st.multiselect(
+            "Verdict",
+            ["Strong Buy Dip", "Quality Dip", "Watch Zone", "Risky Dip", "Falling Knife"],
+            default=[],
+            key=f"df_verdict_{chart_title}",
+            placeholder="All verdicts",
+        )
+    with fc3:
+        max_rsi = st.slider("Max RSI (technicals)", 0, 100, 100, 5, key=f"df_rsi_{chart_title}")
+
+    filtered = []
+    for r in all_rows:
+        if r["dq"]["total"] < min_dq:
+            continue
+        if verdict_filter and r["dq"]["verdict"] not in verdict_filter:
+            continue
+        rsi_val = r["tech"].get("rsi")
+        if rsi_val is not None and rsi_val > max_rsi:
+            continue
+        filtered.append(r)
+
+    if not filtered:
+        st.info("No stocks match the current filters.")
+        return
+
+    # ── Hero card — Best Dip ─────────────────────────────────────────────────
+    best = filtered[0]
+    b    = best["dq"]
+    b_pt = best["pt_consensus"]
+    b_t  = best["tech"]
+    b_pct_high = best["pct_high"]
+    b_price    = best["price"]
+    b_pt_med   = b_pt.get("targetMedian") or b_pt.get("targetConsensus")
+    b_upside   = (b_pt_med - b_price) / b_price * 100 if b_pt_med and b_price > 0 else None
+
+    hero_upside_str = f"+{b_upside:.1f}% to PT" if b_upside is not None else ""
+    hero_dip_str    = f"{b_pct_high:+.1f}% from 52W high" if b_pct_high is not None else ""
+    hero_rsi_str    = f"RSI {b_t.get('rsi', 0):.0f}" if b_t.get("rsi") else ""
+
+    st.markdown(f"""
+    <div style="background:linear-gradient(135deg,{b['badge_bg']} 0%,{CARD_BG} 100%);
+                border:2px solid {b['badge_color']}; border-radius:18px;
+                padding:24px 28px; margin-bottom:20px; position:relative;">
+        <div style="font-size:11px; font-weight:700; letter-spacing:2px;
+                    color:{b['badge_color']}; margin-bottom:8px; text-transform:uppercase;">
+            ⭐ Best Dip Right Now
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+            <div>
+                <div style="font-size:28px; font-weight:800; color:{TEXT};">{best['ticker']}</div>
+                <div style="font-size:14px; color:{TEXT_DIM};">{best['name']}</div>
+                <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">
+                    <span style="background:{b['badge_bg']}; color:{b['badge_color']};
+                                 border:1px solid {b['badge_border']}; border-radius:20px;
+                                 padding:4px 14px; font-size:13px; font-weight:700;">
+                        {b['verdict']}
+                    </span>
+                    <span style="background:rgba(140,100,255,0.15); color:{PURPLE};
+                                 border:1px solid rgba(140,100,255,0.4); border-radius:20px;
+                                 padding:4px 14px; font-size:13px; font-weight:700;">
+                        DQ {b['total']}/100
+                    </span>
+                </div>
+            </div>
+            <div style="text-align:right;">
+                <div style="font-size:24px; font-weight:700; color:{TEXT};">${b_price:.2f}</div>
+                <div style="font-size:13px; color:#FF6B6B; font-weight:600;">{hero_dip_str}</div>
+                <div style="font-size:13px; color:#00C853; font-weight:600;">{hero_upside_str}</div>
+                <div style="font-size:12px; color:{TEXT_DIM}; margin-top:2px;">{hero_rsi_str}</div>
+            </div>
+        </div>
+        <div style="margin-top:16px; display:flex; gap:6px; flex-wrap:wrap;">
+            {_dq_pillar_dot(b['scores']['analyst_target'], 25, 'Analyst PT')}
+            {_dq_pillar_dot(b['scores']['valuation'], 25, 'Valuation')}
+            {_dq_pillar_dot(b['scores']['technicals'], 20, 'Technicals')}
+            {_dq_pillar_dot(b['scores']['momentum'], 15, 'Momentum')}
+            {_dq_pillar_dot(b['scores']['moat'], 10, 'Moat')}
+            {_dq_pillar_dot(b['scores']['disruption'], 5, 'Disruption')}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── Card grid ────────────────────────────────────────────────────────────
+    st.markdown(f"#### All Stocks ({len(filtered)} shown)")
+
+    # 2 columns of cards
+    cols = st.columns(2)
+    for idx, row in enumerate(filtered):
+        dq  = row["dq"]
+        col = cols[idx % 2]
+        with col:
+            pct_str = f"{row['pct_high']:+.1f}%" if row["pct_high"] is not None else "N/A"
+            pt_med = (row["pt_consensus"] or {}).get("targetMedian") or (row["pt_consensus"] or {}).get("targetConsensus")
+            upside = (pt_med - row["price"]) / row["price"] * 100 if pt_med and row["price"] > 0 else None
+            upside_str = f"+{upside:.1f}% PT" if upside is not None else "No PT"
+
+            moat_colors = {
+                "Wide":    ("#00C853", "rgba(0,200,83,0.15)"),
+                "Narrow":  ("#FFD600", "rgba(255,214,0,0.12)"),
+                "None":    ("#FF1744", "rgba(255,23,68,0.12)"),
+                "Unknown": ("#9E9E9E", "rgba(158,158,158,0.12)"),
+            }
+            mc, mb = moat_colors.get(dq["moat_label"], ("#9E9E9E", "rgba(158,158,158,0.12)"))
+
+            dis_colors = {
+                "Low":     ("#00C853", "rgba(0,200,83,0.15)"),
+                "Medium":  ("#FFD600", "rgba(255,214,0,0.12)"),
+                "High":    ("#FF1744", "rgba(255,23,68,0.12)"),
+                "Unknown": ("#9E9E9E", "rgba(158,158,158,0.12)"),
+            }
+            dc, db = dis_colors.get(dq["disruption_label"], ("#9E9E9E", "rgba(158,158,158,0.12)"))
+
+            rsi_val = row["tech"].get("rsi")
+            rsi_str = f"RSI {rsi_val:.0f}" if rsi_val is not None else ""
+
+            st.markdown(f"""
+            <div style="background:{CARD_BG}; border:1px solid {dq['badge_border']};
+                        border-radius:14px; padding:18px 20px; margin-bottom:12px;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <div>
+                        <div style="font-size:18px; font-weight:700; color:{TEXT};">{row['ticker']}</div>
+                        <div style="font-size:11px; color:{TEXT_DIM}; max-width:160px;
+                                    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                            {row['name']}
+                        </div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:16px; font-weight:700; color:{TEXT};">${row['price']:.2f}</div>
+                        <div style="font-size:11px; color:#FF6B6B;">{pct_str} from high</div>
+                        <div style="font-size:11px; color:#00C853;">{upside_str}</div>
+                    </div>
+                </div>
+                <div style="margin:10px 0 6px 0; display:flex; align-items:center; gap:10px;">
+                    <span style="background:{dq['badge_bg']}; color:{dq['badge_color']};
+                                 border:1px solid {dq['badge_border']}; border-radius:20px;
+                                 padding:3px 12px; font-size:12px; font-weight:700;">
+                        {dq['verdict']}
+                    </span>
+                    <span style="font-size:20px; font-weight:800; color:{dq['badge_color']};">
+                        {dq['total']}<span style="font-size:12px; color:{TEXT_DIM};">/100</span>
+                    </span>
+                </div>
+                <div style="display:flex; gap:5px; flex-wrap:wrap; margin-bottom:8px;">
+                    {_dq_pillar_dot(dq['scores']['analyst_target'], 25, 'PT')}
+                    {_dq_pillar_dot(dq['scores']['valuation'], 25, 'Val')}
+                    {_dq_pillar_dot(dq['scores']['technicals'], 20, 'Tech')}
+                    {_dq_pillar_dot(dq['scores']['momentum'], 15, 'Mom')}
+                    {_dq_pillar_dot(dq['scores']['moat'], 10, 'Moat')}
+                    {_dq_pillar_dot(dq['scores']['disruption'], 5, 'AI Risk')}
+                </div>
+                <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                    <span style="background:{mb}; color:{mc}; border:1px solid {mc}33;
+                                 border-radius:10px; padding:2px 8px; font-size:10px; font-weight:600;">
+                        {dq['moat_label']} Moat
+                    </span>
+                    <span style="background:{db}; color:{dc}; border:1px solid {dc}33;
+                                 border-radius:10px; padding:2px 8px; font-size:10px; font-weight:600;">
+                        AI Risk: {dq['disruption_label']}
+                    </span>
+                    <span style="background:rgba(140,100,255,0.1); color:{PURPLE};
+                                 border:1px solid rgba(140,100,255,0.3);
+                                 border-radius:10px; padding:2px 8px; font-size:10px;">
+                        {rsi_str}
+                    </span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    # ── Detail drill-down ─────────────────────────────────────────────────────
+    st.markdown("---")
+    st.markdown("#### Deep Dive")
+    ticker_opts = [r["ticker"] for r in filtered]
+    selected_tk = st.selectbox(
+        "Select a stock to inspect:",
+        options=ticker_opts,
+        key=f"df_detail_{chart_title}",
+    )
+
+    sel = next((r for r in filtered if r["ticker"] == selected_tk), None)
+    if not sel:
+        return
+
+    dq   = sel["dq"]
+    tech = sel["tech"]
+    pt   = sel["pt_consensus"] or {}
+    cons = sel["consensus"] or {}
+    rg   = sel["rev_growth"]
+    pct  = sel["pct_high"]
+
+    st.markdown(f"""
+    <div style="background:{CARD_BG}; border:1px solid {dq['badge_border']};
+                border-radius:16px; padding:24px 28px; margin-top:8px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+            <div>
+                <span style="font-size:22px; font-weight:800; color:{TEXT};">{sel['ticker']}</span>
+                <span style="font-size:14px; color:{TEXT_DIM}; margin-left:10px;">{sel['name']}</span>
+            </div>
+            <span style="background:{dq['badge_bg']}; color:{dq['badge_color']};
+                         border:1px solid {dq['badge_border']}; border-radius:20px;
+                         padding:6px 18px; font-size:15px; font-weight:700;">
+                DQ {dq['total']}/100 — {dq['verdict']}
+            </span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Pillar breakdown
+    st.markdown("##### Pillar Breakdown")
+    MAX_SCORES = {
+        "analyst_target": 25,
+        "valuation": 25,
+        "technicals": 20,
+        "momentum": 15,
+        "moat": 10,
+        "disruption": 5,
+    }
+    PILLAR_LABELS = {
+        "analyst_target": "Analyst Price Target",
+        "valuation": "Valuation (P/E, P/S)",
+        "technicals": "Technicals (RSI, MA, Bollinger)",
+        "momentum": "Momentum & Quality",
+        "moat": "Moat Strength",
+        "disruption": "AI / Disruption Risk",
+    }
+
+    pillar_fig = go.Figure()
+    pillar_names  = []
+    pillar_scores = []
+    pillar_maxes  = []
+    pillar_colors = []
+    pillar_details= []
+
+    for key in ["analyst_target", "valuation", "technicals", "momentum", "moat", "disruption"]:
+        sc  = dq["scores"][key]
+        mx  = MAX_SCORES[key]
+        pct_score = sc / mx
+        if pct_score >= 0.65:   clr = "#00C853"
+        elif pct_score >= 0.35: clr = "#FFD600"
+        else:                   clr = "#FF1744"
+        pillar_names.append(PILLAR_LABELS[key])
+        pillar_scores.append(sc)
+        pillar_maxes.append(mx)
+        pillar_colors.append(clr)
+        pillar_details.append(dq["details"][key])
+
+    # Horizontal bar chart — score vs max
+    fig_pillars = go.Figure()
+    # Background (max) bars
+    fig_pillars.add_trace(go.Bar(
+        y=pillar_names,
+        x=pillar_maxes,
+        orientation='h',
+        marker=dict(color='rgba(255,255,255,0.06)'),
+        showlegend=False,
+        hoverinfo='skip',
+    ))
+    # Score bars
+    fig_pillars.add_trace(go.Bar(
+        y=pillar_names,
+        x=pillar_scores,
+        orientation='h',
+        marker=dict(color=pillar_colors),
+        text=[f"{s}/{m}" for s, m in zip(pillar_scores, pillar_maxes)],
+        textposition='outside',
+        textfont=dict(size=12, color='#FFFFFF'),
+        customdata=pillar_details,
+        hovertemplate="<b>%{y}</b><br>Score: %{x}<br>%{customdata}<extra></extra>",
+        showlegend=False,
+    ))
+    fig_pillars.update_layout(
+        barmode='overlay',
+        height=300,
+        margin=dict(t=10, b=10, l=10, r=60),
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        xaxis=dict(visible=False),
+        yaxis=dict(
+            tickfont=dict(size=12, color='#FFFFFF', family='Inter,sans-serif'),
+            showgrid=False, showline=False,
+            autorange='reversed',
+        ),
+    )
+    st.plotly_chart(fig_pillars, use_container_width=True)
+
+    # Three-column deep stats
+    col_a, col_b, col_c = st.columns(3)
+
+    # Column A — Price & Analyst Target
+    with col_a:
+        st.markdown(f"**Price & Analyst Target**")
+        pt_med = pt.get("targetMedian") or pt.get("targetConsensus")
+        pt_high = pt.get("targetHigh")
+        pt_low  = pt.get("targetLow")
+        price   = sel["price"]
+        if pt_med and price > 0:
+            upside = (pt_med - price) / price * 100
+            st.markdown(f"""
+            <div style="background:{CARD_BG}; border:1px solid {BORDER};
+                        border-radius:12px; padding:16px;">
+                <div style="font-size:24px; font-weight:700; color:#FFF;">${price:.2f}</div>
+                <div style="font-size:11px; color:rgba(255,255,255,0.5); margin-bottom:12px;">Current Price</div>
+                <div style="display:flex; justify-content:space-between; font-size:12px; color:rgba(255,255,255,0.6);">
+                    <span>Bear PT</span><span>Median PT</span><span>Bull PT</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; font-size:13px; font-weight:600; color:#FFF; margin-top:2px;">
+                    <span>${f'{pt_low:.0f}' if pt_low else '—'}</span>
+                    <span style="color:#00C853;">${pt_med:.0f}</span>
+                    <span>${f'{pt_high:.0f}' if pt_high else '—'}</span>
+                </div>
+                <div style="margin-top:12px; font-size:16px; font-weight:700;
+                            color:{'#00C853' if upside > 0 else '#FF1744'};">
+                    {upside:+.1f}% upside to median PT
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.caption("No analyst price target available")
+
+    # Column B — Technicals
+    with col_b:
+        st.markdown("**Technicals**")
+        rsi_val = tech.get("rsi")
+        bb_pct  = tech.get("bb_pct")
+        above50  = tech.get("above_sma50")
+        above200 = tech.get("above_sma200")
+        sma50   = tech.get("sma50")
+        sma200  = tech.get("sma200")
+
+        rsi_color = "#00C853" if rsi_val and rsi_val < 35 else "#FF1744" if rsi_val and rsi_val > 70 else "#FFD600"
+        sma50_txt  = f"{'Above' if above50 else 'Below'} SMA50 (${sma50:.0f})"  if sma50 else "SMA50 N/A"
+        sma200_txt = f"{'Above' if above200 else 'Below'} SMA200 (${sma200:.0f})" if sma200 else "SMA200 N/A"
+        bb_txt     = f"Bollinger position: {bb_pct*100:.0f}th percentile" if bb_pct is not None else "BB N/A"
+
+        st.markdown(f"""
+        <div style="background:{CARD_BG}; border:1px solid {BORDER};
+                    border-radius:12px; padding:16px;">
+            <div style="font-size:30px; font-weight:800; color:{rsi_color}; margin-bottom:2px;">
+                {f'{rsi_val:.0f}' if rsi_val else '—'}
+            </div>
+            <div style="font-size:11px; color:rgba(255,255,255,0.5); margin-bottom:12px;">RSI (14)</div>
+            <div style="font-size:12px; color:rgba(255,255,255,0.7); line-height:1.8;">
+                {'🟢' if above50 else '🔴'} {sma50_txt}<br>
+                {'🟢' if above200 else '🔴'} {sma200_txt}<br>
+                📊 {bb_txt}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # Column C — Moat & Disruption
+    with col_c:
+        st.markdown("**Moat & AI Risk**")
+        moat_col = {"Wide":"#00C853","Narrow":"#FFD600","None":"#FF1744"}.get(dq["moat_label"], "#9E9E9E")
+        dis_col  = {"Low":"#00C853","Medium":"#FFD600","High":"#FF1744"}.get(dq["disruption_label"], "#9E9E9E")
+        st.markdown(f"""
+        <div style="background:{CARD_BG}; border:1px solid {BORDER};
+                    border-radius:12px; padding:16px;">
+            <div style="margin-bottom:14px;">
+                <div style="font-size:11px; color:rgba(255,255,255,0.5); margin-bottom:4px; font-weight:600; text-transform:uppercase; letter-spacing:1px;">Competitive Moat</div>
+                <div style="font-size:18px; font-weight:700; color:{moat_col};">{dq['moat_label']}</div>
+                <div style="font-size:11px; color:rgba(255,255,255,0.55); margin-top:3px; line-height:1.5;">{dq['moat_detail']}</div>
+            </div>
+            <div>
+                <div style="font-size:11px; color:rgba(255,255,255,0.5); margin-bottom:4px; font-weight:600; text-transform:uppercase; letter-spacing:1px;">AI / Disruption Risk</div>
+                <div style="font-size:18px; font-weight:700; color:{dis_col};">{dq['disruption_label']}</div>
+                <div style="font-size:11px; color:rgba(255,255,255,0.55); margin-top:3px; line-height:1.5;">{dq['disruption_detail']}</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # Analyst consensus bar
+    if cons and cons.get("total", 0) > 0:
+        st.markdown("**Analyst Sentiment**")
+        total  = cons["total"]
+        buy_n  = cons.get("strongBuy", 0) + cons.get("buy", 0)
+        hold_n = cons.get("hold", 0)
+        sell_n = cons.get("sell", 0) + cons.get("strongSell", 0)
+        buy_pct  = buy_n  / total * 100
+        hold_pct = hold_n / total * 100
+        sell_pct = sell_n / total * 100
+        cons_label = cons.get("consensus", "") or f"{buy_pct:.0f}% Buy"
+        st.caption(f"{total} analysts — {cons_label}")
+
+        cons_fig = go.Figure(go.Bar(
+            x=[buy_pct, hold_pct, sell_pct],
+            y=[''],
+            orientation='h',
+            marker=dict(color=['#00FF96', '#FFD700', '#FF6B6B']),
+            text=[f"Buy {buy_pct:.0f}%", f"Hold {hold_pct:.0f}%", f"Sell {sell_pct:.0f}%"],
+            textposition='inside',
+            textfont=dict(size=12, color='#000000', family='Inter,sans-serif'),
+        ))
+        cons_fig.update_layout(
+            barmode='stack', height=52,
+            margin=dict(t=0, b=0, l=0, r=0),
+            plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
+            xaxis=dict(visible=False), yaxis=dict(visible=False),
+            showlegend=False,
+        )
+        st.plotly_chart(cons_fig, use_container_width=True)
+
+    # Revenue growth & valuation detail
+    val_col1, val_col2 = st.columns(2)
+    with val_col1:
+        if rg is not None:
+            rg_color = "#00C853" if rg > 15 else "#FFD600" if rg > 0 else "#FF1744"
+            st.markdown(f"""
+            <div style="background:{CARD_BG}; border:1px solid {BORDER};
+                        border-radius:10px; padding:14px; margin-top:8px;">
+                <div style="font-size:10px; color:rgba(255,255,255,0.5); font-weight:600;
+                            text-transform:uppercase; letter-spacing:1px;">Revenue Growth YoY</div>
+                <div style="font-size:24px; font-weight:700; color:{rg_color}; margin-top:4px;">{rg:+.1f}%</div>
+            </div>
+            """, unsafe_allow_html=True)
+    with val_col2:
+        pe_raw = sel["quote"].get("pe")
+        pe_v   = float(pe_raw) if pe_raw else None
+        ps_raw = sel["ratios"].get("priceToSalesRatioTTM") or sel["ratios"].get("priceSalesRatioTTM")
+        ps_v   = float(ps_raw) if ps_raw else None
+        if pe_v or ps_v:
+            st.markdown(f"""
+            <div style="background:{CARD_BG}; border:1px solid {BORDER};
+                        border-radius:10px; padding:14px; margin-top:8px;">
+                <div style="font-size:10px; color:rgba(255,255,255,0.5); font-weight:600;
+                            text-transform:uppercase; letter-spacing:1px;">Valuation</div>
+                <div style="margin-top:6px; font-size:13px; color:#FFF; line-height:1.8;">
+                    {f'P/E: <b>{pe_v:.1f}x</b>' if pe_v else ''}{'<br>' if pe_v and ps_v else ''}
+                    {f'P/S: <b>{ps_v:.1f}x</b>' if ps_v else ''}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    # AI Why-it-dipped blurb
+    if PERPLEXITY_API_KEY and st.button(
+        f"🤖 Why did {selected_tk} dip? Get AI context",
+        key=f"df_ai_{chart_title}_{selected_tk}",
+        type="secondary",
+    ):
+        with st.spinner("Asking AI…"):
+            try:
+                headers = {
+                    "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
+                    "Content-Type": "application/json",
+                }
+                payload = {
+                    "model": "sonar",
+                    "messages": [{
+                        "role": "user",
+                        "content": (
+                            f"In 2-3 sentences, explain why {sel['name']} ({selected_tk}) "
+                            f"has pulled back recently. Is this a fundamental issue or a "
+                            f"macro/sentiment dip? End with one sentence on whether analysts "
+                            f"still see upside. Be direct and data-driven."
+                        ),
+                    }],
+                    "max_tokens": 200,
+                }
+                resp = requests.post(
+                    "https://api.perplexity.ai/chat/completions",
+                    headers=headers,
+                    json=payload,
+                    timeout=20,
+                )
+                if resp.status_code == 200:
+                    blurb = resp.json()["choices"][0]["message"]["content"]
+                    st.markdown(f"""
+                    <div style="background:rgba(140,100,255,0.08); border:1px solid rgba(140,100,255,0.3);
+                                border-radius:12px; padding:16px 20px; margin-top:12px;">
+                        <div style="font-size:11px; font-weight:700; color:{PURPLE}; margin-bottom:8px;
+                                    text-transform:uppercase; letter-spacing:1px;">🤖 AI Context</div>
+                        <div style="font-size:13px; color:rgba(255,255,255,0.85); line-height:1.6;">
+                            {blurb}
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+            except Exception:
+                st.caption("AI context unavailable right now.")
 @st.cache_data(ttl=86400)
 def get_company_logo(ticker):
     """Get company logo URL from multiple sources with fallbacks"""
@@ -22697,13 +23403,12 @@ elif selected_page == "📡 Dip Radar":
 
     st.markdown("""
     <div class="hero-container-simple">
-        <div style="font-size:22px; font-weight:700; color:#1a1a1a !important;">📡 Dip Radar</div>
+        <div style="font-size:22px; font-weight:700; color:#1a1a1a !important;">📡 Dip Finder</div>
         <div style="font-size:13px; color:rgba(26,26,26,0.7) !important; margin-top:4px;">
-            Stocks ranked by how far they've dipped from their 52-week high
+            Quality dips ranked by a 6-pillar DQ Score — valuation, analyst targets, technicals, moat, AI disruption risk &amp; momentum
         </div>
     </div>
     """, unsafe_allow_html=True)
-    st.caption("*Auto-loads from your paper portfolio. Add stocks in 💼 Paper Portfolio first.*")
 
     # ── Initialize watchlist in session state ──
     if "dip_radar_watchlist" not in st.session_state:
@@ -22722,7 +23427,7 @@ elif selected_page == "📡 Dip Radar":
 
     if _dr_portfolio_tickers:
         st.markdown("#### 📂 My Portfolio")
-        render_dip_radar(_dr_portfolio_tickers, chart_title="My Portfolio")
+        render_dip_finder_page(_dr_portfolio_tickers, chart_title="My Portfolio")
         st.markdown("---")
 
     # ── Add stocks section ──
@@ -22779,7 +23484,7 @@ elif selected_page == "📡 Dip Radar":
             st.session_state.dip_radar_watchlist.remove(_dr_to_remove)
             st.rerun()
 
-        render_dip_radar(st.session_state.dip_radar_watchlist, chart_title="Custom Watchlist")
+        render_dip_finder_page(st.session_state.dip_radar_watchlist, chart_title="Custom Watchlist")
 
         # Clear all button
         if st.button("🗑️ Clear Watchlist", key="dip_radar_clear_all"):
@@ -22787,7 +23492,7 @@ elif selected_page == "📡 Dip Radar":
             st.rerun()
 
     if not _dr_portfolio_tickers and not st.session_state.dip_radar_watchlist and not _dr_bulk:
-        st.info("Add stocks above to see them ranked by dip from their 52-week high.")
+        st.info("Add stocks above to see their DQ Score and dip quality analysis.")
 
     # ── Save prompt for non-logged-in users ──
     if not st.session_state.get("is_logged_in") and st.session_state.dip_radar_watchlist:
@@ -22806,8 +23511,7 @@ elif selected_page == "📡 Dip Radar":
             st.rerun()
 
     st.markdown("---")
-    st.caption("*Data from FMP API. Educational purposes only. Not financial advice.*")
-
+    st.caption("*DQ Score powered by FMP API, yfinance, and Perplexity AI. Educational purposes only. Not financial advice.*")
 
 elif selected_page == "👑 Ultimate":
 
