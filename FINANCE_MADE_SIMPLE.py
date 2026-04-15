@@ -8277,7 +8277,7 @@ TOUR_PAGES = [
         "title": "📊 Company Analysis",
         "icon": "📊",
         "subtitle": "Deep dive any stock",
-        "description": "All 3 financial statements (cash flow, income, balance sheet) with interactive metric selectors. Compare two companies side by side with separate charts and CAGR. Toggle annual or quarterly. Wall Street price targets included.",
+        "description": "Full financials (revenue, earnings, cash flow), interactive charts vs S&P 500, AI explanations of complex metrics, and Wall Street price targets.",
         "nav_page": "📊 Company Analysis"
     },
     {
@@ -8290,57 +8290,64 @@ TOUR_PAGES = [
     {
         "title": "📈 Financial Health",
         "icon": "📈",
-        "subtitle": "Ratio analysis & comparison",
-        "description": "Bar charts of key ratios (margins, ROE, P/E, debt) over time with S&P 500 benchmarks. Compare two tickers side by side — same metrics, same chart.",
+        "subtitle": "Compare & evaluate stocks",
+        "description": "Check a company's financial health scores and compare two stocks side by side — metrics, chart overlay, and winner highlights.",
         "nav_page": "📈 Financial Health"
     },
     {
         "title": "📰 Market Intelligence",
         "icon": "📰",
         "subtitle": "Stay informed",
-        "description": "VIX fear gauge, this week's earnings calendar, AI-powered news summaries, and a News ↔ Price Explainer to see what moved any stock.",
+        "description": "VIX fear gauge, this week's earnings calendar, stock-specific news, and market-moving alerts — all in one place.",
         "nav_page": "📰 Market Intelligence"
+    },
+    {
+        "title": "📊 Market Overview",
+        "icon": "📊",
+        "subtitle": "Bird's-eye view of the market",
+        "description": "See how major indices, sectors, and asset classes are performing. Quick snapshot of what's moving today.",
+        "nav_page": "📊 Market Overview"
+    },
+    {
+        "title": "🤖 AI Stock Screener",
+        "icon": "🤖",
+        "subtitle": "Ask anything about stocks",
+        "description": "Ask any stock question in plain English — 'Is NVDA overvalued?' 'Compare AAPL vs MSFT' — and our AI agent pulls financials, ratios, news & analyst targets to deliver a full research report.",
+        "nav_page": "🔍 AI Stock Screener"
     },
     {
         "title": "📡 Dip Radar",
         "icon": "📡",
         "subtitle": "Find dipped stocks",
-        "description": "Stocks ranked by % below their 52-week high. Add tickers one by one or bulk-paste. Auto-loads from your paper portfolio. Detail panel shows P/E, revenue growth, analyst consensus.",
+        "description": "Stocks ranked by how far they've dipped from their 52-week high. Auto-loads from your paper portfolio or paste tickers manually. Detail panel shows P/E, revenue growth, analyst consensus, and valuation label.",
         "nav_page": "📡 Dip Radar"
-    },
-    {
-        "title": "💡 Trade Ideas",
-        "icon": "💡",
-        "subtitle": "AI-generated setups",
-        "description": "Enter any ticker and get a full trade setup: entry zone, stop loss, take profit targets, risk/reward, catalyst, and conviction rating. Powered by Perplexity AI.",
-        "nav_page": "💡 Trade Ideas"
     },
     {
         "title": "👑 Ultimate",
         "icon": "👑",
-        "subtitle": "Premium AI analysis",
-        "description": "Technical analysis with candlestick charts, SMA/RSI, pattern detection, AI deep dives, bull/bear scenarios. All premium features in one place.",
+        "subtitle": "Ultimate tier feature",
+        "description": "Upload brokerage screenshots for AI analysis, get diversification scores, match your risk profile, and receive personalized suggestions. Requires Ultimate.",
         "nav_page": "👑 Ultimate"
     },
     {
         "title": "💼 Paper Portfolio",
         "icon": "💼",
         "subtitle": "Practice risk-free",
-        "description": "$100K fake money to paper trade. Track your returns, benchmark vs SPY, stress test against historical crashes, and peek at the founder's real portfolio.",
+        "description": "$100K fake money to paper trade. Track your returns, benchmark vs SPY, and peek at the founder's real portfolio.",
         "nav_page": "💼 Paper Portfolio"
     },
     {
         "title": "⚙️ Settings & Sidebar",
         "icon": "⚙️",
         "subtitle": "Left panel controls",
-        "description": "Sign in/up to sync across devices. Use the timeline slider (1-30Y) to control chart history. Toggle Annual/Quarterly data. Toggle Unhinged Mode for fun roast commentary (18+).",
+        "description": "Sign in/up to sync across devices. Use the timeline slider (1-30Y) to control chart history. Toggle Unhinged Mode for fun roast commentary (18+).",
         "nav_page": None
     },
     {
-        "title": "👑 Become a VIP",
+        "title": "👑 VIP Tiers",
         "icon": "👑",
-        "subtitle": "First month free!",
-        "description": "Free tier covers basics. Ultimate ($10/mo, first month free) unlocks everything: Technical Analysis, AI Trade Ideas, Dip Radar, AI Deep Dives, full Financial Health, unlimited paper portfolio, and priority support.",
+        "subtitle": "Free month for new users!",
+        "description": "Free → 3 saved stocks, basic analysis. Pro ($5/mo) → 25 saved stocks, advanced charts, AI insights. Ultimate ($10/mo) → unlimited saved stocks + priority support. First month free for new subscribers!",
         "nav_page": "👑 Become a VIP"
     }
 ]
@@ -9561,6 +9568,18 @@ else:
     # Don't show warning - app works without authentication
 
 # ============= USER PROGRESS PERSISTENCE =============
+
+@st.cache_data(ttl=300)  # Cache for 5 min so it's not hitting DB on every rerun
+def fetch_trade_ideas_from_db():
+    """Fetch active trade ideas from Supabase trade_ideas table."""
+    if not SUPABASE_ENABLED:
+        return []
+    try:
+        result = supabase.table("trade_ideas").select("*").eq("is_active", True).order("sort_order").execute()
+        return result.data if result.data else []
+    except Exception:
+        return []
+
 def save_user_progress():
     """Save user progress to Supabase user_state table"""
     if not SUPABASE_ENABLED:
@@ -19821,29 +19840,43 @@ elif selected_page == "📊 Company Analysis":
     
     st.markdown("---")
     
+    # ── Compare with another ticker ──
+    _ca_compare_input = st.text_input(
+        "📊 Compare with another company (optional):",
+        value="",
+        placeholder="e.g. MSFT, Google, Meta, etc.",
+        help="Add a second ticker to overlay on all financial statement charts",
+        key="ca_compare_ticker"
+    )
+    
+    _ca_ticker2 = None
+    _ca_name2 = None
+    if _ca_compare_input and _ca_compare_input.strip():
+        _ca_ticker2, _ca_name2 = smart_search_ticker(_ca_compare_input.strip())
+        if _ca_ticker2 and _ca_ticker2 != ticker:
+            _ca_profile2 = get_profile(_ca_ticker2)
+            if _ca_profile2:
+                _ca_name2 = _ca_profile2.get('companyName', _ca_ticker2)
+            st.success(f"Comparing with **{_ca_name2}** ({_ca_ticker2})")
+        else:
+            _ca_ticker2 = None
+    
     # Show data source indicator
     show_data_source(source="Financial Modeling Prep API", updated_at=datetime.now())
     
-    # Read sidebar settings BEFORE data loading
-    with st.sidebar:
-        years = st.session_state.get('years_of_history', 5)
-        period = st.session_state.get('global_period', 'annual')
-        view = "🌟 The Big Picture"  # Default view
+    income_df = get_income_statement(ticker, 'annual', 5)
+    cash_df = get_cash_flow(ticker, 'annual', 5)
+    balance_df = get_balance_sheet(ticker, 'annual', 5)
+    ratios_df = get_financial_ratios(ticker, 'annual', 5)
     
-    _ca_period_type = 'quarter' if period == 'quarterly' else period
-    _ca_limit = years * 4 if _ca_period_type == 'quarter' else years
-    
-    income_df = get_income_statement(ticker, _ca_period_type, _ca_limit)
-    cash_df = get_cash_flow(ticker, _ca_period_type, _ca_limit)
-    balance_df = get_balance_sheet(ticker, _ca_period_type, _ca_limit)
-    ratios_df = get_financial_ratios(ticker, _ca_period_type, _ca_limit)
-    
-    # ── Compare with another ticker (initialized here, shown later) ──
-    _ca_ticker2 = None
-    _ca_name2 = None
+    # Load second ticker data if comparing
     _ca_income2 = pd.DataFrame()
     _ca_cash2 = pd.DataFrame()
     _ca_balance2 = pd.DataFrame()
+    if _ca_ticker2:
+        _ca_income2 = get_income_statement(_ca_ticker2, 'annual', 5)
+        _ca_cash2 = get_cash_flow(_ca_ticker2, 'annual', 5)
+        _ca_balance2 = get_balance_sheet(_ca_ticker2, 'annual', 5)
     
     fcf_cagr = None
     if cash_df is not None and not cash_df.empty and 'freeCashFlow' in cash_df.columns:
@@ -19856,6 +19889,12 @@ elif selected_page == "📊 Company Analysis":
                 if years_count > 0:
                     fcf_cagr = calculate_cagr(start_fcf, end_fcf, years_count)
     
+    with st.sidebar:
+        # Use global settings - no duplicate controls needed
+        years = st.session_state.get('years_of_history', 5)
+        period = st.session_state.get('global_period', 'annual')
+        view = "🌟 The Big Picture"  # Default view
+
 
     quote = get_quote(ticker)
     ratios_ttm = get_ratios_ttm(ticker)
@@ -20277,39 +20316,13 @@ elif selected_page == "📊 Company Analysis":
     
     if view == "🌟 The Big Picture":
         
-        income_df = get_income_statement(ticker, _ca_period_type, _ca_limit)
-        cash_df = get_cash_flow(ticker, _ca_period_type, _ca_limit)
-        balance_df = get_balance_sheet(ticker, _ca_period_type, _ca_limit)
+        income_df = get_income_statement(ticker, 'annual', years)
+        cash_df = get_cash_flow(ticker, 'annual', years)
+        balance_df = get_balance_sheet(ticker, 'annual', years)
         
         # Stock chart is already shown above - removed duplicate here
         
-        # ── Compare input right above financials ──
-        _ca_compare_input = st.text_input(
-            "📊 Compare with another company (optional):",
-            value="",
-            placeholder="e.g. MSFT, Google, Meta, etc.",
-            help="Add a second ticker to see side-by-side charts for all 3 financial statements",
-            key="ca_compare_ticker"
-        )
-        if _ca_compare_input and _ca_compare_input.strip():
-            _ca_ticker2, _ca_name2 = smart_search_ticker(_ca_compare_input.strip())
-            if _ca_ticker2 and _ca_ticker2 != ticker:
-                _ca_profile2 = get_profile(_ca_ticker2)
-                if _ca_profile2:
-                    _ca_name2 = _ca_profile2.get('companyName', _ca_ticker2)
-                st.success(f"Comparing with **{_ca_name2}** ({_ca_ticker2})")
-                _ca_income2 = get_income_statement(_ca_ticker2, _ca_period_type, _ca_limit)
-                _ca_cash2 = get_cash_flow(_ca_ticker2, _ca_period_type, _ca_limit)
-                _ca_balance2 = get_balance_sheet(_ca_ticker2, _ca_period_type, _ca_limit)
-            else:
-                _ca_ticker2 = None
-        
-        st.markdown("---")
-        
-        # ═══════════════════════════════════════════════════
-        # CASH FLOW STATEMENT
-        # ═══════════════════════════════════════════════════
-        st.markdown(f"### 💵 Cash Flow Statement")
+        st.markdown(f"### 💵 {company_name} - Cash Flow Statement")
         show_why_it_matters('fcfAfterSBC')
         show_why_these_metrics("financial_statements")
         
@@ -20351,57 +20364,61 @@ elif selected_page == "📊 Company Analysis":
                     metric3 = next(col for display, col in available_metrics if display == metric3_display)
                 
                 metrics_to_plot = [metric1, metric2, metric3]
+                
+                # Show what these metrics mean - try both display name and API column name
+                with st.expander("📚 What do these metrics mean?", expanded=False):
+                    for metric_display, metric_col in zip([metric1_display, metric2_display, metric3_display], metrics_to_plot):
+                        # Try display name first, then API column name
+                        explanation = get_metric_explanation(metric_display)
+                        if not explanation:
+                            explanation = get_metric_explanation(metric_col)
+                        if explanation:
+                            st.markdown(f"""**{metric_display}**  
+                📊 *What it is:* {explanation["simple"]}  
+                💡 *Why it matters:* {explanation["why"]}""")
+                            st.markdown("---")
+                        else:
+                            # Provide a generic explanation if none found
+                            st.markdown(f"""**{metric_display}**  
+                📊 *What it is:* Financial metric from company reports  
+                💡 *Why it matters:* Track this over time to spot trends""")
+                            st.markdown("---")
+                
+                metric_names = [metric1_display, metric2_display, metric3_display]
                 metric_names = [metric1_display, metric2_display, metric3_display]
                 
-                with st.expander("📚 What do these metrics mean?", expanded=False):
-                    for metric_display, metric_col in zip(metric_names, metrics_to_plot):
-                        explanation = get_metric_explanation(metric_display) or get_metric_explanation(metric_col)
-                        if explanation:
-                            st.markdown(f"**{metric_display}**\n📊 *What it is:* {explanation['simple']}\n💡 *Why it matters:* {explanation['why']}")
-                        else:
-                            st.markdown(f"**{metric_display}**\n📊 *What it is:* Financial metric from company reports\n💡 *Why it matters:* Track this over time to spot trends")
-                        st.markdown("---")
+                # Prepare data for chart
+                plot_df = cash_df[["date"] + metrics_to_plot].copy()
                 
-                # ── Side-by-side charts ──
-                if _ca_ticker2 and not _ca_cash2.empty:
-                    if 'stockBasedCompensation' in _ca_cash2.columns and 'freeCashFlow' in _ca_cash2.columns:
-                        _ca_cash2 = _ca_cash2.copy()
-                        _ca_cash2['fcfAfterSBC'] = _ca_cash2['freeCashFlow'] - abs(_ca_cash2['stockBasedCompensation'])
-                    
-                    _cf_col_l, _cf_col_r = st.columns(2)
-                    with _cf_col_l:
-                        plot_df = cash_df[["date"] + [m for m in metrics_to_plot if m in cash_df.columns]].copy()
-                        fig1, gr1, _ = create_financial_chart_with_growth(plot_df, metrics_to_plot, f"{company_name} - Cash Flow", "Period", "Amount ($)", period_type=_ca_period_type)
-                        if fig1:
-                            st.plotly_chart(fig1, use_container_width=True)
-                            if gr1:
-                                for mc, cagr in gr1.items():
-                                    mn = metric_names[metrics_to_plot.index(mc)] if mc in metrics_to_plot else mc
-                                    emoji = "🚀" if cagr > 10 else "📈" if cagr > 0 else "📉"
-                                    st.markdown(f"{emoji} **{mn}:** {cagr:+.1f}%/yr")
-                    with _cf_col_r:
-                        plot_df2 = _ca_cash2[["date"] + [m for m in metrics_to_plot if m in _ca_cash2.columns]].copy()
-                        fig2, gr2, _ = create_financial_chart_with_growth(plot_df2, metrics_to_plot, f"{_ca_name2} - Cash Flow", "Period", "Amount ($)", period_type=_ca_period_type)
-                        if fig2:
-                            st.plotly_chart(fig2, use_container_width=True)
-                            if gr2:
-                                for mc, cagr in gr2.items():
-                                    mn = metric_names[metrics_to_plot.index(mc)] if mc in metrics_to_plot else mc
-                                    emoji = "🚀" if cagr > 10 else "📈" if cagr > 0 else "📉"
-                                    st.markdown(f"{emoji} **{mn}:** {cagr:+.1f}%/yr")
-                else:
-                    plot_df = cash_df[["date"] + metrics_to_plot].copy()
-                    fig, growth_rates, cagr_years = create_financial_chart_with_growth(plot_df, metrics_to_plot, f"{company_name} - Cash Flow", "Period", "Amount ($)", period_type=_ca_period_type)
-                    if fig:
-                        st.plotly_chart(fig, use_container_width=True)
-                        if growth_rates:
-                            growth_text = f"**{years}-Year CAGR** *(Compound Annual Growth Rate — annualized % per year)*\n\n"
-                            for idx, (metric_col, cagr) in enumerate(growth_rates.items()):
-                                metric_name = metric_names[metrics_to_plot.index(metric_col)]
-                                emoji = "🚀" if cagr > 10 else "📈" if cagr > 0 else "📉"
-                                growth_text += f"{emoji} **{metric_name}:** {cagr:+.1f}%/yr\n\n"
-                            st.markdown(f'<div class="growth-note">{growth_text}</div>', unsafe_allow_html=True)
-                            st.caption("ℹ️ CAGR = the steady annual growth rate that would take the first year's value to the last year's value. Unlike total % change, it accounts for how many years passed.")
+                # Create chart with y-axis padding and growth rates
+                fig, growth_rates, cagr_years = create_financial_chart_with_growth(
+                    plot_df,
+                    metrics_to_plot,
+                    f"{company_name} - Cash Flow",
+                    "Period",
+                    "Amount ($)",
+                    period_type='annual'
+                )
+
+                if fig:
+                    # Overlay second ticker if comparing
+                    if _ca_ticker2 and not _ca_cash2.empty:
+                        if 'stockBasedCompensation' in _ca_cash2.columns and 'freeCashFlow' in _ca_cash2.columns:
+                            _ca_cash2 = _ca_cash2.copy()
+                            _ca_cash2['fcfAfterSBC'] = _ca_cash2['freeCashFlow'] - abs(_ca_cash2['stockBasedCompensation'])
+                        fig = overlay_second_ticker_on_chart(fig, _ca_cash2, metrics_to_plot, metric_names, _ca_name2, period_type='annual')
+                    st.plotly_chart(fig, use_container_width=True)
+
+                    # Display CAGR summary
+                    if growth_rates:
+                        growth_text = f"**{years}-Year CAGR** *(Compound Annual Growth Rate — annualized % per year)*\n\n"
+                        for idx, (metric_col, cagr) in enumerate(growth_rates.items()):
+                            metric_name = metric_names[metrics_to_plot.index(metric_col)]
+                            emoji = "🚀" if cagr > 10 else "📈" if cagr > 0 else "📉"
+                            growth_text += f"{emoji} **{metric_name}:** {cagr:+.1f}%/yr\n\n"
+
+                        st.markdown(f'<div class="growth-note">{growth_text}</div>', unsafe_allow_html=True)
+                        st.caption("ℹ️ CAGR = the steady annual growth rate that would take the first year's value to the last year's value. Unlike total % change, it accounts for how many years passed.")
 
                 cols = st.columns(len(metrics_to_plot))
                 for i, (metric, name) in enumerate(zip(metrics_to_plot, metric_names)):
@@ -20413,10 +20430,7 @@ elif selected_page == "📊 Company Analysis":
         
         st.markdown("---")
         
-        # ═══════════════════════════════════════════════════
-        # INCOME STATEMENT
-        # ═══════════════════════════════════════════════════
-        st.markdown(f"### 💰 Income Statement")
+        st.markdown(f"### 💰 {company_name} - Income Statement")
         show_why_it_matters('revenue')
         
         if not income_df.empty:
@@ -20427,76 +20441,94 @@ elif selected_page == "📊 Company Analysis":
                 col1, col2, col3 = st.columns(3)
                 
                 with col1:
-                    metric1_display = st.selectbox("Metric 1:", options=[d for d, _ in available_metrics], index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Revenue'), 0), key="income_metric1")
-                    metric1 = next(col for d, col in available_metrics if d == metric1_display)
+                    metric1_display = st.selectbox(
+                        "Metric 1:",
+                        options=[display for display, _ in available_metrics],
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Revenue'), 0),
+                        key="income_metric1"
+                    )
+                    metric1 = next(col for display, col in available_metrics if display == metric1_display)
+                
                 with col2:
-                    metric2_display = st.selectbox("Metric 2:", options=[d for d, _ in available_metrics], index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Operating Income'), min(1, len(available_metrics)-1)), key="income_metric2")
-                    metric2 = next(col for d, col in available_metrics if d == metric2_display)
+                    metric2_display = st.selectbox(
+                        "Metric 2:",
+                        options=[display for display, _ in available_metrics],
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Operating Income'), min(1, len(available_metrics)-1)),
+                        key="income_metric2"
+                    )
+                    metric2 = next(col for display, col in available_metrics if display == metric2_display)
+                
                 with col3:
-                    metric3_display = st.selectbox("Metric 3:", options=[d for d, _ in available_metrics], index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Net Income'), min(2, len(available_metrics)-1)), key="income_metric3")
-                    metric3 = next(col for d, col in available_metrics if d == metric3_display)
+                    metric3_display = st.selectbox(
+                        "Metric 3:",
+                        options=[display for display, _ in available_metrics],
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Net Income'), min(2, len(available_metrics)-1)),
+                        key="income_metric3"
+                    )
+                    metric3 = next(col for display, col in available_metrics if display == metric3_display)
                 
                 metrics_to_plot = [metric1, metric2, metric3]
+                
+                # Show what these metrics mean - try both display name and API column name
+                with st.expander("📚 What do these metrics mean?", expanded=False):
+                    for metric_display, metric_col in zip([metric1_display, metric2_display, metric3_display], metrics_to_plot):
+                        # Try display name first, then API column name
+                        explanation = get_metric_explanation(metric_display)
+                        if not explanation:
+                            explanation = get_metric_explanation(metric_col)
+                        if explanation:
+                            st.markdown(f"""**{metric_display}**  
+                📊 *What it is:* {explanation["simple"]}  
+                💡 *Why it matters:* {explanation["why"]}""")
+                            st.markdown("---")
+                        else:
+                            # Provide a generic explanation if none found
+                            st.markdown(f"""**{metric_display}**  
+                📊 *What it is:* Financial metric from company reports  
+                💡 *Why it matters:* Track this over time to spot trends""")
+                            st.markdown("---")
+                
                 metric_names = [metric1_display, metric2_display, metric3_display]
                 
-                with st.expander("📚 What do these metrics mean?", expanded=False):
-                    for md, mc in zip(metric_names, metrics_to_plot):
-                        exp = get_metric_explanation(md) or get_metric_explanation(mc)
-                        if exp:
-                            st.markdown(f"**{md}**\n📊 *What it is:* {exp['simple']}\n💡 *Why it matters:* {exp['why']}")
-                        else:
-                            st.markdown(f"**{md}**\n📊 Financial metric\n💡 Track over time to spot trends")
-                        st.markdown("---")
+                plot_df = income_df[["date"] + metrics_to_plot].copy()
                 
-                if _ca_ticker2 and not _ca_income2.empty:
-                    _is_col_l, _is_col_r = st.columns(2)
-                    with _is_col_l:
-                        plot_df = income_df[["date"] + [m for m in metrics_to_plot if m in income_df.columns]].copy()
-                        fig1, gr1, _ = create_financial_chart_with_growth(plot_df, metrics_to_plot, f"{company_name} - Income", "Period", "Amount ($)", period_type=_ca_period_type)
-                        if fig1:
-                            st.plotly_chart(fig1, use_container_width=True)
-                            if gr1:
-                                for mc, cagr in gr1.items():
-                                    mn = metric_names[metrics_to_plot.index(mc)] if mc in metrics_to_plot else mc
-                                    emoji = "🚀" if cagr > 10 else "📈" if cagr > 0 else "📉"
-                                    st.markdown(f"{emoji} **{mn}:** {cagr:+.1f}%/yr")
-                    with _is_col_r:
-                        plot_df2 = _ca_income2[["date"] + [m for m in metrics_to_plot if m in _ca_income2.columns]].copy()
-                        fig2, gr2, _ = create_financial_chart_with_growth(plot_df2, metrics_to_plot, f"{_ca_name2} - Income", "Period", "Amount ($)", period_type=_ca_period_type)
-                        if fig2:
-                            st.plotly_chart(fig2, use_container_width=True)
-                            if gr2:
-                                for mc, cagr in gr2.items():
-                                    mn = metric_names[metrics_to_plot.index(mc)] if mc in metrics_to_plot else mc
-                                    emoji = "🚀" if cagr > 10 else "📈" if cagr > 0 else "📉"
-                                    st.markdown(f"{emoji} **{mn}:** {cagr:+.1f}%/yr")
-                else:
-                    plot_df = income_df[["date"] + metrics_to_plot].copy()
-                    fig, growth_rates, cagr_years = create_financial_chart_with_growth(plot_df, metrics_to_plot, f"{company_name} - Income Statement", "Period", "Amount ($)", period_type=_ca_period_type)
-                    if fig:
-                        st.plotly_chart(fig, use_container_width=True)
-                        if growth_rates:
-                            growth_text = f"**{years}-Year CAGR** *(Compound Annual Growth Rate — annualized % per year)*\n\n"
-                            for idx, (metric_col, cagr) in enumerate(growth_rates.items()):
-                                metric_name = metric_names[metrics_to_plot.index(metric_col)]
-                                emoji = "🚀" if cagr > 10 else "📈" if cagr > 0 else "📉"
-                                growth_text += f"{emoji} **{metric_name}:** {cagr:+.1f}%/yr\n\n"
-                            st.markdown(f'<div class="growth-note">{growth_text}</div>', unsafe_allow_html=True)
-                            st.caption("ℹ️ CAGR = the steady annual growth rate that would take the first year's value to the last year's value.")
+                fig, growth_rates, cagr_years = create_financial_chart_with_growth(
+                    plot_df,
+                    metrics_to_plot,
+                    f"{company_name} - Income Statement",
+                    "Period",
+                    "Amount ($)",
+                    period_type='annual'
+                )
 
-                cols = st.columns(len(metrics_to_plot))
+                if fig:
+                    if _ca_ticker2 and not _ca_income2.empty:
+                        fig = overlay_second_ticker_on_chart(fig, _ca_income2, metrics_to_plot, metric_names, _ca_name2, period_type='annual')
+                    st.plotly_chart(fig, use_container_width=True)
+
+                    # Display CAGR summary
+                    if growth_rates:
+                        growth_text = f"**{years}-Year CAGR** *(Compound Annual Growth Rate — annualized % per year)*\n\n"
+                        for idx, (metric_col, cagr) in enumerate(growth_rates.items()):
+                            metric_name = metric_names[metrics_to_plot.index(metric_col)]
+                            emoji = "🚀" if cagr > 10 else "📈" if cagr > 0 else "📉"
+                            growth_text += f"{emoji} **{metric_name}:** {cagr:+.1f}%/yr\n\n"
+
+                        st.markdown(f'<div class="growth-note">{growth_text}</div>', unsafe_allow_html=True)
+                        st.caption("ℹ️ CAGR = the steady annual growth rate that would take the first year's value to the last year's value. Unlike total % change, it accounts for how many years passed.")
+
+                col1, col2, col3 = st.columns(3)
+                cols = [col1, col2, col3]
                 for i, (metric, name) in enumerate(zip(metrics_to_plot, metric_names)):
                     cols[i].metric(f"Latest {name}", format_number(income_df[metric].iloc[-1]))
+                
                 show_financial_data_notice(income_df, period)
         else:
             st.warning("⚠️ Income statement not available")
         
         st.markdown("---")
         
-        # ═══════════════════════════════════════════════════
-        # BALANCE SHEET
-        # ═══════════════════════════════════════════════════
-        st.markdown(f"### 🏦 Balance Sheet")
+        st.markdown(f"### 🏦 {company_name} - Balance Sheet")
         
         if not balance_df.empty:
             available_metrics = get_available_metrics(balance_df)
@@ -20506,66 +20538,86 @@ elif selected_page == "📊 Company Analysis":
                 col1, col2, col3 = st.columns(3)
                 
                 with col1:
-                    metric1_display = st.selectbox("Metric 1:", options=[d for d, _ in available_metrics], index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Total Assets'), 0), key="balance_metric1")
-                    metric1 = next(col for d, col in available_metrics if d == metric1_display)
+                    metric1_display = st.selectbox(
+                        "Metric 1:",
+                        options=[display for display, _ in available_metrics],
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Total Assets'), 0),
+                        key="balance_metric1"
+                    )
+                    metric1 = next(col for display, col in available_metrics if display == metric1_display)
+                
                 with col2:
-                    metric2_display = st.selectbox("Metric 2:", options=[d for d, _ in available_metrics], index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Total Liabilities'), min(1, len(available_metrics)-1)), key="balance_metric2")
-                    metric2 = next(col for d, col in available_metrics if d == metric2_display)
+                    metric2_display = st.selectbox(
+                        "Metric 2:",
+                        options=[display for display, _ in available_metrics],
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Total Liabilities'), min(1, len(available_metrics)-1)),
+                        key="balance_metric2"
+                    )
+                    metric2 = next(col for display, col in available_metrics if display == metric2_display)
+                
                 with col3:
-                    metric3_display = st.selectbox("Metric 3:", options=[d for d, _ in available_metrics], index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Shareholders Equity'), min(2, len(available_metrics)-1)), key="balance_metric3")
-                    metric3 = next(col for d, col in available_metrics if d == metric3_display)
+                    metric3_display = st.selectbox(
+                        "Metric 3:",
+                        options=[display for display, _ in available_metrics],
+                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Shareholders Equity'), min(2, len(available_metrics)-1)),
+                        key="balance_metric3"
+                    )
+                    metric3 = next(col for display, col in available_metrics if display == metric3_display)
                 
                 metrics_to_plot = [metric1, metric2, metric3]
+                
+                # Show what these metrics mean - try both display name and API column name
+                with st.expander("📚 What do these metrics mean?", expanded=False):
+                    for metric_display, metric_col in zip([metric1_display, metric2_display, metric3_display], metrics_to_plot):
+                        # Try display name first, then API column name
+                        explanation = get_metric_explanation(metric_display)
+                        if not explanation:
+                            explanation = get_metric_explanation(metric_col)
+                        if explanation:
+                            st.markdown(f"""**{metric_display}**  
+                📊 *What it is:* {explanation["simple"]}  
+                💡 *Why it matters:* {explanation["why"]}""")
+                            st.markdown("---")
+                        else:
+                            # Provide a generic explanation if none found
+                            st.markdown(f"""**{metric_display}**  
+                📊 *What it is:* Financial metric from company reports  
+                💡 *Why it matters:* Track this over time to spot trends""")
+                            st.markdown("---")
+                
                 metric_names = [metric1_display, metric2_display, metric3_display]
                 
-                with st.expander("📚 What do these metrics mean?", expanded=False):
-                    for md, mc in zip(metric_names, metrics_to_plot):
-                        exp = get_metric_explanation(md) or get_metric_explanation(mc)
-                        if exp:
-                            st.markdown(f"**{md}**\n📊 *What it is:* {exp['simple']}\n💡 *Why it matters:* {exp['why']}")
-                        else:
-                            st.markdown(f"**{md}**\n📊 Financial metric\n💡 Track over time to spot trends")
-                        st.markdown("---")
+                plot_df = balance_df[["date"] + metrics_to_plot].copy()
                 
-                if _ca_ticker2 and not _ca_balance2.empty:
-                    _bs_col_l, _bs_col_r = st.columns(2)
-                    with _bs_col_l:
-                        plot_df = balance_df[["date"] + [m for m in metrics_to_plot if m in balance_df.columns]].copy()
-                        fig1, gr1, _ = create_financial_chart_with_growth(plot_df, metrics_to_plot, f"{company_name} - Balance Sheet", "Period", "Amount ($)", period_type=_ca_period_type)
-                        if fig1:
-                            st.plotly_chart(fig1, use_container_width=True)
-                            if gr1:
-                                for mc, cagr in gr1.items():
-                                    mn = metric_names[metrics_to_plot.index(mc)] if mc in metrics_to_plot else mc
-                                    emoji = "🚀" if cagr > 10 else "📈" if cagr > 0 else "📉"
-                                    st.markdown(f"{emoji} **{mn}:** {cagr:+.1f}%/yr")
-                    with _bs_col_r:
-                        plot_df2 = _ca_balance2[["date"] + [m for m in metrics_to_plot if m in _ca_balance2.columns]].copy()
-                        fig2, gr2, _ = create_financial_chart_with_growth(plot_df2, metrics_to_plot, f"{_ca_name2} - Balance Sheet", "Period", "Amount ($)", period_type=_ca_period_type)
-                        if fig2:
-                            st.plotly_chart(fig2, use_container_width=True)
-                            if gr2:
-                                for mc, cagr in gr2.items():
-                                    mn = metric_names[metrics_to_plot.index(mc)] if mc in metrics_to_plot else mc
-                                    emoji = "🚀" if cagr > 10 else "📈" if cagr > 0 else "📉"
-                                    st.markdown(f"{emoji} **{mn}:** {cagr:+.1f}%/yr")
-                else:
-                    plot_df = balance_df[["date"] + metrics_to_plot].copy()
-                    fig, growth_rates, cagr_years = create_financial_chart_with_growth(plot_df, metrics_to_plot, f"{company_name} - Balance Sheet", "Period", "Amount ($)", period_type=_ca_period_type)
-                    if fig:
-                        st.plotly_chart(fig, use_container_width=True)
-                        if growth_rates:
-                            growth_text = f"**{years}-Year CAGR** *(Compound Annual Growth Rate — annualized % per year)*\n\n"
-                            for idx, (metric_col, cagr) in enumerate(growth_rates.items()):
-                                metric_name = metric_names[metrics_to_plot.index(metric_col)]
-                                emoji = "🚀" if cagr > 10 else "📈" if cagr > 0 else "📉"
-                                growth_text += f"{emoji} **{metric_name}:** {cagr:+.1f}%/yr\n\n"
-                            st.markdown(f'<div class="growth-note">{growth_text}</div>', unsafe_allow_html=True)
-                            st.caption("ℹ️ CAGR = the steady annual growth rate that would take the first year's value to the last year's value.")
+                fig, growth_rates, cagr_years = create_financial_chart_with_growth(
+                    plot_df,
+                    metrics_to_plot,
+                    f"{company_name} - Balance Sheet",
+                    "Period",
+                    "Amount ($)",
+                    period_type='annual'
+                )
+
+                if fig:
+                    if _ca_ticker2 and not _ca_balance2.empty:
+                        fig = overlay_second_ticker_on_chart(fig, _ca_balance2, metrics_to_plot, metric_names, _ca_name2, period_type='annual')
+                    st.plotly_chart(fig, use_container_width=True)
+
+                    # Display CAGR summary
+                    if growth_rates:
+                        growth_text = f"**{years}-Year CAGR** *(Compound Annual Growth Rate — annualized % per year)*\n\n"
+                        for idx, (metric_col, cagr) in enumerate(growth_rates.items()):
+                            metric_name = metric_names[metrics_to_plot.index(metric_col)]
+                            emoji = "🚀" if cagr > 10 else "📈" if cagr > 0 else "📉"
+                            growth_text += f"{emoji} **{metric_name}:** {cagr:+.1f}%/yr\n\n"
+
+                        st.markdown(f'<div class="growth-note">{growth_text}</div>', unsafe_allow_html=True)
+                        st.caption("ℹ️ CAGR = the steady annual growth rate that would take the first year's value to the last year's value. Unlike total % change, it accounts for how many years passed.")
 
                 cols = st.columns(len(metrics_to_plot))
                 for i, (metric, name) in enumerate(zip(metrics_to_plot, metric_names)):
                     cols[i].metric(f"Latest {name}", format_number(balance_df[metric].iloc[-1]))
+                
                 show_financial_data_notice(balance_df, period)
         else:
             st.warning("⚠️ Balance sheet not available")
@@ -22556,6 +22608,87 @@ elif selected_page == "💡 Trade Ideas":
             </div>
         </div>
         """, unsafe_allow_html=True)
+
+
+    # ═════════════════════════════════════════════════════════════════════
+    # NAMAN'S TRADE IDEAS — pulled from Supabase
+    # ═════════════════════════════════════════════════════════════════════
+    st.markdown("---")
+    st.markdown("### 🧠 Naman's Trade Ideas")
+    st.caption("*Active setups from the founder. Updated as market conditions change. Not financial advice — do your own research.*")
+
+    _ti_db_ideas = fetch_trade_ideas_from_db()
+
+    if _ti_db_ideas:
+        for _idea in _ti_db_ideas:
+            _tk = _idea.get("ticker", "")
+            _nm = _idea.get("name", _tk)
+            _bias = _idea.get("bias", "Bullish")
+            _status = _idea.get("status", "Active")
+            _zones = _idea.get("zones", [])
+            _stop = _idea.get("stop", "")
+            _tgts = _idea.get("targets", "")
+            _cat = _idea.get("catalyst", "")
+            _rsk = _idea.get("risk", "")
+            _dt = _idea.get("date_posted", "")
+
+            _b_color = "#2E7D32" if _bias == "Bullish" else "#C62828" if _bias == "Bearish" else "#E65100"
+            _s_color = "#0D47A1" if _status == "Active" else "#777"
+
+            st.markdown(f"""
+            <div style="background:linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%);
+                        border:1px solid #90CAF9; border-radius:14px; padding:20px 24px; margin:12px 0;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:8px;">
+                    <div>
+                        <div style="font-size:20px; font-weight:700; color:#1a1a1a;">{_nm} ({_tk})</div>
+                        <div style="font-size:12px; color:#777; margin-top:2px;">Posted {_dt}</div>
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        <span style="background:{_b_color}18; color:{_b_color}; padding:4px 12px; border-radius:20px;
+                                     font-size:12px; font-weight:600; border:1px solid {_b_color}44;">{_bias}</span>
+                        <span style="background:{_s_color}18; color:{_s_color}; padding:4px 12px; border-radius:20px;
+                                     font-size:12px; font-weight:600; border:1px solid {_s_color}44;">{_status}</span>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # Zones from JSON
+            if isinstance(_zones, list):
+                for _z in _zones:
+                    if isinstance(_z, dict):
+                        st.markdown(f"**{_z.get('label', '')}:** {_z.get('detail', '')}")
+                    elif isinstance(_z, str):
+                        st.markdown(f"- {_z}")
+
+            if _stop:
+                st.markdown(f"🛑 **Stop:** {_stop}")
+            if _tgts:
+                st.markdown(f"🎯 **Targets:** {_tgts}")
+
+            _ti_c1, _ti_c2 = st.columns(2)
+            with _ti_c1:
+                if _cat:
+                    st.markdown(f"""
+                    <div style="background:#E8F5E9; border:1px solid #A5D6A7; border-radius:10px; padding:12px 14px; margin-top:8px;">
+                        <div style="color:#2E7D32; font-weight:700; font-size:12px; margin-bottom:4px;">💡 Catalyst</div>
+                        <div style="color:#1a1a1a; font-size:13px; line-height:1.5;">{_cat}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+            with _ti_c2:
+                if _rsk:
+                    st.markdown(f"""
+                    <div style="background:#FFEBEE; border:1px solid #EF9A9A; border-radius:10px; padding:12px 14px; margin-top:8px;">
+                        <div style="color:#C62828; font-weight:700; font-size:12px; margin-bottom:4px;">⚠️ Key Risk</div>
+                        <div style="color:#1a1a1a; font-size:13px; line-height:1.5;">{_rsk}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+            st.markdown("")
+    else:
+        st.info("No active trade ideas right now. Check back soon!")
+
+    st.markdown("---")
+    st.caption("⚠️ *These are Naman's personal trade ideas shared for educational purposes. Not financial advice. Always do your own research and manage your own risk.*")
 
 
 
