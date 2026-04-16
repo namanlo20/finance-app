@@ -6190,33 +6190,31 @@ def render_dip_finder_page(tickers, chart_title="Dip Finder"):
     # ── DQ Score legend ─────────────────────────────────────────────────────
     st.markdown("""
     <div style="background:#EBF5FB; border:1px solid #90CAF9; border-radius:12px;
-                padding:14px 20px; margin-bottom:16px; font-size:13px; color:#1a1a1a;">
-        <b>How the DQ Score works:</b> Each stock gets a score from 0–100 built from
-        6 signals — analyst price targets, valuation (P/E & P/S), technicals (RSI + moving averages),
-        revenue momentum, competitive moat, and AI disruption risk. Higher = better quality dip.
-        <br><br>
-        <span style="color:#00C853; font-weight:700;">■ 72–100 Strong Buy Dip</span> &nbsp;
-        <span style="color:#00BFA5; font-weight:700;">■ 55–71 Quality Dip</span> &nbsp;
-        <span style="color:#E6AC00; font-weight:700;">■ 40–54 Watch Zone</span> &nbsp;
-        <span style="color:#FF6D00; font-weight:700;">■ 25–39 Risky Dip</span> &nbsp;
-        <span style="color:#FF1744; font-weight:700;">■ 0–24 Falling Knife</span>
+                padding:12px 20px; margin-bottom:16px; font-size:12px; color:#1a1a1a;">
+        <b>DQ Score (0–100):</b> Ranks dip quality across 6 signals — analyst targets, valuation, technicals, momentum, moat, AI risk.
+        <br>
+        <span style="color:#00C853; font-weight:700;">■ 72+ Strong Buy</span> &nbsp;
+        <span style="color:#00BFA5; font-weight:700;">■ 55–71 Quality</span> &nbsp;
+        <span style="color:#E6AC00; font-weight:700;">■ 40–54 Watch</span> &nbsp;
+        <span style="color:#FF6D00; font-weight:700;">■ 25–39 Risky</span> &nbsp;
+        <span style="color:#FF1744; font-weight:700;">■ 0–24 Knife</span>
     </div>
     """, unsafe_allow_html=True)
 
-    st.markdown("#### Filter Stocks")
-    fc1, fc2, fc3 = st.columns(3)
-    with fc1:
-        min_dq = st.slider("Minimum DQ Score (0 = show all)", 0, 100, 0, 5, key=f"df_mindq_{chart_title}")
-    with fc2:
-        verdict_filter = st.multiselect(
-            "Filter by verdict",
-            ["Strong Buy Dip", "Quality Dip", "Watch Zone", "Risky Dip", "Falling Knife"],
-            default=[],
-            key=f"df_verdict_{chart_title}",
-            placeholder="All verdicts",
-        )
-    with fc3:
-        max_rsi = st.slider("Only show RSI below (100 = show all)", 0, 100, 100, 5, key=f"df_rsi_{chart_title}")
+    with st.expander("⚙️ Filters", expanded=False):
+        fc1, fc2, fc3 = st.columns(3)
+        with fc1:
+            min_dq = st.slider("Min DQ Score", 0, 100, 0, 5, key=f"df_mindq_{chart_title}")
+        with fc2:
+            verdict_filter = st.multiselect(
+                "Verdict",
+                ["Strong Buy Dip", "Quality Dip", "Watch Zone", "Risky Dip", "Falling Knife"],
+                default=[],
+                key=f"df_verdict_{chart_title}",
+                placeholder="All",
+            )
+        with fc3:
+            max_rsi = st.slider("Max RSI", 0, 100, 100, 5, key=f"df_rsi_{chart_title}")
 
     filtered = []
     for r in all_rows:
@@ -6304,25 +6302,6 @@ def render_dip_finder_page(tickers, chart_title="Dip Finder"):
             upside = (pt_med - row["price"]) / row["price"] * 100 if pt_med and row["price"] > 0 else None
             upside_str = f"+{upside:.1f}% PT" if upside is not None else "No PT"
 
-            moat_colors = {
-                "Wide":    ("#00C853", "rgba(0,200,83,0.15)"),
-                "Narrow":  ("#FFD600", "rgba(255,214,0,0.12)"),
-                "None":    ("#FF1744", "rgba(255,23,68,0.12)"),
-                "Unknown": ("#9E9E9E", "rgba(158,158,158,0.12)"),
-            }
-            mc, mb = moat_colors.get(dq["moat_label"], ("#9E9E9E", "rgba(158,158,158,0.12)"))
-
-            dis_colors = {
-                "Low":     ("#00C853", "rgba(0,200,83,0.15)"),
-                "Medium":  ("#FFD600", "rgba(255,214,0,0.12)"),
-                "High":    ("#FF1744", "rgba(255,23,68,0.12)"),
-                "Unknown": ("#9E9E9E", "rgba(158,158,158,0.12)"),
-            }
-            dc, db = dis_colors.get(dq["disruption_label"], ("#9E9E9E", "rgba(158,158,158,0.12)"))
-
-            rsi_val = row["tech"].get("rsi")
-            rsi_str = f"RSI {rsi_val:.0f}" if rsi_val is not None else ""
-
             st.markdown(f"""
             <div style="background:{CARD_BG_SOLID}; border:2px solid {dq['badge_color']};
                         border-radius:14px; padding:18px 20px; margin-bottom:12px;">
@@ -6350,28 +6329,13 @@ def render_dip_finder_page(tickers, chart_title="Dip Finder"):
                         {dq['total']} <span style="font-size:12px; color:rgba(26,26,26,0.5); font-weight:400;">/100</span>
                     </div>
                 </div>
-                <div style="display:flex; gap:5px; flex-wrap:wrap; margin-bottom:8px;">
+                <div style="display:flex; gap:5px; flex-wrap:wrap;">
                     {_dq_pillar_dot(dq['scores']['analyst_target'], 25, 'PT')}
                     {_dq_pillar_dot(dq['scores']['valuation'], 25, 'Val')}
                     {_dq_pillar_dot(dq['scores']['technicals'], 20, 'Tech')}
                     {_dq_pillar_dot(dq['scores']['momentum'], 15, 'Mom')}
                     {_dq_pillar_dot(dq['scores']['moat'], 10, 'Moat')}
                     {_dq_pillar_dot(dq['scores']['disruption'], 5, 'AI Risk')}
-                </div>
-                <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                    <span style="background:{mb}; color:{mc}; border:1px solid {mc}33;
-                                 border-radius:10px; padding:2px 8px; font-size:10px; font-weight:600;">
-                        {dq['moat_label']} Moat
-                    </span>
-                    <span style="background:{db}; color:{dc}; border:1px solid {dc}33;
-                                 border-radius:10px; padding:2px 8px; font-size:10px; font-weight:600;">
-                        AI Risk: {dq['disruption_label']}
-                    </span>
-                    <span style="background:rgba(140,100,255,0.1); color:{PURPLE};
-                                 border:1px solid rgba(140,100,255,0.3);
-                                 border-radius:10px; padding:2px 8px; font-size:10px;">
-                        {rsi_str}
-                    </span>
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -6532,7 +6496,6 @@ def render_dip_finder_page(tickers, chart_title="Dip Finder"):
     with col_b:
         st.markdown("**Technicals**")
         rsi_val = tech.get("rsi")
-        bb_pct  = tech.get("bb_pct")
         above50  = tech.get("above_sma50")
         above200 = tech.get("above_sma200")
         sma50   = tech.get("sma50")
@@ -6541,25 +6504,12 @@ def render_dip_finder_page(tickers, chart_title="Dip Finder"):
         rsi_color = "#00C853" if rsi_val and rsi_val < 35 else "#FF1744" if rsi_val and rsi_val > 70 else "#FFD600"
         sma50_txt  = f"{'Above' if above50 else 'Below'} SMA50 (${sma50:.0f})"  if sma50 else "SMA50 N/A"
         sma200_txt = f"{'Above' if above200 else 'Below'} SMA200 (${sma200:.0f})" if sma200 else "SMA200 N/A"
-        bb_txt     = f"Bollinger position: {bb_pct*100:.0f}th percentile" if bb_pct is not None else "BB N/A"
 
         rsi_display  = f"{rsi_val:.0f}" if rsi_val else "—"
         rsi_signal   = tech.get("rsi_signal", "")
         ma_signal    = tech.get("ma_signal", "")
-        bb_signal    = tech.get("bb_signal", "")
-        atr_pct      = tech.get("atr_pct")
-        vol_signal   = tech.get("vol_signal", "")
-        vol_trend    = tech.get("vol_trend_signal", "")
-        vol_spike    = tech.get("vol_spike")
-        pct_52h      = tech.get("pct_from_52w_high")
-        pct_52l      = tech.get("pct_from_52w_low")
         dot50  = "🟢" if above50  else "🔴"
         dot200 = "🟢" if above200 else "🔴"
-
-        atr_str     = f"{atr_pct:.1f}% daily range (ATR)" if atr_pct else ""
-        vol_str     = f"{vol_spike:.1f}x avg volume" if vol_spike else ""
-        pct52h_str  = f"{pct_52h:+.1f}% from 52W high" if pct_52h is not None else ""
-        pct52l_str  = f"+{pct_52l:.1f}% above 52W low" if pct_52l is not None else ""
 
         st.markdown(f"""
         <div style="background:{CARD_BG_SOLID}; border:1px solid {BORDER};
@@ -6569,23 +6519,13 @@ def render_dip_finder_page(tickers, chart_title="Dip Finder"):
                 <div style="font-size:11px; color:{TEXT_DIM};">RSI (14)</div>
             </div>
             <div style="font-size:11px; color:{rsi_color}; font-weight:600; margin-bottom:12px;">{rsi_signal}</div>
-
             <div style="font-size:11px; font-weight:700; color:{TEXT_DIM}; text-transform:uppercase;
                         letter-spacing:1px; margin-bottom:4px;">Moving Averages</div>
-            <div style="font-size:12px; color:{TEXT}; line-height:1.8; margin-bottom:8px;">
+            <div style="font-size:12px; color:{TEXT}; line-height:1.8;">
                 {dot50} {sma50_txt}<br>
                 {dot200} {sma200_txt}
             </div>
-            <div style="font-size:11px; color:{TEXT_DIM}; margin-bottom:10px;">{ma_signal}</div>
-
-            <div style="font-size:11px; font-weight:700; color:{TEXT_DIM}; text-transform:uppercase;
-                        letter-spacing:1px; margin-bottom:4px;">Bollinger Bands</div>
-            <div style="font-size:12px; color:{TEXT}; margin-bottom:4px;">📊 {bb_txt}</div>
-            <div style="font-size:11px; color:{TEXT_DIM}; margin-bottom:10px;">{bb_signal}</div>
-
-            {"<div style='font-size:11px; font-weight:700; color:" + TEXT_DIM + "; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;'>Volatility & Volume</div><div style='font-size:12px; color:" + TEXT + "; line-height:1.8;'>" + (("⚡ " + atr_str + "<br>") if atr_str else "") + (("📦 " + vol_str + " — " + vol_trend) if vol_str else "") + "</div>" if atr_str or vol_str else ""}
-
-            {"<div style='margin-top:10px; font-size:11px; font-weight:700; color:" + TEXT_DIM + "; text-transform:uppercase; letter-spacing:1px; margin-bottom:4px;'>52-Week Range</div><div style='font-size:12px; color:" + TEXT + "; line-height:1.8;'>" + (("📉 " + pct52h_str + "<br>") if pct52h_str else "") + (("📈 " + pct52l_str) if pct52l_str else "") + "</div>" if pct52h_str or pct52l_str else ""}
+            <div style="font-size:11px; color:{TEXT_DIM}; margin-top:4px;">{ma_signal}</div>
         </div>
         """, unsafe_allow_html=True)
 
