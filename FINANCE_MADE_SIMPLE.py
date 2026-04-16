@@ -20748,19 +20748,28 @@ elif selected_page == "📊 Company Analysis":
     # Show data source indicator
     show_data_source(source="Financial Modeling Prep API", updated_at=datetime.now())
     
-    income_df = get_income_statement(ticker, 'annual', 5)
-    cash_df = get_cash_flow(ticker, 'annual', 5)
-    balance_df = get_balance_sheet(ticker, 'annual', 5)
-    ratios_df = get_financial_ratios(ticker, 'annual', 5)
+    # Read sidebar settings BEFORE data loading
+    with st.sidebar:
+        years = st.session_state.get('years_of_history', 5)
+        period = st.session_state.get('global_period', 'annual')
+        view = "🌟 The Big Picture"  # Default view
+    
+    _ca_period_type = 'quarter' if period == 'quarterly' else period
+    _ca_limit = years * 4 if _ca_period_type == 'quarter' else years
+    
+    income_df = get_income_statement(ticker, _ca_period_type, _ca_limit)
+    cash_df = get_cash_flow(ticker, _ca_period_type, _ca_limit)
+    balance_df = get_balance_sheet(ticker, _ca_period_type, _ca_limit)
+    ratios_df = get_financial_ratios(ticker, _ca_period_type, _ca_limit)
     
     # Load second ticker data if comparing
     _ca_income2 = pd.DataFrame()
     _ca_cash2 = pd.DataFrame()
     _ca_balance2 = pd.DataFrame()
     if _ca_ticker2:
-        _ca_income2 = get_income_statement(_ca_ticker2, 'annual', 5)
-        _ca_cash2 = get_cash_flow(_ca_ticker2, 'annual', 5)
-        _ca_balance2 = get_balance_sheet(_ca_ticker2, 'annual', 5)
+        _ca_income2 = get_income_statement(_ca_ticker2, _ca_period_type, _ca_limit)
+        _ca_cash2 = get_cash_flow(_ca_ticker2, _ca_period_type, _ca_limit)
+        _ca_balance2 = get_balance_sheet(_ca_ticker2, _ca_period_type, _ca_limit)
     
     fcf_cagr = None
     if cash_df is not None and not cash_df.empty and 'freeCashFlow' in cash_df.columns:
@@ -20773,12 +20782,6 @@ elif selected_page == "📊 Company Analysis":
                 if years_count > 0:
                     fcf_cagr = calculate_cagr(start_fcf, end_fcf, years_count)
     
-    with st.sidebar:
-        # Use global settings - no duplicate controls needed
-        years = st.session_state.get('years_of_history', 5)
-        period = st.session_state.get('global_period', 'annual')
-        view = "🌟 The Big Picture"  # Default view
-
 
     quote = get_quote(ticker)
     ratios_ttm = get_ratios_ttm(ticker)
@@ -21200,9 +21203,9 @@ elif selected_page == "📊 Company Analysis":
     
     if view == "🌟 The Big Picture":
         
-        income_df = get_income_statement(ticker, 'annual', years)
-        cash_df = get_cash_flow(ticker, 'annual', years)
-        balance_df = get_balance_sheet(ticker, 'annual', years)
+        income_df = get_income_statement(ticker, _ca_period_type, _ca_limit)
+        cash_df = get_cash_flow(ticker, _ca_period_type, _ca_limit)
+        balance_df = get_balance_sheet(ticker, _ca_period_type, _ca_limit)
         
         # Stock chart is already shown above - removed duplicate here
         
@@ -21281,7 +21284,7 @@ elif selected_page == "📊 Company Analysis":
                     f"{company_name} - Cash Flow",
                     "Period",
                     "Amount ($)",
-                    period_type='annual'
+                    period_type=_ca_period_type
                 )
 
                 if fig:
@@ -21290,7 +21293,7 @@ elif selected_page == "📊 Company Analysis":
                         if 'stockBasedCompensation' in _ca_cash2.columns and 'freeCashFlow' in _ca_cash2.columns:
                             _ca_cash2 = _ca_cash2.copy()
                             _ca_cash2['fcfAfterSBC'] = _ca_cash2['freeCashFlow'] - abs(_ca_cash2['stockBasedCompensation'])
-                        fig = overlay_second_ticker_on_chart(fig, _ca_cash2, metrics_to_plot, metric_names, _ca_name2, period_type='annual')
+                        fig = overlay_second_ticker_on_chart(fig, _ca_cash2, metrics_to_plot, metric_names, _ca_name2, period_type=_ca_period_type)
                     st.plotly_chart(fig, use_container_width=True)
 
                     # Display CAGR summary
@@ -21382,12 +21385,12 @@ elif selected_page == "📊 Company Analysis":
                     f"{company_name} - Income Statement",
                     "Period",
                     "Amount ($)",
-                    period_type='annual'
+                    period_type=_ca_period_type
                 )
 
                 if fig:
                     if _ca_ticker2 and not _ca_income2.empty:
-                        fig = overlay_second_ticker_on_chart(fig, _ca_income2, metrics_to_plot, metric_names, _ca_name2, period_type='annual')
+                        fig = overlay_second_ticker_on_chart(fig, _ca_income2, metrics_to_plot, metric_names, _ca_name2, period_type=_ca_period_type)
                     st.plotly_chart(fig, use_container_width=True)
 
                     # Display CAGR summary
@@ -21479,12 +21482,12 @@ elif selected_page == "📊 Company Analysis":
                     f"{company_name} - Balance Sheet",
                     "Period",
                     "Amount ($)",
-                    period_type='annual'
+                    period_type=_ca_period_type
                 )
 
                 if fig:
                     if _ca_ticker2 and not _ca_balance2.empty:
-                        fig = overlay_second_ticker_on_chart(fig, _ca_balance2, metrics_to_plot, metric_names, _ca_name2, period_type='annual')
+                        fig = overlay_second_ticker_on_chart(fig, _ca_balance2, metrics_to_plot, metric_names, _ca_name2, period_type=_ca_period_type)
                     st.plotly_chart(fig, use_container_width=True)
 
                     # Display CAGR summary
