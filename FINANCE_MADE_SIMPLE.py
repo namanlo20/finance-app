@@ -6659,6 +6659,60 @@ def render_dip_finder_page(tickers, chart_title="Dip Finder"):
                     """, unsafe_allow_html=True)
             except Exception:
                 st.caption("AI context unavailable right now.")
+FALLBACK_LOGOS = {
+    "AAPL":  "https://logo.clearbit.com/apple.com",
+    "MSFT":  "https://logo.clearbit.com/microsoft.com",
+    "GOOGL": "https://logo.clearbit.com/google.com",
+    "GOOG":  "https://logo.clearbit.com/google.com",
+    "AMZN":  "https://logo.clearbit.com/amazon.com",
+    "META":  "https://logo.clearbit.com/meta.com",
+    "TSLA":  "https://logo.clearbit.com/tesla.com",
+    "NVDA":  "https://logo.clearbit.com/nvidia.com",
+    "NFLX":  "https://logo.clearbit.com/netflix.com",
+    "AVGO":  "https://logo.clearbit.com/broadcom.com",
+    "JPM":   "https://logo.clearbit.com/jpmorganchase.com",
+    "V":     "https://logo.clearbit.com/visa.com",
+    "MA":    "https://logo.clearbit.com/mastercard.com",
+    "DIS":   "https://logo.clearbit.com/disney.com",
+    "CRWD":  "https://logo.clearbit.com/crowdstrike.com",
+    "PANW":  "https://logo.clearbit.com/paloaltonetworks.com",
+    "CRM":   "https://logo.clearbit.com/salesforce.com",
+    "HOOD":  "https://logo.clearbit.com/robinhood.com",
+    "SPGI":  "https://logo.clearbit.com/spglobal.com",
+    "MCO":   "https://logo.clearbit.com/moodys.com",
+    "ASML":  "https://logo.clearbit.com/asml.com",
+    "TSM":   "https://logo.clearbit.com/tsmc.com",
+    "AMD":   "https://logo.clearbit.com/amd.com",
+    "INTC":  "https://logo.clearbit.com/intel.com",
+    "QCOM":  "https://logo.clearbit.com/qualcomm.com",
+    "COST":  "https://logo.clearbit.com/costco.com",
+    "WMT":   "https://logo.clearbit.com/walmart.com",
+    "HD":    "https://logo.clearbit.com/homedepot.com",
+    "KO":    "https://logo.clearbit.com/coca-cola.com",
+    "PEP":   "https://logo.clearbit.com/pepsico.com",
+    "BAC":   "https://logo.clearbit.com/bankofamerica.com",
+    "GS":    "https://logo.clearbit.com/goldmansachs.com",
+    "COIN":  "https://logo.clearbit.com/coinbase.com",
+    "UBER":  "https://logo.clearbit.com/uber.com",
+    "ABNB":  "https://logo.clearbit.com/airbnb.com",
+    "SHOP":  "https://logo.clearbit.com/shopify.com",
+    "SQ":    "https://logo.clearbit.com/squareup.com",
+    "PLTR":  "https://logo.clearbit.com/palantir.com",
+    "SNOW":  "https://logo.clearbit.com/snowflake.com",
+    "ADBE":  "https://logo.clearbit.com/adobe.com",
+    "ORCL":  "https://logo.clearbit.com/oracle.com",
+    "IBM":   "https://logo.clearbit.com/ibm.com",
+    "NOW":   "https://logo.clearbit.com/servicenow.com",
+    "BABA":  "https://logo.clearbit.com/alibaba.com",
+    "NIO":   "https://logo.clearbit.com/nio.com",
+    "RIVN":  "https://logo.clearbit.com/rivian.com",
+    "BA":    "https://logo.clearbit.com/boeing.com",
+    "UNH":   "https://logo.clearbit.com/unitedhealthgroup.com",
+    "JNJ":   "https://logo.clearbit.com/jnj.com",
+    "PFE":   "https://logo.clearbit.com/pfizer.com",
+    "XOM":   "https://logo.clearbit.com/exxonmobil.com",
+}
+
 @st.cache_data(ttl=86400)
 def get_company_logo(ticker):
     """Get company logo URL from multiple sources with fallbacks"""
@@ -7113,10 +7167,34 @@ Rules:
 
 @st.cache_data(ttl=3600)
 def get_earnings_calendar(ticker):
-    """Get next earnings date and estimates using FMP earnings-calendar with date range"""
-    # FMP earnings-calendar requires from/to dates, not symbol
-    # We search 90 days ahead and filter by symbol
-    from_date = datetime.now().strftime('%Y-%m-%d')
+    """Get next or most recent earnings date and estimates using FMP earnings-calendar with date range"""
+    # ADR tickers often appear under their foreign exchange symbol in FMP
+    _ADR_ALIASES = {
+        "TSM":  ["2330.TW", "TSM"],
+        "ASML": ["ASML.AS", "ASML"],
+        "BABA": ["9988.HK", "BABA"],
+        "NIO":  ["9866.HK", "NIO", "NIO.SG"],
+        "JD":   ["9618.HK", "JD"],
+        "BIDU": ["9888.HK", "BIDU"],
+        "TM":   ["7203.T", "TM"],
+        "SONY": ["6758.T", "SONY"],
+        "SAP":  ["SAP.DE", "SAP"],
+        "UL":   ["ULVR.L", "UL"],
+        "AZN":  ["AZN.L", "AZN"],
+        "SHOP": ["SHOP.TO", "SHOP"],
+        "RY":   ["RY.TO", "RY"],
+        "TD":   ["TD.TO", "TD"],
+    }
+    
+    ticker_upper = ticker.upper()
+    # Build list of symbols to match against
+    symbols_to_match = _ADR_ALIASES.get(ticker_upper, [ticker_upper])
+    if ticker_upper not in symbols_to_match:
+        symbols_to_match.append(ticker_upper)
+    symbols_set = {s.upper() for s in symbols_to_match}
+    
+    # Search 7 days back (to catch just-reported earnings) and 90 days ahead
+    from_date = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
     to_date = (datetime.now() + timedelta(days=90)).strftime('%Y-%m-%d')
     
     url = f"{BASE_URL}/earnings-calendar?from={from_date}&to={to_date}&apikey={FMP_API_KEY}"
@@ -7125,11 +7203,17 @@ def get_earnings_calendar(ticker):
         if response.status_code == 200:
             data = response.json()
             if data and len(data) > 0:
-                # Filter for the specific ticker
-                ticker_upper = ticker.upper()
-                for earning in data:
-                    if earning.get('symbol', '').upper() == ticker_upper:
-                        return earning
+                # Filter for any matching symbol — prefer future date, fall back to most recent past
+                matches = [e for e in data if e.get('symbol', '').upper() in symbols_set]
+                if not matches:
+                    return None
+                today_str = datetime.now().strftime('%Y-%m-%d')
+                future = [e for e in matches if e.get('date', '') >= today_str]
+                past   = [e for e in matches if e.get('date', '') < today_str]
+                if future:
+                    return sorted(future, key=lambda e: e.get('date', ''))[0]
+                if past:
+                    return sorted(past, key=lambda e: e.get('date', ''), reverse=True)[0]
     except Exception as e:
         print(f"Earnings calendar error: {e}")
     return None
@@ -7154,6 +7238,15 @@ def get_weekly_earnings_fmp():
                 # Collect US earnings with market cap
                 all_earnings = []
                 
+                # Reverse map: foreign symbol → US ADR ticker
+                _FOREIGN_TO_ADR = {
+                    "2330.TW": "TSM", "ASML.AS": "ASML", "9988.HK": "BABA",
+                    "9866.HK": "NIO", "9618.HK": "JD", "9888.HK": "BIDU",
+                    "7203.T": "TM", "6758.T": "SONY", "SAP.DE": "SAP",
+                    "ULVR.L": "UL", "AZN.L": "AZN", "SHOP.TO": "SHOP",
+                    "RY.TO": "RY", "TD.TO": "TD", "NIO.SG": "NIO",
+                }
+                
                 for earning in data:
                     symbol = earning.get('symbol', '')
                     date_str = earning.get('date', '')
@@ -7161,8 +7254,11 @@ def get_weekly_earnings_fmp():
                     if not symbol or not date_str:
                         continue
                     
-                    # Skip non-US: symbols with dots (foreign exchanges)
-                    if '.' in symbol:
+                    # Map foreign symbols to their US ADR ticker
+                    if symbol in _FOREIGN_TO_ADR:
+                        symbol = _FOREIGN_TO_ADR[symbol]
+                    elif '.' in symbol:
+                        # Skip other non-US symbols we don't recognize
                         continue
                     
                     # Skip very long symbols (likely OTC)
@@ -20646,7 +20742,27 @@ elif selected_page == "📊 Company Analysis":
                         if days_until >= 0:
                             st.info(f"📅 **Next Earnings**\n{date_obj.strftime('%b %d, %Y')}\n({days_until} days)")
                         else:
-                            st.caption(f"Last earnings: {date_obj.strftime('%b %d, %Y')}")
+                            # Earnings already reported — show results if available
+                            eps_actual = earnings.get('epsActual')
+                            eps_est    = earnings.get('epsEstimated')
+                            rev_actual = earnings.get('revenueActual')
+                            rev_est    = earnings.get('revenueEstimated')
+                            
+                            if eps_actual is not None and eps_est is not None and eps_est != 0:
+                                eps_beat = eps_actual - eps_est
+                                eps_pct  = eps_beat / abs(eps_est) * 100
+                                beat_miss = "Beat" if eps_beat >= 0 else "Miss"
+                                emoji = "✅" if eps_beat >= 0 else "❌"
+                                
+                                rev_line = ""
+                                if rev_actual and rev_est and rev_est > 0:
+                                    rev_beat_pct = (rev_actual - rev_est) / rev_est * 100
+                                    rev_bm = "Beat" if rev_beat_pct >= 0 else "Miss"
+                                    rev_line = f"\nRev: ${rev_actual/1e9:.2f}B vs ${rev_est/1e9:.2f}B est ({rev_bm} {rev_beat_pct:+.1f}%)"
+                                
+                                st.success(f"{emoji} **Earnings {beat_miss}** — {date_obj.strftime('%b %d')}\nEPS: ${eps_actual:.2f} vs ${eps_est:.2f} est ({eps_pct:+.1f}%){rev_line}")
+                            else:
+                                st.caption(f"Last earnings: {date_obj.strftime('%b %d, %Y')}")
                     except Exception:
                         pass
         
