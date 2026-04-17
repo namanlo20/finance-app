@@ -6660,57 +6660,57 @@ def render_dip_finder_page(tickers, chart_title="Dip Finder"):
             except Exception:
                 st.caption("AI context unavailable right now.")
 FALLBACK_LOGOS = {
-    "AAPL":  "https://logo.clearbit.com/apple.com",
-    "MSFT":  "https://logo.clearbit.com/microsoft.com",
-    "GOOGL": "https://logo.clearbit.com/google.com",
-    "GOOG":  "https://logo.clearbit.com/google.com",
-    "AMZN":  "https://logo.clearbit.com/amazon.com",
-    "META":  "https://logo.clearbit.com/meta.com",
-    "TSLA":  "https://logo.clearbit.com/tesla.com",
-    "NVDA":  "https://logo.clearbit.com/nvidia.com",
-    "NFLX":  "https://logo.clearbit.com/netflix.com",
-    "AVGO":  "https://logo.clearbit.com/broadcom.com",
-    "JPM":   "https://logo.clearbit.com/jpmorganchase.com",
-    "V":     "https://logo.clearbit.com/visa.com",
-    "MA":    "https://logo.clearbit.com/mastercard.com",
-    "DIS":   "https://logo.clearbit.com/disney.com",
-    "CRWD":  "https://logo.clearbit.com/crowdstrike.com",
-    "PANW":  "https://logo.clearbit.com/paloaltonetworks.com",
-    "CRM":   "https://logo.clearbit.com/salesforce.com",
-    "HOOD":  "https://logo.clearbit.com/robinhood.com",
-    "SPGI":  "https://logo.clearbit.com/spglobal.com",
-    "MCO":   "https://logo.clearbit.com/moodys.com",
-    "ASML":  "https://logo.clearbit.com/asml.com",
-    "TSM":   "https://logo.clearbit.com/tsmc.com",
-    "AMD":   "https://logo.clearbit.com/amd.com",
-    "INTC":  "https://logo.clearbit.com/intel.com",
-    "QCOM":  "https://logo.clearbit.com/qualcomm.com",
-    "COST":  "https://logo.clearbit.com/costco.com",
-    "WMT":   "https://logo.clearbit.com/walmart.com",
-    "HD":    "https://logo.clearbit.com/homedepot.com",
-    "KO":    "https://logo.clearbit.com/coca-cola.com",
-    "PEP":   "https://logo.clearbit.com/pepsico.com",
-    "BAC":   "https://logo.clearbit.com/bankofamerica.com",
-    "GS":    "https://logo.clearbit.com/goldmansachs.com",
-    "COIN":  "https://logo.clearbit.com/coinbase.com",
-    "UBER":  "https://logo.clearbit.com/uber.com",
-    "ABNB":  "https://logo.clearbit.com/airbnb.com",
-    "SHOP":  "https://logo.clearbit.com/shopify.com",
-    "SQ":    "https://logo.clearbit.com/squareup.com",
-    "PLTR":  "https://logo.clearbit.com/palantir.com",
-    "SNOW":  "https://logo.clearbit.com/snowflake.com",
-    "ADBE":  "https://logo.clearbit.com/adobe.com",
-    "ORCL":  "https://logo.clearbit.com/oracle.com",
-    "IBM":   "https://logo.clearbit.com/ibm.com",
-    "NOW":   "https://logo.clearbit.com/servicenow.com",
-    "BABA":  "https://logo.clearbit.com/alibaba.com",
-    "NIO":   "https://logo.clearbit.com/nio.com",
-    "RIVN":  "https://logo.clearbit.com/rivian.com",
-    "BA":    "https://logo.clearbit.com/boeing.com",
-    "UNH":   "https://logo.clearbit.com/unitedhealthgroup.com",
-    "JNJ":   "https://logo.clearbit.com/jnj.com",
-    "PFE":   "https://logo.clearbit.com/pfizer.com",
-    "XOM":   "https://logo.clearbit.com/exxonmobil.com",
+    "AAPL":  "https://logo.dev/apple.com?token=pk_anonymous&format=png&size=64",
+    "MSFT":  "https://logo.dev/microsoft.com?token=pk_anonymous&format=png&size=64",
+    "GOOGL": "https://logo.dev/google.com?token=pk_anonymous&format=png&size=64",
+    "GOOG":  "https://logo.dev/google.com?token=pk_anonymous&format=png&size=64",
+    "AMZN":  "https://logo.dev/amazon.com?token=pk_anonymous&format=png&size=64",
+    "META":  "https://logo.dev/meta.com?token=pk_anonymous&format=png&size=64",
+    "TSLA":  "https://logo.dev/tesla.com?token=pk_anonymous&format=png&size=64",
+    "NVDA":  "https://logo.dev/nvidia.com?token=pk_anonymous&format=png&size=64",
+    "NFLX":  "https://logo.dev/netflix.com?token=pk_anonymous&format=png&size=64",
+    "AVGO":  "https://logo.dev/broadcom.com?token=pk_anonymous&format=png&size=64",
+    "JPM":   "https://logo.dev/jpmorganchase.com?token=pk_anonymous&format=png&size=64",
+    "V":     "https://logo.dev/visa.com?token=pk_anonymous&format=png&size=64",
+    "MA":    "https://logo.dev/mastercard.com?token=pk_anonymous&format=png&size=64",
+    "DIS":   "https://logo.dev/disney.com?token=pk_anonymous&format=png&size=64",
+    "CRWD":  "https://logo.dev/crowdstrike.com?token=pk_anonymous&format=png&size=64",
+    "PANW":  "https://logo.dev/paloaltonetworks.com?token=pk_anonymous&format=png&size=64",
+    "CRM":   "https://logo.dev/salesforce.com?token=pk_anonymous&format=png&size=64",
+    "HOOD":  "https://logo.dev/robinhood.com?token=pk_anonymous&format=png&size=64",
+    "SPGI":  "https://logo.dev/spglobal.com?token=pk_anonymous&format=png&size=64",
+    "MCO":   "https://logo.dev/moodys.com?token=pk_anonymous&format=png&size=64",
+    "ASML":  "https://logo.dev/asml.com?token=pk_anonymous&format=png&size=64",
+    "TSM":   "https://logo.dev/tsmc.com?token=pk_anonymous&format=png&size=64",
+    "AMD":   "https://logo.dev/amd.com?token=pk_anonymous&format=png&size=64",
+    "INTC":  "https://logo.dev/intel.com?token=pk_anonymous&format=png&size=64",
+    "QCOM":  "https://logo.dev/qualcomm.com?token=pk_anonymous&format=png&size=64",
+    "COST":  "https://logo.dev/costco.com?token=pk_anonymous&format=png&size=64",
+    "WMT":   "https://logo.dev/walmart.com?token=pk_anonymous&format=png&size=64",
+    "HD":    "https://logo.dev/homedepot.com?token=pk_anonymous&format=png&size=64",
+    "KO":    "https://logo.dev/coca-cola.com?token=pk_anonymous&format=png&size=64",
+    "PEP":   "https://logo.dev/pepsico.com?token=pk_anonymous&format=png&size=64",
+    "BAC":   "https://logo.dev/bankofamerica.com?token=pk_anonymous&format=png&size=64",
+    "GS":    "https://logo.dev/goldmansachs.com?token=pk_anonymous&format=png&size=64",
+    "COIN":  "https://logo.dev/coinbase.com?token=pk_anonymous&format=png&size=64",
+    "UBER":  "https://logo.dev/uber.com?token=pk_anonymous&format=png&size=64",
+    "ABNB":  "https://logo.dev/airbnb.com?token=pk_anonymous&format=png&size=64",
+    "SHOP":  "https://logo.dev/shopify.com?token=pk_anonymous&format=png&size=64",
+    "SQ":    "https://logo.dev/squareup.com?token=pk_anonymous&format=png&size=64",
+    "PLTR":  "https://logo.dev/palantir.com?token=pk_anonymous&format=png&size=64",
+    "SNOW":  "https://logo.dev/snowflake.com?token=pk_anonymous&format=png&size=64",
+    "ADBE":  "https://logo.dev/adobe.com?token=pk_anonymous&format=png&size=64",
+    "ORCL":  "https://logo.dev/oracle.com?token=pk_anonymous&format=png&size=64",
+    "IBM":   "https://logo.dev/ibm.com?token=pk_anonymous&format=png&size=64",
+    "NOW":   "https://logo.dev/servicenow.com?token=pk_anonymous&format=png&size=64",
+    "BABA":  "https://logo.dev/alibaba.com?token=pk_anonymous&format=png&size=64",
+    "NIO":   "https://logo.dev/nio.com?token=pk_anonymous&format=png&size=64",
+    "RIVN":  "https://logo.dev/rivian.com?token=pk_anonymous&format=png&size=64",
+    "BA":    "https://logo.dev/boeing.com?token=pk_anonymous&format=png&size=64",
+    "UNH":   "https://logo.dev/unitedhealthgroup.com?token=pk_anonymous&format=png&size=64",
+    "JNJ":   "https://logo.dev/jnj.com?token=pk_anonymous&format=png&size=64",
+    "PFE":   "https://logo.dev/pfizer.com?token=pk_anonymous&format=png&size=64",
+    "XOM":   "https://logo.dev/exxonmobil.com?token=pk_anonymous&format=png&size=64",
 }
 
 @st.cache_data(ttl=86400)
@@ -6718,27 +6718,24 @@ def get_company_logo(ticker):
     """Get company logo URL from multiple sources with fallbacks"""
     ticker_upper = ticker.upper()
     
-    # 1. Check our hardcoded fallbacks first (most reliable)
-    if ticker_upper in FALLBACK_LOGOS:
-        return FALLBACK_LOGOS[ticker_upper]
-    
-    # 2. Try FMP profile image
+    # 1. Try FMP profile image first (most reliable — paid API)
     profile = get_profile(ticker)
     if profile and 'image' in profile and profile['image']:
         img_url = profile['image']
-        # Check if it's a valid URL (not empty/placeholder)
         if img_url and len(img_url) > 10 and 'placeholder' not in img_url.lower():
             return img_url
     
-    # 3. Try logo.dev (very reliable, works for most tickers)
-    # Format: https://img.logo.dev/{domain}?token=pk_anonymous
-    # For stocks, try the company website domain from profile
+    # 2. Check our hardcoded fallbacks
+    if ticker_upper in FALLBACK_LOGOS:
+        return FALLBACK_LOGOS[ticker_upper]
+    
+    # 3. Try logo.dev using company website domain from profile
     if profile and profile.get('website'):
         website = profile['website'].replace('https://', '').replace('http://', '').strip('/')
         if website:
             return f"https://logo.dev/{website}?token=pk_anonymous&format=png&size=64"
     
-    # 4. Fallback to TradingView logos (very reliable for common tickers)
+    # 4. Fallback to TradingView logos
     return f"https://s3-symbol-logo.tradingview.com/{ticker_upper.lower()}--big.svg"
 
 
@@ -22783,283 +22780,226 @@ elif selected_page == "📰 Market Intelligence":
 
 elif selected_page == "👤 Naman's Portfolio":
     st.header("Naman's Portfolio")
-    st.markdown("**My High-Conviction Investment Strategy**")
+    st.markdown("**My High-Conviction Investment Strategy — Full Transparency**")
     
-    # Get actual user tier
-    user_tier = get_user_tier()
-    
-    # ALL HOLDINGS - Full portfolio data (updated Feb 2026)
+    # ALL HOLDINGS - Full portfolio data (updated Apr 2026)
     ALL_HOLDINGS = [
-        {"ticker": "NFLX", "name": "Netflix", "sector": "Communication Services", "weight": 12.33},
-        {"ticker": "META", "name": "Meta Platforms", "sector": "Technology", "weight": 11.84},
-        {"ticker": "AMZN", "name": "Amazon", "sector": "Consumer Cyclical", "weight": 10.07},
-        {"ticker": "SPGI", "name": "S&P Global", "sector": "Financials", "weight": 9.36},
-        {"ticker": "MCO", "name": "Moody's", "sector": "Financials", "weight": 8.46},
-        {"ticker": "PANW", "name": "Palo Alto Networks", "sector": "Technology", "weight": 8.22},
-        {"ticker": "MSFT", "name": "Microsoft", "sector": "Technology", "weight": 7.44},
-        {"ticker": "HOOD", "name": "Robinhood", "sector": "Financials", "weight": 6.37},
-        {"ticker": "NVDA", "name": "NVIDIA", "sector": "Technology", "weight": 5.66},
-        {"ticker": "AVGO", "name": "Broadcom", "sector": "Technology", "weight": 5.15},
-        {"ticker": "CRWD", "name": "CrowdStrike", "sector": "Technology", "weight": 5.12},
-        {"ticker": "GOOG", "name": "Alphabet", "sector": "Technology", "weight": 5.08},
-        {"ticker": "ASML", "name": "ASML Holdings", "sector": "Technology", "weight": 3.73},
-        {"ticker": "CRM", "name": "Salesforce", "sector": "Technology", "weight": 1.18},
+        {"ticker": "META",  "name": "Meta Platforms",      "sector": "Technology",      "weight": 11.11},
+        {"ticker": "NFLX",  "name": "Netflix",             "sector": "Communication Services", "weight": 11.07},
+        {"ticker": "AMZN",  "name": "Amazon",              "sector": "Consumer Cyclical", "weight": 10.06},
+        {"ticker": "PANW",  "name": "Palo Alto Networks",  "sector": "Technology",      "weight": 8.96},
+        {"ticker": "SPGI",  "name": "S&P Global",          "sector": "Financials",      "weight": 8.58},
+        {"ticker": "MCO",   "name": "Moody's",             "sector": "Financials",      "weight": 7.89},
+        {"ticker": "MSFT",  "name": "Microsoft",           "sector": "Technology",      "weight": 7.50},
+        {"ticker": "NVDA",  "name": "NVIDIA",              "sector": "Technology",      "weight": 6.44},
+        {"ticker": "CRWD",  "name": "CrowdStrike",         "sector": "Technology",      "weight": 6.26},
+        {"ticker": "HOOD",  "name": "Robinhood",           "sector": "Financials",      "weight": 6.00},
+        {"ticker": "AVGO",  "name": "Broadcom",            "sector": "Technology",      "weight": 4.99},
+        {"ticker": "GOOG",  "name": "Alphabet",            "sector": "Technology",      "weight": 4.89},
+        {"ticker": "ASML",  "name": "ASML Holdings",       "sector": "Technology",      "weight": 3.33},
+        {"ticker": "CRM",   "name": "Salesforce",          "sector": "Technology",      "weight": 2.92},
     ]
     
-    # FREE TIER - only top 3
-    FREE_TIER_HOLDINGS = ALL_HOLDINGS[:3]
+    # ── YTD Portfolio Return ────────────────────────────────────────────────
+    st.markdown("---")
     
-    # ============= PORTFOLIO CONTENT STARTS HERE =============
+    def calc_ytd_return(ticker):
+        """Calculate YTD return from Jan 1 of current year to now"""
+        try:
+            import yfinance as yf
+            from datetime import datetime
+            year_start = f"{datetime.now().year}-01-01"
+            yf_data = yf.download(ticker, start=year_start, progress=False)
+            if yf_data is not None and not yf_data.empty and len(yf_data) >= 2:
+                col = 'Adj Close' if 'Adj Close' in yf_data.columns else 'Close'
+                start_price = float(yf_data[col].iloc[0])
+                end_price = float(yf_data[col].iloc[-1])
+                if start_price > 0:
+                    return round(((end_price - start_price) / start_price) * 100, 2)
+        except Exception:
+            pass
+        return None
     
-    # Pro/Ultimate users see FULL portfolio
-    if user_tier in ["pro", "ultimate"]:
-        st.markdown("---")
-        st.success(f"👑 **{user_tier.title()} Member** - Full portfolio access unlocked!")
-        st.markdown("### 📊 Full Portfolio Holdings")
+    with st.spinner("Calculating YTD returns..."):
+        # Calculate weighted portfolio YTD return
+        ytd_returns = {}
+        total_weight_with_data = 0
+        weighted_ytd = 0
         
-        # Get timeline from sidebar for S&P comparison
-        timeline_years = st.session_state.get('global_timeline', 5)
+        for h in ALL_HOLDINGS:
+            ret = calc_ytd_return(h["ticker"])
+            ytd_returns[h["ticker"]] = ret
+            if ret is not None:
+                weighted_ytd += ret * (h["weight"] / 100)
+                total_weight_with_data += h["weight"]
         
-        # Calculate return using existing get_historical_price function with yfinance fallback
-        def calc_return_from_history(ticker, years):
-            """Calculate % return using FMP historical price, yfinance fallback"""
-            try:
-                df = get_historical_price(ticker, years)
-                if df is not None and not df.empty and len(df) >= 2:
-                    # FMP light endpoint: try 'close', 'price', 'adjClose' in order
-                    price_col = None
-                    for col in ['close', 'price', 'adjClose', 'adjclose', 'Close']:
-                        if col in df.columns:
-                            price_col = col
-                            break
-                    if price_col is None:
-                        # Last resort: use first numeric column
-                        numeric_cols = df.select_dtypes(include='number').columns.tolist()
-                        if numeric_cols:
-                            price_col = numeric_cols[0]
-                    if price_col:
-                        start_price = float(df.iloc[0][price_col])
-                        end_price = float(df.iloc[-1][price_col])
-                        if start_price > 0:
-                            return round(((end_price - start_price) / start_price) * 100, 1)
-            except Exception:
-                pass
-            # yfinance fallback
-            try:
-                period_map = {1: "1y", 2: "2y", 3: "5y", 5: "5y", 10: "10y"}
-                yf_period = period_map.get(int(years), "5y")
-                yf_data = yf.download(ticker, period=yf_period, progress=False)
-                if yf_data is not None and not yf_data.empty and len(yf_data) >= 2:
-                    col = 'Adj Close' if 'Adj Close' in yf_data.columns else 'Close'
-                    start_price = float(yf_data[col].iloc[0])
-                    end_price = float(yf_data[col].iloc[-1])
-                    if start_price > 0:
-                        return round(((end_price - start_price) / start_price) * 100, 1)
-            except Exception:
-                pass
-            return None
+        # Scale up if some tickers missing data
+        if total_weight_with_data > 0 and total_weight_with_data < 100:
+            weighted_ytd = weighted_ytd * (100 / total_weight_with_data)
         
-        sp500_return = calc_return_from_history("SPY", timeline_years)
-        sp500_display = f"{sp500_return:+.1f}%" if sp500_return is not None else "N/A"
-        
-        st.caption(f"📈 Showing **{timeline_years}Y returns** vs S&P 500 (SPY: **{sp500_display}**) — adjust in sidebar Timeline")
-        
-        # Column headers
-        hcol1, hcol2, hcol3, hcol4, hcol5 = st.columns([3, 1.5, 1.2, 1.5, 1])
-        with hcol1:
-            st.markdown("**Stock**")
-        with hcol2:
-            st.markdown("**Weight**")
-        with hcol3:
-            st.markdown("**% Return**")
-        with hcol4:
-            st.markdown("**S&P Return**")
-        with hcol5:
-            st.markdown("**vs S&P**")
-        
-        # Display ALL holdings with S&P comparison
-        for i, holding in enumerate(ALL_HOLDINGS):
-            logo_url = get_company_logo(holding["ticker"])
-            stock_return = calc_return_from_history(holding["ticker"], timeline_years)
-            
-            col1, col2, col3, col4, col5 = st.columns([3, 1.5, 1.2, 1.5, 1])
-            
-            with col1:
-                if logo_url:
-                    st.markdown(f"""
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <img src="{logo_url}" width="30" height="30" style="border-radius: 4px;">
-                        <span><strong>{holding["ticker"]}</strong> - {holding["name"]}</span>
-                    </div>
-                    """, unsafe_allow_html=True)
-                else:
-                    st.markdown(f"**{holding['ticker']}** - {holding['name']}")
-            
-            with col2:
-                st.markdown(f"**{holding['weight']:.2f}%**")
-            
-            with col3:
-                # Stock return
-                if stock_return is not None:
-                    color = "#00C853" if stock_return >= 0 else "#FF1744"
-                    st.markdown(f'<span style="color:{color};font-weight:bold;">{stock_return:+.1f}%</span>', unsafe_allow_html=True)
-                else:
-                    st.caption("N/A")
-            
-            with col4:
-                # S&P 500 return for comparison
-                if sp500_return is not None:
-                    sp_color = "#00C853" if sp500_return >= 0 else "#FF1744"
-                    st.markdown(f'<span style="color:{sp_color};">S&P: {sp500_return:+.1f}%</span>', unsafe_allow_html=True)
-                else:
-                    st.caption("S&P: N/A")
-            
-            with col5:
-                # Beat/miss indicator
-                if stock_return is not None and sp500_return is not None:
-                    diff = stock_return - sp500_return
-                    if diff > 0:
-                        st.markdown(f'<span style="color:#00C853;font-weight:bold;">✅ +{diff:.0f}%</span>', unsafe_allow_html=True)
-                    else:
-                        st.markdown(f'<span style="color:#FF1744;">❌ {diff:.0f}%</span>', unsafe_allow_html=True)
-                else:
-                    st.caption("-")
-        
-        # Total weight
-        total_weight = sum(h["weight"] for h in ALL_HOLDINGS)
-        st.markdown(f"**Total Portfolio Weight: {total_weight:.2f}%**")
-        st.caption("*Remaining allocation in cash/bonds*")
-        
-    else:
-        # FREE TIER - Show only the 3 free holdings
-        st.markdown("---")
-        st.markdown("### 📊 Portfolio Holdings (Free Preview)")
-        st.info("**Free Preview:** Showing top 3 holdings only. Pro/Ultimate holdings are locked for exclusivity.")
-        
-        # Get timeline from sidebar for S&P comparison
-        timeline_years = st.session_state.get('global_timeline', 5)
-        
-        # Calculate return using FMP + yfinance fallback
-        def calc_return_from_history_free(ticker, years):
-            """Calculate % return - same robust logic as Pro version with yfinance fallback"""
-            try:
-                df = get_historical_price(ticker, years)
-                if df is not None and not df.empty and len(df) >= 2:
-                    price_col = None
-                    for col in ['close', 'price', 'adjClose', 'adjclose', 'Close']:
-                        if col in df.columns:
-                            price_col = col
-                            break
-                    if price_col is None:
-                        numeric_cols = df.select_dtypes(include='number').columns.tolist()
-                        if numeric_cols:
-                            price_col = numeric_cols[0]
-                    if price_col:
-                        start_price = float(df.iloc[0][price_col])
-                        end_price = float(df.iloc[-1][price_col])
-                        if start_price > 0:
-                            return round(((end_price - start_price) / start_price) * 100, 1)
-            except Exception:
-                pass
-            # yfinance fallback
-            try:
-                period_map = {1: "1y", 2: "2y", 3: "5y", 5: "5y", 10: "10y"}
-                yf_period = period_map.get(int(years), "5y")
-                yf_data = yf.download(ticker, period=yf_period, progress=False)
-                if yf_data is not None and not yf_data.empty and len(yf_data) >= 2:
-                    col = 'Adj Close' if 'Adj Close' in yf_data.columns else 'Close'
-                    start_price = float(yf_data[col].iloc[0])
-                    end_price = float(yf_data[col].iloc[-1])
-                    if start_price > 0:
-                        return round(((end_price - start_price) / start_price) * 100, 1)
-            except Exception:
-                pass
-            return None
-        
-        sp500_return = calc_return_from_history_free("SPY", timeline_years)
-        sp500_display = f"{sp500_return:+.1f}%" if sp500_return is not None else "N/A"
-        
-        st.caption(f"📈 Showing **{timeline_years}Y returns** vs S&P 500 (SPY: **{sp500_display}**) — adjust in sidebar Timeline")
-        
-        # Column headers
-        hcol1, hcol2, hcol3, hcol4, hcol5 = st.columns([3, 1.5, 1.2, 1.5, 1])
-        with hcol1:
-            st.markdown("**Stock**")
-        with hcol2:
-            st.markdown("**Weight**")
-        with hcol3:
-            st.markdown("**% Return**")
-        with hcol4:
-            st.markdown("**S&P Return**")
-        with hcol5:
-            st.markdown("**vs S&P**")
-        
-        # Display FREE tier holdings with S&P comparison
-        for i, holding in enumerate(FREE_TIER_HOLDINGS):
-            logo_url = get_company_logo(holding["ticker"])
-            stock_return = calc_return_from_history_free(holding["ticker"], timeline_years)
-            
-            col1, col2, col3, col4, col5 = st.columns([3, 1.5, 1.2, 1.5, 1])
-            
-            with col1:
-                if logo_url:
-                    st.markdown(f"""
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <img src="{logo_url}" width="30" height="30" style="border-radius: 4px;">
-                        <span><strong>{holding["ticker"]}</strong> - {holding["name"]}</span>
-                    </div>
-                    """, unsafe_allow_html=True)
-                else:
-                    st.markdown(f"**{holding['ticker']}** - {holding['name']}")
-            
-            with col2:
-                st.markdown(f"**{holding['weight']:.2f}%**")
-            
-            with col3:
-                # Stock return
-                if stock_return is not None:
-                    color = "#00C853" if stock_return >= 0 else "#FF1744"
-                    st.markdown(f'<span style="color:{color};font-weight:bold;">{stock_return:+.1f}%</span>', unsafe_allow_html=True)
-                else:
-                    st.caption("N/A")
-            
-            with col4:
-                # S&P 500 return for comparison
-                if sp500_return is not None:
-                    sp_color = "#00C853" if sp500_return >= 0 else "#FF1744"
-                    st.markdown(f'<span style="color:{sp_color};">S&P: {sp500_return:+.1f}%</span>', unsafe_allow_html=True)
-                else:
-                    st.caption("S&P: N/A")
-            
-            with col5:
-                # Beat/miss indicator
-                if stock_return is not None and sp500_return is not None:
-                    diff = stock_return - sp500_return
-                    if diff > 0:
-                        st.markdown(f'<span style="color:#00C853;font-weight:bold;">✅ +{diff:.0f}%</span>', unsafe_allow_html=True)
-                    else:
-                        st.markdown(f'<span style="color:#FF1744;">❌ {diff:.0f}%</span>', unsafe_allow_html=True)
-                else:
-                    st.caption("-")
-        
-        # Show locked indicator for remaining holdings
-        st.markdown("---")
-        st.markdown("### 🔒 11 More Holdings Locked")
-        st.markdown("""
-        <div style="background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%); border: 2px solid #42A5F5; border-radius: 10px; padding: 20px; text-align: center;">
-            <p style="color: #333; font-size: 16px;">Holdings #4-14 are exclusive to Pro & Ultimate members.</p>
-            <p style="color: #E6A800; font-size: 14px; font-weight: bold;">Upgrade to Ultimate to see my full portfolio!</p>
+        portfolio_ytd = round(weighted_ytd, 2)
+        sp500_ytd = calc_ytd_return("SPY")
+    
+    # Hero card with YTD performance
+    ytd_color = "#00C853" if portfolio_ytd >= 0 else "#FF1744"
+    sp_ytd_color = "#00C853" if sp500_ytd and sp500_ytd >= 0 else "#FF1744"
+    sp_ytd_str = f"{sp500_ytd:+.2f}%" if sp500_ytd is not None else "N/A"
+    alpha = round(portfolio_ytd - (sp500_ytd or 0), 2) if sp500_ytd is not None else None
+    alpha_str = f"{alpha:+.2f}%" if alpha is not None else ""
+    alpha_color = "#00C853" if alpha and alpha >= 0 else "#FF1744"
+    
+    st.markdown(f"""
+    <div style="background:linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%);
+                border:2px solid #90CAF9; border-radius:16px;
+                padding:24px 28px; margin-bottom:20px;">
+        <div style="font-size:11px; font-weight:700; letter-spacing:2px;
+                    color:#1565C0; margin-bottom:8px; text-transform:uppercase;">
+            📈 {datetime.now().year} YTD Performance
         </div>
-        """, unsafe_allow_html=True)
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
+            <div>
+                <div style="font-size:32px; font-weight:800; color:{ytd_color};">{portfolio_ytd:+.2f}%</div>
+                <div style="font-size:13px; color:rgba(26,26,26,0.6);">Naman's Portfolio (weighted)</div>
+            </div>
+            <div style="text-align:center;">
+                <div style="font-size:22px; font-weight:700; color:{sp_ytd_color};">{sp_ytd_str}</div>
+                <div style="font-size:13px; color:rgba(26,26,26,0.6);">S&P 500</div>
+            </div>
+            <div style="text-align:right;">
+                <div style="font-size:22px; font-weight:700; color:{alpha_color};">{alpha_str}</div>
+                <div style="font-size:13px; color:rgba(26,26,26,0.6);">Alpha</div>
+            </div>
+        </div>
+        <div style="font-size:11px; color:rgba(26,26,26,0.5); margin-top:12px;">
+            Weighted return based on allocation below · Updated live via yfinance
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # ── Holdings Table ──────────────────────────────────────────────────────
+    st.markdown("### 📊 All Holdings")
+    
+    # Get timeline from sidebar for multi-year comparison
+    timeline_years = st.session_state.get('global_timeline', 5)
+    
+    def calc_return_from_history(ticker, years):
+        """Calculate % return using FMP historical price, yfinance fallback"""
+        try:
+            df = get_historical_price(ticker, years)
+            if df is not None and not df.empty and len(df) >= 2:
+                price_col = None
+                for col in ['close', 'price', 'adjClose', 'adjclose', 'Close']:
+                    if col in df.columns:
+                        price_col = col
+                        break
+                if price_col is None:
+                    numeric_cols = df.select_dtypes(include='number').columns.tolist()
+                    if numeric_cols:
+                        price_col = numeric_cols[0]
+                if price_col:
+                    start_price = float(df.iloc[0][price_col])
+                    end_price = float(df.iloc[-1][price_col])
+                    if start_price > 0:
+                        return round(((end_price - start_price) / start_price) * 100, 1)
+        except Exception:
+            pass
+        try:
+            period_map = {1: "1y", 2: "2y", 3: "5y", 5: "5y", 10: "10y"}
+            yf_period = period_map.get(int(years), "5y")
+            yf_data = yf.download(ticker, period=yf_period, progress=False)
+            if yf_data is not None and not yf_data.empty and len(yf_data) >= 2:
+                col = 'Adj Close' if 'Adj Close' in yf_data.columns else 'Close'
+                start_price = float(yf_data[col].iloc[0])
+                end_price = float(yf_data[col].iloc[-1])
+                if start_price > 0:
+                    return round(((end_price - start_price) / start_price) * 100, 1)
+        except Exception:
+            pass
+        return None
+    
+    sp500_return = calc_return_from_history("SPY", timeline_years)
+    sp500_display = f"{sp500_return:+.1f}%" if sp500_return is not None else "N/A"
+    
+    st.caption(f"📈 Showing **{timeline_years}Y returns** vs S&P 500 (SPY: **{sp500_display}**) — adjust in sidebar Timeline")
+    
+    # Column headers
+    hcol1, hcol2, hcol3, hcol4, hcol5, hcol6 = st.columns([3, 1.2, 1, 1, 1.2, 0.8])
+    with hcol1:
+        st.markdown("**Stock**")
+    with hcol2:
+        st.markdown("**Weight**")
+    with hcol3:
+        st.markdown("**YTD**")
+    with hcol4:
+        st.markdown("**{0}Y Return**".format(timeline_years))
+    with hcol5:
+        st.markdown("**S&P Return**")
+    with hcol6:
+        st.markdown("**vs S&P**")
+    
+    # Display ALL holdings
+    for i, holding in enumerate(ALL_HOLDINGS):
+        logo_url = get_company_logo(holding["ticker"])
+        stock_return = calc_return_from_history(holding["ticker"], timeline_years)
+        stock_ytd = ytd_returns.get(holding["ticker"])
         
-        if st.button("👑 Go Ultimate", key="upgrade_from_portfolio", type="primary", use_container_width=True):
-            st.session_state.selected_page = "👑 Become a VIP"
-            st.rerun()
+        col1, col2, col3, col4, col5, col6 = st.columns([3, 1.2, 1, 1, 1.2, 0.8])
+        
+        with col1:
+            if logo_url:
+                st.markdown(f"""
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <img src="{logo_url}" width="30" height="30" style="border-radius: 4px;">
+                    <span><strong>{holding["ticker"]}</strong> - {holding["name"]}</span>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"**{holding['ticker']}** - {holding['name']}")
+        
+        with col2:
+            st.markdown(f"**{holding['weight']:.2f}%**")
+        
+        with col3:
+            if stock_ytd is not None:
+                ytd_c = "#00C853" if stock_ytd >= 0 else "#FF1744"
+                st.markdown(f'<span style="color:{ytd_c};font-weight:bold;">{stock_ytd:+.1f}%</span>', unsafe_allow_html=True)
+            else:
+                st.caption("N/A")
+        
+        with col4:
+            if stock_return is not None:
+                color = "#00C853" if stock_return >= 0 else "#FF1744"
+                st.markdown(f'<span style="color:{color};font-weight:bold;">{stock_return:+.1f}%</span>', unsafe_allow_html=True)
+            else:
+                st.caption("N/A")
+        
+        with col5:
+            if sp500_return is not None:
+                sp_color = "#00C853" if sp500_return >= 0 else "#FF1744"
+                st.markdown(f'<span style="color:{sp_color};">S&P: {sp500_return:+.1f}%</span>', unsafe_allow_html=True)
+            else:
+                st.caption("S&P: N/A")
+        
+        with col6:
+            if stock_return is not None and sp500_return is not None:
+                diff = stock_return - sp500_return
+                if diff > 0:
+                    st.markdown(f'<span style="color:#00C853;font-weight:bold;">✅ +{diff:.0f}%</span>', unsafe_allow_html=True)
+                else:
+                    st.markdown(f'<span style="color:#FF1744;">❌ {diff:.0f}%</span>', unsafe_allow_html=True)
+            else:
+                st.caption("-")
+    
+    # Total weight
+    total_weight = sum(h["weight"] for h in ALL_HOLDINGS)
+    st.markdown(f"**Total Portfolio Weight: {total_weight:.2f}%**")
+    if total_weight < 100:
+        st.caption(f"*Remaining {100 - total_weight:.2f}% in cash*")
     
     # ============= THE NAMAN ANALYSIS (Visible to ALL) =============
     st.markdown("---")
     st.markdown("## 📊 The Naman Analysis")
-    st.markdown("*Detailed breakdowns of my top 3 conviction picks - visible to everyone.*")
+    st.markdown("*Detailed breakdowns of my top 3 conviction picks.*")
     
     # Pick #1: NFLX
     st.markdown("### 🏆 Pick #1: Netflix (NFLX) – The Predator of Streaming")
@@ -23133,17 +23073,8 @@ elif selected_page == "👤 Naman's Portfolio":
     }
     st.dataframe(pd.DataFrame(amzn_data), use_container_width=True, hide_index=True)
     
-    # ============= BECOME A VIP CTA =============
     st.markdown("---")
-    st.markdown("### 👑 Want to see the full portfolio?")
-    st.markdown("Unlock all holdings, advanced metrics, and exclusive investment insights with VIP access.")
-    
-    if st.button("👑 Become a VIP →", type="primary", use_container_width=True):
-        st.session_state.selected_page = "👑 Become a VIP"
-        st.rerun()
-    
-    st.markdown("---")
-    st.caption("*Portfolio weightings as of December 2025. Subject to change based on market conditions. This is not financial advice.*")
+    st.caption(f"*Portfolio weightings as of April 2026. Subject to change. This is not financial advice.*")
 
 
 
