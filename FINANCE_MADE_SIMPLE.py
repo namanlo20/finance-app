@@ -22804,12 +22804,47 @@ elif selected_page == "👤 Naman's Portfolio":
     st.markdown("---")
     
     def calc_ytd_return(ticker):
-        """Calculate YTD return from Jan 1 of current year to now"""
+        """Calculate YTD return from Jan 1 of current year to now.
+        Tries FMP quote (ytdReturn) → FMP historical → yfinance in that order."""
+        from datetime import datetime
+        year = datetime.now().year
+
+        # 1) Try FMP real-time quote — fastest, most reliable
+        try:
+            q = get_quote(ticker)
+            if q:
+                ytd_pct = q.get('yearToDatePriceReturnPercentage') or q.get('ytdReturn')
+                if ytd_pct is not None and ytd_pct != 0:
+                    return round(float(ytd_pct), 2)
+        except Exception:
+            pass
+
+        # 2) Try FMP historical — compute from Jan 1 close to latest close
+        try:
+            df = get_historical_price(ticker, 1)
+            if df is not None and not df.empty:
+                price_col = None
+                for c in ['close', 'price', 'adjClose', 'adjclose', 'Close']:
+                    if c in df.columns:
+                        price_col = c
+                        break
+                if price_col and 'date' in df.columns:
+                    df = df.copy()
+                    df['date'] = pd.to_datetime(df['date'], errors='coerce')
+                    ytd_df = df[df['date'].dt.year == year].sort_values('date')
+                    if len(ytd_df) >= 2:
+                        start_price = float(ytd_df.iloc[0][price_col])
+                        end_price = float(ytd_df.iloc[-1][price_col])
+                        if start_price > 0:
+                            return round(((end_price - start_price) / start_price) * 100, 2)
+        except Exception:
+            pass
+
+        # 3) Fallback: yfinance
         try:
             import yfinance as yf
-            from datetime import datetime
-            year_start = f"{datetime.now().year}-01-01"
-            yf_data = yf.download(ticker, start=year_start, progress=False)
+            year_start = f"{year}-01-01"
+            yf_data = yf.download(ticker, start=year_start, progress=False, auto_adjust=False)
             if yf_data is not None and not yf_data.empty and len(yf_data) >= 2:
                 col = 'Adj Close' if 'Adj Close' in yf_data.columns else 'Close'
                 start_price = float(yf_data[col].iloc[0])
@@ -23494,6 +23529,16 @@ elif selected_page == "💡 Trade Ideas":
     _ti_db_ideas = fetch_trade_ideas_from_db()
 
     if _ti_db_ideas:
+        # ── Manual P&L overrides for closed trades (by ticker) ──────────────
+        # Until `pnl` / `status="Closed"` / `exit_price` columns are added to the
+        # Supabase trade_ideas table, we store realized trades here.
+        _CLOSED_TRADES = {
+            "ASML": {"entry": 1200.0, "exit": 1500.0, "pnl_pct": 25.00, "closed_date": "2026-04-18"},
+            "NFLX": {"entry": None,   "exit": None,   "pnl_pct": 15.00, "closed_date": "2026-04-18"},
+            "AMZN": {"entry": 220.0,  "exit": 250.0,  "pnl_pct": 13.64, "closed_date": "2026-04-18"},
+            "META": {"entry": 550.0,  "exit": 670.0,  "pnl_pct": 21.82, "closed_date": "2026-04-18"},
+        }
+
         for _idea in _ti_db_ideas:
             _tk = _idea.get("ticker", "")
             _nm = _idea.get("name", _tk)
@@ -23506,58 +23551,125 @@ elif selected_page == "💡 Trade Ideas":
             _rsk = _idea.get("risk", "")
             _dt = _idea.get("date_posted", "")
 
-            _b_color = "#2E7D32" if _bias == "Bullish" else "#C62828" if _bias == "Bearish" else "#E65100"
-            _s_color = "#0D47A1" if _status == "Active" else "#777"
+            # Override status + P&L from manual closed-trades map
+            _closed = _CLOSED_TRADES.get(_tk.upper())
+            if _closed:
+                _status = "Closed"
+                _pnl_pct = _closed.get("pnl_pct")
+                _entry = _closed.get("entry")
+                _exit = _closed.get("exit")
+                _closed_dt = _closed.get("closed_date", "")
+            else:
+                _pnl_pct = _idea.get("pnl_pct")  # future: read from DB
+                _entry = None
+                _exit = None
+                _closed_dt = ""
 
-            st.markdown(f"""
-            <div style="background:linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%);
-                        border:1px solid #90CAF9; border-radius:14px; padding:20px 24px; margin:12px 0;">
-                <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:8px;">
-                    <div>
-                        <div style="font-size:20px; font-weight:700; color:#1a1a1a;">{_nm} ({_tk})</div>
-                        <div style="font-size:12px; color:#777; margin-top:2px;">Posted {_dt}</div>
-                    </div>
-                    <div style="display:flex; gap:8px;">
-                        <span style="background:{_b_color}18; color:{_b_color}; padding:4px 12px; border-radius:20px;
-                                     font-size:12px; font-weight:600; border:1px solid {_b_color}44;">{_bias}</span>
-                        <span style="background:{_s_color}18; color:{_s_color}; padding:4px 12px; border-radius:20px;
-                                     font-size:12px; font-weight:600; border:1px solid {_s_color}44;">{_status}</span>
+            # Colors
+            _b_color = "#2E7D32" if _bias == "Bullish" else "#C62828" if _bias == "Bearish" else "#E65100"
+            if _status == "Active":
+                _s_color = "#0D47A1"
+            elif _status == "Closed":
+                _s_color = "#00C853" if (_pnl_pct or 0) >= 0 else "#FF1744"
+            else:
+                _s_color = "#777"
+
+            # ── Expander summary line ───────────────────────────────────────
+            if _pnl_pct is not None:
+                _pnl_str = f"+{_pnl_pct:.2f}%" if _pnl_pct >= 0 else f"{_pnl_pct:.2f}%"
+                _emoji = "🟢" if _pnl_pct >= 0 else "🔴"
+                _summary = f"{_emoji} {_nm} ({_tk})  ·  {_bias}  ·  {_status}  ·  P&L: {_pnl_str}"
+            else:
+                _summary = f"🔵 {_nm} ({_tk})  ·  {_bias}  ·  {_status}"
+
+            with st.expander(_summary, expanded=False):
+                # Header banner
+                _header_right = f"""
+                    <span style="background:{_b_color}18; color:{_b_color}; padding:4px 12px; border-radius:20px;
+                                 font-size:12px; font-weight:600; border:1px solid {_b_color}44;">{_bias}</span>
+                    <span style="background:{_s_color}18; color:{_s_color}; padding:4px 12px; border-radius:20px;
+                                 font-size:12px; font-weight:600; border:1px solid {_s_color}44;">{_status}</span>
+                """
+                if _pnl_pct is not None:
+                    _pnl_color = "#00C853" if _pnl_pct >= 0 else "#FF1744"
+                    _pnl_txt = f"+{_pnl_pct:.2f}%" if _pnl_pct >= 0 else f"{_pnl_pct:.2f}%"
+                    _header_right += f"""
+                    <span style="background:{_pnl_color}18; color:{_pnl_color}; padding:4px 12px; border-radius:20px;
+                                 font-size:12px; font-weight:700; border:1px solid {_pnl_color}55;">P&amp;L {_pnl_txt}</span>
+                    """
+
+                st.markdown(f"""
+                <div style="background:linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%);
+                            border:1px solid #90CAF9; border-radius:14px; padding:18px 22px; margin:6px 0 12px 0;">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:8px;">
+                        <div>
+                            <div style="font-size:20px; font-weight:700; color:#1a1a1a;">{_nm} ({_tk})</div>
+                            <div style="font-size:12px; color:#777; margin-top:2px;">Posted {_dt}{f" · Closed {_closed_dt}" if _closed_dt else ""}</div>
+                        </div>
+                        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                            {_header_right}
+                        </div>
                     </div>
                 </div>
-            </div>
-            """, unsafe_allow_html=True)
+                """, unsafe_allow_html=True)
 
-            # Zones from JSON
-            if isinstance(_zones, list):
-                for _z in _zones:
-                    if isinstance(_z, dict):
-                        st.markdown(f"**{_z.get('label', '')}:** {_z.get('detail', '')}")
-                    elif isinstance(_z, str):
-                        st.markdown(f"- {_z}")
+                # ── Closed-trade P&L card ───────────────────────────────────
+                if _status == "Closed" and _pnl_pct is not None:
+                    _pnl_color = "#00C853" if _pnl_pct >= 0 else "#FF1744"
+                    _pnl_bg = "#E8F5E9" if _pnl_pct >= 0 else "#FFEBEE"
+                    _pnl_border = "#A5D6A7" if _pnl_pct >= 0 else "#EF9A9A"
+                    _pnl_txt = f"+{_pnl_pct:.2f}%" if _pnl_pct >= 0 else f"{_pnl_pct:.2f}%"
 
-            if _stop:
-                st.markdown(f"🛑 **Stop:** {_stop}")
-            if _tgts:
-                st.markdown(f"🎯 **Targets:** {_tgts}")
+                    _detail_html = ""
+                    if _entry is not None and _exit is not None:
+                        _detail_html = f"""
+                        <div style="display:flex; gap:16px; margin-top:8px; font-size:13px; color:#333;">
+                            <div><b>Entry:</b> ${_entry:,.2f}</div>
+                            <div><b>Exit:</b> ${_exit:,.2f}</div>
+                        </div>
+                        """
 
-            _ti_c1, _ti_c2 = st.columns(2)
-            with _ti_c1:
-                if _cat:
                     st.markdown(f"""
-                    <div style="background:#E8F5E9; border:1px solid #A5D6A7; border-radius:10px; padding:12px 14px; margin-top:8px;">
-                        <div style="color:#2E7D32; font-weight:700; font-size:12px; margin-bottom:4px;">💡 Catalyst</div>
-                        <div style="color:#1a1a1a; font-size:13px; line-height:1.5;">{_cat}</div>
+                    <div style="background:{_pnl_bg}; border:1px solid {_pnl_border}; border-radius:10px;
+                                padding:14px 18px; margin-bottom:12px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div style="font-weight:700; color:#1a1a1a; font-size:14px;">💰 Realized P&amp;L</div>
+                            <div style="font-size:22px; font-weight:800; color:{_pnl_color};">{_pnl_txt}</div>
+                        </div>
+                        {_detail_html}
                     </div>
                     """, unsafe_allow_html=True)
-            with _ti_c2:
-                if _rsk:
-                    st.markdown(f"""
-                    <div style="background:#FFEBEE; border:1px solid #EF9A9A; border-radius:10px; padding:12px 14px; margin-top:8px;">
-                        <div style="color:#C62828; font-weight:700; font-size:12px; margin-bottom:4px;">⚠️ Key Risk</div>
-                        <div style="color:#1a1a1a; font-size:13px; line-height:1.5;">{_rsk}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-            st.markdown("")
+
+                # Zones from JSON
+                if isinstance(_zones, list):
+                    for _z in _zones:
+                        if isinstance(_z, dict):
+                            st.markdown(f"**{_z.get('label', '')}:** {_z.get('detail', '')}")
+                        elif isinstance(_z, str):
+                            st.markdown(f"- {_z}")
+
+                if _stop:
+                    st.markdown(f"🛑 **Stop:** {_stop}")
+                if _tgts:
+                    st.markdown(f"🎯 **Targets:** {_tgts}")
+
+                _ti_c1, _ti_c2 = st.columns(2)
+                with _ti_c1:
+                    if _cat:
+                        st.markdown(f"""
+                        <div style="background:#E8F5E9; border:1px solid #A5D6A7; border-radius:10px; padding:12px 14px; margin-top:8px;">
+                            <div style="color:#2E7D32; font-weight:700; font-size:12px; margin-bottom:4px;">💡 Catalyst</div>
+                            <div style="color:#1a1a1a; font-size:13px; line-height:1.5;">{_cat}</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                with _ti_c2:
+                    if _rsk:
+                        st.markdown(f"""
+                        <div style="background:#FFEBEE; border:1px solid #EF9A9A; border-radius:10px; padding:12px 14px; margin-top:8px;">
+                            <div style="color:#C62828; font-weight:700; font-size:12px; margin-bottom:4px;">⚠️ Key Risk</div>
+                            <div style="color:#1a1a1a; font-size:13px; line-height:1.5;">{_rsk}</div>
+                        </div>
+                        """, unsafe_allow_html=True)
     else:
         st.info("No active trade ideas right now. Check back soon!")
 
