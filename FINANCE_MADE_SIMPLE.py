@@ -9159,7 +9159,7 @@ TOUR_PAGES = [
         "title": "🏠 Dashboard",
         "icon": "🏠",
         "subtitle": "Your home base",
-        "description": "Save stocks to your watchlist, see today's market movers (gainers & losers), catch quick news headlines, and search any ticker instantly.",
+        "description": "Save stocks to your watchlist, see today's market movers, catch quick news headlines, and search any ticker instantly. Start here every morning.",
         "nav_page": "🏠 Dashboard"
     },
     {
@@ -9173,28 +9173,28 @@ TOUR_PAGES = [
         "title": "🧠 Risk Quiz",
         "icon": "🧠",
         "subtitle": "Know your investor profile",
-        "description": "Take a quick quiz to find out your risk tolerance — conservative, moderate, or aggressive — and get personalized guidance.",
+        "description": "A quick 10-question quiz to find your risk tolerance — conservative, moderate, or aggressive — and get personalized ETF and stock suggestions for your tier.",
         "nav_page": "🧠 Risk Quiz"
     },
     {
         "title": "📚 Learn Hub",
         "icon": "📚",
-        "subtitle": "55+ interactive lessons",
-        "description": "Gamified learning from beginner to advanced. Earn XP, complete quizzes, and track your streak. No finance background needed.",
+        "subtitle": "Interactive lessons from beginner to advanced",
+        "description": "Gamified learning with lesson audio, quizzes, XP, and streaks. Covers foundations, ETFs & diversification, and risk basics. No finance background needed.",
         "nav_page": "📚 Learn Hub"
     },
     {
         "title": "📘 Glossary",
         "icon": "📘",
-        "subtitle": "Finance terms explained simply",
-        "description": "Look up any investing term and get a plain-English explanation. Great reference while you're learning.",
+        "subtitle": "Finance terms in plain English",
+        "description": "Look up any investing term and get a jargon-free explanation. Great reference while you're learning or reading analysis.",
         "nav_page": "📘 Glossary"
     },
     {
         "title": "📊 Company Analysis",
         "icon": "📊",
         "subtitle": "Deep dive any stock",
-        "description": "Full financials (revenue, earnings, cash flow), interactive charts vs S&P 500, AI explanations of complex metrics, and Wall Street price targets.",
+        "description": "Full financials (revenue, earnings, cash flow), interactive charts vs S&P 500, AI explanations of complex metrics, and Wall Street price targets — powered by FMP premium.",
         "nav_page": "📊 Company Analysis"
     },
     {
@@ -9208,63 +9208,63 @@ TOUR_PAGES = [
         "title": "📈 Financial Health",
         "icon": "📈",
         "subtitle": "Compare & evaluate stocks",
-        "description": "Check a company's financial health scores and compare two stocks side by side — metrics, chart overlay, and winner highlights.",
+        "description": "Check a company's financial health scores and compare two stocks side by side — ratio charts vs S&P 500 benchmarks, overlays, and winner highlights.",
         "nav_page": "📈 Financial Health"
     },
     {
         "title": "📰 Market Intelligence",
         "icon": "📰",
         "subtitle": "Stay informed",
-        "description": "VIX fear gauge, this week's earnings calendar, stock-specific news, and market-moving alerts — all in one place.",
+        "description": "VIX fear gauge, this week's earnings calendar, stock-specific news powered by Perplexity, and market-moving alerts — all in one place.",
         "nav_page": "📰 Market Intelligence"
-    },
-    {
-        "title": "📊 Market Overview",
-        "icon": "📊",
-        "subtitle": "Bird's-eye view of the market",
-        "description": "See how major indices, sectors, and asset classes are performing. Quick snapshot of what's moving today.",
-        "nav_page": "📊 Market Overview"
-    },
-    {
-        "title": "🤖 AI Stock Screener",
-        "icon": "🤖",
-        "subtitle": "Ask anything about stocks",
-        "description": "Ask any stock question in plain English — 'Is NVDA overvalued?' 'Compare AAPL vs MSFT' — and our AI agent pulls financials, ratios, news & analyst targets to deliver a full research report.",
-        "nav_page": "🔍 AI Stock Screener"
     },
     {
         "title": "📡 Dip Radar",
         "icon": "📡",
-        "subtitle": "Find dipped stocks",
-        "description": "Stocks ranked by how far they've dipped from their 52-week high. Auto-loads from your paper portfolio or paste tickers manually. Detail panel shows P/E, revenue growth, analyst consensus, and valuation label.",
+        "subtitle": "Find quality dips",
+        "description": "Stocks ranked by a 6-pillar DQ Score — valuation, analyst targets, technicals, moat, AI disruption risk, and momentum. Auto-loads from your paper portfolio or paste tickers manually. Free for everyone.",
         "nav_page": "📡 Dip Radar"
+    },
+    {
+        "title": "💡 Trade Ideas",
+        "icon": "💡",
+        "subtitle": "AI setups + Naman's real trades",
+        "description": "Generate your own AI trade setup for any ticker (entry, stop loss, 3 targets, catalyst, conviction), or browse Naman's active and closed setups with realized P&L. Free users see a teaser — Ultimate unlocks everything.",
+        "nav_page": "💡 Trade Ideas"
     },
     {
         "title": "👑 Ultimate",
         "icon": "👑",
-        "subtitle": "Ultimate tier feature",
-        "description": "Upload brokerage screenshots for AI analysis, get diversification scores, match your risk profile, and receive personalized suggestions. Requires Ultimate.",
+        "subtitle": "Premium AI analysis",
+        "description": "Signal Dashboard, fact-locked AI Deep Dive, visual key levels on the chart, trader alerts (RSI extremes, breakouts), and scenario analysis. Requires Ultimate — first month free.",
         "nav_page": "👑 Ultimate"
     },
     {
         "title": "💼 Paper Portfolio",
         "icon": "💼",
         "subtitle": "Practice risk-free",
-        "description": "$100K fake money to paper trade. Track your returns, benchmark vs SPY, and peek at the founder's real portfolio.",
+        "description": "$100K fake money to paper trade. Track your returns, benchmark vs SPY, and learn what works before risking real money.",
         "nav_page": "💼 Paper Portfolio"
     },
     {
-        "title": "⚙️ Settings & Sidebar",
+        "title": "👤 Naman's Portfolio",
+        "icon": "👤",
+        "subtitle": "Full transparency — my real holdings",
+        "description": "See my actual positions with live YTD and multi-year returns vs S&P 500, plus detailed breakdowns of my top conviction picks. Educational only — not financial advice.",
+        "nav_page": "👤 Naman's Portfolio"
+    },
+    {
+        "title": "⚙️ Settings & Header",
         "icon": "⚙️",
-        "subtitle": "Left panel controls",
-        "description": "Sign in/up to sync across devices. Use the timeline slider (1-30Y) to control chart history. Toggle Unhinged Mode for fun roast commentary (18+).",
+        "subtitle": "Top-bar controls",
+        "description": "Sign in/up to sync across devices. Use the timeline slider (1Y–30Y) to control chart history. Toggle Unhinged Mode for roast commentary (18+).",
         "nav_page": None
     },
     {
         "title": "👑 VIP Tiers",
         "icon": "👑",
         "subtitle": "Free month for new users!",
-        "description": "Free → 3 saved stocks, basic analysis. Pro ($5/mo) → 25 saved stocks, advanced charts, AI insights. Ultimate ($10/mo) → unlimited saved stocks + priority support. First month free for new subscribers!",
+        "description": "Free tier → all core learning + analysis + Dip Radar + 3 teaser trade ideas. Ultimate ($10/mo) → AI trade setups, Ultimate page, all of Naman's trades with P&L, priority support. First month FREE for new subscribers — cancel anytime.",
         "nav_page": "👑 Become a VIP"
     }
 ]
@@ -9607,7 +9607,7 @@ def login_dialog():
                     
                     # Fetch first name and tier from profiles table
                     try:
-                        profile = supabase.table("profiles").select("first_name, tier").eq("id", uid).single().execute()
+                        profile = supabase.table("profiles").select("first_name, tier, trial_ends_at").eq("id", uid).single().execute()
                         st.session_state.first_name = (profile.data or {}).get("first_name") or ""
                         profile_tier = (profile.data or {}).get("tier") or "free"
                         if profile_tier in ["pro", "ultimate"]:
@@ -11386,27 +11386,50 @@ if isinstance(payment_tier, (list, tuple)):
 if payment_param == "success" and payment_tier in ["pro", "ultimate"]:
     # Set tier in session state immediately
     st.session_state.user_tier = payment_tier
-    
+
+    # Calculate trial end date (30 days from now) — shown in banner
+    from datetime import timedelta as _timedelta
+    _trial_ends_at = (datetime.now() + _timedelta(days=30)).isoformat()
+    st.session_state.trial_ends_at = _trial_ends_at
+
     # Update in Supabase if logged in
     if st.session_state.get('is_logged_in'):
         user_email = st.session_state.get('user_email', '')
         user_id = st.session_state.get('user_id', '')
         if user_id and SUPABASE_ENABLED:
             try:
-                supabase.table("profiles").upsert({
+                # Only set trial_ends_at + trial_used if this is the first upgrade.
+                # Re-subscribing users who already used their trial shouldn't get another.
+                existing = supabase.table("profiles").select("trial_used").eq("id", user_id).single().execute()
+                already_used = bool(existing.data and existing.data.get("trial_used"))
+
+                profile_update = {
                     "id": user_id,
                     "tier": payment_tier,
-                    "tier_updated_at": datetime.now().isoformat()
-                }).execute()
+                    "tier_updated_at": datetime.now().isoformat(),
+                }
+                if not already_used:
+                    profile_update["trial_ends_at"] = _trial_ends_at
+                    profile_update["trial_used"] = True
+
+                supabase.table("profiles").upsert(profile_update).execute()
             except Exception:
-                pass
-    
+                # Fall back to basic upsert if the extra columns don't exist yet
+                try:
+                    supabase.table("profiles").upsert({
+                        "id": user_id,
+                        "tier": payment_tier,
+                        "tier_updated_at": datetime.now().isoformat()
+                    }).execute()
+                except Exception:
+                    pass
+
     # Clean up query params
     if "payment" in st.query_params:
         del st.query_params["payment"]
     if "tier" in st.query_params:
         del st.query_params["tier"]
-    
+
     st.session_state.payment_just_succeeded = payment_tier
     st.rerun()
 
@@ -11415,6 +11438,64 @@ if st.session_state.get('payment_just_succeeded'):
     tier_name = st.session_state.payment_just_succeeded
     st.toast(f"🎉 Welcome to {tier_name.title()}! Your premium features are now active.", icon="👑")
     del st.session_state.payment_just_succeeded
+
+# ============= TRIAL COUNTDOWN BANNER =============
+# Shows "🎁 Trial: X days left" for users currently in their 30-day free month.
+# Reads trial_ends_at from session state (set on upgrade) or from profile (on login).
+def _render_trial_banner():
+    if st.session_state.get('is_founder'):
+        return
+    if st.session_state.get('user_tier') not in ('pro', 'ultimate'):
+        return
+    trial_iso = st.session_state.get('trial_ends_at')
+    if not trial_iso and st.session_state.get('is_logged_in') and SUPABASE_ENABLED:
+        try:
+            uid = st.session_state.get('user_id')
+            if uid:
+                res = supabase.table("profiles").select("trial_ends_at").eq("id", uid).single().execute()
+                if res.data:
+                    trial_iso = res.data.get('trial_ends_at')
+                    if trial_iso:
+                        st.session_state.trial_ends_at = trial_iso
+        except Exception:
+            pass
+    if not trial_iso:
+        return
+    try:
+        from datetime import datetime as _dt
+        ends = _dt.fromisoformat(trial_iso.replace('Z', '+00:00')) if 'T' in trial_iso else _dt.fromisoformat(trial_iso)
+        # Strip tz for simple diff
+        if ends.tzinfo is not None:
+            ends = ends.replace(tzinfo=None)
+        days_left = (ends - _dt.now()).days
+    except Exception:
+        return
+    if days_left < 0:
+        return  # trial already ended — Stripe has either charged them or subscription lapsed
+    if days_left == 0:
+        msg = "⏰ **Free trial ends today.** Your card will be charged $10 tomorrow unless you cancel."
+        bg = "linear-gradient(90deg,#FFEBEE 0%,#FFCDD2 100%)"
+        border = "#EF5350"
+        color = "#C62828"
+    elif days_left <= 3:
+        msg = f"⏰ **Free trial: {days_left} day{'s' if days_left != 1 else ''} left.** Cancel anytime before then to avoid being charged."
+        bg = "linear-gradient(90deg,#FFF3E0 0%,#FFE0B2 100%)"
+        border = "#FFB74D"
+        color = "#E65100"
+    else:
+        msg = f"🎁 **Free trial: {days_left} days left.** Enjoy Ultimate — cancel anytime."
+        bg = "linear-gradient(90deg,#E8F5E9 0%,#C8E6C9 100%)"
+        border = "#81C784"
+        color = "#2E7D32"
+    st.markdown(f"""
+    <div style="background:{bg}; border-left:4px solid {border};
+                padding:10px 18px; margin:8px 0 12px 0; border-radius:8px;
+                font-size:13px; color:{color};">
+        {msg}
+    </div>
+    """, unsafe_allow_html=True)
+
+_render_trial_banner()
 
 if chat_param == "1":
     st.session_state.chatbot_open = True
@@ -23356,69 +23437,90 @@ elif selected_page == "💡 Trade Ideas":
         st.session_state.ti_last_ticker = _ti_input
 
     if _ti_gen and _ti_input:
-        _ti_resolved = resolve_company_to_ticker(_ti_input)
-        if not _ti_resolved:
-            st.error(f"Could not find ticker: {_ti_input}")
+        # ── Paywall the AI generator for free users ────────────────────────
+        if get_user_tier() == "free":
+            st.markdown("""
+            <div style="background:linear-gradient(135deg,#FFF8E1 0%,#FFECB3 100%);
+                        border:2px solid #FFD700; border-radius:14px;
+                        padding:22px 26px; margin:16px 0; text-align:center;">
+                <div style="font-size:36px; margin-bottom:6px;">🔒</div>
+                <div style="font-weight:800; color:#B8860B; font-size:18px;">AI Trade Setup Generator — Ultimate feature</div>
+                <div style="color:#555; font-size:13px; margin-top:6px;">
+                    Get entry zones, stop loss, 3 take-profit targets, catalyst, and conviction for any ticker.
+                </div>
+                <div style="color:#2E7D32; font-weight:700; font-size:14px; margin-top:10px;">🎉 First month FREE</div>
+            </div>
+            """, unsafe_allow_html=True)
+            _gcol1, _gcol2, _gcol3 = st.columns([1, 2, 1])
+            with _gcol2:
+                if st.button("👑 Unlock AI Trade Setups", key="ti_gen_paywall",
+                             type="primary", use_container_width=True):
+                    st.session_state.selected_page = "👑 Become a VIP"
+                    st.rerun()
         else:
-            _ti_q = get_quote(_ti_resolved)
-            if not _ti_q:
-                st.error(f"Could not fetch data for {_ti_resolved}")
+            _ti_resolved = resolve_company_to_ticker(_ti_input)
+            if not _ti_resolved:
+                st.error(f"Could not find ticker: {_ti_input}")
             else:
-                _ti_price  = float(_ti_q.get("price", 0) or 0)
-                _ti_name   = _ti_q.get("name", _ti_resolved)
-                _ti_pe     = _ti_q.get("pe", None)
-                _ti_chg    = float(_ti_q.get("changesPercentage", 0) or 0)
-                _ti_52h    = _ti_q.get("yearHigh")
-                _ti_52l    = _ti_q.get("yearLow")
+                _ti_q = get_quote(_ti_resolved)
+                if not _ti_q:
+                    st.error(f"Could not fetch data for {_ti_resolved}")
+                else:
+                    _ti_price  = float(_ti_q.get("price", 0) or 0)
+                    _ti_name   = _ti_q.get("name", _ti_resolved)
+                    _ti_pe     = _ti_q.get("pe", None)
+                    _ti_chg    = float(_ti_q.get("changesPercentage", 0) or 0)
+                    _ti_52h    = _ti_q.get("yearHigh")
+                    _ti_52l    = _ti_q.get("yearLow")
 
-                _ti_hist   = get_historical_ohlc(_ti_resolved, 1.0)
-                _ti_facts  = compute_technical_facts(_ti_hist) if not _ti_hist.empty else {}
-                _ti_rsi    = _ti_facts.get("rsi14_last")
-                _ti_sma50  = _ti_facts.get("sma50")
-                _ti_sma200 = _ti_facts.get("sma200")
-                _ti_sup    = _ti_facts.get("support_level")
-                _ti_res    = _ti_facts.get("resistance_level")
+                    _ti_hist   = get_historical_ohlc(_ti_resolved, 1.0)
+                    _ti_facts  = compute_technical_facts(_ti_hist) if not _ti_hist.empty else {}
+                    _ti_rsi    = _ti_facts.get("rsi14_last")
+                    _ti_sma50  = _ti_facts.get("sma50")
+                    _ti_sma200 = _ti_facts.get("sma200")
+                    _ti_sup    = _ti_facts.get("support_level")
+                    _ti_res    = _ti_facts.get("resistance_level")
 
-                _ti_ctx = (
-                    f"Stock: {_ti_name} ({_ti_resolved})\n"
-                    f"Current Price: ${_ti_price:.2f}\n"
-                    f"Today Change: {_ti_chg:+.2f}%\n"
-                    f"52W High: ${f'{_ti_52h:.2f}' if _ti_52h else 'N/A'}\n"
-                    f"52W Low:  ${f'{_ti_52l:.2f}' if _ti_52l else 'N/A'}\n"
-                    f"P/E: {_ti_pe if _ti_pe else 'N/A'}\n"
-                    f"RSI(14): {f'{_ti_rsi:.1f}' if _ti_rsi else 'N/A'}\n"
-                    f"SMA50:  ${f'{_ti_sma50:.2f}' if _ti_sma50 else 'N/A'}\n"
-                    f"SMA200: ${f'{_ti_sma200:.2f}' if _ti_sma200 else 'N/A'}\n"
-                    f"Support:    ${f'{_ti_sup:.2f}' if _ti_sup else 'N/A'}\n"
-                    f"Resistance: ${f'{_ti_res:.2f}' if _ti_res else 'N/A'}"
-                )
+                    _ti_ctx = (
+                        f"Stock: {_ti_name} ({_ti_resolved})\n"
+                        f"Current Price: ${_ti_price:.2f}\n"
+                        f"Today Change: {_ti_chg:+.2f}%\n"
+                        f"52W High: ${f'{_ti_52h:.2f}' if _ti_52h else 'N/A'}\n"
+                        f"52W Low:  ${f'{_ti_52l:.2f}' if _ti_52l else 'N/A'}\n"
+                        f"P/E: {_ti_pe if _ti_pe else 'N/A'}\n"
+                        f"RSI(14): {f'{_ti_rsi:.1f}' if _ti_rsi else 'N/A'}\n"
+                        f"SMA50:  ${f'{_ti_sma50:.2f}' if _ti_sma50 else 'N/A'}\n"
+                        f"SMA200: ${f'{_ti_sma200:.2f}' if _ti_sma200 else 'N/A'}\n"
+                        f"Support:    ${f'{_ti_sup:.2f}' if _ti_sup else 'N/A'}\n"
+                        f"Resistance: ${f'{_ti_res:.2f}' if _ti_res else 'N/A'}"
+                    )
 
-                _ti_prompt = (
-                    "You are a professional technical analyst. Based ONLY on the data below, "
-                    "generate a specific, actionable trade setup.\n\n"
-                    + _ti_ctx
-                    + '\n\nReturn a JSON object with these EXACT keys:\n'
-                    '{"setup_type":"e.g. Bullish Breakout / Oversold Bounce / Trend Continuation",'
-                    '"bias":"bullish"|"bearish"|"neutral",'
-                    '"entry_zone":"specific price range like \'$182 – $185\'",'
-                    '"stop_loss":"specific price with % risk like \'$175 (-4.2%)\'",'
-                    '"take_profit_1":"first target with % gain",'
-                    '"take_profit_2":"second target with % gain",'
-                    '"take_profit_3":"third target with % gain",'
-                    '"risk_reward":"like \'1:2.5\'",'
-                    '"time_horizon":"like \'2–4 weeks\'",'
-                    '"catalyst":"1-2 sentences on what could drive the move",'
-                    '"conviction":"High"|"Medium"|"Low",'
-                    '"conviction_reason":"one sentence",'
-                    '"key_risk":"main risk to the thesis"}\n\n'
-                    'Return pure JSON only. No markdown, no explanation.'
-                )
+                    _ti_prompt = (
+                        "You are a professional technical analyst. Based ONLY on the data below, "
+                        "generate a specific, actionable trade setup.\n\n"
+                        + _ti_ctx
+                        + '\n\nReturn a JSON object with these EXACT keys:\n'
+                        '{"setup_type":"e.g. Bullish Breakout / Oversold Bounce / Trend Continuation",'
+                        '"bias":"bullish"|"bearish"|"neutral",'
+                        '"entry_zone":"specific price range like \'$182 – $185\'",'
+                        '"stop_loss":"specific price with % risk like \'$175 (-4.2%)\'",'
+                        '"take_profit_1":"first target with % gain",'
+                        '"take_profit_2":"second target with % gain",'
+                        '"take_profit_3":"third target with % gain",'
+                        '"risk_reward":"like \'1:2.5\'",'
+                        '"time_horizon":"like \'2–4 weeks\'",'
+                        '"catalyst":"1-2 sentences on what could drive the move",'
+                        '"conviction":"High"|"Medium"|"Low",'
+                        '"conviction_reason":"one sentence",'
+                        '"key_risk":"main risk to the thesis"}\n\n'
+                        'Return pure JSON only. No markdown, no explanation.'
+                    )
 
-                with st.spinner(f"Generating trade setup for {_ti_name}…"):
-                    _ti_result = call_perplexity_json(_ti_prompt, max_tokens=1000, temperature=0.2)
-                st.session_state.ti_result   = _ti_result
-                st.session_state.ti_quote    = _ti_q
-                st.session_state.ti_resolved = _ti_resolved
+                    with st.spinner(f"Generating trade setup for {_ti_name}…"):
+                        _ti_result = call_perplexity_json(_ti_prompt, max_tokens=1000, temperature=0.2)
+                    st.session_state.ti_result   = _ti_result
+                    st.session_state.ti_quote    = _ti_q
+                    st.session_state.ti_resolved = _ti_resolved
 
     # ── Display result ──────────────────────────────────────────────────
     if st.session_state.ti_result and st.session_state.ti_quote:
@@ -23539,8 +23641,24 @@ elif selected_page == "💡 Trade Ideas":
             "META": {"entry": 550.0,  "exit": 670.0,  "pnl_pct": 21.82, "closed_date": "2026-04-18"},
         }
 
-        for _idea in _ti_db_ideas:
+        # ── Tier-aware display: free users see ASML, NFLX, META; AMZN + any
+        #    additional ideas are paywalled behind Ultimate.
+        _ti_user_tier = get_user_tier()
+        _TI_FREE_TICKERS = {"ASML", "NFLX", "META"}  # shown to free users as teaser
+        _ti_locked_count = 0
+        if _ti_user_tier == "free":
+            _ti_locked_count = sum(
+                1 for _i in _ti_db_ideas
+                if _i.get("ticker", "").upper() not in _TI_FREE_TICKERS
+            )
+
+        for _ti_idx, _idea in enumerate(_ti_db_ideas):
             _tk = _idea.get("ticker", "")
+
+            # Skip locked tickers for free users; paywall card rendered once after loop
+            if _ti_user_tier == "free" and _tk.upper() not in _TI_FREE_TICKERS:
+                continue
+
             _nm = _idea.get("name", _tk)
             _bias = _idea.get("bias", "Bullish")
             _status = _idea.get("status", "Active")
@@ -23670,6 +23788,32 @@ elif selected_page == "💡 Trade Ideas":
                             <div style="color:#1a1a1a; font-size:13px; line-height:1.5;">{_rsk}</div>
                         </div>
                         """, unsafe_allow_html=True)
+
+        # ── Paywall card for free users (single card, rendered once) ──────────
+        if _ti_user_tier == "free" and _ti_locked_count > 0:
+            st.markdown(f"""
+            <div style="background:linear-gradient(135deg,#FFF8E1 0%,#FFECB3 100%);
+                        border:2px solid #FFD700; border-radius:14px;
+                        padding:28px 26px; margin:16px 0; text-align:center;
+                        box-shadow:0 4px 16px rgba(255,215,0,0.20);">
+                <div style="font-size:42px; margin-bottom:6px;">🔒</div>
+                <div style="font-weight:800; color:#B8860B; font-size:20px;">
+                    {_ti_locked_count} more trade idea{'' if _ti_locked_count == 1 else 's'} locked
+                </div>
+                <div style="color:#555; font-size:14px; margin-top:8px;">
+                    Unlock every setup — including fresh ideas and closed trades with realized P&amp;L — with Ultimate.
+                </div>
+                <div style="color:#2E7D32; font-weight:700; font-size:15px; margin-top:12px;">
+                    🎉 First month FREE · then $10/month
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            _pcol1, _pcol2, _pcol3 = st.columns([1, 2, 1])
+            with _pcol2:
+                if st.button("👑 Unlock All Trade Ideas", key="ti_list_paywall",
+                             type="primary", use_container_width=True):
+                    st.session_state.selected_page = "👑 Become a VIP"
+                    st.rerun()
     else:
         st.info("No active trade ideas right now. Check back soon!")
 
@@ -23794,6 +23938,41 @@ elif selected_page == "📡 Dip Radar":
     st.caption("*DQ Score powered by FMP API, yfinance, and Perplexity AI. Educational purposes only. Not financial advice.*")
 
 elif selected_page == "👑 Ultimate":
+
+    # ── HARD PAYWALL: Free users see upgrade CTA, nothing else ─────────────
+    if get_user_tier() == "free":
+        st.markdown("""
+        <div style="background:linear-gradient(135deg,#FFF8E1 0%,#FFECB3 100%);
+                    border:3px solid #FFD700; border-radius:16px;
+                    padding:44px 32px; text-align:center; margin:40px auto; max-width:720px;
+                    box-shadow:0 4px 20px rgba(255,215,0,0.25);">
+            <div style="font-size:56px; margin-bottom:8px;">👑</div>
+            <h1 style="color:#B8860B; margin:0 0 8px 0; font-size:32px;">Ultimate is a Premium Feature</h1>
+            <p style="color:#555; font-size:16px; margin:0 0 20px 0;">
+                AI Signal Dashboard, fact-locked Deep Dive, scenario analysis, visual key levels, and trader alerts — all in one place.
+            </p>
+            <div style="background:#E8F5E9; border:1px solid #A5D6A7; border-radius:10px;
+                        padding:14px 18px; margin:18px auto; max-width:440px;">
+                <div style="color:#2E7D32; font-weight:700; font-size:18px;">🎉 First month FREE</div>
+                <div style="color:#555; font-size:13px; margin-top:4px;">then $10/month · cancel anytime</div>
+            </div>
+            <ul style="text-align:left; max-width:440px; margin:20px auto; color:#333; font-size:14px; line-height:1.9;">
+                <li>📊 Signal Dashboard — momentum, trend, volume, setup quality</li>
+                <li>🤖 AI Deep Dive — bull vs bear case, fact-locked to live data</li>
+                <li>🎯 Visual key levels — entry, stop, targets drawn on the chart</li>
+                <li>🚨 Trader alerts — RSI extremes, breakouts, gap events</li>
+                <li>🎲 Scenario analysis — bull / base / bear probabilities</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+        _ucol1, _ucol2, _ucol3 = st.columns([1, 2, 1])
+        with _ucol2:
+            if st.button("👑 Unlock Ultimate — First Month Free", key="ult_paywall_cta",
+                         type="primary", use_container_width=True):
+                st.session_state.selected_page = "👑 Become a VIP"
+                st.rerun()
+            st.caption("🔒 Secured by Stripe · No charge for 30 days")
+        st.stop()
 
     # ============= ULTIMATE TAB — COMPLETE REBUILD =============
     # Focused on: Signal Dashboard, Trader Alerts, Visual Key Levels,
