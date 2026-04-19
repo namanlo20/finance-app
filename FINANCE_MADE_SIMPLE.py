@@ -23745,23 +23745,22 @@ elif selected_page == "💡 Trade Ideas":
 
                     _detail_html = ""
                     if _entry is not None and _exit is not None:
-                        _detail_html = f"""
-                        <div style="display:flex; gap:16px; margin-top:8px; font-size:13px; color:#333;">
-                            <div><b>Entry:</b> ${_entry:,.2f}</div>
-                            <div><b>Exit:</b> ${_exit:,.2f}</div>
-                        </div>
-                        """
+                        _detail_html = (
+                            '<div style="display:flex;gap:16px;margin-top:8px;font-size:13px;color:#333;">'
+                            f'<div><b>Entry:</b> ${_entry:,.2f}</div>'
+                            f'<div><b>Exit:</b> ${_exit:,.2f}</div>'
+                            '</div>'
+                        )
 
-                    st.markdown(f"""
-                    <div style="background:{_pnl_bg}; border:1px solid {_pnl_border}; border-radius:10px;
-                                padding:14px 18px; margin-bottom:12px;">
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <div style="font-weight:700; color:#1a1a1a; font-size:14px;">💰 Realized P&amp;L</div>
-                            <div style="font-size:22px; font-weight:800; color:{_pnl_color};">{_pnl_txt}</div>
-                        </div>
-                        {_detail_html}
-                    </div>
-                    """, unsafe_allow_html=True)
+                    _pnl_card_html = (
+                        f'<div style="background:{_pnl_bg};border:1px solid {_pnl_border};'
+                        f'border-radius:10px;padding:14px 18px;margin-bottom:12px;">'
+                        '<div style="display:flex;justify-content:space-between;align-items:center;">'
+                        '<div style="font-weight:700;color:#1a1a1a;font-size:14px;">💰 Realized P&amp;L</div>'
+                        f'<div style="font-size:22px;font-weight:800;color:{_pnl_color};">{_pnl_txt}</div>'
+                        f'</div>{_detail_html}</div>'
+                    )
+                    st.markdown(_pnl_card_html, unsafe_allow_html=True)
 
                 # Zones from JSON
                 if isinstance(_zones, list):
@@ -23779,20 +23778,24 @@ elif selected_page == "💡 Trade Ideas":
                 _ti_c1, _ti_c2 = st.columns(2)
                 with _ti_c1:
                     if _cat:
-                        st.markdown(f"""
-                        <div style="background:#E8F5E9; border:1px solid #A5D6A7; border-radius:10px; padding:12px 14px; margin-top:8px;">
-                            <div style="color:#2E7D32; font-weight:700; font-size:12px; margin-bottom:4px;">💡 Catalyst</div>
-                            <div style="color:#1a1a1a; font-size:13px; line-height:1.5;">{_cat}</div>
-                        </div>
-                        """, unsafe_allow_html=True)
+                        _cat_html = (
+                            '<div style="background:#E8F5E9;border:1px solid #A5D6A7;border-radius:10px;'
+                            'padding:12px 14px;margin-top:8px;">'
+                            '<div style="color:#2E7D32;font-weight:700;font-size:12px;margin-bottom:4px;">💡 Catalyst</div>'
+                            f'<div style="color:#1a1a1a;font-size:13px;line-height:1.5;">{_cat}</div>'
+                            '</div>'
+                        )
+                        st.markdown(_cat_html, unsafe_allow_html=True)
                 with _ti_c2:
                     if _rsk:
-                        st.markdown(f"""
-                        <div style="background:#FFEBEE; border:1px solid #EF9A9A; border-radius:10px; padding:12px 14px; margin-top:8px;">
-                            <div style="color:#C62828; font-weight:700; font-size:12px; margin-bottom:4px;">⚠️ Key Risk</div>
-                            <div style="color:#1a1a1a; font-size:13px; line-height:1.5;">{_rsk}</div>
-                        </div>
-                        """, unsafe_allow_html=True)
+                        _rsk_html = (
+                            '<div style="background:#FFEBEE;border:1px solid #EF9A9A;border-radius:10px;'
+                            'padding:12px 14px;margin-top:8px;">'
+                            '<div style="color:#C62828;font-weight:700;font-size:12px;margin-bottom:4px;">⚠️ Key Risk</div>'
+                            f'<div style="color:#1a1a1a;font-size:13px;line-height:1.5;">{_rsk}</div>'
+                            '</div>'
+                        )
+                        st.markdown(_rsk_html, unsafe_allow_html=True)
 
         # ── Paywall card for free users (single card, rendered once) ──────────
         if _ti_user_tier == "free" and _ti_locked_count > 0:
