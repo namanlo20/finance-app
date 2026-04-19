@@ -23701,35 +23701,40 @@ elif selected_page == "💡 Trade Ideas":
                 _summary = f"🔵 {_nm} ({_tk})  ·  {_bias}  ·  {_status}"
 
             with st.expander(_summary, expanded=False):
-                # Header banner
-                _header_right = f"""
-                    <span style="background:{_b_color}18; color:{_b_color}; padding:4px 12px; border-radius:20px;
-                                 font-size:12px; font-weight:600; border:1px solid {_b_color}44;">{_bias}</span>
-                    <span style="background:{_s_color}18; color:{_s_color}; padding:4px 12px; border-radius:20px;
-                                 font-size:12px; font-weight:600; border:1px solid {_s_color}44;">{_status}</span>
-                """
+                # Header banner — build pill HTML as single line (no leading whitespace)
+                # to avoid Streamlit markdown rendering it as a code block.
+                _bias_pill = (
+                    f'<span style="background:{_b_color}18;color:{_b_color};'
+                    f'padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;'
+                    f'border:1px solid {_b_color}44;">{_bias}</span>'
+                )
+                _status_pill = (
+                    f'<span style="background:{_s_color}18;color:{_s_color};'
+                    f'padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;'
+                    f'border:1px solid {_s_color}44;">{_status}</span>'
+                )
+                _pnl_pill = ""
                 if _pnl_pct is not None:
                     _pnl_color = "#00C853" if _pnl_pct >= 0 else "#FF1744"
                     _pnl_txt = f"+{_pnl_pct:.2f}%" if _pnl_pct >= 0 else f"{_pnl_pct:.2f}%"
-                    _header_right += f"""
-                    <span style="background:{_pnl_color}18; color:{_pnl_color}; padding:4px 12px; border-radius:20px;
-                                 font-size:12px; font-weight:700; border:1px solid {_pnl_color}55;">P&amp;L {_pnl_txt}</span>
-                    """
+                    _pnl_pill = (
+                        f'<span style="background:{_pnl_color}18;color:{_pnl_color};'
+                        f'padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;'
+                        f'border:1px solid {_pnl_color}55;">P&amp;L {_pnl_txt}</span>'
+                    )
+                _header_right = _bias_pill + _status_pill + _pnl_pill
+                _posted_line = f"Posted {_dt}" + (f" · Closed {_closed_dt}" if _closed_dt else "")
 
-                st.markdown(f"""
-                <div style="background:linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%);
-                            border:1px solid #90CAF9; border-radius:14px; padding:18px 22px; margin:6px 0 12px 0;">
-                    <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:8px;">
-                        <div>
-                            <div style="font-size:20px; font-weight:700; color:#1a1a1a;">{_nm} ({_tk})</div>
-                            <div style="font-size:12px; color:#777; margin-top:2px;">Posted {_dt}{f" · Closed {_closed_dt}" if _closed_dt else ""}</div>
-                        </div>
-                        <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                            {_header_right}
-                        </div>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+                _banner_html = (
+                    '<div style="background:linear-gradient(135deg,#E3F2FD 0%,#BBDEFB 100%);'
+                    'border:1px solid #90CAF9;border-radius:14px;padding:18px 22px;margin:6px 0 12px 0;">'
+                    '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">'
+                    f'<div><div style="font-size:20px;font-weight:700;color:#1a1a1a;">{_nm} ({_tk})</div>'
+                    f'<div style="font-size:12px;color:#777;margin-top:2px;">{_posted_line}</div></div>'
+                    f'<div style="display:flex;gap:8px;flex-wrap:wrap;">{_header_right}</div>'
+                    '</div></div>'
+                )
+                st.markdown(_banner_html, unsafe_allow_html=True)
 
                 # ── Closed-trade P&L card ───────────────────────────────────
                 if _status == "Closed" and _pnl_pct is not None:
