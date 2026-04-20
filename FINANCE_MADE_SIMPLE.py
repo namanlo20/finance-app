@@ -173,20 +173,21 @@ input, textarea, select {
 }
 
 /* OLD selectbox approach (keeping for fallback) */
-[data-testid="stHorizontalBlock"] [data-baseweb="select"],
-[data-testid="stHorizontalBlock"] [data-baseweb="select"] > div {
+/* NOTE: :not([data-testid="stMultiSelect"]...) excludes multiselects which get their own purple theme below */
+[data-testid="stHorizontalBlock"]:not(:has([data-testid="stMultiSelect"])) [data-baseweb="select"],
+[data-testid="stHorizontalBlock"]:not(:has([data-testid="stMultiSelect"])) [data-baseweb="select"] > div {
     background: linear-gradient(135deg, #FF4444 0%, #CC0000 100%) !important;
     border: none !important;
 }
 
-[data-testid="stHorizontalBlock"] [data-baseweb="select"] *,
-[data-testid="stHorizontalBlock"] [data-baseweb="select"] span,
-[data-testid="stHorizontalBlock"] [data-baseweb="select"] div:not([data-baseweb="select"]) {
+[data-testid="stHorizontalBlock"]:not(:has([data-testid="stMultiSelect"])) [data-baseweb="select"] *,
+[data-testid="stHorizontalBlock"]:not(:has([data-testid="stMultiSelect"])) [data-baseweb="select"] span,
+[data-testid="stHorizontalBlock"]:not(:has([data-testid="stMultiSelect"])) [data-baseweb="select"] div:not([data-baseweb="select"]) {
     color: #FFFFFF !important;
 }
 
 /* DISABLE TYPING IN NAVIGATION DROPDOWNS */
-[data-testid="stHorizontalBlock"] [data-baseweb="select"] input {
+[data-testid="stHorizontalBlock"]:not(:has([data-testid="stMultiSelect"])) [data-baseweb="select"] input {
     pointer-events: none !important;
     cursor: pointer !important;
     caret-color: transparent !important;
@@ -203,98 +204,123 @@ input, textarea, select {
 
 
 /* ============= PREMIUM MULTISELECT STYLING ============= */
-/* For multiselects (metric pickers on Company Analysis, Financial Health, etc.) */
-.main [data-baseweb="select"][aria-multiselectable="true"],
-.main [data-testid="stMultiSelect"] [data-baseweb="select"],
-.main [data-testid="stMultiSelect"] [data-baseweb="select"] > div {
+/* Override the red-gradient dropdown style for multiselects specifically. */
+/* Uses [data-testid="stMultiSelect"] which ONLY exists on multiselect widgets, */
+/* making these rules more specific than the generic [data-baseweb="select"] ones above. */
+
+[data-testid="stMultiSelect"] > div > div,
+[data-testid="stMultiSelect"] [data-baseweb="select"],
+[data-testid="stMultiSelect"] [data-baseweb="select"] > div,
+[data-testid="stHorizontalBlock"] [data-testid="stMultiSelect"] [data-baseweb="select"],
+[data-testid="stHorizontalBlock"] [data-testid="stMultiSelect"] [data-baseweb="select"] > div {
     background: linear-gradient(135deg, #1a1f3a 0%, #2d1b4e 50%, #1e3a5f 100%) !important;
-    border: 1px solid rgba(139, 92, 246, 0.3) !important;
+    background-color: #1a1f3a !important;
+    border: 1px solid rgba(139, 92, 246, 0.4) !important;
     border-radius: 12px !important;
-    box-shadow: 0 4px 16px rgba(139, 92, 246, 0.15), inset 0 1px 0 rgba(255,255,255,0.05) !important;
+    box-shadow: 0 4px 16px rgba(139, 92, 246, 0.2), inset 0 1px 0 rgba(255,255,255,0.05) !important;
     transition: all 0.25s ease !important;
     min-height: 48px !important;
 }
 
-.main [data-testid="stMultiSelect"] [data-baseweb="select"]:hover,
-.main [data-testid="stMultiSelect"] [data-baseweb="select"] > div:hover {
-    border-color: rgba(139, 92, 246, 0.6) !important;
-    box-shadow: 0 6px 24px rgba(139, 92, 246, 0.3), inset 0 1px 0 rgba(255,255,255,0.08) !important;
-    transform: translateY(-1px) !important;
+[data-testid="stMultiSelect"] [data-baseweb="select"]:hover,
+[data-testid="stMultiSelect"] [data-baseweb="select"] > div:hover {
+    border-color: rgba(139, 92, 246, 0.8) !important;
+    box-shadow: 0 6px 24px rgba(139, 92, 246, 0.4), inset 0 1px 0 rgba(255,255,255,0.08) !important;
 }
 
-/* Selected tags/pills inside multiselect */
-.main [data-testid="stMultiSelect"] [data-baseweb="tag"],
-.main [data-testid="stMultiSelect"] span[data-baseweb="tag"] {
+/* Selected tags/pills */
+[data-testid="stMultiSelect"] [data-baseweb="tag"],
+[data-testid="stMultiSelect"] span[data-baseweb="tag"],
+[data-testid="stHorizontalBlock"] [data-testid="stMultiSelect"] [data-baseweb="tag"] {
     background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%) !important;
+    background-color: #8b5cf6 !important;
     border: none !important;
     border-radius: 8px !important;
     color: #FFFFFF !important;
     font-weight: 600 !important;
-    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4) !important;
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.5) !important;
     transition: all 0.2s ease !important;
 }
 
-.main [data-testid="stMultiSelect"] [data-baseweb="tag"]:hover {
+[data-testid="stMultiSelect"] [data-baseweb="tag"]:hover {
     background: linear-gradient(135deg, #a78bfa 0%, #818cf8 100%) !important;
-    transform: scale(1.03) !important;
+    transform: scale(1.04) !important;
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.6) !important;
 }
 
-.main [data-testid="stMultiSelect"] [data-baseweb="tag"] *,
-.main [data-testid="stMultiSelect"] [data-baseweb="tag"] span,
-.main [data-testid="stMultiSelect"] [data-baseweb="tag"] div {
+[data-testid="stMultiSelect"] [data-baseweb="tag"] *,
+[data-testid="stMultiSelect"] [data-baseweb="tag"] span,
+[data-testid="stMultiSelect"] [data-baseweb="tag"] div,
+[data-testid="stHorizontalBlock"] [data-testid="stMultiSelect"] [data-baseweb="tag"] *,
+[data-testid="stHorizontalBlock"] [data-testid="stMultiSelect"] [data-baseweb="tag"] span {
     color: #FFFFFF !important;
     font-weight: 600 !important;
+    background: transparent !important;
 }
 
-/* Text inside multiselect (placeholder and selected text) */
-.main [data-testid="stMultiSelect"] [data-baseweb="select"] input,
-.main [data-testid="stMultiSelect"] [data-baseweb="select"] span {
+/* Placeholder and input text color inside multiselect */
+[data-testid="stMultiSelect"] [data-baseweb="select"] input,
+[data-testid="stMultiSelect"] [data-baseweb="select"] span[data-baseweb="typography"],
+[data-testid="stHorizontalBlock"] [data-testid="stMultiSelect"] [data-baseweb="select"] input {
     color: #E5E7EB !important;
+    background: transparent !important;
 }
 
-/* Dropdown menu (popup) */
+/* Chevron/arrow icon */
+[data-testid="stMultiSelect"] [data-baseweb="select"] svg {
+    fill: rgba(255,255,255,0.7) !important;
+    color: rgba(255,255,255,0.7) !important;
+}
+
+/* Dropdown popup menu */
+[data-baseweb="popover"] ul[role="listbox"],
 [data-baseweb="popover"] [role="listbox"] {
     background: linear-gradient(135deg, #1a1f3a 0%, #2d1b4e 100%) !important;
-    border: 1px solid rgba(139, 92, 246, 0.4) !important;
+    background-color: #1a1f3a !important;
+    border: 1px solid rgba(139, 92, 246, 0.5) !important;
     border-radius: 12px !important;
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(139, 92, 246, 0.2) !important;
-    backdrop-filter: blur(12px) !important;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(139, 92, 246, 0.25) !important;
 }
 
-[data-baseweb="popover"] [role="option"] {
+[data-baseweb="popover"] [role="option"],
+[data-baseweb="popover"] li[role="option"] {
     color: #E5E7EB !important;
+    background: transparent !important;
     transition: all 0.15s ease !important;
 }
 
-[data-baseweb="popover"] [role="option"]:hover {
-    background: linear-gradient(90deg, rgba(139, 92, 246, 0.2) 0%, rgba(99, 102, 241, 0.15) 100%) !important;
+[data-baseweb="popover"] [role="option"]:hover,
+[data-baseweb="popover"] li[role="option"]:hover {
+    background: linear-gradient(90deg, rgba(139, 92, 246, 0.3) 0%, rgba(99, 102, 241, 0.2) 100%) !important;
     color: #FFFFFF !important;
 }
 
 [data-baseweb="popover"] [role="option"][aria-selected="true"] {
-    background: linear-gradient(90deg, rgba(139, 92, 246, 0.4) 0%, rgba(99, 102, 241, 0.3) 100%) !important;
+    background: linear-gradient(90deg, rgba(139, 92, 246, 0.5) 0%, rgba(99, 102, 241, 0.4) 100%) !important;
     color: #FFFFFF !important;
     font-weight: 600 !important;
 }
 
-/* The "X" remove button on each tag */
-.main [data-testid="stMultiSelect"] [data-baseweb="tag"] [role="presentation"] {
-    color: rgba(255,255,255,0.85) !important;
+/* X remove button on tags */
+[data-testid="stMultiSelect"] [data-baseweb="tag"] [role="presentation"],
+[data-testid="stMultiSelect"] [data-baseweb="tag"] svg {
+    color: rgba(255,255,255,0.9) !important;
+    fill: rgba(255,255,255,0.9) !important;
     cursor: pointer !important;
 }
 
-.main [data-testid="stMultiSelect"] [data-baseweb="tag"] [role="presentation"]:hover {
+[data-testid="stMultiSelect"] [data-baseweb="tag"] [role="presentation"]:hover,
+[data-testid="stMultiSelect"] [data-baseweb="tag"] svg:hover {
     color: #FFFFFF !important;
-    transform: scale(1.15) !important;
+    fill: #FFFFFF !important;
 }
 
 /* Label above multiselect */
-.main [data-testid="stMultiSelect"] label,
-.main [data-testid="stMultiSelect"] label p {
+[data-testid="stMultiSelect"] label,
+[data-testid="stMultiSelect"] label p {
     color: #E5E7EB !important;
     font-weight: 600 !important;
     font-size: 15px !important;
-    letter-spacing: 0.01em !important;
 }
 
 </style>
