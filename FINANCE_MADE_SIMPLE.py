@@ -1535,37 +1535,22 @@ init_persistence()
 
 
 
-# --- GLOBAL UI THEME OVERRIDES (dropdowns = red background) ---
+# --- GLOBAL UI THEME OVERRIDES (selectboxes = red background) ---
 st.markdown("""
 <style>
-/* Make all Streamlit selectbox dropdown menus match the red theme (background + readable text) */
-div[data-baseweb="popover"] ul[role="listbox"]{
-  background: #ff4b4b !important;
-  color: #ffffff !important;
-  border: 1px solid rgba(255,255,255,0.15) !important;
-}
-div[data-baseweb="popover"] li[role="option"]{
-  background: #ff4b4b !important;
-  color: #ffffff !important;
-  font-weight: 600 !important;
-}
-div[data-baseweb="popover"] li[role="option"]:hover{
-  background: #e63c3c !important;
-  color: #ffffff !important;
-}
-div[data-baseweb="popover"] li[role="option"][aria-selected="true"]{
-  background: #d83232 !important;
-  color: #ffffff !important;
-}
-div[data-baseweb="select"] > div{
+/* Red theme for SELECTBOXES ONLY (stSelectbox), not multiselects (stMultiSelect).
+   Multiselects get their own purple theme defined earlier. */
+
+/* The closed selectbox button */
+[data-testid="stSelectbox"] div[data-baseweb="select"] > div{
   background: #ff4b4b !important;
   color: #ffffff !important;
   border: 1px solid rgba(255,255,255,0.18) !important;
 }
-div[data-baseweb="select"] span{
+[data-testid="stSelectbox"] div[data-baseweb="select"] span{
   color: #ffffff !important;
 }
-div[data-baseweb="select"] input{
+[data-testid="stSelectbox"] div[data-baseweb="select"] input{
   color: #ffffff !important;
 }
 /* Make sure the dropdown arrow is visible */
@@ -1580,6 +1565,43 @@ div[data-baseweb="select"]{
 </style>
 """, unsafe_allow_html=True)
 # --- END GLOBAL UI THEME OVERRIDES ---
+
+# --- PREMIUM MULTISELECT POPOVER OVERRIDE (must come AFTER red rules above) ---
+# Targets popovers that were opened from a multiselect trigger.
+# Uses the widely-supported :has() relational selector — when a popover contains
+# a multiple-selection listbox (multiselect), apply purple theme.
+st.markdown("""
+<style>
+/* The popover containing a multi-select listbox gets purple treatment */
+div[data-baseweb="popover"]:has(ul[role="listbox"][aria-multiselectable="true"]) ul[role="listbox"],
+div[data-baseweb="popover"]:has(li[role="option"][aria-selected="true"]:nth-of-type(n)) ul[role="listbox"] {
+  background: linear-gradient(135deg, #1a1f3a 0%, #2d1b4e 100%) !important;
+  border: 1px solid rgba(139, 92, 246, 0.5) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6) !important;
+  color: #E5E7EB !important;
+}
+
+div[data-baseweb="popover"]:has(ul[role="listbox"][aria-multiselectable="true"]) li[role="option"] {
+  background: transparent !important;
+  color: #E5E7EB !important;
+  font-weight: 500 !important;
+  transition: all 0.15s ease !important;
+}
+
+div[data-baseweb="popover"]:has(ul[role="listbox"][aria-multiselectable="true"]) li[role="option"]:hover {
+  background: linear-gradient(90deg, rgba(139, 92, 246, 0.3) 0%, rgba(99, 102, 241, 0.2) 100%) !important;
+  color: #FFFFFF !important;
+}
+
+div[data-baseweb="popover"]:has(ul[role="listbox"][aria-multiselectable="true"]) li[role="option"][aria-selected="true"] {
+  background: linear-gradient(90deg, rgba(139, 92, 246, 0.5) 0%, rgba(99, 102, 241, 0.4) 100%) !important;
+  color: #FFFFFF !important;
+  font-weight: 600 !important;
+}
+</style>
+""", unsafe_allow_html=True)
+# --- END PREMIUM MULTISELECT POPOVER OVERRIDE ---
 
 # ============= DARK/LIGHT MODE =============
 if 'theme' not in st.session_state:
@@ -4433,12 +4455,37 @@ def explain_metric(metric_name, value, sector=None):
     return explanation
 
 def calculate_cagr(start_value, end_value, years):
-    """Calculate Compound Annual Growth Rate"""
-    if start_value <= 0 or end_value <= 0 or years <= 0:
+    """Calculate Compound Annual Growth Rate.
+    
+    Handles negative values too (useful for metrics like CapEx that are always negative,
+    or OCF that was negative historically and is now positive).
+    
+    For classic positive→positive: standard CAGR formula.
+    For signed values: uses magnitude-based CAGR with sign derived from direction of change.
+    Returns None only if start is zero or years is zero.
+    """
+    if years <= 0 or start_value == 0:
         return None
     try:
-        cagr = (((end_value / start_value) ** (1 / years)) - 1) * 100
-        return cagr
+        # Classic case: both positive → standard CAGR
+        if start_value > 0 and end_value > 0:
+            return (((end_value / start_value) ** (1 / years)) - 1) * 100
+
+        # Both negative (e.g. CapEx always negative): use absolute values.
+        # If |end| > |start| and both negative, metric is growing in magnitude
+        # (more negative), so CAGR is negative (deteriorating).
+        # If |end| < |start| and both negative, metric is shrinking in magnitude
+        # (less negative), so CAGR is positive (improving).
+        if start_value < 0 and end_value < 0:
+            abs_cagr = (((abs(end_value) / abs(start_value)) ** (1 / years)) - 1) * 100
+            # More negative (bigger magnitude) = worse, so flip sign
+            return -abs_cagr
+
+        # Sign change: went from negative to positive (or vice versa).
+        # Classical CAGR undefined; return signed total change / years as a proxy.
+        # This gives a rough annualized "average" change.
+        total_change_pct = ((end_value - start_value) / abs(start_value)) * 100
+        return total_change_pct / years
     except Exception:
         return None
 
@@ -4575,13 +4622,42 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
     df_sorted = df.sort_values('date', ascending=True).reset_index(drop=True)
     x_labels = [format_fiscal_period(row, period_type) for _, row in df_sorted.iterrows()]
     
-    # Color scheme matching the image exactly
-    # OCF = cyan-to-blue gradient, CapEx = gold, FCF = purple gradient
-    METRIC_COLORS = {
-        0: {'pos': '#00E5FF', 'neg': '#FF6B6B'},   # Cyan (Operating Cash Flow)
-        1: {'pos': '#FFD700', 'neg': '#FF6B6B'},   # Gold (CapEx)
-        2: {'pos': '#BF5FFF', 'neg': '#FF6B6B'},   # Purple (Free Cash Flow)
-    }
+    # Color palette: one distinct color per metric (expanded to handle 15+ metric choices).
+    # Each metric gets a single brand color so the legend shows correct colors AND
+    # the chart keeps clean, distinguishable traces even for 3 metrics at once.
+    # Negative values use a slightly darker/desaturated version of the metric's color
+    # (not red) so the legend stays consistent with the bars.
+    METRIC_PALETTE = [
+        '#00E5FF',   # 0: Cyan (Operating Cash Flow default)
+        '#FFD700',   # 1: Gold (CapEx default)
+        '#BF5FFF',   # 2: Purple (Free Cash Flow default)
+        '#00FF88',   # 3: Green
+        '#FF6B9D',   # 4: Pink
+        '#4ADEBB',   # 5: Teal
+        '#FFA45C',   # 6: Orange
+        '#5B8FFF',   # 7: Blue
+        '#FFEA00',   # 8: Yellow
+        '#E879F9',   # 9: Magenta
+        '#14B8A6',   # 10: Emerald
+        '#FB923C',   # 11: Amber
+        '#A78BFA',   # 12: Lavender
+        '#34D399',   # 13: Mint
+        '#F472B6',   # 14: Rose
+    ]
+
+    def _darken(hex_color, factor=0.55):
+        """Darken a hex color by mixing with dark navy — used for negative bars
+        so they remain visually distinct from positive bars without breaking legend color."""
+        try:
+            h = hex_color.lstrip('#')
+            r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+            # Mix with dark navy (#1a1f3a)
+            r = int(r * factor + 0x1a * (1 - factor))
+            g = int(g * factor + 0x1f * (1 - factor))
+            b = int(b * factor + 0x3a * (1 - factor))
+            return f'#{r:02x}{g:02x}{b:02x}'
+        except Exception:
+            return hex_color
 
     # Background colors
     BG_SPACE = '#0A0A1A'       # Near-black space background
@@ -4620,18 +4696,17 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
             # Split camelCase into words: accountsReceivables -> Accounts Receivables
             _fallback_name = _re.sub(r'(?<=[a-z])(?=[A-Z])', ' ', metric).replace('_', ' ').title()
             display_name = METRIC_DISPLAY_NAMES.get(metric, _fallback_name)
-            c = METRIC_COLORS.get(idx % 3, METRIC_COLORS[0])
-            bar_color_list = [c['pos'] if v >= 0 else c['neg'] for v in values]
+            brand_color = METRIC_PALETTE[idx % len(METRIC_PALETTE)]
 
             fig.add_trace(go.Bar(
                 x=x_labels,
                 y=values,
                 name=display_name,
                 marker=dict(
-                    color=bar_color_list,
+                    color=brand_color,  # Single color per metric — legend shows correct color
                     line=dict(width=0),
                     cornerradius=5,
-                    opacity=0.88,
+                    opacity=0.9,
                 ),
                 text=[format_value_label(val) for val in values],
                 textposition='outside',
