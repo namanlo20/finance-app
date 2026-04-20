@@ -1,3 +1,4 @@
+i
 import streamlit as st
 import pandas as pd
 import requests
@@ -10498,14 +10499,18 @@ def fetch_trade_ideas_from_db():
         return []
 
 def save_user_progress():
-    """Save user progress to Supabase user_state table"""
+    """Save user progress to Supabase user_state table.
+    Failures are logged to st.session_state._persistence_log for debugging,
+    but do not break the app. Visible via ?debug=1 query param."""
     if not SUPABASE_ENABLED:
+        _log_persistence("save", False, "Supabase not enabled")
         return False
-    
+
     user_id = st.session_state.get("user_id")
     if not user_id:
+        _log_persistence("save", False, "No user_id in session")
         return False
-    
+
     try:
         # Collect state to persist (including Basics course progress and risk quiz)
         state_data = {
@@ -10534,87 +10539,119 @@ def save_user_progress():
             "dismissed_popups": list(st.session_state.get("dismissed_popups", set())),
             "saved_views": st.session_state.get("saved_views", []),
             "theme": st.session_state.get("theme", "dark"),
+            "dip_radar_watchlist": st.session_state.get("dip_radar_watchlist", []),
         }
-        
+
         # Upsert to user_state table
         supabase.table("user_state").upsert({
             "user_id": user_id,
             "state": json.dumps(state_data),
             "updated_at": datetime.now().isoformat()
         }).execute()
+        st.session_state._last_save_at = datetime.now().isoformat()
+        _log_persistence("save", True, f"Saved {len(state_data)} keys")
         return True
     except Exception as e:
-        # Silently fail - don't break the app if persistence fails
+        _log_persistence("save", False, f"Error: {type(e).__name__}: {str(e)[:200]}")
         return False
 
+
+def _log_persistence(op, success, detail=""):
+    """Internal: append to persistence debug log (bounded to last 20 events)."""
+    log = st.session_state.get("_persistence_log", [])
+    log.append({
+        "ts": datetime.now().isoformat(timespec="seconds"),
+        "op": op,
+        "ok": success,
+        "detail": detail,
+    })
+    st.session_state._persistence_log = log[-20:]
+
 def load_user_progress():
-    """Load user progress from Supabase user_state table"""
+    """Load user progress from Supabase user_state table.
+    Failures are logged to st.session_state._persistence_log for debugging."""
     if not SUPABASE_ENABLED:
+        _log_persistence("load", False, "Supabase not enabled")
         return False
-    
+
     user_id = st.session_state.get("user_id")
     if not user_id:
+        _log_persistence("load", False, "No user_id in session")
         return False
-    
+
     try:
         result = supabase.table("user_state").select("state").eq("user_id", user_id).execute()
-        if result.data and len(result.data) > 0:
-            state_data = json.loads(result.data[0].get("state", "{}"))
-            
-            # Restore state
-            if "selected_ticker" in state_data:
-                st.session_state.selected_ticker = state_data["selected_ticker"]
-            if "paper_portfolio" in state_data:
-                st.session_state.paper_portfolio = state_data["paper_portfolio"]
-            if "risk_quiz_results" in state_data:
-                st.session_state.risk_quiz_results = state_data["risk_quiz_results"]
-            if "unhinged_mode" in state_data:
-                st.session_state.unhinged_mode = state_data["unhinged_mode"]
-            if "homepage_stock1" in state_data:
-                st.session_state.homepage_stock1 = state_data["homepage_stock1"]
-            if "homepage_stock2" in state_data:
-                st.session_state.homepage_stock2 = state_data["homepage_stock2"]
-            # Restore Basics course progress
-            if "completed_lessons" in state_data:
-                st.session_state.completed_lessons = set(state_data["completed_lessons"])
-            # Restore Risk Quiz results
-            if "risk_tier" in state_data:
-                st.session_state.risk_tier = state_data["risk_tier"]
-            if "risk_score" in state_data:
-                st.session_state.risk_score = state_data["risk_score"]
-            if "risk_quiz_completed_at" in state_data:
-                st.session_state.risk_quiz_completed_at = state_data["risk_quiz_completed_at"]
-                st.session_state.risk_quiz_submitted = True  # Mark as completed
-            # Restore user profile
-            if "user_profile" in state_data:
-                st.session_state.user_profile = state_data["user_profile"]
-            if "onboarding_profile" in state_data:
-                st.session_state.onboarding_profile = state_data["onboarding_profile"]
-                st.session_state.onboarding_completed = True
-            # Restore onboarding state
-            if "setup_prompt_dismissed" in state_data:
-                st.session_state.setup_prompt_dismissed = state_data["setup_prompt_dismissed"]
-            if "onboarding_completed" in state_data:
-                st.session_state.onboarding_completed = state_data["onboarding_completed"]
-            
-            # ============= PHASE 3: RESTORE PREMIUM PERSISTENCE =============
-            if "pinned_tickers" in state_data:
-                st.session_state.pinned_tickers = state_data["pinned_tickers"]
-            if "last_ticker" in state_data:
-                st.session_state.last_ticker = state_data["last_ticker"]
-            if "last_tab" in state_data:
-                st.session_state.last_tab = state_data["last_tab"]
-            if "dismissed_popups" in state_data:
-                st.session_state.dismissed_popups = set(state_data["dismissed_popups"])
-            if "saved_views" in state_data:
-                st.session_state.saved_views = state_data["saved_views"]
-            if "theme" in state_data:
-                st.session_state.theme = state_data["theme"]
-            
-            return True
+        if not result.data or len(result.data) == 0:
+            _log_persistence("load", True, "No saved state yet (new user)")
+            return False
+
+        state_data = json.loads(result.data[0].get("state", "{}"))
+        restored_keys = []
+
+        # Restore state
+        if "selected_ticker" in state_data:
+            st.session_state.selected_ticker = state_data["selected_ticker"]
+            restored_keys.append("selected_ticker")
+        if "paper_portfolio" in state_data:
+            st.session_state.paper_portfolio = state_data["paper_portfolio"]
+            restored_keys.append("paper_portfolio")
+        if "risk_quiz_results" in state_data:
+            st.session_state.risk_quiz_results = state_data["risk_quiz_results"]
+            restored_keys.append("risk_quiz_results")
+        if "unhinged_mode" in state_data:
+            st.session_state.unhinged_mode = state_data["unhinged_mode"]
+        if "homepage_stock1" in state_data:
+            st.session_state.homepage_stock1 = state_data["homepage_stock1"]
+        if "homepage_stock2" in state_data:
+            st.session_state.homepage_stock2 = state_data["homepage_stock2"]
+        # Restore Basics course progress
+        if "completed_lessons" in state_data:
+            st.session_state.completed_lessons = set(state_data["completed_lessons"])
+            restored_keys.append(f"completed_lessons({len(state_data['completed_lessons'])})")
+        # Restore Risk Quiz results
+        if "risk_tier" in state_data:
+            st.session_state.risk_tier = state_data["risk_tier"]
+        if "risk_score" in state_data:
+            st.session_state.risk_score = state_data["risk_score"]
+        if "risk_quiz_completed_at" in state_data:
+            st.session_state.risk_quiz_completed_at = state_data["risk_quiz_completed_at"]
+            st.session_state.risk_quiz_submitted = True
+            restored_keys.append("risk_quiz")
+        # Restore user profile
+        if "user_profile" in state_data:
+            st.session_state.user_profile = state_data["user_profile"]
+        if "onboarding_profile" in state_data:
+            st.session_state.onboarding_profile = state_data["onboarding_profile"]
+            st.session_state.onboarding_completed = True
+        # Restore onboarding state
+        if "setup_prompt_dismissed" in state_data:
+            st.session_state.setup_prompt_dismissed = state_data["setup_prompt_dismissed"]
+        if "onboarding_completed" in state_data:
+            st.session_state.onboarding_completed = state_data["onboarding_completed"]
+
+        # ============= PHASE 3: RESTORE PREMIUM PERSISTENCE =============
+        if "pinned_tickers" in state_data:
+            st.session_state.pinned_tickers = state_data["pinned_tickers"]
+            restored_keys.append(f"pinned_tickers({len(state_data['pinned_tickers'])})")
+        if "last_ticker" in state_data:
+            st.session_state.last_ticker = state_data["last_ticker"]
+        if "last_tab" in state_data:
+            st.session_state.last_tab = state_data["last_tab"]
+        if "dismissed_popups" in state_data:
+            st.session_state.dismissed_popups = set(state_data["dismissed_popups"])
+        if "saved_views" in state_data:
+            st.session_state.saved_views = state_data["saved_views"]
+        if "theme" in state_data:
+            st.session_state.theme = state_data["theme"]
+        if "dip_radar_watchlist" in state_data:
+            st.session_state.dip_radar_watchlist = state_data["dip_radar_watchlist"]
+            restored_keys.append(f"dip_radar_watchlist({len(state_data['dip_radar_watchlist'])})")
+
+        st.session_state._last_load_at = datetime.now().isoformat()
+        _log_persistence("load", True, f"Restored: {', '.join(restored_keys) if restored_keys else 'no restorable keys'}")
+        return True
     except Exception as e:
-        # Silently fail - don't break the app if loading fails
-        pass
+        _log_persistence("load", False, f"Error: {type(e).__name__}: {str(e)[:200]}")
     return False
 
 def save_user_profile(user_id, first_name):
@@ -11496,6 +11533,86 @@ def _render_trial_banner():
     """, unsafe_allow_html=True)
 
 _render_trial_banner()
+
+# ============= PERSISTENCE DEBUG PANEL (?debug=1) =============
+# Only visible when ?debug=1 is in the URL. Shows the persistence log, last
+# save/load timestamps, current user_id, and buttons to force save/load/reset.
+# Invisible to regular users.
+_debug_param = st.query_params.get("debug")
+if isinstance(_debug_param, (list, tuple)):
+    _debug_param = _debug_param[0] if _debug_param else None
+if _debug_param == "1":
+    with st.expander("🔧 Persistence Debug Panel", expanded=True):
+        _is_logged_in = st.session_state.get("is_logged_in", False)
+        _uid = st.session_state.get("user_id", None)
+        _tier = st.session_state.get("user_tier", "unknown")
+        st.markdown(
+            f"**Logged in:** `{_is_logged_in}` · **user_id:** `{_uid or 'None'}` · "
+            f"**tier:** `{_tier}` · **SUPABASE_ENABLED:** `{SUPABASE_ENABLED}`"
+        )
+        st.markdown(
+            f"**Last save:** `{st.session_state.get('_last_save_at', 'never')}` · "
+            f"**Last load:** `{st.session_state.get('_last_load_at', 'never')}`"
+        )
+
+        _dbg_c1, _dbg_c2, _dbg_c3, _dbg_c4 = st.columns(4)
+        with _dbg_c1:
+            if st.button("💾 Force Save Now", key="dbg_force_save", use_container_width=True):
+                ok = save_user_progress()
+                if ok:
+                    st.success("Save OK")
+                else:
+                    st.error("Save failed — see log")
+                st.rerun()
+        with _dbg_c2:
+            if st.button("🔄 Force Load Now", key="dbg_force_load", use_container_width=True):
+                ok = load_user_progress()
+                if ok:
+                    st.success("Load OK")
+                else:
+                    st.error("Load failed — see log")
+                st.rerun()
+        with _dbg_c3:
+            if st.button("🔍 Inspect DB Row", key="dbg_inspect_db", use_container_width=True):
+                if not _uid or not SUPABASE_ENABLED:
+                    st.error("Need logged-in user + Supabase")
+                else:
+                    try:
+                        _r = supabase.table("user_state").select("*").eq("user_id", _uid).execute()
+                        if _r.data:
+                            st.json(_r.data[0])
+                        else:
+                            st.info("No row in user_state for this user yet.")
+                    except Exception as _e:
+                        st.error(f"{type(_e).__name__}: {_e}")
+        with _dbg_c4:
+            if st.button("🧹 Clear Debug Log", key="dbg_clear_log", use_container_width=True):
+                st.session_state._persistence_log = []
+                st.rerun()
+
+        st.markdown("**Recent persistence events (newest last):**")
+        _log = st.session_state.get("_persistence_log", [])
+        if not _log:
+            st.caption("No events logged yet this session.")
+        else:
+            for _e in _log[-20:]:
+                _icon = "✅" if _e["ok"] else "❌"
+                st.caption(f"{_icon} `{_e['ts']}` · **{_e['op']}** · {_e['detail']}")
+
+        st.markdown("**Current persisted session keys:**")
+        _persisted_keys = [
+            "selected_ticker", "paper_portfolio", "risk_tier", "risk_score",
+            "completed_lessons", "pinned_tickers", "dip_radar_watchlist",
+            "onboarding_completed", "user_profile", "theme",
+        ]
+        _snapshot = {}
+        for _k in _persisted_keys:
+            _v = st.session_state.get(_k)
+            if isinstance(_v, (set, list, dict)):
+                _snapshot[_k] = f"{type(_v).__name__}(len={len(_v)})"
+            else:
+                _snapshot[_k] = repr(_v)[:80]
+        st.json(_snapshot)
 
 if chat_param == "1":
     st.session_state.chatbot_open = True
@@ -21354,98 +21471,99 @@ elif selected_page == "📊 Company Analysis":
             available_metrics = get_available_metrics(cash_df)
             
             if available_metrics:
-                st.markdown("**📊 Select up to 3 metrics:**")
-                col1, col2, col3 = st.columns(3)
-                
-                with col1:
-                    metric1_display = st.selectbox(
-                        "Metric 1:",
-                        options=[display for display, _ in available_metrics],
-                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Operating Cash Flow'), 0),
-                        key="cf_metric1"
-                    )
-                    metric1 = next(col for display, col in available_metrics if display == metric1_display)
-                
-                with col2:
-                    metric2_display = st.selectbox(
-                        "Metric 2:",
-                        options=[display for display, _ in available_metrics],
-                        index=next((i for i, (d, _) in enumerate(available_metrics) if 'Capital Expenditure' in d or 'CapEx' in d), min(1, len(available_metrics)-1)),
-                        key="cf_metric2"
-                    )
-                    metric2 = next(col for display, col in available_metrics if display == metric2_display)
-                
-                with col3:
-                    metric3_display = st.selectbox(
-                        "Metric 3:",
-                        options=[display for display, _ in available_metrics],
-                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Free Cash Flow'), min(2, len(available_metrics)-1)),
-                        key="cf_metric3"
-                    )
-                    metric3 = next(col for display, col in available_metrics if display == metric3_display)
-                
-                metrics_to_plot = [metric1, metric2, metric3]
-                
-                # Show what these metrics mean - try both display name and API column name
-                with st.expander("📚 What do these metrics mean?", expanded=False):
-                    for metric_display, metric_col in zip([metric1_display, metric2_display, metric3_display], metrics_to_plot):
-                        # Try display name first, then API column name
-                        explanation = get_metric_explanation(metric_display)
-                        if not explanation:
-                            explanation = get_metric_explanation(metric_col)
-                        if explanation:
-                            st.markdown(f"""**{metric_display}**  
-                📊 *What it is:* {explanation["simple"]}  
-                💡 *Why it matters:* {explanation["why"]}""")
-                            st.markdown("---")
-                        else:
-                            # Provide a generic explanation if none found
-                            st.markdown(f"""**{metric_display}**  
-                📊 *What it is:* Financial metric from company reports  
-                💡 *Why it matters:* Track this over time to spot trends""")
-                            st.markdown("---")
-                
-                metric_names = [metric1_display, metric2_display, metric3_display]
-                metric_names = [metric1_display, metric2_display, metric3_display]
-                
-                # Prepare data for chart
-                plot_df = cash_df[["date"] + metrics_to_plot].copy()
-                
-                # Create chart with y-axis padding and growth rates
-                fig, growth_rates, cagr_years = create_financial_chart_with_growth(
-                    plot_df,
-                    metrics_to_plot,
-                    f"{company_name} - Cash Flow",
-                    "Period",
-                    "Amount ($)",
-                    period_type=_ca_period_type
+                # Multiselect: user picks 1-3 metrics (no one is forced to pick 3)
+                _cf_display_options = [display for display, _ in available_metrics]
+                _cf_defaults = [
+                    d for d in ['Operating Cash Flow', 'Capital Expenditures (CapEx)', 'Free Cash Flow']
+                    if d in _cf_display_options
+                ]
+                # Fallback if none of the preferred defaults are available
+                if not _cf_defaults:
+                    _cf_defaults = _cf_display_options[:min(3, len(_cf_display_options))]
+
+                selected_displays = st.multiselect(
+                    "📊 Select 1-3 metrics to chart:",
+                    options=_cf_display_options,
+                    default=_cf_defaults,
+                    max_selections=3,
+                    key="cf_metrics",
+                    help="Pick as many as you want, up to 3. Leave empty to hide the chart."
                 )
 
-                if fig:
-                    # Overlay second ticker if comparing
-                    if _ca_ticker2 and not _ca_cash2.empty:
-                        if 'stockBasedCompensation' in _ca_cash2.columns and 'freeCashFlow' in _ca_cash2.columns:
-                            _ca_cash2 = _ca_cash2.copy()
-                            _ca_cash2['fcfAfterSBC'] = _ca_cash2['freeCashFlow'] - abs(_ca_cash2['stockBasedCompensation'])
-                        fig = overlay_second_ticker_on_chart(fig, _ca_cash2, metrics_to_plot, metric_names, _ca_name2, period_type=_ca_period_type)
-                    st.plotly_chart(fig, use_container_width=True)
+                if not selected_displays:
+                    st.info("👆 Select at least one metric above to see the chart.")
+                    metrics_to_plot = []
+                    metric_names = []
+                else:
+                    metrics_to_plot = [
+                        next(col for display, col in available_metrics if display == d)
+                        for d in selected_displays
+                    ]
+                    metric_names = list(selected_displays)
 
-                    # Display CAGR summary
-                    if growth_rates:
-                        growth_text = f"**{years}-Year CAGR** *(Compound Annual Growth Rate — annualized % per year)*\n\n"
-                        for idx, (metric_col, cagr) in enumerate(growth_rates.items()):
-                            metric_name = metric_names[metrics_to_plot.index(metric_col)]
-                            emoji = "🚀" if cagr > 10 else "📈" if cagr > 0 else "📉"
-                            growth_text += f"{emoji} **{metric_name}:** {cagr:+.1f}%/yr\n\n"
+                # Show what these metrics mean - try both display name and API column name
+                if selected_displays:
+                    with st.expander("📚 What do these metrics mean?", expanded=False):
+                        for metric_display, metric_col in zip(selected_displays, metrics_to_plot):
+                            # Try display name first, then API column name
+                            explanation = get_metric_explanation(metric_display)
+                            if not explanation:
+                                explanation = get_metric_explanation(metric_col)
+                            if explanation:
+                                st.markdown(f"""**{metric_display}**  
+                📊 *What it is:* {explanation["simple"]}  
+                💡 *Why it matters:* {explanation["why"]}""")
+                                st.markdown("---")
+                            else:
+                                # Provide a generic explanation if none found
+                                st.markdown(f"""**{metric_display}**  
+                📊 *What it is:* Financial metric from company reports  
+                💡 *Why it matters:* Track this over time to spot trends""")
+                                st.markdown("---")
 
-                        st.markdown(f'<div class="growth-note">{growth_text}</div>', unsafe_allow_html=True)
-                        st.caption("ℹ️ CAGR = the steady annual growth rate that would take the first year's value to the last year's value. Unlike total % change, it accounts for how many years passed.")
-
-                cols = st.columns(len(metrics_to_plot))
-                for i, (metric, name) in enumerate(zip(metrics_to_plot, metric_names)):
-                    cols[i].metric(f"Latest {name}", format_number(cash_df[metric].iloc[-1]))
+                # Skip chart if nothing selected
+                if not metrics_to_plot:
+                    plot_df = None
+                else:
+                    # Prepare data for chart
+                    plot_df = cash_df[["date"] + metrics_to_plot].copy()
                 
-                show_financial_data_notice(cash_df, period)
+                # Create chart with y-axis padding and growth rates (only if metrics picked)
+                if plot_df is not None and metrics_to_plot:
+                    fig, growth_rates, cagr_years = create_financial_chart_with_growth(
+                        plot_df,
+                        metrics_to_plot,
+                        f"{company_name} - Cash Flow",
+                        "Period",
+                        "Amount ($)",
+                        period_type=_ca_period_type
+                    )
+
+                    if fig:
+                        # Overlay second ticker if comparing
+                        if _ca_ticker2 and not _ca_cash2.empty:
+                            if 'stockBasedCompensation' in _ca_cash2.columns and 'freeCashFlow' in _ca_cash2.columns:
+                                _ca_cash2 = _ca_cash2.copy()
+                                _ca_cash2['fcfAfterSBC'] = _ca_cash2['freeCashFlow'] - abs(_ca_cash2['stockBasedCompensation'])
+                            fig = overlay_second_ticker_on_chart(fig, _ca_cash2, metrics_to_plot, metric_names, _ca_name2, period_type=_ca_period_type)
+                        st.plotly_chart(fig, use_container_width=True)
+
+                        # Display CAGR summary
+                        if growth_rates:
+                            growth_text = f"**{years}-Year CAGR** *(Compound Annual Growth Rate — annualized % per year)*\n\n"
+                            for idx, (metric_col, cagr) in enumerate(growth_rates.items()):
+                                metric_name = metric_names[metrics_to_plot.index(metric_col)]
+                                emoji = "🚀" if cagr > 10 else "📈" if cagr > 0 else "📉"
+                                growth_text += f"{emoji} **{metric_name}:** {cagr:+.1f}%/yr\n\n"
+
+                            st.markdown(f'<div class="growth-note">{growth_text}</div>', unsafe_allow_html=True)
+                            st.caption("ℹ️ CAGR = the steady annual growth rate that would take the first year's value to the last year's value. Unlike total % change, it accounts for how many years passed.")
+
+                    cols = st.columns(len(metrics_to_plot))
+                    for i, (metric, name) in enumerate(zip(metrics_to_plot, metric_names)):
+                        cols[i].metric(f"Latest {name}", format_number(cash_df[metric].iloc[-1]))
+
+                    show_financial_data_notice(cash_df, period)
         else:
             st.warning("⚠️ Cash flow data not available")
         
@@ -21458,92 +21576,87 @@ elif selected_page == "📊 Company Analysis":
             available_metrics = get_available_metrics(income_df)
             
             if available_metrics:
-                st.markdown("**📊 Select up to 3 metrics:**")
-                col1, col2, col3 = st.columns(3)
-                
-                with col1:
-                    metric1_display = st.selectbox(
-                        "Metric 1:",
-                        options=[display for display, _ in available_metrics],
-                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Revenue'), 0),
-                        key="income_metric1"
-                    )
-                    metric1 = next(col for display, col in available_metrics if display == metric1_display)
-                
-                with col2:
-                    metric2_display = st.selectbox(
-                        "Metric 2:",
-                        options=[display for display, _ in available_metrics],
-                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Operating Income'), min(1, len(available_metrics)-1)),
-                        key="income_metric2"
-                    )
-                    metric2 = next(col for display, col in available_metrics if display == metric2_display)
-                
-                with col3:
-                    metric3_display = st.selectbox(
-                        "Metric 3:",
-                        options=[display for display, _ in available_metrics],
-                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Net Income'), min(2, len(available_metrics)-1)),
-                        key="income_metric3"
-                    )
-                    metric3 = next(col for display, col in available_metrics if display == metric3_display)
-                
-                metrics_to_plot = [metric1, metric2, metric3]
-                
-                # Show what these metrics mean - try both display name and API column name
-                with st.expander("📚 What do these metrics mean?", expanded=False):
-                    for metric_display, metric_col in zip([metric1_display, metric2_display, metric3_display], metrics_to_plot):
-                        # Try display name first, then API column name
-                        explanation = get_metric_explanation(metric_display)
-                        if not explanation:
-                            explanation = get_metric_explanation(metric_col)
-                        if explanation:
-                            st.markdown(f"""**{metric_display}**  
-                📊 *What it is:* {explanation["simple"]}  
-                💡 *Why it matters:* {explanation["why"]}""")
-                            st.markdown("---")
-                        else:
-                            # Provide a generic explanation if none found
-                            st.markdown(f"""**{metric_display}**  
-                📊 *What it is:* Financial metric from company reports  
-                💡 *Why it matters:* Track this over time to spot trends""")
-                            st.markdown("---")
-                
-                metric_names = [metric1_display, metric2_display, metric3_display]
-                
-                plot_df = income_df[["date"] + metrics_to_plot].copy()
-                
-                fig, growth_rates, cagr_years = create_financial_chart_with_growth(
-                    plot_df,
-                    metrics_to_plot,
-                    f"{company_name} - Income Statement",
-                    "Period",
-                    "Amount ($)",
-                    period_type=_ca_period_type
+                _inc_display_options = [display for display, _ in available_metrics]
+                _inc_defaults = [
+                    d for d in ['Revenue', 'Operating Income', 'Net Income']
+                    if d in _inc_display_options
+                ]
+                if not _inc_defaults:
+                    _inc_defaults = _inc_display_options[:min(3, len(_inc_display_options))]
+
+                selected_displays = st.multiselect(
+                    "📊 Select 1-3 metrics to chart:",
+                    options=_inc_display_options,
+                    default=_inc_defaults,
+                    max_selections=3,
+                    key="income_metrics",
+                    help="Pick as many as you want, up to 3. Leave empty to hide the chart."
                 )
 
-                if fig:
-                    if _ca_ticker2 and not _ca_income2.empty:
-                        fig = overlay_second_ticker_on_chart(fig, _ca_income2, metrics_to_plot, metric_names, _ca_name2, period_type=_ca_period_type)
-                    st.plotly_chart(fig, use_container_width=True)
+                if not selected_displays:
+                    st.info("👆 Select at least one metric above to see the chart.")
+                    metrics_to_plot = []
+                    metric_names = []
+                else:
+                    metrics_to_plot = [
+                        next(col for display, col in available_metrics if display == d)
+                        for d in selected_displays
+                    ]
+                    metric_names = list(selected_displays)
 
-                    # Display CAGR summary
-                    if growth_rates:
-                        growth_text = f"**{years}-Year CAGR** *(Compound Annual Growth Rate — annualized % per year)*\n\n"
-                        for idx, (metric_col, cagr) in enumerate(growth_rates.items()):
-                            metric_name = metric_names[metrics_to_plot.index(metric_col)]
-                            emoji = "🚀" if cagr > 10 else "📈" if cagr > 0 else "📉"
-                            growth_text += f"{emoji} **{metric_name}:** {cagr:+.1f}%/yr\n\n"
+                # Show what these metrics mean - try both display name and API column name
+                if selected_displays:
+                    with st.expander("📚 What do these metrics mean?", expanded=False):
+                        for metric_display, metric_col in zip(selected_displays, metrics_to_plot):
+                            # Try display name first, then API column name
+                            explanation = get_metric_explanation(metric_display)
+                            if not explanation:
+                                explanation = get_metric_explanation(metric_col)
+                            if explanation:
+                                st.markdown(f"""**{metric_display}**  
+                📊 *What it is:* {explanation["simple"]}  
+                💡 *Why it matters:* {explanation["why"]}""")
+                                st.markdown("---")
+                            else:
+                                # Provide a generic explanation if none found
+                                st.markdown(f"""**{metric_display}**  
+                📊 *What it is:* Financial metric from company reports  
+                💡 *Why it matters:* Track this over time to spot trends""")
+                                st.markdown("---")
 
-                        st.markdown(f'<div class="growth-note">{growth_text}</div>', unsafe_allow_html=True)
-                        st.caption("ℹ️ CAGR = the steady annual growth rate that would take the first year's value to the last year's value. Unlike total % change, it accounts for how many years passed.")
+                if metrics_to_plot:
+                    plot_df = income_df[["date"] + metrics_to_plot].copy()
 
-                col1, col2, col3 = st.columns(3)
-                cols = [col1, col2, col3]
-                for i, (metric, name) in enumerate(zip(metrics_to_plot, metric_names)):
-                    cols[i].metric(f"Latest {name}", format_number(income_df[metric].iloc[-1]))
-                
-                show_financial_data_notice(income_df, period)
+                    fig, growth_rates, cagr_years = create_financial_chart_with_growth(
+                        plot_df,
+                        metrics_to_plot,
+                        f"{company_name} - Income Statement",
+                        "Period",
+                        "Amount ($)",
+                        period_type=_ca_period_type
+                    )
+
+                    if fig:
+                        if _ca_ticker2 and not _ca_income2.empty:
+                            fig = overlay_second_ticker_on_chart(fig, _ca_income2, metrics_to_plot, metric_names, _ca_name2, period_type=_ca_period_type)
+                        st.plotly_chart(fig, use_container_width=True)
+
+                        # Display CAGR summary
+                        if growth_rates:
+                            growth_text = f"**{years}-Year CAGR** *(Compound Annual Growth Rate — annualized % per year)*\n\n"
+                            for idx, (metric_col, cagr) in enumerate(growth_rates.items()):
+                                metric_name = metric_names[metrics_to_plot.index(metric_col)]
+                                emoji = "🚀" if cagr > 10 else "📈" if cagr > 0 else "📉"
+                                growth_text += f"{emoji} **{metric_name}:** {cagr:+.1f}%/yr\n\n"
+
+                            st.markdown(f'<div class="growth-note">{growth_text}</div>', unsafe_allow_html=True)
+                            st.caption("ℹ️ CAGR = the steady annual growth rate that would take the first year's value to the last year's value. Unlike total % change, it accounts for how many years passed.")
+
+                    cols = st.columns(len(metrics_to_plot))
+                    for i, (metric, name) in enumerate(zip(metrics_to_plot, metric_names)):
+                        cols[i].metric(f"Latest {name}", format_number(income_df[metric].iloc[-1]))
+
+                    show_financial_data_notice(income_df, period)
         else:
             st.warning("⚠️ Income statement not available")
         
@@ -21555,91 +21668,87 @@ elif selected_page == "📊 Company Analysis":
             available_metrics = get_available_metrics(balance_df)
             
             if available_metrics:
-                st.markdown("**📊 Select up to 3 metrics:**")
-                col1, col2, col3 = st.columns(3)
-                
-                with col1:
-                    metric1_display = st.selectbox(
-                        "Metric 1:",
-                        options=[display for display, _ in available_metrics],
-                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Total Assets'), 0),
-                        key="balance_metric1"
-                    )
-                    metric1 = next(col for display, col in available_metrics if display == metric1_display)
-                
-                with col2:
-                    metric2_display = st.selectbox(
-                        "Metric 2:",
-                        options=[display for display, _ in available_metrics],
-                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Total Liabilities'), min(1, len(available_metrics)-1)),
-                        key="balance_metric2"
-                    )
-                    metric2 = next(col for display, col in available_metrics if display == metric2_display)
-                
-                with col3:
-                    metric3_display = st.selectbox(
-                        "Metric 3:",
-                        options=[display for display, _ in available_metrics],
-                        index=next((i for i, (d, _) in enumerate(available_metrics) if d == 'Shareholders Equity'), min(2, len(available_metrics)-1)),
-                        key="balance_metric3"
-                    )
-                    metric3 = next(col for display, col in available_metrics if display == metric3_display)
-                
-                metrics_to_plot = [metric1, metric2, metric3]
-                
-                # Show what these metrics mean - try both display name and API column name
-                with st.expander("📚 What do these metrics mean?", expanded=False):
-                    for metric_display, metric_col in zip([metric1_display, metric2_display, metric3_display], metrics_to_plot):
-                        # Try display name first, then API column name
-                        explanation = get_metric_explanation(metric_display)
-                        if not explanation:
-                            explanation = get_metric_explanation(metric_col)
-                        if explanation:
-                            st.markdown(f"""**{metric_display}**  
-                📊 *What it is:* {explanation["simple"]}  
-                💡 *Why it matters:* {explanation["why"]}""")
-                            st.markdown("---")
-                        else:
-                            # Provide a generic explanation if none found
-                            st.markdown(f"""**{metric_display}**  
-                📊 *What it is:* Financial metric from company reports  
-                💡 *Why it matters:* Track this over time to spot trends""")
-                            st.markdown("---")
-                
-                metric_names = [metric1_display, metric2_display, metric3_display]
-                
-                plot_df = balance_df[["date"] + metrics_to_plot].copy()
-                
-                fig, growth_rates, cagr_years = create_financial_chart_with_growth(
-                    plot_df,
-                    metrics_to_plot,
-                    f"{company_name} - Balance Sheet",
-                    "Period",
-                    "Amount ($)",
-                    period_type=_ca_period_type
+                _bs_display_options = [display for display, _ in available_metrics]
+                _bs_defaults = [
+                    d for d in ['Total Assets', 'Total Liabilities', 'Shareholders Equity']
+                    if d in _bs_display_options
+                ]
+                if not _bs_defaults:
+                    _bs_defaults = _bs_display_options[:min(3, len(_bs_display_options))]
+
+                selected_displays = st.multiselect(
+                    "📊 Select 1-3 metrics to chart:",
+                    options=_bs_display_options,
+                    default=_bs_defaults,
+                    max_selections=3,
+                    key="balance_metrics",
+                    help="Pick as many as you want, up to 3. Leave empty to hide the chart."
                 )
 
-                if fig:
-                    if _ca_ticker2 and not _ca_balance2.empty:
-                        fig = overlay_second_ticker_on_chart(fig, _ca_balance2, metrics_to_plot, metric_names, _ca_name2, period_type=_ca_period_type)
-                    st.plotly_chart(fig, use_container_width=True)
+                if not selected_displays:
+                    st.info("👆 Select at least one metric above to see the chart.")
+                    metrics_to_plot = []
+                    metric_names = []
+                else:
+                    metrics_to_plot = [
+                        next(col for display, col in available_metrics if display == d)
+                        for d in selected_displays
+                    ]
+                    metric_names = list(selected_displays)
 
-                    # Display CAGR summary
-                    if growth_rates:
-                        growth_text = f"**{years}-Year CAGR** *(Compound Annual Growth Rate — annualized % per year)*\n\n"
-                        for idx, (metric_col, cagr) in enumerate(growth_rates.items()):
-                            metric_name = metric_names[metrics_to_plot.index(metric_col)]
-                            emoji = "🚀" if cagr > 10 else "📈" if cagr > 0 else "📉"
-                            growth_text += f"{emoji} **{metric_name}:** {cagr:+.1f}%/yr\n\n"
+                # Show what these metrics mean - try both display name and API column name
+                if selected_displays:
+                    with st.expander("📚 What do these metrics mean?", expanded=False):
+                        for metric_display, metric_col in zip(selected_displays, metrics_to_plot):
+                            # Try display name first, then API column name
+                            explanation = get_metric_explanation(metric_display)
+                            if not explanation:
+                                explanation = get_metric_explanation(metric_col)
+                            if explanation:
+                                st.markdown(f"""**{metric_display}**  
+                📊 *What it is:* {explanation["simple"]}  
+                💡 *Why it matters:* {explanation["why"]}""")
+                                st.markdown("---")
+                            else:
+                                # Provide a generic explanation if none found
+                                st.markdown(f"""**{metric_display}**  
+                📊 *What it is:* Financial metric from company reports  
+                💡 *Why it matters:* Track this over time to spot trends""")
+                                st.markdown("---")
 
-                        st.markdown(f'<div class="growth-note">{growth_text}</div>', unsafe_allow_html=True)
-                        st.caption("ℹ️ CAGR = the steady annual growth rate that would take the first year's value to the last year's value. Unlike total % change, it accounts for how many years passed.")
+                if metrics_to_plot:
+                    plot_df = balance_df[["date"] + metrics_to_plot].copy()
 
-                cols = st.columns(len(metrics_to_plot))
-                for i, (metric, name) in enumerate(zip(metrics_to_plot, metric_names)):
-                    cols[i].metric(f"Latest {name}", format_number(balance_df[metric].iloc[-1]))
-                
-                show_financial_data_notice(balance_df, period)
+                    fig, growth_rates, cagr_years = create_financial_chart_with_growth(
+                        plot_df,
+                        metrics_to_plot,
+                        f"{company_name} - Balance Sheet",
+                        "Period",
+                        "Amount ($)",
+                        period_type=_ca_period_type
+                    )
+
+                    if fig:
+                        if _ca_ticker2 and not _ca_balance2.empty:
+                            fig = overlay_second_ticker_on_chart(fig, _ca_balance2, metrics_to_plot, metric_names, _ca_name2, period_type=_ca_period_type)
+                        st.plotly_chart(fig, use_container_width=True)
+
+                        # Display CAGR summary
+                        if growth_rates:
+                            growth_text = f"**{years}-Year CAGR** *(Compound Annual Growth Rate — annualized % per year)*\n\n"
+                            for idx, (metric_col, cagr) in enumerate(growth_rates.items()):
+                                metric_name = metric_names[metrics_to_plot.index(metric_col)]
+                                emoji = "🚀" if cagr > 10 else "📈" if cagr > 0 else "📉"
+                                growth_text += f"{emoji} **{metric_name}:** {cagr:+.1f}%/yr\n\n"
+
+                            st.markdown(f'<div class="growth-note">{growth_text}</div>', unsafe_allow_html=True)
+                            st.caption("ℹ️ CAGR = the steady annual growth rate that would take the first year's value to the last year's value. Unlike total % change, it accounts for how many years passed.")
+
+                    cols = st.columns(len(metrics_to_plot))
+                    for i, (metric, name) in enumerate(zip(metrics_to_plot, metric_names)):
+                        cols[i].metric(f"Latest {name}", format_number(balance_df[metric].iloc[-1]))
+
+                    show_financial_data_notice(balance_df, period)
         else:
             st.warning("⚠️ Balance sheet not available")
     
@@ -23880,6 +23989,8 @@ elif selected_page == "📡 Dip Radar":
         if _resolved:
             if _resolved not in st.session_state.dip_radar_watchlist:
                 st.session_state.dip_radar_watchlist.append(_resolved)
+                if st.session_state.get("is_logged_in"):
+                    save_user_progress()
                 st.success(f"Added **{_resolved}** to watchlist")
                 st.rerun()
             else:
@@ -23895,9 +24006,13 @@ elif selected_page == "📡 Dip Radar":
     )
     if _dr_bulk:
         _dr_bulk_tickers = [t.strip().upper() for t in _dr_bulk.split(",") if t.strip()]
+        _dr_bulk_added = False
         for _bt in _dr_bulk_tickers:
             if _bt and _bt not in st.session_state.dip_radar_watchlist:
                 st.session_state.dip_radar_watchlist.append(_bt)
+                _dr_bulk_added = True
+        if _dr_bulk_added and st.session_state.get("is_logged_in"):
+            save_user_progress()
 
     # ── Show watchlist ──
     if st.session_state.dip_radar_watchlist:
@@ -23914,6 +24029,8 @@ elif selected_page == "📡 Dip Radar":
 
         if _dr_to_remove:
             st.session_state.dip_radar_watchlist.remove(_dr_to_remove)
+            if st.session_state.get("is_logged_in"):
+                save_user_progress()
             st.rerun()
 
         render_dip_finder_page(st.session_state.dip_radar_watchlist, chart_title="Custom Watchlist")
@@ -23921,6 +24038,8 @@ elif selected_page == "📡 Dip Radar":
         # Clear all button
         if st.button("🗑️ Clear Watchlist", key="dip_radar_clear_all"):
             st.session_state.dip_radar_watchlist = []
+            if st.session_state.get("is_logged_in"):
+                save_user_progress()
             st.rerun()
 
     if not _dr_portfolio_tickers and not st.session_state.dip_radar_watchlist and not _dr_bulk:
