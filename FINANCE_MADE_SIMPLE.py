@@ -202,6 +202,101 @@ input, textarea, select {
 }
 
 
+/* ============= PREMIUM MULTISELECT STYLING ============= */
+/* For multiselects (metric pickers on Company Analysis, Financial Health, etc.) */
+.main [data-baseweb="select"][aria-multiselectable="true"],
+.main [data-testid="stMultiSelect"] [data-baseweb="select"],
+.main [data-testid="stMultiSelect"] [data-baseweb="select"] > div {
+    background: linear-gradient(135deg, #1a1f3a 0%, #2d1b4e 50%, #1e3a5f 100%) !important;
+    border: 1px solid rgba(139, 92, 246, 0.3) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 4px 16px rgba(139, 92, 246, 0.15), inset 0 1px 0 rgba(255,255,255,0.05) !important;
+    transition: all 0.25s ease !important;
+    min-height: 48px !important;
+}
+
+.main [data-testid="stMultiSelect"] [data-baseweb="select"]:hover,
+.main [data-testid="stMultiSelect"] [data-baseweb="select"] > div:hover {
+    border-color: rgba(139, 92, 246, 0.6) !important;
+    box-shadow: 0 6px 24px rgba(139, 92, 246, 0.3), inset 0 1px 0 rgba(255,255,255,0.08) !important;
+    transform: translateY(-1px) !important;
+}
+
+/* Selected tags/pills inside multiselect */
+.main [data-testid="stMultiSelect"] [data-baseweb="tag"],
+.main [data-testid="stMultiSelect"] span[data-baseweb="tag"] {
+    background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%) !important;
+    border: none !important;
+    border-radius: 8px !important;
+    color: #FFFFFF !important;
+    font-weight: 600 !important;
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4) !important;
+    transition: all 0.2s ease !important;
+}
+
+.main [data-testid="stMultiSelect"] [data-baseweb="tag"]:hover {
+    background: linear-gradient(135deg, #a78bfa 0%, #818cf8 100%) !important;
+    transform: scale(1.03) !important;
+}
+
+.main [data-testid="stMultiSelect"] [data-baseweb="tag"] *,
+.main [data-testid="stMultiSelect"] [data-baseweb="tag"] span,
+.main [data-testid="stMultiSelect"] [data-baseweb="tag"] div {
+    color: #FFFFFF !important;
+    font-weight: 600 !important;
+}
+
+/* Text inside multiselect (placeholder and selected text) */
+.main [data-testid="stMultiSelect"] [data-baseweb="select"] input,
+.main [data-testid="stMultiSelect"] [data-baseweb="select"] span {
+    color: #E5E7EB !important;
+}
+
+/* Dropdown menu (popup) */
+[data-baseweb="popover"] [role="listbox"] {
+    background: linear-gradient(135deg, #1a1f3a 0%, #2d1b4e 100%) !important;
+    border: 1px solid rgba(139, 92, 246, 0.4) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(139, 92, 246, 0.2) !important;
+    backdrop-filter: blur(12px) !important;
+}
+
+[data-baseweb="popover"] [role="option"] {
+    color: #E5E7EB !important;
+    transition: all 0.15s ease !important;
+}
+
+[data-baseweb="popover"] [role="option"]:hover {
+    background: linear-gradient(90deg, rgba(139, 92, 246, 0.2) 0%, rgba(99, 102, 241, 0.15) 100%) !important;
+    color: #FFFFFF !important;
+}
+
+[data-baseweb="popover"] [role="option"][aria-selected="true"] {
+    background: linear-gradient(90deg, rgba(139, 92, 246, 0.4) 0%, rgba(99, 102, 241, 0.3) 100%) !important;
+    color: #FFFFFF !important;
+    font-weight: 600 !important;
+}
+
+/* The "X" remove button on each tag */
+.main [data-testid="stMultiSelect"] [data-baseweb="tag"] [role="presentation"] {
+    color: rgba(255,255,255,0.85) !important;
+    cursor: pointer !important;
+}
+
+.main [data-testid="stMultiSelect"] [data-baseweb="tag"] [role="presentation"]:hover {
+    color: #FFFFFF !important;
+    transform: scale(1.15) !important;
+}
+
+/* Label above multiselect */
+.main [data-testid="stMultiSelect"] label,
+.main [data-testid="stMultiSelect"] label p {
+    color: #E5E7EB !important;
+    font-weight: 600 !important;
+    font-size: 15px !important;
+    letter-spacing: 0.01em !important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -4496,7 +4591,9 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
                 if cagr is not None:
                     growth_rates[metric] = cagr
             
-            display_name = METRIC_DISPLAY_NAMES.get(metric, metric.replace('_', ' ').title())
+            # Split camelCase into words: accountsReceivables -> Accounts Receivables
+            _fallback_name = _re.sub(r'(?<=[a-z])(?=[A-Z])', ' ', metric).replace('_', ' ').title()
+            display_name = METRIC_DISPLAY_NAMES.get(metric, _fallback_name)
             c = METRIC_COLORS.get(idx % 3, METRIC_COLORS[0])
             bar_color_list = [c['pos'] if v >= 0 else c['neg'] for v in values]
 
