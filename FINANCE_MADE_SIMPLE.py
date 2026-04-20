@@ -24557,26 +24557,38 @@ elif selected_page == "👑 Ultimate":
     # SECTION 1 — LIVE QUOTE + SIGNAL DASHBOARD
     # ─────────────────────────────────────────────────────────────────────────────
 
-    # Live quote bar
-    st.markdown(f"""
-    <div style="background:#0D0D20;border:1px solid rgba(255,255,255,0.1);border-radius:12px;
-                padding:16px 22px;margin-bottom:18px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
-        <div>
-            <div style="font-size:13px;color:#aaa;font-weight:600;letter-spacing:1px;">{_co_name} · {_ult_ticker}</div>
-            <div style="font-size:32px;font-weight:800;color:#fff;">${_live_price:,.2f}
-                <span style="font-size:18px;color:{_change_color};margin-left:8px;">
-                    {_change_dir} {abs(_change_pct):.2f}%
-                </span>
-            </div>
-        </div>
-        <div style="margin-left:auto;display:flex;gap:20px;flex-wrap:wrap;">
-            {"<div style='text-align:center'><div style='font-size:11px;color:#888;'>RSI (14)</div><div style='font-size:20px;font-weight:700;color:" + ("#FF4444" if _rsi and _rsi>70 else "#00C851" if _rsi and _rsi<30 else "#FFD700") + ";'>" + (f"{_rsi:.0f}" if _rsi else "—") + "</div></div>" if _rsi else ""}
-            {"<div style='text-align:center'><div style='font-size:11px;color:#888;'>SMA 50</div><div style='font-size:20px;font-weight:700;color:" + ("#00C851" if _sma50 and _live_price > _sma50 else "#FF4444") + ";'>$" + (f"{_sma50:,.0f}" if _sma50 else "—") + "</div></div>" if _sma50 else ""}
-            {"<div style='text-align:center'><div style='font-size:11px;color:#888;'>SMA 200</div><div style='font-size:20px;font-weight:700;color:" + ("#00C851" if _sma200 and _live_price > _sma200 else "#FF4444") + ";'>$" + (f"{_sma200:,.0f}" if _sma200 else "—") + "</div></div>" if _sma200 else ""}
-            <div style='text-align:center'><div style='font-size:11px;color:#888;'>Pattern</div><div style='font-size:13px;font-weight:700;color:#9D4EDD;max-width:120px;line-height:1.2;'>{_pattern_label}</div></div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    # Live quote bar — lighter, readable background with purple accent
+    _rsi_html = ""
+    if _rsi:
+        _rsi_color = "#FF4444" if _rsi > 70 else "#00C851" if _rsi < 30 else "#FFD700"
+        _rsi_html = f"<div style='text-align:center'><div style='font-size:11px;color:#666;font-weight:600;'>RSI (14)</div><div style='font-size:20px;font-weight:700;color:{_rsi_color};'>{_rsi:.0f}</div></div>"
+    _sma50_html = ""
+    if _sma50:
+        _sma50_color = "#00C851" if _live_price > _sma50 else "#FF4444"
+        _sma50_html = f"<div style='text-align:center'><div style='font-size:11px;color:#666;font-weight:600;'>SMA 50</div><div style='font-size:20px;font-weight:700;color:{_sma50_color};'>${_sma50:,.0f}</div></div>"
+    _sma200_html = ""
+    if _sma200:
+        _sma200_color = "#00C851" if _live_price > _sma200 else "#FF4444"
+        _sma200_html = f"<div style='text-align:center'><div style='font-size:11px;color:#666;font-weight:600;'>SMA 200</div><div style='font-size:20px;font-weight:700;color:{_sma200_color};'>${_sma200:,.0f}</div></div>"
+    _pattern_html = f"<div style='text-align:center'><div style='font-size:11px;color:#666;font-weight:600;'>Pattern</div><div style='font-size:13px;font-weight:700;color:#7c3aed;max-width:120px;line-height:1.2;'>{_pattern_label}</div></div>"
+
+    st.markdown(
+        '<div style="background:linear-gradient(135deg,#f8fafc 0%,#e0e7ff 100%);'
+        'border:1px solid #c7d2fe;border-radius:14px;'
+        'padding:18px 24px;margin-bottom:18px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;'
+        'box-shadow:0 4px 12px rgba(124, 58, 237, 0.08);">'
+        f'<div>'
+        f'<div style="font-size:13px;color:#6b7280;font-weight:600;letter-spacing:1px;">{_co_name} · {_ult_ticker}</div>'
+        f'<div style="font-size:32px;font-weight:800;color:#1f2937;">${_live_price:,.2f}'
+        f'<span style="font-size:18px;color:{_change_color};margin-left:8px;">{_change_dir} {abs(_change_pct):.2f}%</span>'
+        f'</div>'
+        f'</div>'
+        f'<div style="margin-left:auto;display:flex;gap:20px;flex-wrap:wrap;">'
+        f'{_rsi_html}{_sma50_html}{_sma200_html}{_pattern_html}'
+        f'</div>'
+        f'</div>',
+        unsafe_allow_html=True
+    )
 
     # Signal dashboard — 6 signals in a 3-column grid
     st.markdown("### ⚡ Signal Dashboard")
@@ -24585,15 +24597,17 @@ elif selected_page == "👑 Ultimate":
         """signal: 'bullish' | 'bearish' | 'neutral'"""
         icon  = {"bullish": "🟢", "bearish": "🔴", "neutral": "🟡"}.get(signal, "⚪")
         color = {"bullish": "#00C851", "bearish": "#FF4444", "neutral": "#FFD700"}.get(signal, "#aaa")
-        return f"""
-        <div class="ult-signal-card {signal}">
-            <span style="font-size:20px;">{icon}</span>
-            <div>
-                <div style="font-size:12px;color:#aaa;font-weight:600;letter-spacing:.6px;">{label}</div>
-                <div style="font-size:16px;font-weight:700;color:{color};">{value}</div>
-                <div style="font-size:12px;color:#888;margin-top:2px;">{note}</div>
-            </div>
-        </div>"""
+        # IMPORTANT: no leading whitespace — Streamlit markdown treats 4+ spaces as code blocks
+        return (
+            f'<div class="ult-signal-card {signal}">'
+            f'<span style="font-size:20px;">{icon}</span>'
+            f'<div>'
+            f'<div style="font-size:12px;color:#aaa;font-weight:600;letter-spacing:.6px;">{label}</div>'
+            f'<div style="font-size:16px;font-weight:700;color:{color};">{value}</div>'
+            f'<div style="font-size:12px;color:#888;margin-top:2px;">{note}</div>'
+            f'</div>'
+            f'</div>'
+        )
 
     _sc1, _sc2, _sc3 = st.columns(3)
 
@@ -24710,13 +24724,16 @@ elif selected_page == "👑 Ultimate":
         _fig.add_trace(go.Scatter(x=_ph["date"], y=_ph[_close_col], mode="lines",
             name="Price", line=dict(color="#00E5FF", width=2)), row=1, col=1)
 
-    # SMA overlays
+    # SMA overlays — bold, distinct colors, solid/dashed to make them visible
     if len(_ph) >= 50:
         _fig.add_trace(go.Scatter(x=_ph["date"], y=_ph[_close_col].rolling(50).mean(),
-            mode="lines", name="SMA50", line=dict(color="#FFA500", width=1.5, dash="dot")), row=1, col=1)
+            mode="lines", name="SMA 50", line=dict(color="#FFA500", width=2.5, dash="solid")), row=1, col=1)
+    if len(_ph) >= 100:
+        _fig.add_trace(go.Scatter(x=_ph["date"], y=_ph[_close_col].rolling(100).mean(),
+            mode="lines", name="SMA 100", line=dict(color="#00E5FF", width=2.5, dash="dash")), row=1, col=1)
     if len(_ph) >= 200:
         _fig.add_trace(go.Scatter(x=_ph["date"], y=_ph[_close_col].rolling(200).mean(),
-            mode="lines", name="SMA200", line=dict(color="#BF5FFF", width=1.5, dash="dot")), row=1, col=1)
+            mode="lines", name="SMA 200", line=dict(color="#BF5FFF", width=3, dash="solid")), row=1, col=1)
 
     # Bollinger Bands
     if _show_bb and len(_ph) >= 20:
@@ -24770,13 +24787,13 @@ elif selected_page == "👑 Ultimate":
         _fig.update_yaxes(title_text="RSI", range=[0,100], row=_cur_row, col=1)
         _cur_row += 1
 
-    # Volume
+    # Volume — higher opacity for visibility
     if _show_vol:
         _vol_colors = ["#00C851" if _ph["close"].iloc[i] >= _ph["open"].iloc[i] else "#FF4444"
                        for i in range(len(_ph))]
         _fig.add_trace(go.Bar(x=_ph["date"], y=_ph["volume"], name="Volume",
-            marker_color=_vol_colors, opacity=0.5), row=_cur_row, col=1)
-        _fig.update_yaxes(title_text="Vol", row=_cur_row, col=1)
+            marker_color=_vol_colors, opacity=0.85), row=_cur_row, col=1)
+        _fig.update_yaxes(title_text="Volume", row=_cur_row, col=1)
 
     _fig.update_layout(height=580, template="plotly_dark", margin=dict(l=0,r=0,t=28,b=0),
         hovermode="x unified", showlegend=True, xaxis_rangeslider_visible=False,
@@ -24793,15 +24810,18 @@ elif selected_page == "👑 Ultimate":
     def _alert(level, title, body, urgency="info"):
         """urgency: hot | warm | cold | info"""
         icons = {"hot": "🔴", "warm": "🟡", "cold": "🟢", "info": "🔵"}
-        return f"""
-        <div class="ult-alert {urgency}">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
-                <span style="font-size:16px;">{icons[urgency]}</span>
-                <span style="font-weight:700;font-size:14px;color:#fff;">{title}</span>
-                {f'<span style="margin-left:auto;font-weight:800;font-size:15px;color:#fff;">${level:,.2f}</span>' if level else ''}
-            </div>
-            <div style="font-size:13px;color:#ccc;padding-left:26px;">{body}</div>
-        </div>"""
+        _level_badge = f'<span style="margin-left:auto;font-weight:800;font-size:15px;color:#fff;">${level:,.2f}</span>' if level else ''
+        # IMPORTANT: no leading whitespace — Streamlit markdown treats 4+ spaces as code blocks
+        return (
+            f'<div class="ult-alert {urgency}">'
+            f'<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">'
+            f'<span style="font-size:16px;">{icons[urgency]}</span>'
+            f'<span style="font-weight:700;font-size:14px;color:#fff;">{title}</span>'
+            f'{_level_badge}'
+            f'</div>'
+            f'<div style="font-size:13px;color:#ccc;padding-left:26px;">{body}</div>'
+            f'</div>'
+        )
 
     _alerts_html = ""
     _alert_count = 0
@@ -25939,7 +25959,7 @@ elif selected_page == "💼 Paper Portfolio":
             render_trade_panel('user')
     
         with col_chart:
-            st.markdown("### 📈 YTD Performance (User)")
+            st.markdown("### 📈 Performance (User)")
         
             # Calculate metrics using real equity calculation
             user_equity, user_ytd_return, user_cash, user_market_value = calculate_portfolio_equity(
@@ -25947,16 +25967,47 @@ elif selected_page == "💼 Paper Portfolio":
                 st.session_state.portfolio,
                 st.session_state.realized_gains
             )
-        
-            # KPI card
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Starting", f"${STARTING_CASH:,.0f}")
-            col2.metric("Current", f"${user_equity:,.2f}")
-            col3.metric("YTD Return", f"{user_ytd_return:+.2f}%")
+
+            # Compute unrealized P&L (from open positions) vs realized (from closed trades)
+            # Unrealized = current market value - cost basis of open positions
+            _cost_basis_open = 0.0
+            for _pos in st.session_state.portfolio:
+                # avg_cost * shares = cost basis for this position
+                _avg_cost = _pos.get('avg_cost') or _pos.get('avg_price') or 0
+                _shares = _pos.get('shares', 0)
+                _cost_basis_open += _avg_cost * _shares
+            user_unrealized_pl = user_market_value - _cost_basis_open
+            user_realized_pl = st.session_state.get('realized_gains', 0.0) or 0.0
+            user_total_pl = user_equity - STARTING_CASH
+
+            # ===== TOP ROW: main P&L card =====
+            _pl_delta_pct = f"{user_ytd_return:+.2f}%" if user_equity != STARTING_CASH else None
+            st.metric(
+                "📈 Portfolio P&L",
+                f"${user_total_pl:+,.2f}",
+                delta=_pl_delta_pct,
+                help=f"Total gain/loss since starting with ${STARTING_CASH:,.0f}. Combines realized (closed trades) + unrealized (open positions)."
+            )
+
+            # ===== SECOND ROW: breakdown =====
+            col_a, col_b = st.columns(2)
+            col_a.metric("✅ Realized P&L", f"${user_realized_pl:+,.2f}",
+                         help="Locked-in gains/losses from closed trades")
+            col_b.metric("📊 Unrealized P&L", f"${user_unrealized_pl:+,.2f}",
+                         help="Paper gains/losses on your currently open positions")
+
+            # ===== THIRD ROW: cash / value / buying power =====
+            col_c, col_d, col_e = st.columns(3)
+            col_c.metric("💵 Cash Available", f"${user_cash:,.2f}",
+                         help="Uninvested cash sitting in your account")
+            col_d.metric("💰 Portfolio Value", f"${user_equity:,.2f}",
+                         help="Cash + current market value of all positions")
+            col_e.metric("🎯 Buying Power", f"${user_cash:,.2f}",
+                         help="Cash you can deploy into new trades right now")
         
             # Simple line chart placeholder
             # TODO: Implement actual YTD chart with historical data
-            st.caption("📈 Chart: YTD performance tracking coming soon")
+            st.caption("📈 Chart: Performance tracking chart coming soon")
     
         # User positions table
         st.markdown("---")
@@ -25984,7 +26035,7 @@ elif selected_page == "💼 Paper Portfolio":
                 render_trade_panel('founder')
         
             with col_chart_f:
-                st.markdown("### 📈 YTD Performance (Founder)")
+                st.markdown("### 📈 Performance (Founder)")
             
                 # Calculate metrics using real equity calculation
                 founder_equity, founder_ytd_return, founder_cash, founder_market_value = calculate_portfolio_equity(
@@ -25992,13 +26043,43 @@ elif selected_page == "💼 Paper Portfolio":
                     st.session_state.founder_portfolio,
                     st.session_state.founder_realized_gains
                 )
+
+                # Compute unrealized/realized breakdown for founder
+                _f_cost_basis_open = 0.0
+                for _pos in st.session_state.founder_portfolio:
+                    _avg_cost = _pos.get('avg_cost') or _pos.get('avg_price') or 0
+                    _shares = _pos.get('shares', 0)
+                    _f_cost_basis_open += _avg_cost * _shares
+                founder_unrealized_pl = founder_market_value - _f_cost_basis_open
+                founder_realized_pl = st.session_state.get('founder_realized_gains', 0.0) or 0.0
+                founder_total_pl = founder_equity - STARTING_CASH
+
+                # ===== TOP ROW: main P&L card =====
+                _pl_delta_pct = f"{founder_ytd_return:+.2f}%" if founder_equity != STARTING_CASH else None
+                st.metric(
+                    "📈 Portfolio P&L",
+                    f"${founder_total_pl:+,.2f}",
+                    delta=_pl_delta_pct,
+                    help=f"Total gain/loss since starting with ${STARTING_CASH:,.0f}. Combines realized (closed trades) + unrealized (open positions)."
+                )
+
+                # ===== SECOND ROW: breakdown =====
+                col_a, col_b = st.columns(2)
+                col_a.metric("✅ Realized P&L", f"${founder_realized_pl:+,.2f}",
+                             help="Locked-in gains/losses from closed trades")
+                col_b.metric("📊 Unrealized P&L", f"${founder_unrealized_pl:+,.2f}",
+                             help="Paper gains/losses on your currently open positions")
+
+                # ===== THIRD ROW: cash / value / buying power =====
+                col_c, col_d, col_e = st.columns(3)
+                col_c.metric("💵 Cash Available", f"${founder_cash:,.2f}",
+                             help="Uninvested cash sitting in your account")
+                col_d.metric("💰 Portfolio Value", f"${founder_equity:,.2f}",
+                             help="Cash + current market value of all positions")
+                col_e.metric("🎯 Buying Power", f"${founder_cash:,.2f}",
+                             help="Cash you can deploy into new trades right now")
             
-                col1, col2, col3 = st.columns(3)
-                col1.metric("Starting", f"${STARTING_CASH:,.0f}")
-                col2.metric("Current", f"${founder_equity:,.2f}")
-                col3.metric("YTD Return", f"{founder_ytd_return:+.2f}%")
-            
-                st.caption("📈 Chart: YTD performance tracking coming soon")
+                st.caption("📈 Chart: Performance tracking chart coming soon")
         
             st.markdown("---")
             st.markdown("### 📋 Founder Positions")
@@ -26016,7 +26097,7 @@ elif selected_page == "💼 Paper Portfolio":
             st.info("👑 **Founder portfolio is read-only. Only the founder can trade here.**")
         
             # Show founder portfolio stats
-            st.markdown("### 📈 YTD Performance (Founder)")
+            st.markdown("### 📈 Performance (Founder)")
         
             # Calculate metrics using real equity calculation
             founder_equity, founder_ytd_return, founder_cash, founder_market_value = calculate_portfolio_equity(
@@ -26024,11 +26105,41 @@ elif selected_page == "💼 Paper Portfolio":
                 st.session_state.founder_portfolio,
                 st.session_state.founder_realized_gains
             )
-        
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Starting", f"${STARTING_CASH:,.0f}")
-            col2.metric("Current", f"${founder_equity:,.2f}")
-            col3.metric("YTD Return", f"{founder_ytd_return:+.2f}%")
+
+            # Compute unrealized/realized breakdown
+            _f_cost_basis_open = 0.0
+            for _pos in st.session_state.founder_portfolio:
+                _avg_cost = _pos.get('avg_cost') or _pos.get('avg_price') or 0
+                _shares = _pos.get('shares', 0)
+                _f_cost_basis_open += _avg_cost * _shares
+            founder_unrealized_pl = founder_market_value - _f_cost_basis_open
+            founder_realized_pl = st.session_state.get('founder_realized_gains', 0.0) or 0.0
+            founder_total_pl = founder_equity - STARTING_CASH
+
+            # ===== TOP ROW: main P&L card =====
+            _pl_delta_pct = f"{founder_ytd_return:+.2f}%" if founder_equity != STARTING_CASH else None
+            st.metric(
+                "📈 Portfolio P&L",
+                f"${founder_total_pl:+,.2f}",
+                delta=_pl_delta_pct,
+                help=f"Total gain/loss since starting with ${STARTING_CASH:,.0f}. Combines realized (closed trades) + unrealized (open positions)."
+            )
+
+            # ===== SECOND ROW: breakdown =====
+            col_a, col_b = st.columns(2)
+            col_a.metric("✅ Realized P&L", f"${founder_realized_pl:+,.2f}",
+                         help="Locked-in gains/losses from closed trades")
+            col_b.metric("📊 Unrealized P&L", f"${founder_unrealized_pl:+,.2f}",
+                         help="Paper gains/losses on your currently open positions")
+
+            # ===== THIRD ROW: cash / value / buying power =====
+            col_c, col_d, col_e = st.columns(3)
+            col_c.metric("💵 Cash Available", f"${founder_cash:,.2f}",
+                         help="Uninvested cash")
+            col_d.metric("💰 Portfolio Value", f"${founder_equity:,.2f}",
+                         help="Cash + current market value of all positions")
+            col_e.metric("🎯 Buying Power", f"${founder_cash:,.2f}",
+                         help="Cash you can deploy into new trades right now")
         
             st.markdown("---")
             st.markdown("### 📋 Founder Positions")
