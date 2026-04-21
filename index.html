@@ -335,14 +335,14 @@
             text-align: center;
         }
         .tier-card.featured {
-            border-color: var(--red);
-            box-shadow: 0 0 40px rgba(255,75,75,0.1);
+            border-color: var(--gold);
+            box-shadow: 0 0 40px rgba(255,215,0,0.12);
             position: relative;
         }
         .tier-card.featured::before {
             content: 'MOST POPULAR';
             position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
-            background: var(--red); color: white;
+            background: var(--gold); color: #000;
             font-size: 11px; font-weight: 700; letter-spacing: 1px;
             padding: 4px 14px; border-radius: 100px;
         }
@@ -434,7 +434,7 @@
         /* ============ DESKTOP ============ */
         @media (min-width: 640px) {
             .feature-grid { grid-template-columns: 1fr 1fr; }
-            .tier-grid { grid-template-columns: repeat(3, 1fr); }
+            .tier-grid { grid-template-columns: repeat(2, 1fr); max-width: 800px; margin: 0 auto; }
             .email-form { flex-direction: row; }
             .email-form input { flex: 1; }
             .email-form .btn-primary { width: auto; white-space: nowrap; padding: 15px 28px; }
@@ -687,7 +687,7 @@
             <div class="icon" style="background: rgba(34,197,94,0.1);">📊</div>
             <h3>AI Chart Analysis</h3>
             <p>Candlestick charts with SMA, RSI, and volume overlays. AI explains what the chart means in plain English.</p>
-            <span class="tag tag-pro">Pro</span>
+            <span class="tag tag-ultimate">Ultimate</span>
         </div>
         <div class="feature-card">
             <div class="icon" style="background: rgba(255,75,75,0.1);">🧠</div>
@@ -699,7 +699,7 @@
             <div class="icon" style="background: rgba(59,130,246,0.1);">🔍</div>
             <h3>Pattern Detection</h3>
             <p>AI + rule-based pattern recognition with confidence scores and key price levels — locked to real data.</p>
-            <span class="tag tag-pro">Pro</span>
+            <span class="tag tag-ultimate">Ultimate</span>
         </div>
         <div class="feature-card">
             <div class="icon" style="background: rgba(255,215,0,0.1);">🎯</div>
@@ -892,39 +892,34 @@
         <div class="tier-card">
             <h3 style="color: var(--green-accent);">Free</h3>
             <div class="price">$0<span>/mo</span></div>
+            <p style="font-size: 14px; color: var(--grey-text); margin: 4px 0 16px;">Everything to start learning</p>
             <ul>
                 <li>Market overview &amp; sector explorer</li>
                 <li>Company analysis basics</li>
                 <li>Risk Quiz with personalized suggestions</li>
                 <li>55+ educational lessons</li>
                 <li>Paper portfolio (practice trading)</li>
+                <li>Daily market recaps</li>
             </ul>
-            <a href="https://app.aistockinvesting101.com" class="btn-secondary" style="margin-top: 8px;">Get Started</a>
+            <a href="https://app.aistockinvesting101.com" class="btn-secondary" style="margin-top: 8px;">Get Started Free</a>
         </div>
         <div class="tier-card featured">
-            <h3 style="color: var(--red);">Pro</h3>
-            <div class="price">$5<span>/mo</span></div>
+            <h3 style="color: var(--gold);">Ultimate</h3>
+            <div class="price">$10<span>/mo</span></div>
+            <p style="font-size: 14px; color: var(--grey-text); margin: 4px 0 16px;">First month free · Cancel anytime</p>
             <ul>
                 <li>Everything in Free</li>
                 <li>AI Chart Analysis (candlestick + technicals)</li>
                 <li>Pattern Detection with confidence scores</li>
                 <li>Chart Callouts — AI explains what matters</li>
                 <li>Bull vs Bear case breakdowns</li>
-            </ul>
-            <a href="https://app.aistockinvesting101.com" class="btn-primary" style="margin-top: 8px; font-size: 15px;">Join Free, Upgrade Later</a>
-        </div>
-        <div class="tier-card">
-            <h3 style="color: var(--gold);">Ultimate</h3>
-            <div class="price">$10<span>/mo</span></div>
-            <ul>
-                <li>Everything in Pro</li>
                 <li>Key Levels Map (support &amp; resistance)</li>
                 <li>Trade Plan Builder (educational)</li>
                 <li>Scenario Simulator (bull/base/bear)</li>
                 <li>Historical Similar Setups (backtest-lite)</li>
                 <li>AI Deep Dive — institutional-grade analysis</li>
             </ul>
-            <a href="https://app.aistockinvesting101.com" class="btn-secondary" style="margin-top: 8px;">Get Started</a>
+            <a href="https://app.aistockinvesting101.com" class="btn-primary" style="margin-top: 8px; font-size: 15px;">Start Free Trial →</a>
         </div>
     </div>
 </section>
