@@ -4508,6 +4508,71 @@ def calculate_growth_rate(df, column, years=None):
     return calculate_cagr(start_val, end_val, years)
 
 
+def render_side_by_side_comparison(
+    df1, df2, metrics_to_plot, metric_names,
+    company_name1, company_name2,
+    chart_title_suffix, period_type, years_for_cagr
+):
+    """Render two separate financial charts side by side, plus a combined CAGR comparison.
+
+    Used when the user has selected a comparison ticker — instead of overlaying both
+    companies on one cluttered chart, this gives each company its own clean chart in
+    a 2-column layout, then shows CAGR for both side by side.
+
+    Returns nothing — renders directly to streamlit.
+    """
+    col_left, col_right = st.columns(2)
+
+    # ----- LEFT: primary company -----
+    with col_left:
+        plot_df1 = df1[["date"] + metrics_to_plot].copy()
+        fig1, growth_rates1, _cagr_yrs1 = create_financial_chart_with_growth(
+            plot_df1,
+            metrics_to_plot,
+            f"{company_name1} - {chart_title_suffix}",
+            "Period", "Amount ($)",
+            period_type=period_type
+        )
+        if fig1:
+            st.plotly_chart(fig1, use_container_width=True)
+
+    # ----- RIGHT: comparison company -----
+    with col_right:
+        # Only include metrics that actually exist in df2
+        available_in_df2 = [m for m in metrics_to_plot if m in df2.columns]
+        if available_in_df2:
+            plot_df2 = df2[["date"] + available_in_df2].copy()
+            fig2, growth_rates2, _cagr_yrs2 = create_financial_chart_with_growth(
+                plot_df2,
+                available_in_df2,
+                f"{company_name2} - {chart_title_suffix}",
+                "Period", "Amount ($)",
+                period_type=period_type
+            )
+            if fig2:
+                st.plotly_chart(fig2, use_container_width=True)
+        else:
+            growth_rates2 = {}
+            st.info(f"No comparable data available for {company_name2}.")
+
+    # ----- COMBINED CAGR COMPARISON -----
+    if growth_rates1 or growth_rates2:
+        cagr_md = f"**{years_for_cagr}-Year CAGR Comparison** *(annualized % per year)*\n\n"
+        cagr_md += f"| Metric | {company_name1} | {company_name2} |\n"
+        cagr_md += "| --- | --- | --- |\n"
+        for metric_col, name in zip(metrics_to_plot, metric_names):
+            cagr1 = growth_rates1.get(metric_col)
+            cagr2 = growth_rates2.get(metric_col) if growth_rates2 else None
+            def _fmt(c):
+                if c is None:
+                    return "—"
+                emoji = "🚀" if c > 10 else "📈" if c > 0 else "📉"
+                return f"{emoji} {c:+.1f}%/yr"
+            cagr_md += f"| {name} | {_fmt(cagr1)} | {_fmt(cagr2)} |\n"
+        st.markdown(f'<div class="growth-note">{cagr_md}</div>', unsafe_allow_html=True)
+        st.caption("ℹ️ CAGR = the steady annual growth rate that would take the first year's value to the last year's value.")
+
+
 def overlay_second_ticker_on_chart(fig, df2, metrics, metric_names, company_name2, period_type='annual'):
     """
     Overlay a second company's bars onto an existing financial chart figure.
@@ -21727,34 +21792,42 @@ elif selected_page == "📊 Company Analysis":
                 
                 # Create chart with y-axis padding and growth rates (only if metrics picked)
                 if plot_df is not None and metrics_to_plot:
-                    fig, growth_rates, cagr_years = create_financial_chart_with_growth(
-                        plot_df,
-                        metrics_to_plot,
-                        f"{company_name} - Cash Flow",
-                        "Period",
-                        "Amount ($)",
-                        period_type=_ca_period_type
-                    )
+                    # If comparing with a second ticker, render TWO separate side-by-side charts
+                    # for clarity (instead of overlaying everything on one cluttered chart).
+                    if _ca_ticker2 and not _ca_cash2.empty:
+                        # Add fcfAfterSBC column to comparison df if applicable
+                        if 'stockBasedCompensation' in _ca_cash2.columns and 'freeCashFlow' in _ca_cash2.columns:
+                            _ca_cash2 = _ca_cash2.copy()
+                            _ca_cash2['fcfAfterSBC'] = _ca_cash2['freeCashFlow'] - abs(_ca_cash2['stockBasedCompensation'])
+                        render_side_by_side_comparison(
+                            cash_df, _ca_cash2, metrics_to_plot, metric_names,
+                            company_name, _ca_name2,
+                            "Cash Flow", _ca_period_type, years
+                        )
+                    else:
+                        # Single-company view (original behavior)
+                        fig, growth_rates, cagr_years = create_financial_chart_with_growth(
+                            plot_df,
+                            metrics_to_plot,
+                            f"{company_name} - Cash Flow",
+                            "Period",
+                            "Amount ($)",
+                            period_type=_ca_period_type
+                        )
 
-                    if fig:
-                        # Overlay second ticker if comparing
-                        if _ca_ticker2 and not _ca_cash2.empty:
-                            if 'stockBasedCompensation' in _ca_cash2.columns and 'freeCashFlow' in _ca_cash2.columns:
-                                _ca_cash2 = _ca_cash2.copy()
-                                _ca_cash2['fcfAfterSBC'] = _ca_cash2['freeCashFlow'] - abs(_ca_cash2['stockBasedCompensation'])
-                            fig = overlay_second_ticker_on_chart(fig, _ca_cash2, metrics_to_plot, metric_names, _ca_name2, period_type=_ca_period_type)
-                        st.plotly_chart(fig, use_container_width=True)
+                        if fig:
+                            st.plotly_chart(fig, use_container_width=True)
 
-                        # Display CAGR summary
-                        if growth_rates:
-                            growth_text = f"**{years}-Year CAGR** *(Compound Annual Growth Rate — annualized % per year)*\n\n"
-                            for idx, (metric_col, cagr) in enumerate(growth_rates.items()):
-                                metric_name = metric_names[metrics_to_plot.index(metric_col)]
-                                emoji = "🚀" if cagr > 10 else "📈" if cagr > 0 else "📉"
-                                growth_text += f"{emoji} **{metric_name}:** {cagr:+.1f}%/yr\n\n"
+                            # Display CAGR summary
+                            if growth_rates:
+                                growth_text = f"**{years}-Year CAGR** *(Compound Annual Growth Rate — annualized % per year)*\n\n"
+                                for idx, (metric_col, cagr) in enumerate(growth_rates.items()):
+                                    metric_name = metric_names[metrics_to_plot.index(metric_col)]
+                                    emoji = "🚀" if cagr > 10 else "📈" if cagr > 0 else "📉"
+                                    growth_text += f"{emoji} **{metric_name}:** {cagr:+.1f}%/yr\n\n"
 
-                            st.markdown(f'<div class="growth-note">{growth_text}</div>', unsafe_allow_html=True)
-                            st.caption("ℹ️ CAGR = the steady annual growth rate that would take the first year's value to the last year's value. Unlike total % change, it accounts for how many years passed.")
+                                st.markdown(f'<div class="growth-note">{growth_text}</div>', unsafe_allow_html=True)
+                                st.caption("ℹ️ CAGR = the steady annual growth rate that would take the first year's value to the last year's value. Unlike total % change, it accounts for how many years passed.")
 
                     cols = st.columns(len(metrics_to_plot))
                     for i, (metric, name) in enumerate(zip(metrics_to_plot, metric_names)):
@@ -21822,32 +21895,38 @@ elif selected_page == "📊 Company Analysis":
                                 st.markdown("---")
 
                 if metrics_to_plot:
-                    plot_df = income_df[["date"] + metrics_to_plot].copy()
+                    # Side-by-side charts when comparing
+                    if _ca_ticker2 and not _ca_income2.empty:
+                        render_side_by_side_comparison(
+                            income_df, _ca_income2, metrics_to_plot, metric_names,
+                            company_name, _ca_name2,
+                            "Income Statement", _ca_period_type, years
+                        )
+                    else:
+                        plot_df = income_df[["date"] + metrics_to_plot].copy()
 
-                    fig, growth_rates, cagr_years = create_financial_chart_with_growth(
-                        plot_df,
-                        metrics_to_plot,
-                        f"{company_name} - Income Statement",
-                        "Period",
-                        "Amount ($)",
-                        period_type=_ca_period_type
-                    )
+                        fig, growth_rates, cagr_years = create_financial_chart_with_growth(
+                            plot_df,
+                            metrics_to_plot,
+                            f"{company_name} - Income Statement",
+                            "Period",
+                            "Amount ($)",
+                            period_type=_ca_period_type
+                        )
 
-                    if fig:
-                        if _ca_ticker2 and not _ca_income2.empty:
-                            fig = overlay_second_ticker_on_chart(fig, _ca_income2, metrics_to_plot, metric_names, _ca_name2, period_type=_ca_period_type)
-                        st.plotly_chart(fig, use_container_width=True)
+                        if fig:
+                            st.plotly_chart(fig, use_container_width=True)
 
-                        # Display CAGR summary
-                        if growth_rates:
-                            growth_text = f"**{years}-Year CAGR** *(Compound Annual Growth Rate — annualized % per year)*\n\n"
-                            for idx, (metric_col, cagr) in enumerate(growth_rates.items()):
-                                metric_name = metric_names[metrics_to_plot.index(metric_col)]
-                                emoji = "🚀" if cagr > 10 else "📈" if cagr > 0 else "📉"
-                                growth_text += f"{emoji} **{metric_name}:** {cagr:+.1f}%/yr\n\n"
+                            # Display CAGR summary
+                            if growth_rates:
+                                growth_text = f"**{years}-Year CAGR** *(Compound Annual Growth Rate — annualized % per year)*\n\n"
+                                for idx, (metric_col, cagr) in enumerate(growth_rates.items()):
+                                    metric_name = metric_names[metrics_to_plot.index(metric_col)]
+                                    emoji = "🚀" if cagr > 10 else "📈" if cagr > 0 else "📉"
+                                    growth_text += f"{emoji} **{metric_name}:** {cagr:+.1f}%/yr\n\n"
 
-                            st.markdown(f'<div class="growth-note">{growth_text}</div>', unsafe_allow_html=True)
-                            st.caption("ℹ️ CAGR = the steady annual growth rate that would take the first year's value to the last year's value. Unlike total % change, it accounts for how many years passed.")
+                                st.markdown(f'<div class="growth-note">{growth_text}</div>', unsafe_allow_html=True)
+                                st.caption("ℹ️ CAGR = the steady annual growth rate that would take the first year's value to the last year's value. Unlike total % change, it accounts for how many years passed.")
 
                     cols = st.columns(len(metrics_to_plot))
                     for i, (metric, name) in enumerate(zip(metrics_to_plot, metric_names)):
@@ -21914,32 +21993,38 @@ elif selected_page == "📊 Company Analysis":
                                 st.markdown("---")
 
                 if metrics_to_plot:
-                    plot_df = balance_df[["date"] + metrics_to_plot].copy()
+                    # Side-by-side charts when comparing
+                    if _ca_ticker2 and not _ca_balance2.empty:
+                        render_side_by_side_comparison(
+                            balance_df, _ca_balance2, metrics_to_plot, metric_names,
+                            company_name, _ca_name2,
+                            "Balance Sheet", _ca_period_type, years
+                        )
+                    else:
+                        plot_df = balance_df[["date"] + metrics_to_plot].copy()
 
-                    fig, growth_rates, cagr_years = create_financial_chart_with_growth(
-                        plot_df,
-                        metrics_to_plot,
-                        f"{company_name} - Balance Sheet",
-                        "Period",
-                        "Amount ($)",
-                        period_type=_ca_period_type
-                    )
+                        fig, growth_rates, cagr_years = create_financial_chart_with_growth(
+                            plot_df,
+                            metrics_to_plot,
+                            f"{company_name} - Balance Sheet",
+                            "Period",
+                            "Amount ($)",
+                            period_type=_ca_period_type
+                        )
 
-                    if fig:
-                        if _ca_ticker2 and not _ca_balance2.empty:
-                            fig = overlay_second_ticker_on_chart(fig, _ca_balance2, metrics_to_plot, metric_names, _ca_name2, period_type=_ca_period_type)
-                        st.plotly_chart(fig, use_container_width=True)
+                        if fig:
+                            st.plotly_chart(fig, use_container_width=True)
 
-                        # Display CAGR summary
-                        if growth_rates:
-                            growth_text = f"**{years}-Year CAGR** *(Compound Annual Growth Rate — annualized % per year)*\n\n"
-                            for idx, (metric_col, cagr) in enumerate(growth_rates.items()):
-                                metric_name = metric_names[metrics_to_plot.index(metric_col)]
-                                emoji = "🚀" if cagr > 10 else "📈" if cagr > 0 else "📉"
-                                growth_text += f"{emoji} **{metric_name}:** {cagr:+.1f}%/yr\n\n"
+                            # Display CAGR summary
+                            if growth_rates:
+                                growth_text = f"**{years}-Year CAGR** *(Compound Annual Growth Rate — annualized % per year)*\n\n"
+                                for idx, (metric_col, cagr) in enumerate(growth_rates.items()):
+                                    metric_name = metric_names[metrics_to_plot.index(metric_col)]
+                                    emoji = "🚀" if cagr > 10 else "📈" if cagr > 0 else "📉"
+                                    growth_text += f"{emoji} **{metric_name}:** {cagr:+.1f}%/yr\n\n"
 
-                            st.markdown(f'<div class="growth-note">{growth_text}</div>', unsafe_allow_html=True)
-                            st.caption("ℹ️ CAGR = the steady annual growth rate that would take the first year's value to the last year's value. Unlike total % change, it accounts for how many years passed.")
+                                st.markdown(f'<div class="growth-note">{growth_text}</div>', unsafe_allow_html=True)
+                                st.caption("ℹ️ CAGR = the steady annual growth rate that would take the first year's value to the last year's value. Unlike total % change, it accounts for how many years passed.")
 
                     cols = st.columns(len(metrics_to_plot))
                     for i, (metric, name) in enumerate(zip(metrics_to_plot, metric_names)):
