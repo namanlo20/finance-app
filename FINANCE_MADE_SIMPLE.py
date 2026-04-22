@@ -9793,9 +9793,16 @@ def do_logout():
             supabase.auth.sign_out()
     except Exception:
         pass
-    
+
+    # Clear the persistent refresh-token cookie so the user stays logged out
+    # across refreshes / tabs.
+    try:
+        _clear_auth_cookie()
+    except Exception:
+        pass
+
     # Clear all auth-related session state
-    for k in ["user_id", "user_email", "is_logged_in", "is_founder", "first_name", "user_tier"]:
+    for k in ["user_id", "user_email", "is_logged_in", "is_founder", "first_name", "user_tier", "_auth_restore_attempted"]:
         st.session_state.pop(k, None)
     st.rerun()
 
@@ -9867,6 +9874,15 @@ def login_dialog():
                     st.session_state.user_id = uid
                     st.session_state.user_email = res.user.email
                     st.session_state.is_logged_in = True
+
+                    # Persist refresh token in a browser cookie so the session
+                    # survives page refresh, tab close, and server restarts.
+                    try:
+                        _rt = getattr(getattr(res, "session", None), "refresh_token", None)
+                        if _rt:
+                            _save_auth_cookie(_rt)
+                    except Exception:
+                        pass
                     
                     # Fetch first name and tier from profiles table
                     try:
@@ -10051,7 +10067,15 @@ def signup_dialog():
                                 st.session_state.first_name = first_name
                                 st.session_state.is_logged_in = True
                                 st.session_state.user_tier = "free"
-                                
+
+                                # Persist refresh token so signup-then-refresh doesn't log them out
+                                try:
+                                    _rt = getattr(response.session, "refresh_token", None)
+                                    if _rt:
+                                        _save_auth_cookie(_rt)
+                                except Exception:
+                                    pass
+
                                 # Founder flag
                                 FOUNDER_EMAIL = (os.getenv("FOUNDER_EMAIL") or "").strip().lower()
                                 st.session_state.is_founder = (email or "").strip().lower() == FOUNDER_EMAIL
@@ -10746,6 +10770,116 @@ if SUPABASE_URL and SUPABASE_ANON_KEY:
 else:
     SUPABASE_ENABLED = False
     # Don't show warning - app works without authentication
+
+# ============= AUTH PERSISTENCE (browser cookie) =============
+# Stores Supabase refresh_token in a cookie so sessions survive page refreshes,
+# tab closes, and Render dyno restarts. Falls back silently if the library
+# isn't installed (login will still work, just won't persist across reloads).
+try:
+    from streamlit_cookies_controller import CookieController
+    _auth_cookie_ctrl = CookieController(key="auth_cookie_ctrl")
+    _AUTH_COOKIE_ENABLED = True
+except ImportError:
+    _auth_cookie_ctrl = None
+    _AUTH_COOKIE_ENABLED = False
+except Exception:
+    _auth_cookie_ctrl = None
+    _AUTH_COOKIE_ENABLED = False
+
+_AUTH_COOKIE_NAME = "fms_auth_rt"  # refresh token cookie name
+
+def _save_auth_cookie(refresh_token: str):
+    """Persist refresh token in browser cookie. Safe to call when cookies disabled."""
+    if not _AUTH_COOKIE_ENABLED or not refresh_token:
+        return
+    try:
+        # 30-day expiry — Supabase refresh tokens rotate, so this just needs to
+        # outlive typical idle periods. Secure + same-site by default in the lib.
+        from datetime import datetime as _dt, timedelta as _td
+        _auth_cookie_ctrl.set(
+            _AUTH_COOKIE_NAME,
+            refresh_token,
+            expires=_dt.utcnow() + _td(days=30),
+            path="/",
+        )
+    except Exception:
+        pass
+
+def _clear_auth_cookie():
+    """Delete the stored refresh token. Safe to call when cookies disabled."""
+    if not _AUTH_COOKIE_ENABLED:
+        return
+    try:
+        _auth_cookie_ctrl.remove(_AUTH_COOKIE_NAME, path="/")
+    except Exception:
+        pass
+
+def _get_auth_cookie():
+    """Read the stored refresh token (or None)."""
+    if not _AUTH_COOKIE_ENABLED:
+        return None
+    try:
+        return _auth_cookie_ctrl.get(_AUTH_COOKIE_NAME)
+    except Exception:
+        return None
+
+def restore_session_from_cookie():
+    """
+    On app startup, if user isn't already logged in this session but we have a
+    refresh token cookie, exchange it for a fresh Supabase session and
+    rehydrate session_state. Called from the main page flow.
+    """
+    if st.session_state.get("is_logged_in"):
+        return  # already logged in this session
+    if not SUPABASE_ENABLED or not _AUTH_COOKIE_ENABLED:
+        return
+    refresh_token = _get_auth_cookie()
+    if not refresh_token:
+        return
+    # Prevent retrying on every rerun if the token is bad
+    if st.session_state.get("_auth_restore_attempted"):
+        return
+    st.session_state._auth_restore_attempted = True
+    try:
+        # set_session requires both access + refresh tokens in some client versions,
+        # but refresh_session works with just the refresh token.
+        res = supabase.auth.refresh_session(refresh_token)
+        user = getattr(res, "user", None)
+        session = getattr(res, "session", None)
+        if not user or not session:
+            _clear_auth_cookie()
+            return
+        uid = user.id
+        st.session_state.user_id = uid
+        st.session_state.user_email = user.email
+        st.session_state.is_logged_in = True
+        # Rotate the cookie to the new refresh token
+        new_rt = getattr(session, "refresh_token", None)
+        if new_rt:
+            _save_auth_cookie(new_rt)
+        # Load profile (first_name, tier)
+        try:
+            profile = supabase.table("profiles").select("first_name, tier, trial_ends_at").eq("id", uid).single().execute()
+            p = profile.data or {}
+            st.session_state.first_name = p.get("first_name") or (user.email or "").split("@")[0]
+            profile_tier = p.get("tier") or "free"
+            st.session_state.user_tier = profile_tier if profile_tier in ["pro", "ultimate"] else "free"
+            if p.get("trial_ends_at"):
+                st.session_state.trial_ends_at = p["trial_ends_at"]
+        except Exception:
+            st.session_state.first_name = (user.email or "").split("@")[0]
+            st.session_state.user_tier = "free"
+        # Founder flag
+        FOUNDER_EMAIL = (os.getenv("FOUNDER_EMAIL") or "").strip().lower()
+        st.session_state.is_founder = (user.email or "").strip().lower() == FOUNDER_EMAIL
+        # Load user progress
+        try:
+            load_user_progress()
+        except Exception:
+            pass
+    except Exception:
+        # Bad/expired refresh token — wipe it so we don't keep retrying
+        _clear_auth_cookie()
 
 # ============= USER PROGRESS PERSISTENCE =============
 
@@ -11658,6 +11792,15 @@ if 'show_login_popup' not in st.session_state:
     st.session_state.show_login_popup = False
 if 'show_signup_popup' not in st.session_state:
     st.session_state.show_signup_popup = False
+
+# ============= RESTORE SESSION FROM COOKIE =============
+# If the user has a valid refresh-token cookie from a previous session,
+# silently log them back in. Runs once per session (no-op if already logged in
+# or no cookie present).
+try:
+    restore_session_from_cookie()
+except Exception:
+    pass
 
 # ============= CHATBOT STATE =============
 if 'chatbot_open' not in st.session_state:
@@ -24432,10 +24575,26 @@ elif selected_page == "👑 Ultimate":
     .ult-price-row.current    { background:rgba(0,200,255,0.18); font-weight:700; font-size:16px; }
     .ult-price-row.support    { background:rgba(0,200,81,0.11); }
 
-    /* AI output */
-    .ult-ai-section { background:#0D0D20; border:1px solid rgba(157,78,221,0.4); border-radius:14px; padding:22px 26px; margin:12px 0; }
-    .ult-ai-bullet  { padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.06); font-size:14px; line-height:1.6; }
+    /* AI output — needs very high specificity to beat global color:#000 !important rule */
+    .ult-ai-section { background:#0D0D20; border:1px solid rgba(157,78,221,0.4); border-radius:14px; padding:22px 26px; margin:12px 0; color:#E8E8F0 !important; }
+    html body .stApp .ult-ai-section,
+    html body .stApp .ult-ai-section *,
+    html body .stApp .ult-ai-section p,
+    html body .stApp .ult-ai-section span,
+    html body .stApp .ult-ai-section div,
+    html body [data-testid="stAppViewContainer"] .ult-ai-section,
+    html body [data-testid="stAppViewContainer"] .ult-ai-section *,
+    html body [data-testid="stAppViewContainer"] .ult-ai-section p,
+    html body [data-testid="stAppViewContainer"] .ult-ai-section span,
+    html body [data-testid="stAppViewContainer"] .ult-ai-section div { color:#E8E8F0 !important; }
+    .ult-ai-bullet  { padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.06); font-size:14px; line-height:1.6; color:#E8E8F0 !important; }
     .ult-ai-bullet:last-child { border-bottom:none; }
+
+    /* AI section label colors (KEY INSIGHT, ANALYSIS, IF/THEN) must override global black too */
+    html body .stApp .ult-ai-section .ult-ai-label-purple,
+    html body [data-testid="stAppViewContainer"] .ult-ai-section .ult-ai-label-purple { color:#B891F5 !important; }
+    html body .stApp .ult-ai-section .ult-ai-label-cyan,
+    html body [data-testid="stAppViewContainer"] .ult-ai-section .ult-ai-label-cyan { color:#00E5FF !important; }
 
     /* Header pill */
     .ult-header { background:linear-gradient(135deg,#4A0E8F 0%,#7B2CBF 60%,#9D4EDD 100%);
@@ -24827,26 +24986,28 @@ elif selected_page == "👑 Ultimate":
     _fig = make_subplots(rows=_n_rows, cols=1, shared_xaxes=True,
         vertical_spacing=0.03, row_heights=_row_h, subplot_titles=tuple(_row_titles))
 
-    # Candlestick or line
+    # Candlestick or line — TradingView-inspired colors
     if _has_ohlc:
         _fig.add_trace(go.Candlestick(
             x=_ph["date"], open=_ph["open"], high=_ph["high"], low=_ph["low"], close=_ph["close"],
-            name="Price", increasing_line_color="#00C851", decreasing_line_color="#FF4444"
+            name="Price",
+            increasing=dict(line=dict(color="#26A69A", width=1), fillcolor="#26A69A"),
+            decreasing=dict(line=dict(color="#EF5350", width=1), fillcolor="#EF5350"),
         ), row=1, col=1)
     else:
         _fig.add_trace(go.Scatter(x=_ph["date"], y=_ph[_close_col], mode="lines",
-            name="Price", line=dict(color="#00E5FF", width=2)), row=1, col=1)
+            name="Price", line=dict(color="#2962FF", width=2)), row=1, col=1)
 
-    # SMA overlays — bold, distinct colors, solid/dashed to make them visible
+    # SMA overlays — TradingView-style colors (blue/orange/purple)
     if len(_ph) >= 50:
         _fig.add_trace(go.Scatter(x=_ph["date"], y=_ph[_close_col].rolling(50).mean(),
-            mode="lines", name="SMA 50", line=dict(color="#FFA500", width=2.5, dash="solid")), row=1, col=1)
+            mode="lines", name="SMA 50", line=dict(color="#FF9800", width=1.8)), row=1, col=1)
     if len(_ph) >= 100:
         _fig.add_trace(go.Scatter(x=_ph["date"], y=_ph[_close_col].rolling(100).mean(),
-            mode="lines", name="SMA 100", line=dict(color="#00E5FF", width=2.5, dash="dash")), row=1, col=1)
+            mode="lines", name="SMA 100", line=dict(color="#2196F3", width=1.8)), row=1, col=1)
     if len(_ph) >= 200:
         _fig.add_trace(go.Scatter(x=_ph["date"], y=_ph[_close_col].rolling(200).mean(),
-            mode="lines", name="SMA 200", line=dict(color="#BF5FFF", width=3, dash="solid")), row=1, col=1)
+            mode="lines", name="SMA 200", line=dict(color="#E91E63", width=2)), row=1, col=1)
 
     # Bollinger Bands
     if _show_bb and len(_ph) >= 20:
@@ -24860,13 +25021,17 @@ elif selected_page == "👑 Ultimate":
             name="BB Lower", line=dict(color="rgba(100,180,255,0.6)", width=1, dash="dot"),
             fill="tonexty", fillcolor="rgba(100,180,255,0.04)"), row=1, col=1)
 
-    # Support / Resistance lines on chart
-    _fig.add_hline(y=_near_sup, line_dash="dash", line_color="rgba(0,200,81,0.5)",
-        annotation_text=f"Support ${_near_sup:,.2f}", annotation_position="left",
-        annotation_font_color="rgba(0,200,81,0.8)", row=1, col=1)
-    _fig.add_hline(y=_near_res, line_dash="dash", line_color="rgba(255,68,68,0.5)",
-        annotation_text=f"Resistance ${_near_res:,.2f}", annotation_position="left",
-        annotation_font_color="rgba(255,68,68,0.8)", row=1, col=1)
+    # Support / Resistance lines on chart — TV-style teal support, red resistance
+    _fig.add_hline(y=_near_sup, line_dash="dash", line_color="rgba(38,166,154,0.6)", line_width=1,
+        annotation_text=f" S ${_near_sup:,.2f} ", annotation_position="right",
+        annotation_font=dict(color="#26A69A", size=11),
+        annotation_bgcolor="rgba(19,23,34,0.9)",
+        row=1, col=1)
+    _fig.add_hline(y=_near_res, line_dash="dash", line_color="rgba(239,83,80,0.6)", line_width=1,
+        annotation_text=f" R ${_near_res:,.2f} ", annotation_position="right",
+        annotation_font=dict(color="#EF5350", size=11),
+        annotation_bgcolor="rgba(19,23,34,0.9)",
+        row=1, col=1)
 
     _cur_row = 2
 
@@ -24900,21 +25065,74 @@ elif selected_page == "👑 Ultimate":
         _fig.update_yaxes(title_text="RSI", range=[0,100], row=_cur_row, col=1)
         _cur_row += 1
 
-    # Volume — higher opacity for visibility
+    # Volume — TV-style teal/red matching candle colors
     if _show_vol:
-        _vol_colors = ["#00C851" if _ph["close"].iloc[i] >= _ph["open"].iloc[i] else "#FF4444"
+        _vol_colors = ["rgba(38,166,154,0.75)" if _ph["close"].iloc[i] >= _ph["open"].iloc[i] else "rgba(239,83,80,0.75)"
                        for i in range(len(_ph))]
         _fig.add_trace(go.Bar(x=_ph["date"], y=_ph["volume"], name="Volume",
-            marker_color=_vol_colors, opacity=0.85), row=_cur_row, col=1)
+            marker_color=_vol_colors, marker_line_width=0), row=_cur_row, col=1)
         _fig.update_yaxes(title_text="Volume", row=_cur_row, col=1)
 
-    _fig.update_layout(height=620, template="plotly_dark", margin=dict(l=0,r=0,t=60,b=0),
-        hovermode="x unified", showlegend=True, xaxis_rangeslider_visible=False,
-        paper_bgcolor="#0A0A1A", plot_bgcolor="#0D0D20",
-        legend=dict(orientation="h", yanchor="bottom", y=1.04, xanchor="center", x=0.5,
-            font=dict(size=13, color="#FFFFFF"), bgcolor="rgba(20,20,40,0.6)",
-            bordercolor="rgba(255,255,255,0.1)", borderwidth=1,
-            itemsizing="constant", itemwidth=40))
+    # TradingView-inspired layout: lighter panel bg, subtle grid, price on right axis,
+    # range selector buttons (1M/3M/6M/1Y/All), crosshair spikes
+    _fig.update_layout(
+        height=640,
+        template="plotly_dark",
+        margin=dict(l=0, r=60, t=70, b=30),
+        hovermode="x unified",
+        showlegend=True,
+        xaxis_rangeslider_visible=False,
+        paper_bgcolor="#131722",   # TradingView dark panel
+        plot_bgcolor="#131722",
+        font=dict(family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+                  color="#D1D4DC", size=12),
+        legend=dict(
+            orientation="h", yanchor="bottom", y=1.06, xanchor="center", x=0.5,
+            font=dict(size=12, color="#D1D4DC"),
+            bgcolor="rgba(30,34,45,0.8)",
+            bordercolor="rgba(255,255,255,0.08)", borderwidth=1,
+            itemsizing="constant", itemwidth=40
+        ),
+    )
+
+    # Apply grid + axis styling to all subplots (TV-style thin gridlines)
+    _fig.update_xaxes(
+        gridcolor="rgba(255,255,255,0.05)",
+        showspikes=True, spikemode="across", spikesnap="cursor",
+        spikecolor="rgba(255,255,255,0.3)", spikethickness=1, spikedash="dot",
+        linecolor="rgba(255,255,255,0.15)",
+    )
+    _fig.update_yaxes(
+        gridcolor="rgba(255,255,255,0.05)",
+        linecolor="rgba(255,255,255,0.15)",
+        side="right",   # price axis on the right, like TradingView
+        showspikes=True, spikemode="across", spikesnap="cursor",
+        spikecolor="rgba(255,255,255,0.3)", spikethickness=1, spikedash="dot",
+    )
+
+    # Range selector buttons on the top x-axis (main price chart)
+    _fig.update_xaxes(
+        rangeselector=dict(
+            buttons=[
+                dict(count=1,  label="1M", step="month", stepmode="backward"),
+                dict(count=3,  label="3M", step="month", stepmode="backward"),
+                dict(count=6,  label="6M", step="month", stepmode="backward"),
+                dict(count=1,  label="1Y", step="year",  stepmode="backward"),
+                dict(step="all", label="All"),
+            ],
+            bgcolor="rgba(30,34,45,0.8)",
+            activecolor="#2962FF",
+            bordercolor="rgba(255,255,255,0.1)",
+            font=dict(size=11, color="#D1D4DC"),
+            x=0.01, y=1.15,
+        ),
+        row=1, col=1,
+    )
+
+    # Subplot titles: smaller, less prominent (TV-style clean look)
+    for _ann in _fig.layout.annotations:
+        _ann.font = dict(size=11, color="rgba(209,212,220,0.6)")
+
     st.plotly_chart(_fig, use_container_width=True)
 
     # ─────────────────────────────────────────────────────────────────────────────
@@ -25073,6 +25291,21 @@ elif selected_page == "👑 Ultimate":
 
     _is_long = "Long" in _dir
 
+    # Horizon scaling — this is what makes Day vs Swing vs Position actually different.
+    # Day trades = tight stops, quick targets. Position trades = wider stops, farther targets.
+    if "Day" in _horizon:
+        _stop_mult   = 0.75   # tight stop — day trades can't afford wide risk
+        _target_mult = 0.55   # first target is closer (quick scalp)
+        _horizon_label = "Day trade (hours)"
+    elif "Position" in _horizon:
+        _stop_mult   = 2.5    # wider stop — position trades need room to breathe
+        _target_mult = 1.6    # stretch targets to capture longer move
+        _horizon_label = "Position (weeks–months)"
+    else:  # Swing (default)
+        _stop_mult   = 1.5
+        _target_mult = 1.0
+        _horizon_label = "Swing (days)"
+
     if _is_long:
         _entry     = (_near_sup * 1.005)
         _stop      = (_near_sup * 0.975)
@@ -25084,20 +25317,47 @@ elif selected_page == "👑 Ultimate":
         _target1   = _near_sup
         _target2   = (_supports[1]["level"] if len(_supports) > 1 else _near_sup * 0.96)
 
-    # ATR-based stop: use 1.5× ATR from entry instead of a fixed % off support
-    _atr_stop_dist = max(_live_price * (_atr_pct / 100.0) * 1.5, abs(_entry - _stop))
+    # ATR-based stop, scaled by horizon: tighter for day, wider for position
+    _atr_stop_dist = max(_live_price * (_atr_pct / 100.0) * _stop_mult, abs(_entry - _stop) * 0.5)
     if _is_long:
         _stop = _entry - _atr_stop_dist
-        # Don't let stop go below nearest support (would be unrealistic)
-        _stop = max(_stop, _near_sup * 0.97)
+        # Day trades: don't override with support (keep tight). Swing/Position: clamp to support.
+        if "Day" not in _horizon:
+            _stop = max(_stop, _near_sup * 0.97)
     else:
         _stop = _entry + _atr_stop_dist
-        _stop = min(_stop, _near_res * 1.03)
+        if "Day" not in _horizon:
+            _stop = min(_stop, _near_res * 1.03)
+
+    # Scale targets by horizon: Day = shorter T1, Position = stretched T1/T2
+    _raw_t1_dist = abs(_target1 - _entry)
+    _raw_t2_dist = abs(_target2 - _entry)
+    if _is_long:
+        _target1 = _entry + (_raw_t1_dist * _target_mult)
+        _target2 = _entry + (_raw_t2_dist * _target_mult)
+    else:
+        _target1 = _entry - (_raw_t1_dist * _target_mult)
+        _target2 = _entry - (_raw_t2_dist * _target_mult)
+
     _risk    = abs(_entry - _stop)
     _reward1 = abs(_target1 - _entry)
     _rr1     = (_reward1 / _risk) if _risk > 0 else 0
     _reward2 = abs(_target2 - _entry)
     _rr2     = (_reward2 / _risk) if _risk > 0 else 0
+
+    # Show the user what horizon they picked and what it means
+    _horizon_hint = {
+        "Day trade (hours)": "Tight stop (0.75× ATR) · Quick scalp target",
+        "Swing (days)": "Standard stop (1.5× ATR) · Target at key level",
+        "Position (weeks–months)": "Wide stop (2.5× ATR) · Stretched target for trend trade",
+    }.get(_horizon_label, "")
+    st.markdown(
+        f'<div style="background:rgba(157,78,221,0.08);border:1px solid rgba(157,78,221,0.3);'
+        f'border-radius:8px;padding:8px 14px;margin:8px 0 14px;font-size:12px;color:#ccc;">'
+        f'<b style="color:#9D4EDD;">{_horizon_label}</b> — {_horizon_hint}'
+        f'</div>',
+        unsafe_allow_html=True
+    )
 
     _tc1, _tc2, _tc3 = st.columns(3)
     with _tc1:
@@ -25362,13 +25622,13 @@ CRITICAL: No [bracket] tags. All prices with $. All % with %. Be specific — ci
         if _ao.get("key_insight"):
             st.markdown(f"""
             <div class="ult-ai-section">
-                <div style="font-size:12px;color:#9D4EDD;font-weight:700;letter-spacing:1px;margin-bottom:8px;">KEY INSIGHT</div>
-                <div style="font-size:14px;color:#ddd;line-height:1.7;">{clean_citation_tags(str(_ao['key_insight']))}</div>
+                <div class="ult-ai-label-purple" style="font-size:12px;font-weight:700;letter-spacing:1px;margin-bottom:8px;">KEY INSIGHT</div>
+                <div style="font-size:14px;line-height:1.7;">{clean_citation_tags(str(_ao['key_insight']))}</div>
             </div>""", unsafe_allow_html=True)
 
         # Analysis bullets
         if _ao.get("analysis_bullets"):
-            _bullets_html = '<div class="ult-ai-section"><div style="font-size:12px;color:#9D4EDD;font-weight:700;letter-spacing:1px;margin-bottom:10px;">ANALYSIS</div>'
+            _bullets_html = '<div class="ult-ai-section"><div class="ult-ai-label-purple" style="font-size:12px;font-weight:700;letter-spacing:1px;margin-bottom:10px;">ANALYSIS</div>'
             for _b in _ao["analysis_bullets"]:
                 _bullets_html += f'<div class="ult-ai-bullet">• {clean_citation_tags(str(_b))}</div>'
             _bullets_html += "</div>"
@@ -25376,12 +25636,12 @@ CRITICAL: No [bracket] tags. All prices with $. All % with %. Be specific — ci
 
         # IF/THEN alerts
         if _ao.get("if_then_alerts"):
-            _ifthen_html = '<div class="ult-ai-section"><div style="font-size:12px;color:#00E5FF;font-weight:700;letter-spacing:1px;margin-bottom:10px;">🚨 IF/THEN TRADER ALERTS</div>'
+            _ifthen_html = '<div class="ult-ai-section"><div class="ult-ai-label-cyan" style="font-size:12px;font-weight:700;letter-spacing:1px;margin-bottom:10px;">🚨 IF/THEN TRADER ALERTS</div>'
             for _at in _ao["if_then_alerts"]:
                 _clean_at = clean_citation_tags(str(_at))
                 _at_color = "rgba(255,68,68,0.1)" if "below" in _clean_at.lower() else "rgba(0,200,81,0.1)"
                 _at_border = "#FF4444" if "below" in _clean_at.lower() else "#00C851"
-                _ifthen_html += f'<div style="background:{_at_color};border-left:3px solid {_at_border};border-radius:6px;padding:10px 14px;margin:6px 0;font-size:13px;color:#ddd;line-height:1.6;">{_clean_at}</div>'
+                _ifthen_html += f'<div style="background:{_at_color};border-left:3px solid {_at_border};border-radius:6px;padding:10px 14px;margin:6px 0;font-size:13px;line-height:1.6;">{_clean_at}</div>'
             _ifthen_html += "</div>"
             st.markdown(_ifthen_html, unsafe_allow_html=True)
 
