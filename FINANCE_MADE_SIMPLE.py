@@ -4608,7 +4608,9 @@ def overlay_second_ticker_on_chart(fig, df2, metrics, metric_names, company_name
         elif av >= 1e9: return f"{s}${av/1e9:.1f}B"
         elif av >= 1e6: return f"{s}${av/1e6:.1f}M"
         elif av >= 1e3: return f"{s}${av/1e3:.1f}K"
-        return f"{s}${av:.0f}"
+        elif av >= 1:   return f"{s}${av:.2f}"
+        elif av > 0:    return f"{s}${av:.3f}"
+        return "$0.00"
 
     for idx, metric in enumerate(metrics):
         if metric in df2_sorted.columns:
@@ -4623,7 +4625,12 @@ def overlay_second_ticker_on_chart(fig, df2, metrics, metric_names, company_name
                 text=[format_val(v) for v in values],
                 textposition='outside',
                 textfont=dict(size=10, color=c, family='Inter, system-ui, sans-serif'),
-                hovertemplate=f'<b>{dname} ({company_name2})</b><br>%{{text}}<extra></extra>',
+                hovertemplate=(
+                    '<b>%{x}</b><br>'
+                    f'{dname} ({company_name2}): '
+                    '<b>%{text}</b>'
+                    '<extra></extra>'
+                ),
             ))
 
     # Update title to show both companies
@@ -4641,7 +4648,8 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
         return None, {}
     
     def format_value_label(val):
-        """Format large numbers as B, M, or T for chart labels"""
+        """Format large numbers as B, M, or T for chart labels.
+        For small values (<$1K) keep decimals so EPS, ratios, per-share numbers display correctly."""
         abs_val = abs(val)
         sign = "-" if val < 0 else ""
         if abs_val >= 1e12:
@@ -4652,8 +4660,13 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
             return f"{sign}${abs_val/1e6:.1f}M"
         elif abs_val >= 1e3:
             return f"{sign}${abs_val/1e3:.1f}K"
+        elif abs_val >= 1:
+            return f"{sign}${abs_val:.2f}"
+        elif abs_val > 0:
+            # Sub-dollar values like EPS $0.34 or per-share ratios
+            return f"{sign}${abs_val:.3f}"
         else:
-            return f"{sign}${abs_val:.0f}"
+            return "$0.00"
     
     def format_fiscal_period(row, period_type):
         """Format using FMP's period and calendarYear fields for accurate fiscal labeling"""
@@ -4780,9 +4793,14 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
                     color=TEXT_BRIGHT,
                     family='Inter, system-ui, sans-serif'
                 ),
+                # Hover shows the period (e.g. Q1 2024), metric name, and the precise value.
+                # Using %{text} ensures the tooltip reflects the smart-formatted value
+                # (e.g. $0.34 for EPS, $1.2B for revenue) so users see actual numbers on hover.
                 hovertemplate=(
-                    f'<b>{display_name}</b><br>'
-                    '%{text}<extra></extra>'
+                    '<b>%{x}</b><br>'
+                    f'{display_name}: '
+                    '<b>%{text}</b>'
+                    '<extra></extra>'
                 ),
             ))
     
