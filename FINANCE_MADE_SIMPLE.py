@@ -23399,20 +23399,19 @@ elif selected_page == "👤 Naman's Portfolio":
     
     # ALL HOLDINGS - Full portfolio data (updated Apr 2026)
     ALL_HOLDINGS = [
-        {"ticker": "META",  "name": "Meta Platforms",      "sector": "Technology",      "weight": 11.11},
-        {"ticker": "NFLX",  "name": "Netflix",             "sector": "Communication Services", "weight": 11.07},
-        {"ticker": "AMZN",  "name": "Amazon",              "sector": "Consumer Cyclical", "weight": 10.06},
-        {"ticker": "PANW",  "name": "Palo Alto Networks",  "sector": "Technology",      "weight": 8.96},
-        {"ticker": "SPGI",  "name": "S&P Global",          "sector": "Financials",      "weight": 8.58},
-        {"ticker": "MCO",   "name": "Moody's",             "sector": "Financials",      "weight": 7.89},
-        {"ticker": "MSFT",  "name": "Microsoft",           "sector": "Technology",      "weight": 7.50},
-        {"ticker": "NVDA",  "name": "NVIDIA",              "sector": "Technology",      "weight": 6.44},
-        {"ticker": "CRWD",  "name": "CrowdStrike",         "sector": "Technology",      "weight": 6.26},
-        {"ticker": "HOOD",  "name": "Robinhood",           "sector": "Financials",      "weight": 6.00},
-        {"ticker": "AVGO",  "name": "Broadcom",            "sector": "Technology",      "weight": 4.99},
-        {"ticker": "GOOG",  "name": "Alphabet",            "sector": "Technology",      "weight": 4.89},
-        {"ticker": "ASML",  "name": "ASML Holdings",       "sector": "Technology",      "weight": 3.33},
-        {"ticker": "CRM",   "name": "Salesforce",          "sector": "Technology",      "weight": 2.92},
+        {"ticker": "NFLX",  "name": "Netflix",             "sector": "Communication Services", "weight": 11.49},
+        {"ticker": "META",  "name": "Meta Platforms",      "sector": "Technology",      "weight": 11.33},
+        {"ticker": "AMZN",  "name": "Amazon",              "sector": "Consumer Cyclical", "weight": 10.26},
+        {"ticker": "PANW",  "name": "Palo Alto Networks",  "sector": "Technology",      "weight": 9.34},
+        {"ticker": "SPGI",  "name": "S&P Global",          "sector": "Financials",      "weight": 8.77},
+        {"ticker": "MCO",   "name": "Moody's",             "sector": "Financials",      "weight": 8.12},
+        {"ticker": "MSFT",  "name": "Microsoft",           "sector": "Technology",      "weight": 7.98},
+        {"ticker": "NVDA",  "name": "NVIDIA",              "sector": "Technology",      "weight": 6.60},
+        {"ticker": "CRWD",  "name": "CrowdStrike",         "sector": "Technology",      "weight": 6.55},
+        {"ticker": "HOOD",  "name": "Robinhood",           "sector": "Financials",      "weight": 6.10},
+        {"ticker": "AVGO",  "name": "Broadcom",            "sector": "Technology",      "weight": 5.09},
+        {"ticker": "GOOG",  "name": "Alphabet",            "sector": "Technology",      "weight": 4.93},
+        {"ticker": "CRM",   "name": "Salesforce",          "sector": "Technology",      "weight": 3.44},
     ]
     
     # ── YTD Portfolio Return ────────────────────────────────────────────────
