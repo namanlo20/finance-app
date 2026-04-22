@@ -9984,13 +9984,32 @@ def signup_dialog():
     
     # Welcome header with icon
     st.markdown("""
-    <div style="text-align: center; margin-bottom: 20px;">
+    <div style="text-align: center; margin-bottom: 18px;">
         <div style="font-size: 50px; margin-bottom: 10px;">🚀</div>
         <h2 style="color: #00C853; margin: 0;">Welcome to Investing Made Simple!</h2>
         <p style="color: #888888; margin-top: 5px;">Create your free account to get started</p>
     </div>
     """, unsafe_allow_html=True)
-    
+
+    # What you get for free — shown BEFORE the form so users see the value
+    st.markdown("""
+    <div style="background:linear-gradient(135deg,rgba(0,200,83,0.12),rgba(0,150,60,0.08));
+                border:1px solid rgba(0,200,83,0.4);border-radius:12px;
+                padding:14px 18px;margin-bottom:18px;">
+        <div style="color:#00C853;font-weight:700;font-size:13px;letter-spacing:0.5px;margin-bottom:8px;">
+            ✨ WHAT YOU GET — FREE FOREVER
+        </div>
+        <div style="color:#ddd;font-size:13px;line-height:1.9;">
+            🔍 <b>5 ticker searches per day</b> — Dip Finder + Company Analysis<br>
+            🤖 <b>3 AI analyses per day</b> — chatbot + stock research<br>
+            📊 <b>Full beginner course</b> — 15 video lessons, risk quiz<br>
+            📌 <b>Pin up to 5 favorite tickers</b> + save 3 custom views<br>
+            📈 <b>Paper portfolio</b> — practice trading, track P&L<br>
+            🆓 <b>No credit card required</b>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
     st.markdown("<p style='color: #333333; font-weight: bold;'>👤 First Name</p>", unsafe_allow_html=True)
     first_name = st.text_input("First Name", placeholder="John", key="signup_first_name", label_visibility="collapsed")
     
@@ -11018,22 +11037,31 @@ def remaining_quota(feature):
     return max(0, limit - used)
 
 def _render_signup_gate(action_label="change tickers"):
-    """Blocks anonymous users. Shows inline signup/login CTA."""
+    """Blocks anonymous users. Shows inline signup/login CTA with free-tier benefits."""
+    _t_lim = FREE_TIER_LIMITS['ticker_changes']
+    _a_lim = FREE_TIER_LIMITS['ai_calls']
     st.markdown(
         f"""
         <div style="background:linear-gradient(135deg,#fff8e1,#fff3cd);
                     border:2px solid #FFD700;border-radius:14px;padding:22px 26px;margin:14px 0;">
-            <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
                 <span style="font-size:28px;">🔒</span>
-                <div style="font-size:18px;font-weight:800;color:#1a1a1a;">Free signup to {action_label}</div>
+                <div>
+                    <div style="font-size:18px;font-weight:800;color:#1a1a1a;">Sign up free to {action_label}</div>
+                    <div style="font-size:12px;color:#666;margin-top:2px;">Takes 30 seconds · No credit card</div>
+                </div>
             </div>
-            <div style="font-size:14px;color:#444;line-height:1.5;margin-bottom:4px;">
-                Create a free account to unlock ticker search, the full dashboard, and personalized tracking.
-                No credit card required.
-            </div>
-            <div style="font-size:13px;color:#666;">
-                <b>Free tier includes:</b> {FREE_TIER_LIMITS['ticker_changes']} ticker searches/day,
-                {FREE_TIER_LIMITS['ai_calls']} AI analyses/day, saved watchlists, and course access.
+            <div style="background:rgba(255,255,255,0.6);border-radius:10px;padding:14px 18px;margin-top:4px;">
+                <div style="font-size:12px;color:#B8860B;font-weight:700;letter-spacing:0.5px;margin-bottom:8px;">
+                    ✨ WHAT YOU GET — FREE FOREVER
+                </div>
+                <div style="font-size:13px;color:#333;line-height:1.9;">
+                    🔍 <b>{_t_lim} ticker searches per day</b> — analyze any stock<br>
+                    🤖 <b>{_a_lim} AI queries per day</b> — chatbot + research<br>
+                    📌 Pin up to 5 favorite tickers + save 3 custom views<br>
+                    🎓 Full beginner course + Risk Quiz<br>
+                    📈 Paper portfolio to practice trading
+                </div>
             </div>
         </div>
         """,
@@ -24046,6 +24074,102 @@ elif selected_page == "👑 Become a VIP":
             "- Priority support + early access to new features"
         )
 
+    # ── Transparent limits comparison table — so users see exactly what they get ───
+    st.markdown("### 📊 What each plan includes")
+    _free_ticker_limit = TIER_LIMITS["free"]["ticker_changes_per_day"]
+    _free_ai_limit     = TIER_LIMITS["free"]["ai_queries_per_day"]
+    _free_pinned       = TIER_LIMITS["free"]["pinned_tickers"]
+    _free_saved        = TIER_LIMITS["free"]["saved_views"]
+
+    st.markdown(f"""
+    <div style="background:#FFFFFF; border:1px solid #E0E0E0; border-radius:12px;
+                padding:20px 24px; margin:10px 0 24px; overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; font-size:13px; color:#1a1a1a;">
+            <thead>
+                <tr style="background:#F5F5F5; text-align:left;">
+                    <th style="padding:10px 12px; font-weight:700; border-radius:8px 0 0 8px;">Feature</th>
+                    <th style="padding:10px 12px; font-weight:700; text-align:center;">
+                        👤 Signed out
+                    </th>
+                    <th style="padding:10px 12px; font-weight:700; text-align:center; color:#00C853;">
+                        🆓 Free (sign up)
+                    </th>
+                    <th style="padding:10px 12px; font-weight:700; text-align:center; color:#E6A800; border-radius:0 8px 8px 0;">
+                        👑 Ultimate
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr style="border-bottom:1px solid #F0F0F0;">
+                    <td style="padding:10px 12px;">🔍 <b>Ticker searches per day</b><br>
+                        <span style="font-size:11px; color:#888;">Dip Finder + Company Analysis</span></td>
+                    <td style="padding:10px 12px; text-align:center; color:#999;">GOOGL preview only</td>
+                    <td style="padding:10px 12px; text-align:center; color:#00C853; font-weight:700;">{_free_ticker_limit}/day</td>
+                    <td style="padding:10px 12px; text-align:center; color:#E6A800; font-weight:700;">Unlimited</td>
+                </tr>
+                <tr style="border-bottom:1px solid #F0F0F0; background:#FAFAFA;">
+                    <td style="padding:10px 12px;">🤖 <b>AI queries per day</b><br>
+                        <span style="font-size:11px; color:#888;">Chatbot + research + screener</span></td>
+                    <td style="padding:10px 12px; text-align:center; color:#999;">—</td>
+                    <td style="padding:10px 12px; text-align:center; color:#00C853; font-weight:700;">{_free_ai_limit}/day</td>
+                    <td style="padding:10px 12px; text-align:center; color:#E6A800; font-weight:700;">Unlimited</td>
+                </tr>
+                <tr style="border-bottom:1px solid #F0F0F0;">
+                    <td style="padding:10px 12px;">📌 <b>Pinned tickers</b></td>
+                    <td style="padding:10px 12px; text-align:center; color:#999;">—</td>
+                    <td style="padding:10px 12px; text-align:center;">{_free_pinned}</td>
+                    <td style="padding:10px 12px; text-align:center; color:#E6A800; font-weight:700;">100</td>
+                </tr>
+                <tr style="border-bottom:1px solid #F0F0F0; background:#FAFAFA;">
+                    <td style="padding:10px 12px;">💾 <b>Saved views</b></td>
+                    <td style="padding:10px 12px; text-align:center; color:#999;">—</td>
+                    <td style="padding:10px 12px; text-align:center;">{_free_saved}</td>
+                    <td style="padding:10px 12px; text-align:center; color:#E6A800; font-weight:700;">50</td>
+                </tr>
+                <tr style="border-bottom:1px solid #F0F0F0;">
+                    <td style="padding:10px 12px;">📈 <b>Paper portfolio</b></td>
+                    <td style="padding:10px 12px; text-align:center; color:#E53935;">✗</td>
+                    <td style="padding:10px 12px; text-align:center; color:#00C853;">✓ Limited</td>
+                    <td style="padding:10px 12px; text-align:center; color:#00C853;">✓ Full + stress tests</td>
+                </tr>
+                <tr style="border-bottom:1px solid #F0F0F0; background:#FAFAFA;">
+                    <td style="padding:10px 12px;">🎓 <b>Beginner course + Risk Quiz</b></td>
+                    <td style="padding:10px 12px; text-align:center; color:#00C853;">✓</td>
+                    <td style="padding:10px 12px; text-align:center; color:#00C853;">✓</td>
+                    <td style="padding:10px 12px; text-align:center; color:#00C853;">✓</td>
+                </tr>
+                <tr style="border-bottom:1px solid #F0F0F0;">
+                    <td style="padding:10px 12px;">📊 <b>Technical Analysis + Pattern Detection</b></td>
+                    <td style="padding:10px 12px; text-align:center; color:#E53935;">✗</td>
+                    <td style="padding:10px 12px; text-align:center; color:#E53935;">✗</td>
+                    <td style="padding:10px 12px; text-align:center; color:#E6A800; font-weight:700;">✓</td>
+                </tr>
+                <tr style="border-bottom:1px solid #F0F0F0; background:#FAFAFA;">
+                    <td style="padding:10px 12px;">💡 <b>AI Trade Ideas + Deep Dive</b></td>
+                    <td style="padding:10px 12px; text-align:center; color:#E53935;">✗</td>
+                    <td style="padding:10px 12px; text-align:center; color:#E53935;">✗</td>
+                    <td style="padding:10px 12px; text-align:center; color:#E6A800; font-weight:700;">✓</td>
+                </tr>
+                <tr style="border-bottom:1px solid #F0F0F0;">
+                    <td style="padding:10px 12px;">📡 <b>Dip Radar full access</b></td>
+                    <td style="padding:10px 12px; text-align:center; color:#999;">GOOGL only</td>
+                    <td style="padding:10px 12px; text-align:center; color:#00C853;">{_free_ticker_limit} tickers/day</td>
+                    <td style="padding:10px 12px; text-align:center; color:#E6A800; font-weight:700;">Unlimited + bulk add</td>
+                </tr>
+                <tr>
+                    <td style="padding:10px 12px;">📤 <b>Export reports</b></td>
+                    <td style="padding:10px 12px; text-align:center; color:#E53935;">✗</td>
+                    <td style="padding:10px 12px; text-align:center; color:#E53935;">✗</td>
+                    <td style="padding:10px 12px; text-align:center; color:#E6A800; font-weight:700;">✓</td>
+                </tr>
+            </tbody>
+        </table>
+        <div style="font-size:11px; color:#888; margin-top:12px; text-align:center;">
+            Daily limits reset at midnight local time · Ultimate counts as “unlimited” (999/day ceiling, never practical to hit)
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
     # ── Tier cards ─────────────────────────────────────────────────────────────
     if "selected_tier" not in st.session_state:
         st.session_state.selected_tier = "Ultimate"
@@ -24063,10 +24187,13 @@ elif selected_page == "👑 Become a VIP":
             <h3 style="color:#00C853; margin-bottom:8px;">Free</h3>
             <p style="color:#1a1a1a; font-size:26px; font-weight:700; margin:8px 0;">$0<span style="font-size:14px; font-weight:400;">/mo</span></p>
             <p style="color:#555; font-size:13px;">Great for getting started</p>
-            <ul style="color:#555; font-size:13px; text-align:left; margin:10px 0;">
-                <li>Company Analysis essentials</li>
-                <li>Educational content + Risk Quiz</li>
+            <ul style="color:#333; font-size:13px; text-align:left; margin:10px 0; line-height:1.7;">
+                <li><b>{_free_ticker_limit} ticker searches/day</b></li>
+                <li><b>{_free_ai_limit} AI queries/day</b></li>
+                <li>Pin up to {_free_pinned} tickers</li>
+                <li>Beginner course + Risk Quiz</li>
                 <li>Limited paper portfolio</li>
+                <li>No credit card required</li>
             </ul>
         </div>
         """, unsafe_allow_html=True)
@@ -24089,12 +24216,13 @@ elif selected_page == "👑 Become a VIP":
             <p style="color:#00C853; font-size:14px; font-weight:700; margin:4px 0;">🎉 First month FREE</p>
             <p style="color:#555; font-size:13px;">Every feature unlocked</p>
             <ul style="color:#333; font-size:13px; text-align:left; margin:10px 0; line-height:1.7;">
+                <li><b>Unlimited ticker searches</b></li>
+                <li><b>Unlimited AI queries</b></li>
                 <li><b>AI Trade Ideas</b> — entry, stop, targets</li>
                 <li><b>Technical Analysis</b> — patterns + key levels</li>
-                <li><b>Dip Radar</b> — portfolio dip tracker</li>
-                <li><b>AI Deep Dive</b> — fact-locked chart analysis</li>
-                <li><b>Full Financial Health</b> charts</li>
-                <li>Unlimited paper portfolio + stress tests</li>
+                <li><b>Dip Radar</b> — full access + bulk add</li>
+                <li><b>AI Deep Dive</b> — fact-locked analysis</li>
+                <li>Full paper portfolio + stress tests</li>
                 <li>Priority support</li>
             </ul>
         </div>
