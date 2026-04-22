@@ -24455,6 +24455,34 @@ elif selected_page == "👑 Ultimate":
     """, unsafe_allow_html=True)
 
     # ── INPUT ROW ────────────────────────────────────────────────────────────────
+    # Scoped dark styling for this row only — overrides global red nav-dropdown CSS
+    st.markdown("""
+    <style>
+    /* Target the Ultimate tab input row specifically via session marker */
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Ticker or company name:"]) [data-baseweb="select"],
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Ticker or company name:"]) [data-baseweb="select"] > div {
+        background: linear-gradient(135deg, #1a1f3a 0%, #2d1b4e 50%, #1e3a5f 100%) !important;
+        background-color: #1a1f3a !important;
+        border: 1px solid rgba(139, 92, 246, 0.4) !important;
+        border-radius: 10px !important;
+        box-shadow: 0 2px 10px rgba(139, 92, 246, 0.15) !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Ticker or company name:"]) [data-baseweb="select"] *,
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Ticker or company name:"]) [data-baseweb="select"] span,
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Ticker or company name:"]) [data-baseweb="select"] div {
+        color: #FFFFFF !important;
+        font-weight: 600 !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has(input[aria-label="Ticker or company name:"]) input[aria-label="Ticker or company name:"] {
+        background: linear-gradient(135deg, #1a1f3a 0%, #2d1b4e 50%, #1e3a5f 100%) !important;
+        color: #FFFFFF !important;
+        border: 1px solid rgba(139, 92, 246, 0.4) !important;
+        border-radius: 10px !important;
+        font-weight: 600 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
     _u_c1, _u_c2, _u_c3, _u_c4 = st.columns([3, 1.5, 1.5, 1.2])
     _default_ticker = st.session_state.get("demo_ticker", st.session_state.get("selected_ticker", "AAPL"))
     with _u_c1:
@@ -24880,10 +24908,13 @@ elif selected_page == "👑 Ultimate":
             marker_color=_vol_colors, opacity=0.85), row=_cur_row, col=1)
         _fig.update_yaxes(title_text="Volume", row=_cur_row, col=1)
 
-    _fig.update_layout(height=580, template="plotly_dark", margin=dict(l=0,r=0,t=28,b=0),
+    _fig.update_layout(height=620, template="plotly_dark", margin=dict(l=0,r=0,t=60,b=0),
         hovermode="x unified", showlegend=True, xaxis_rangeslider_visible=False,
         paper_bgcolor="#0A0A1A", plot_bgcolor="#0D0D20",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+        legend=dict(orientation="h", yanchor="bottom", y=1.04, xanchor="center", x=0.5,
+            font=dict(size=13, color="#FFFFFF"), bgcolor="rgba(20,20,40,0.6)",
+            bordercolor="rgba(255,255,255,0.1)", borderwidth=1,
+            itemsizing="constant", itemwidth=40))
     st.plotly_chart(_fig, use_container_width=True)
 
     # ─────────────────────────────────────────────────────────────────────────────
