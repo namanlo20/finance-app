@@ -25291,53 +25291,55 @@ elif selected_page == "👑 Ultimate":
 
     _is_long = "Long" in _dir
 
-    # Horizon scaling — this is what makes Day vs Swing vs Position actually different.
-    # Day trades = tight stops, quick targets. Position trades = wider stops, farther targets.
+    # ── Horizon-aware trade setup ──────────────────────────────────────────
+    # Each horizon has its OWN entry/stop/target logic so numbers meaningfully
+    # differ when user flips the dropdown. ATR-denominated throughout.
+    _atr_abs = _live_price * (_atr_pct / 100.0)  # ATR in dollars
+
     if "Day" in _horizon:
-        _stop_mult   = 0.75   # tight stop — day trades can't afford wide risk
-        _target_mult = 0.55   # first target is closer (quick scalp)
+        # Day trade: enter at market, tight stop (0.75× ATR), quick scalp target (1× ATR)
         _horizon_label = "Day trade (hours)"
+        _horizon_hint  = "Enter at market · Tight stop (0.75× ATR) · Quick 1:1.3 scalp"
+        _entry = _live_price
+        if _is_long:
+            _stop    = _entry - _atr_abs * 0.75
+            _target1 = _entry + _atr_abs * 1.00
+            _target2 = _entry + _atr_abs * 1.60
+        else:
+            _stop    = _entry + _atr_abs * 0.75
+            _target1 = _entry - _atr_abs * 1.00
+            _target2 = _entry - _atr_abs * 1.60
+
     elif "Position" in _horizon:
-        _stop_mult   = 2.5    # wider stop — position trades need room to breathe
-        _target_mult = 1.6    # stretch targets to capture longer move
-        _horizon_label = "Position (weeks–months)"
+        # Position trade: enter on pullback to support/resistance, wide stop
+        # (past the level), stretch targets to 2nd resistance/support AND beyond
+        _horizon_label = "Position (weeks)"
+        _horizon_hint  = "Wait for pullback · Wide stop past key level · Target the trend"
+        if _is_long:
+            _entry   = _near_sup * 1.005
+            _stop    = min(_entry - _atr_abs * 2.50, _near_sup * 0.955)  # past support + 2.5× ATR
+            # T1 = 2nd resistance if available, else stretch nearest by 1.5× ATR beyond
+            _target1 = (_resistances[1]["level"] if len(_resistances) > 1 else _near_res + _atr_abs * 1.0)
+            _target2 = _target1 + _atr_abs * 2.5
+        else:
+            _entry   = _near_res * 0.995
+            _stop    = max(_entry + _atr_abs * 2.50, _near_res * 1.045)
+            _target1 = (_supports[1]["level"] if len(_supports) > 1 else _near_sup - _atr_abs * 1.0)
+            _target2 = _target1 - _atr_abs * 2.5
+
     else:  # Swing (default)
-        _stop_mult   = 1.5
-        _target_mult = 1.0
         _horizon_label = "Swing (days)"
-
-    if _is_long:
-        _entry     = (_near_sup * 1.005)
-        _stop      = (_near_sup * 0.975)
-        _target1   = _near_res
-        _target2   = (_resistances[1]["level"] if len(_resistances) > 1 else _near_res * 1.04)
-    else:
-        _entry     = (_near_res * 0.995)
-        _stop      = (_near_res * 1.025)
-        _target1   = _near_sup
-        _target2   = (_supports[1]["level"] if len(_supports) > 1 else _near_sup * 0.96)
-
-    # ATR-based stop, scaled by horizon: tighter for day, wider for position
-    _atr_stop_dist = max(_live_price * (_atr_pct / 100.0) * _stop_mult, abs(_entry - _stop) * 0.5)
-    if _is_long:
-        _stop = _entry - _atr_stop_dist
-        # Day trades: don't override with support (keep tight). Swing/Position: clamp to support.
-        if "Day" not in _horizon:
-            _stop = max(_stop, _near_sup * 0.97)
-    else:
-        _stop = _entry + _atr_stop_dist
-        if "Day" not in _horizon:
-            _stop = min(_stop, _near_res * 1.03)
-
-    # Scale targets by horizon: Day = shorter T1, Position = stretched T1/T2
-    _raw_t1_dist = abs(_target1 - _entry)
-    _raw_t2_dist = abs(_target2 - _entry)
-    if _is_long:
-        _target1 = _entry + (_raw_t1_dist * _target_mult)
-        _target2 = _entry + (_raw_t2_dist * _target_mult)
-    else:
-        _target1 = _entry - (_raw_t1_dist * _target_mult)
-        _target2 = _entry - (_raw_t2_dist * _target_mult)
+        _horizon_hint  = "Enter near support/resistance · 1.5× ATR stop · Target next level"
+        if _is_long:
+            _entry   = _near_sup * 1.005
+            _stop    = max(_entry - _atr_abs * 1.50, _near_sup * 0.97)
+            _target1 = _near_res
+            _target2 = (_resistances[1]["level"] if len(_resistances) > 1 else _near_res + _atr_abs * 1.0)
+        else:
+            _entry   = _near_res * 0.995
+            _stop    = min(_entry + _atr_abs * 1.50, _near_res * 1.03)
+            _target1 = _near_sup
+            _target2 = (_supports[1]["level"] if len(_supports) > 1 else _near_sup - _atr_abs * 1.0)
 
     _risk    = abs(_entry - _stop)
     _reward1 = abs(_target1 - _entry)
@@ -25346,11 +25348,6 @@ elif selected_page == "👑 Ultimate":
     _rr2     = (_reward2 / _risk) if _risk > 0 else 0
 
     # Show the user what horizon they picked and what it means
-    _horizon_hint = {
-        "Day trade (hours)": "Tight stop (0.75× ATR) · Quick scalp target",
-        "Swing (days)": "Standard stop (1.5× ATR) · Target at key level",
-        "Position (weeks–months)": "Wide stop (2.5× ATR) · Stretched target for trend trade",
-    }.get(_horizon_label, "")
     st.markdown(
         f'<div style="background:rgba(157,78,221,0.08);border:1px solid rgba(157,78,221,0.3);'
         f'border-radius:8px;padding:8px 14px;margin:8px 0 14px;font-size:12px;color:#ccc;">'
