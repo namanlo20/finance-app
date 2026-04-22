@@ -3535,7 +3535,8 @@ TIER_LIMITS = {
     "free": {
         "pinned_tickers": 5,
         "saved_views": 3,
-        "ai_queries_per_day": 5,
+        "ai_queries_per_day": 3,  # tightened — matches new freemium gate (was 5)
+        "ticker_changes_per_day": 5,  # NEW — gates Company Analysis + Dip Finder searches
         "workflows": ["Valuation"],  # Free workflows
         "compare_stocks": True,
         "export_reports": False,
@@ -3546,6 +3547,7 @@ TIER_LIMITS = {
         "pinned_tickers": 20,
         "saved_views": 10,
         "ai_queries_per_day": 50,
+        "ticker_changes_per_day": 999,
         "workflows": ["Valuation", "Risk Analysis"],  
         "compare_stocks": True,
         "export_reports": True,
@@ -3556,6 +3558,7 @@ TIER_LIMITS = {
         "pinned_tickers": 100,
         "saved_views": 50,
         "ai_queries_per_day": 999,
+        "ticker_changes_per_day": 999,
         "workflows": ["Valuation", "Risk Analysis", "Portfolio Health"],
         "compare_stocks": True,
         "export_reports": True,
@@ -10898,6 +10901,262 @@ def restore_session_from_cookie():
     except Exception:
         # Bad/expired refresh token — wipe it so we don't keep retrying
         _clear_auth_cookie()
+
+# ============= FREEMIUM GATING =============
+# Anonymous users can view defaults but can't change tickers or use AI features.
+# Signed-up free users get daily quotas pulled from TIER_LIMITS; pro/ultimate
+# are effectively unlimited (999/day).
+#
+# Usage persistence: for logged-in users, counts are backed by Supabase tables
+# (`ai_query_log` for AI, `ticker_change_log` for searches) so a refresh/new
+# tab/new device can't reset the quota. For anonymous users, counts live in
+# session_state only — but anonymous users are hard-gated on ticker changes
+# anyway, so bypass isn't meaningful.
+#
+# Public API (call from page code):
+#   gate_ticker_change(requested, current, default, action_label) -> bool
+#   gate_ai_feature(feature_name) -> bool
+#   render_quota_badge()
+
+# Back-compat alias for older call sites — real limits live in TIER_LIMITS
+FREE_TIER_LIMITS = {
+    "ticker_changes": TIER_LIMITS["free"]["ticker_changes_per_day"],
+    "ai_calls":       TIER_LIMITS["free"]["ai_queries_per_day"],
+}
+
+def _today_str():
+    from datetime import datetime
+    return datetime.now().strftime("%Y-%m-%d")
+
+def _get_session_usage():
+    """Return today's in-memory usage dict, resetting on date rollover."""
+    u = st.session_state.get("daily_usage")
+    today = _today_str()
+    if not u or u.get("date") != today:
+        u = {"date": today, "ticker_changes": 0, "ai_calls": 0, "tickers_seen": set()}
+        st.session_state.daily_usage = u
+    u.setdefault("tickers_seen", set())
+    u.setdefault("ticker_changes", 0)
+    u.setdefault("ai_calls", 0)
+    return u
+
+def _is_anonymous():
+    return not st.session_state.get("is_logged_in")
+
+def _is_free_tier():
+    """Signed-up but on the free plan."""
+    if _is_anonymous():
+        return False
+    return get_user_tier() == "free"
+
+def _is_paid_tier():
+    return get_user_tier() in ("pro", "ultimate")
+
+def _db_get_daily_count(user_id, table, date_str):
+    """Read today's count from a daily-log table. Returns int (0 if missing)."""
+    if not (user_id and SUPABASE_ENABLED):
+        return 0
+    try:
+        r = supabase.table(table).select("count").eq("user_id", user_id).eq("query_date", date_str).single().execute()
+        if r.data:
+            return int(r.data.get("count", 0) or 0)
+    except Exception:
+        pass
+    return 0
+
+def _db_increment_daily_count(user_id, table, date_str):
+    """Upsert +1 on today's row. Returns new count or None on failure."""
+    if not (user_id and SUPABASE_ENABLED):
+        return None
+    try:
+        current = _db_get_daily_count(user_id, table, date_str)
+        new_count = current + 1
+        supabase.table(table).upsert(
+            {"user_id": user_id, "query_date": date_str, "count": new_count},
+            on_conflict="user_id,query_date"
+        ).execute()
+        return new_count
+    except Exception:
+        return None
+
+def _synced_count(feature):
+    """
+    Return the highest-of (session_count, db_count) for this user/feature today.
+    For logged-in users, DB is authoritative — prevents refresh/new-tab bypass.
+    For anonymous users, just returns session count.
+    """
+    u = _get_session_usage()
+    session_count = u.get(feature, 0)
+    user_id = st.session_state.get("user_id")
+    if not user_id:
+        return session_count
+    table = {"ticker_changes": "ticker_change_log", "ai_calls": "ai_query_log"}.get(feature)
+    if not table:
+        return session_count
+    db_count = _db_get_daily_count(user_id, table, _today_str())
+    return max(session_count, db_count)
+
+def _record_usage(feature):
+    """Increment session counter + DB row for the given feature."""
+    u = _get_session_usage()
+    u[feature] = u.get(feature, 0) + 1
+    user_id = st.session_state.get("user_id")
+    if user_id:
+        table = {"ticker_changes": "ticker_change_log", "ai_calls": "ai_query_log"}.get(feature)
+        if table:
+            new_count = _db_increment_daily_count(user_id, table, _today_str())
+            if new_count is not None:
+                u[feature] = new_count  # keep session aligned with DB
+
+def remaining_quota(feature):
+    """How many uses this free user has left today. None for anonymous/paid."""
+    if _is_anonymous() or _is_paid_tier():
+        return None
+    limit_key = {"ticker_changes": "ticker_changes_per_day", "ai_calls": "ai_queries_per_day"}.get(feature)
+    limit = TIER_LIMITS["free"].get(limit_key, 0)
+    used = _synced_count(feature)
+    return max(0, limit - used)
+
+def _render_signup_gate(action_label="change tickers"):
+    """Blocks anonymous users. Shows inline signup/login CTA."""
+    st.markdown(
+        f"""
+        <div style="background:linear-gradient(135deg,#fff8e1,#fff3cd);
+                    border:2px solid #FFD700;border-radius:14px;padding:22px 26px;margin:14px 0;">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+                <span style="font-size:28px;">🔒</span>
+                <div style="font-size:18px;font-weight:800;color:#1a1a1a;">Free signup to {action_label}</div>
+            </div>
+            <div style="font-size:14px;color:#444;line-height:1.5;margin-bottom:4px;">
+                Create a free account to unlock ticker search, the full dashboard, and personalized tracking.
+                No credit card required.
+            </div>
+            <div style="font-size:13px;color:#666;">
+                <b>Free tier includes:</b> {FREE_TIER_LIMITS['ticker_changes']} ticker searches/day,
+                {FREE_TIER_LIMITS['ai_calls']} AI analyses/day, saved watchlists, and course access.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    _safe_key = "".join(c for c in action_label if c.isalnum())[:20]
+    _gc1, _gc2, _gc3 = st.columns([1, 1, 2])
+    with _gc1:
+        if st.button("🎉 Sign up free", key=f"gate_signup_{_safe_key}", type="primary", use_container_width=True):
+            st.session_state.show_signup_popup = True
+            st.rerun()
+    with _gc2:
+        if st.button("🔐 Sign in", key=f"gate_login_{_safe_key}", use_container_width=True):
+            st.session_state.show_login_popup = True
+            st.rerun()
+
+def _render_upgrade_gate(feature, limit):
+    """Blocks free users who hit their daily quota."""
+    friendly = {
+        "ticker_changes": f"{limit} ticker searches",
+        "ai_calls": f"{limit} AI analyses",
+    }.get(feature, f"{limit} uses")
+    st.markdown(
+        f"""
+        <div style="background:linear-gradient(135deg,#f3e5f5,#e1bee7);
+                    border:2px solid #9D4EDD;border-radius:14px;padding:22px 26px;margin:14px 0;">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+                <span style="font-size:28px;">⏱️</span>
+                <div style="font-size:18px;font-weight:800;color:#1a1a1a;">Daily limit reached</div>
+            </div>
+            <div style="font-size:14px;color:#444;line-height:1.5;margin-bottom:4px;">
+                You've used your {friendly} for today. Upgrade to Ultimate for
+                unlimited access, or come back tomorrow.
+            </div>
+            <div style="font-size:13px;color:#666;">
+                <b>Ultimate ($10/mo):</b> Unlimited ticker searches · Unlimited AI analyses ·
+                AI Deep Dives · Trader Intelligence · Key Levels · IF/THEN Alerts · First month FREE
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    _uc1, _uc2 = st.columns([1, 2])
+    with _uc1:
+        if st.button("👑 Upgrade", key=f"gate_upgrade_{feature}", type="primary", use_container_width=True):
+            st.session_state.selected_page = "👑 Become a VIP"
+            st.rerun()
+
+def gate_ticker_change(requested_ticker, current_ticker=None, default_ticker="GOOG", action_label="change tickers"):
+    """
+    Call BEFORE accepting a user's ticker change on gated pages.
+    Returns True = allow, False = block (gate UI already rendered, caller should
+    revert to current_ticker/default_ticker and stop further processing).
+    """
+    if not requested_ticker:
+        return True
+    requested = str(requested_ticker).strip().upper()
+    baseline = str(current_ticker or default_ticker).strip().upper()
+    # Same as current or same as default → free viewing
+    if requested == baseline or (default_ticker and requested == default_ticker.upper()):
+        return True
+
+    if _is_paid_tier():
+        return True
+
+    if _is_anonymous():
+        _render_signup_gate(action_label=action_label)
+        return False
+
+    # Free tier: dedupe — searching the same ticker twice in one day doesn't double-count
+    u = _get_session_usage()
+    if requested in u["tickers_seen"]:
+        return True
+    limit = TIER_LIMITS["free"]["ticker_changes_per_day"]
+    if _synced_count("ticker_changes") >= limit:
+        _render_upgrade_gate("ticker_changes", limit)
+        return False
+
+    u["tickers_seen"].add(requested)
+    _record_usage("ticker_changes")
+    return True
+
+def gate_ai_feature(feature_name="AI analysis"):
+    """
+    Call BEFORE invoking an AI endpoint. Returns True = allow, False = block.
+    """
+    if _is_paid_tier():
+        return True
+    if _is_anonymous():
+        _render_signup_gate(action_label=f"use {feature_name}")
+        return False
+    limit = TIER_LIMITS["free"]["ai_queries_per_day"]
+    if _synced_count("ai_calls") >= limit:
+        _render_upgrade_gate("ai_calls", limit)
+        return False
+    _record_usage("ai_calls")
+    return True
+
+def render_quota_badge():
+    """Small unobtrusive badge showing today's remaining quota for free users."""
+    if not _is_free_tier():
+        return
+    t_limit = TIER_LIMITS["free"]["ticker_changes_per_day"]
+    a_limit = TIER_LIMITS["free"]["ai_queries_per_day"]
+    t_left = max(0, t_limit - _synced_count("ticker_changes"))
+    a_left = max(0, a_limit - _synced_count("ai_calls"))
+    _t_color = "#00C853" if t_left > 2 else "#FFA000" if t_left > 0 else "#E53935"
+    _a_color = "#00C853" if a_left > 1 else "#FFA000" if a_left > 0 else "#E53935"
+    st.markdown(
+        f"""
+        <div style="display:flex;gap:10px;margin:6px 0 12px;font-size:11px;">
+            <span style="background:{_t_color}18;color:{_t_color};padding:4px 10px;
+                   border-radius:12px;border:1px solid {_t_color}55;font-weight:600;">
+                🔍 {t_left}/{t_limit} tickers left today
+            </span>
+            <span style="background:{_a_color}18;color:{_a_color};padding:4px 10px;
+                   border-radius:12px;border:1px solid {_a_color}55;font-weight:600;">
+                🤖 {a_left}/{a_limit} AI calls left today
+            </span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 # ============= USER PROGRESS PERSISTENCE =============
 
@@ -21216,7 +21475,10 @@ elif selected_page == "📊 Company Analysis":
     
     # Robinhood-style guidance
     st.caption("*This page explains how this company makes money and where the risks are.*")
-    
+
+    # Show remaining daily quota to signed-in free users (no-op for anon/paid)
+    render_quota_badge()
+
     search = st.text_input(
         "🔍 Search by Company Name or Ticker:",
         st.session_state.selected_ticker,
@@ -21226,7 +21488,17 @@ elif selected_page == "📊 Company Analysis":
     
     if search:
         ticker, company_name = smart_search_ticker(search)
-        
+
+        # ── FREEMIUM GATE: anonymous users must sign up to change ticker;
+        # free-tier users limited to N ticker searches per day. Default ticker
+        # (GOOGL) is always allowed without a gate.
+        _current_ticker = st.session_state.get("selected_ticker", "GOOGL")
+        if not gate_ticker_change(ticker, current_ticker=_current_ticker, default_ticker="GOOGL",
+                                   action_label="search other tickers"):
+            # Revert search box to current ticker and stop — gate UI already rendered
+            ticker = _current_ticker
+            st.stop()
+
         # Verify the ticker actually exists by getting a quote
         quote_check = get_quote(ticker)
         ticker_valid = quote_check is not None and quote_check.get('price') is not None
@@ -24393,6 +24665,9 @@ elif selected_page == "📡 Dip Radar":
     </div>
     """, unsafe_allow_html=True)
 
+    # Show remaining daily quota for signed-in free users (no-op for anon/paid)
+    render_quota_badge()
+
     # ── Initialize watchlist in session state ──
     if "dip_radar_watchlist" not in st.session_state:
         st.session_state.dip_radar_watchlist = []
@@ -24412,6 +24687,14 @@ elif selected_page == "📡 Dip Radar":
         st.markdown("#### 📂 My Portfolio")
         render_dip_finder_page(_dr_portfolio_tickers, chart_title="My Portfolio")
         st.markdown("---")
+    elif not st.session_state.get("dip_radar_watchlist"):
+        # No portfolio AND no watchlist → show GOOGL by default so anonymous
+        # users and brand-new accounts see real value immediately. The default
+        # always renders regardless of tier (viewing is free).
+        st.markdown("#### 🔍 Example: GOOGL Dip Analysis")
+        st.caption("*Default preview — sign up to analyze any ticker, or Ultimate for unlimited.*")
+        render_dip_finder_page(["GOOGL"], chart_title="GOOGL (default)")
+        st.markdown("---")
 
     # ── Add stocks section ──
     st.markdown("#### ➕ Add Stocks to Watchlist")
@@ -24429,6 +24712,11 @@ elif selected_page == "📡 Dip Radar":
     if _dr_add_btn and _dr_new_ticker:
         _resolved = resolve_company_to_ticker(_dr_new_ticker.strip())
         if _resolved:
+            # FREEMIUM GATE: GOOGL is the free default; any other ticker requires
+            # signup (anon) or burns 1/5 daily quota (free tier).
+            if not gate_ticker_change(_resolved, default_ticker="GOOGL",
+                                       action_label="analyze other tickers"):
+                st.stop()  # gate UI already rendered
             if _resolved not in st.session_state.dip_radar_watchlist:
                 st.session_state.dip_radar_watchlist.append(_resolved)
                 if st.session_state.get("is_logged_in"):
@@ -24447,6 +24735,14 @@ elif selected_page == "📡 Dip Radar":
         key="dip_radar_bulk_add",
     )
     if _dr_bulk:
+        # FREEMIUM GATE: bulk add is paid-only (too easy to burn quota otherwise)
+        if _is_anonymous():
+            _render_signup_gate(action_label="bulk-add tickers")
+            st.stop()
+        elif _is_free_tier():
+            _render_upgrade_gate("ticker_changes", FREE_TIER_LIMITS["ticker_changes"])
+            st.info("💡 Tip: free tier can still add tickers one at a time above.")
+            st.stop()
         _dr_bulk_tickers = [t.strip().upper() for t in _dr_bulk.split(",") if t.strip()]
         _dr_bulk_added = False
         for _bt in _dr_bulk_tickers:
