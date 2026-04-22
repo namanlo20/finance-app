@@ -6627,6 +6627,27 @@ def render_dip_finder_page(tickers, chart_title="Dip Finder"):
     # ── Detail drill-down ─────────────────────────────────────────────────────
     st.markdown("---")
     st.markdown("#### Deep Dive")
+
+    # Scoped styling override — prevent global red nav-dropdown CSS from leaking
+    # onto this selectbox. Matches the styling used on the Ultimate tab inputs.
+    st.markdown("""
+    <style>
+    div[data-testid="stSelectbox"]:has(label:contains("Select a stock to inspect")) [data-baseweb="select"],
+    div[data-testid="stSelectbox"]:has(label:contains("Select a stock to inspect")) [data-baseweb="select"] > div {
+        background: #FFFFFF !important;
+        border: 1px solid #D0D5DD !important;
+        border-radius: 8px !important;
+        box-shadow: 0 1px 2px rgba(16,24,40,0.05) !important;
+    }
+    div[data-testid="stSelectbox"]:has(label:contains("Select a stock to inspect")) [data-baseweb="select"] *,
+    div[data-testid="stSelectbox"]:has(label:contains("Select a stock to inspect")) [data-baseweb="select"] span,
+    div[data-testid="stSelectbox"]:has(label:contains("Select a stock to inspect")) [data-baseweb="select"] div {
+        color: #1a1a1a !important;
+        font-weight: 500 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
     ticker_opts = [r["ticker"] for r in filtered]
     selected_tk = st.selectbox(
         "Select a stock to inspect:",
@@ -11037,7 +11058,7 @@ def remaining_quota(feature):
     return max(0, limit - used)
 
 def _render_signup_gate(action_label="change tickers"):
-    """Blocks anonymous users. Shows inline signup/login CTA with free-tier benefits."""
+    """Blocks anonymous users after their 1 free taste. Shows inline signup/login CTA."""
     _t_lim = FREE_TIER_LIMITS['ticker_changes']
     _a_lim = FREE_TIER_LIMITS['ai_calls']
     st.markdown(
@@ -11045,9 +11066,9 @@ def _render_signup_gate(action_label="change tickers"):
         <div style="background:linear-gradient(135deg,#fff8e1,#fff3cd);
                     border:2px solid #FFD700;border-radius:14px;padding:22px 26px;margin:14px 0;">
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
-                <span style="font-size:28px;">🔒</span>
+                <span style="font-size:28px;">👋</span>
                 <div>
-                    <div style="font-size:18px;font-weight:800;color:#1a1a1a;">Sign up free to {action_label}</div>
+                    <div style="font-size:18px;font-weight:800;color:#1a1a1a;">Liked that? Sign up free to {action_label}.</div>
                     <div style="font-size:12px;color:#666;margin-top:2px;">Takes 30 seconds · No credit card</div>
                 </div>
             </div>
@@ -11110,11 +11131,16 @@ def _render_upgrade_gate(feature, limit):
             st.session_state.selected_page = "👑 Become a VIP"
             st.rerun()
 
-def gate_ticker_change(requested_ticker, current_ticker=None, default_ticker="GOOG", action_label="change tickers"):
+def gate_ticker_change(requested_ticker, current_ticker=None, default_ticker="GOOG",
+                        action_label="change tickers", page_key=None):
     """
     Call BEFORE accepting a user's ticker change on gated pages.
     Returns True = allow, False = block (gate UI already rendered, caller should
     revert to current_ticker/default_ticker and stop further processing).
+
+    Anonymous users get ONE free ticker change per page (tracked by `page_key`)
+    before the signup gate appears — gives them a taste of the feature so they
+    understand what they're signing up for.
     """
     if not requested_ticker:
         return True
@@ -11128,6 +11154,15 @@ def gate_ticker_change(requested_ticker, current_ticker=None, default_ticker="GO
         return True
 
     if _is_anonymous():
+        # "1 free taste" allowance — per page, per session. Lets anonymous users
+        # try one ticker change (e.g. GOOGL → NVDA) so they see real value
+        # before we ask for signup. Second attempt triggers the gate.
+        key = f"_anon_free_used_{page_key or action_label}"
+        if not st.session_state.get(key):
+            # Mark this page's free change as used — but allow the change
+            st.session_state[key] = requested
+            return True
+        # Already used their free change → gate
         _render_signup_gate(action_label=action_label)
         return False
 
@@ -21522,7 +21557,8 @@ elif selected_page == "📊 Company Analysis":
         # (GOOGL) is always allowed without a gate.
         _current_ticker = st.session_state.get("selected_ticker", "GOOGL")
         if not gate_ticker_change(ticker, current_ticker=_current_ticker, default_ticker="GOOGL",
-                                   action_label="search other tickers"):
+                                   action_label="search other tickers",
+                                   page_key="company_analysis"):
             # Revert search box to current ticker and stop — gate UI already rendered
             ticker = _current_ticker
             st.stop()
@@ -23194,7 +23230,10 @@ elif selected_page == "📈 Financial Health":
     
     st.header("📈 Financial Health - Historical Trends")
     st.markdown("**Compare company ratios to S&P 500 averages and historical benchmarks**")
-    
+
+    # Show remaining daily quota for signed-in free users
+    render_quota_badge()
+
     # Ticker search - two columns for primary + compare
     _fh_col1, _fh_col2 = st.columns(2)
     with _fh_col1:
@@ -23216,6 +23255,16 @@ elif selected_page == "📈 Financial Health":
     if ratio_search:
         ticker, company_name = smart_search_ticker(ratio_search)
         old_ticker = st.session_state.get('selected_ticker', '')
+
+        # FREEMIUM GATE: anonymous users get 1 free change from default;
+        # free-tier users limited to daily quota. Default (GOOGL) always free.
+        if not gate_ticker_change(ticker, current_ticker=old_ticker, default_ticker="GOOGL",
+                                   action_label="compare other tickers",
+                                   page_key="financial_health"):
+            # Revert and stop — gate UI already rendered
+            ticker = old_ticker or "GOOGL"
+            st.stop()
+
         if ticker != old_ticker:
             st.session_state.selected_ticker = ticker
             st.rerun()
@@ -23230,8 +23279,15 @@ elif selected_page == "📈 Financial Health":
     _fh_name2 = None
     _fh_ratios2 = pd.DataFrame()
     if _fh_compare_input and _fh_compare_input.strip():
-        _fh_ticker2, _fh_name2 = smart_search_ticker(_fh_compare_input.strip())
-        if _fh_ticker2 and _fh_ticker2 != ticker:
+        # Comparison is a ticker change too — same gate rules apply
+        _fh_t2_resolved, _fh_name2 = smart_search_ticker(_fh_compare_input.strip())
+        if _fh_t2_resolved and _fh_t2_resolved != ticker:
+            if not gate_ticker_change(_fh_t2_resolved, current_ticker=None,
+                                       default_ticker=ticker,
+                                       action_label="add a comparison ticker",
+                                       page_key="financial_health_compare"):
+                st.stop()
+            _fh_ticker2 = _fh_t2_resolved
             _fh_profile2 = get_profile(_fh_ticker2)
             if _fh_profile2:
                 _fh_name2 = _fh_profile2.get('companyName', _fh_ticker2)
@@ -24796,11 +24852,47 @@ elif selected_page == "📡 Dip Radar":
     # Show remaining daily quota for signed-in free users (no-op for anon/paid)
     render_quota_badge()
 
-    # ── Initialize watchlist in session state ──
+    # ── Initialize watchlist + current ticker in session state ──
     if "dip_radar_watchlist" not in st.session_state:
         st.session_state.dip_radar_watchlist = []
+    if "dip_radar_current_ticker" not in st.session_state:
+        st.session_state.dip_radar_current_ticker = "GOOGL"
 
-    # Try to auto-load from Supabase portfolio
+    # ── PRIMARY SEARCH (same UX as Company Analysis) ─────────────────────────
+    # One search box, one ticker at a time. Anonymous users default to GOOGL;
+    # any ticker change triggers the signup gate. Free users get 5 changes/day.
+    _dr_search = st.text_input(
+        "🔍 Search by Company Name or Ticker:",
+        value=st.session_state.dip_radar_current_ticker,
+        help="Try: Apple, AAPL, NVIDIA, TSLA, etc.",
+        key="dip_radar_primary_search",
+    )
+
+    _dr_active_ticker = st.session_state.dip_radar_current_ticker  # fallback
+
+    if _dr_search:
+        _dr_resolved = resolve_company_to_ticker(_dr_search.strip()) or _dr_search.strip().upper()
+        _dr_current = st.session_state.dip_radar_current_ticker
+
+        # Gate: block ticker change if anonymous (unless it's the default GOOGL)
+        # or if free-tier user has exceeded their daily quota
+        if _dr_resolved != _dr_current:
+            if not gate_ticker_change(
+                _dr_resolved,
+                current_ticker=_dr_current,
+                default_ticker="GOOGL",
+                action_label="analyze other tickers",
+                page_key="dip_finder",
+            ):
+                # Gate UI already rendered by gate_ticker_change → stop here
+                st.stop()
+            # Allowed → update current ticker and rerun to refresh analysis
+            st.session_state.dip_radar_current_ticker = _dr_resolved
+            st.rerun()
+
+        _dr_active_ticker = _dr_resolved
+
+    # ── Try to auto-load user's portfolio (logged-in users with saved trades) ──
     _dr_portfolio_tickers = []
     try:
         if st.session_state.get("is_logged_in") and st.session_state.get("user_id"):
@@ -24811,107 +24903,106 @@ elif selected_page == "📡 Dip Radar":
     except Exception:
         _dr_portfolio_tickers = []
 
-    if _dr_portfolio_tickers:
-        st.markdown("#### 📂 My Portfolio")
-        render_dip_finder_page(_dr_portfolio_tickers, chart_title="My Portfolio")
-        st.markdown("---")
-    elif not st.session_state.get("dip_radar_watchlist"):
-        # No portfolio AND no watchlist → show GOOGL by default so anonymous
-        # users and brand-new accounts see real value immediately. The default
-        # always renders regardless of tier (viewing is free).
-        st.markdown("#### 🔍 Example: GOOGL Dip Analysis")
-        st.caption("*Default preview — sign up to analyze any ticker, or Ultimate for unlimited.*")
-        render_dip_finder_page(["GOOGL"], chart_title="GOOGL (default)")
-        st.markdown("---")
+    # ── Render the single-ticker analysis (always renders — this is the main view) ──
+    render_dip_finder_page([_dr_active_ticker], chart_title=f"{_dr_active_ticker} Dip Analysis")
 
-    # ── Add stocks section ──
-    st.markdown("#### ➕ Add Stocks to Watchlist")
-    _dr_add_col1, _dr_add_col2 = st.columns([3, 1])
-    with _dr_add_col1:
-        _dr_new_ticker = st.text_input(
-            "Ticker or company name:",
-            placeholder="e.g. AAPL or Apple",
-            key="dip_radar_add_ticker",
-        )
-    with _dr_add_col2:
-        st.write("")
-        _dr_add_btn = st.button("Add →", key="dip_radar_add_btn", use_container_width=True, type="primary")
+    # ── Advanced: multi-ticker watchlist (collapsed by default, Ultimate-only) ──
+    st.markdown("---")
+    _is_ult = get_user_tier() == "ultimate"
 
-    if _dr_add_btn and _dr_new_ticker:
-        _resolved = resolve_company_to_ticker(_dr_new_ticker.strip())
-        if _resolved:
-            # FREEMIUM GATE: GOOGL is the free default; any other ticker requires
-            # signup (anon) or burns 1/5 daily quota (free tier).
-            if not gate_ticker_change(_resolved, default_ticker="GOOGL",
-                                       action_label="analyze other tickers"):
-                st.stop()  # gate UI already rendered
-            if _resolved not in st.session_state.dip_radar_watchlist:
-                st.session_state.dip_radar_watchlist.append(_resolved)
-                if st.session_state.get("is_logged_in"):
-                    save_user_progress()
-                st.success(f"Added **{_resolved}** to watchlist")
+    with st.expander(f"📋 Build a multi-ticker watchlist" + (" (Ultimate)" if not _is_ult else ""),
+                     expanded=False):
+        if not _is_ult:
+            st.markdown("""
+            <div style="background:linear-gradient(135deg,#FFF8E1,#FFECB3);
+                        border:1px solid #FFD700;border-radius:10px;padding:14px 18px;margin:6px 0;">
+                <div style="font-size:14px;font-weight:700;color:#B8860B;">👑 Ultimate feature</div>
+                <div style="font-size:12px;color:#555;margin-top:4px;">
+                    Track dozens of stocks side-by-side, bulk-add tickers, and auto-import your paper portfolio.
+                    Upgrade to unlock — first month free.
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            if st.button("👑 Upgrade to Ultimate", key="dr_watchlist_upgrade",
+                         type="primary", use_container_width=True):
+                st.session_state.selected_page = "👑 Become a VIP"
                 st.rerun()
-            else:
-                st.warning(f"**{_resolved}** is already in your watchlist")
         else:
-            st.error(f"Could not find ticker: {_dr_new_ticker}")
+            # Ultimate users: full watchlist tools
+            if _dr_portfolio_tickers:
+                st.markdown("**📂 My Portfolio (auto-loaded from your paper trades)**")
+                render_dip_finder_page(_dr_portfolio_tickers, chart_title="My Portfolio")
+                st.markdown("---")
 
-    st.caption("Or paste multiple tickers at once (comma-separated):")
-    _dr_bulk = st.text_input(
-        "Bulk add:",
-        placeholder="e.g. AAPL, NVDA, TSLA, MSFT, GOOGL",
-        key="dip_radar_bulk_add",
-    )
-    if _dr_bulk:
-        # FREEMIUM GATE: bulk add is paid-only (too easy to burn quota otherwise)
-        if _is_anonymous():
-            _render_signup_gate(action_label="bulk-add tickers")
-            st.stop()
-        elif _is_free_tier():
-            _render_upgrade_gate("ticker_changes", FREE_TIER_LIMITS["ticker_changes"])
-            st.info("💡 Tip: free tier can still add tickers one at a time above.")
-            st.stop()
-        _dr_bulk_tickers = [t.strip().upper() for t in _dr_bulk.split(",") if t.strip()]
-        _dr_bulk_added = False
-        for _bt in _dr_bulk_tickers:
-            if _bt and _bt not in st.session_state.dip_radar_watchlist:
-                st.session_state.dip_radar_watchlist.append(_bt)
-                _dr_bulk_added = True
-        if _dr_bulk_added and st.session_state.get("is_logged_in"):
-            save_user_progress()
+            st.markdown("**➕ Add stocks to a custom watchlist**")
+            _dr_add_col1, _dr_add_col2 = st.columns([3, 1])
+            with _dr_add_col1:
+                _dr_new_ticker = st.text_input(
+                    "Ticker or company name:",
+                    placeholder="e.g. AAPL or Apple",
+                    key="dip_radar_add_ticker",
+                    label_visibility="collapsed",
+                )
+            with _dr_add_col2:
+                _dr_add_btn = st.button("Add →", key="dip_radar_add_btn",
+                                         use_container_width=True, type="primary")
 
-    # ── Show watchlist ──
-    if st.session_state.dip_radar_watchlist:
-        st.markdown("---")
-        st.markdown(f"#### 📡 Your Watchlist ({len(st.session_state.dip_radar_watchlist)} stocks)")
+            if _dr_add_btn and _dr_new_ticker:
+                _resolved = resolve_company_to_ticker(_dr_new_ticker.strip())
+                if _resolved:
+                    if _resolved not in st.session_state.dip_radar_watchlist:
+                        st.session_state.dip_radar_watchlist.append(_resolved)
+                        if st.session_state.get("is_logged_in"):
+                            save_user_progress()
+                        st.success(f"Added **{_resolved}** to watchlist")
+                        st.rerun()
+                    else:
+                        st.warning(f"**{_resolved}** is already in your watchlist")
+                else:
+                    st.error(f"Could not find ticker: {_dr_new_ticker}")
 
-        # Show tickers as removable pills
-        _dr_pill_cols = st.columns(min(len(st.session_state.dip_radar_watchlist), 8))
-        _dr_to_remove = None
-        for _idx, _tk in enumerate(st.session_state.dip_radar_watchlist):
-            with _dr_pill_cols[_idx % min(len(st.session_state.dip_radar_watchlist), 8)]:
-                if st.button(f"✕ {_tk}", key=f"dr_remove_{_tk}", use_container_width=True):
-                    _dr_to_remove = _tk
+            st.caption("Or paste multiple tickers at once (comma-separated):")
+            _dr_bulk = st.text_input(
+                "Bulk add:",
+                placeholder="e.g. AAPL, NVDA, TSLA, MSFT, GOOGL",
+                key="dip_radar_bulk_add",
+                label_visibility="collapsed",
+            )
+            if _dr_bulk:
+                _dr_bulk_tickers = [t.strip().upper() for t in _dr_bulk.split(",") if t.strip()]
+                _dr_bulk_added = False
+                for _bt in _dr_bulk_tickers:
+                    if _bt and _bt not in st.session_state.dip_radar_watchlist:
+                        st.session_state.dip_radar_watchlist.append(_bt)
+                        _dr_bulk_added = True
+                if _dr_bulk_added and st.session_state.get("is_logged_in"):
+                    save_user_progress()
 
-        if _dr_to_remove:
-            st.session_state.dip_radar_watchlist.remove(_dr_to_remove)
-            if st.session_state.get("is_logged_in"):
-                save_user_progress()
-            st.rerun()
+            # Show current watchlist
+            if st.session_state.dip_radar_watchlist:
+                st.markdown(f"**📡 Your Watchlist ({len(st.session_state.dip_radar_watchlist)} stocks)**")
+                _dr_pill_cols = st.columns(min(len(st.session_state.dip_radar_watchlist), 8))
+                _dr_to_remove = None
+                for _idx, _tk in enumerate(st.session_state.dip_radar_watchlist):
+                    with _dr_pill_cols[_idx % min(len(st.session_state.dip_radar_watchlist), 8)]:
+                        if st.button(f"✕ {_tk}", key=f"dr_remove_{_tk}", use_container_width=True):
+                            _dr_to_remove = _tk
+                if _dr_to_remove:
+                    st.session_state.dip_radar_watchlist.remove(_dr_to_remove)
+                    if st.session_state.get("is_logged_in"):
+                        save_user_progress()
+                    st.rerun()
 
-        render_dip_finder_page(st.session_state.dip_radar_watchlist, chart_title="Custom Watchlist")
+                render_dip_finder_page(st.session_state.dip_radar_watchlist,
+                                        chart_title="Custom Watchlist")
 
-        # Clear all button
-        if st.button("🗑️ Clear Watchlist", key="dip_radar_clear_all"):
-            st.session_state.dip_radar_watchlist = []
-            if st.session_state.get("is_logged_in"):
-                save_user_progress()
-            st.rerun()
+                if st.button("🗑️ Clear Watchlist", key="dip_radar_clear_all"):
+                    st.session_state.dip_radar_watchlist = []
+                    if st.session_state.get("is_logged_in"):
+                        save_user_progress()
+                    st.rerun()
 
-    if not _dr_portfolio_tickers and not st.session_state.dip_radar_watchlist and not _dr_bulk:
-        st.info("Add stocks above to see their DQ Score and dip quality analysis.")
-
-    # ── Save prompt for non-logged-in users ──
+    # ── Save prompt for non-logged-in users with a custom watchlist ──
     if not st.session_state.get("is_logged_in") and st.session_state.dip_radar_watchlist:
         st.markdown("---")
         st.markdown("""
