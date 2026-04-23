@@ -26440,8 +26440,10 @@ elif selected_page == "💼 Paper Portfolio":
                 # Find position
                 pos_to_sell = None
                 pos_index = None
+                normalized_ticker = str(ticker or '').strip().upper()
                 for i, pos in enumerate(portfolio):
-                    if pos['ticker'] == ticker:
+                    pos_ticker = str(pos.get('ticker', '') or '').strip().upper()
+                    if pos_ticker == normalized_ticker:
                         pos_to_sell = pos
                         pos_index = i
                         break
