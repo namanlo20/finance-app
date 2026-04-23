@@ -15944,18 +15944,18 @@ def render_news_price_explainer():
 
         if sentiment == "positive" or impact > 0:
             border_color = "#22c55e"
-            bg_color = "rgba(34,197,94,0.08)"
-            impact_color = "#166534"
+            bg_color = "rgba(34,197,94,0.06)"
+            impact_color = "#22c55e"
             arrow = "▲"
         elif sentiment == "negative" or impact < 0:
-            border_color = "#ef4444"
-            bg_color = "rgba(239,68,68,0.08)"
-            impact_color = "#991b1b"
+            border_color = "#FF4444"
+            bg_color = "rgba(255,68,68,0.06)"
+            impact_color = "#FF4444"
             arrow = "▼"
         else:
-            border_color = "#d1d5db"
-            bg_color = "#f8fafc"
-            impact_color = "#475569"
+            border_color = "rgba(255,255,255,0.15)"
+            bg_color = "rgba(255,255,255,0.03)"
+            impact_color = "rgba(255,255,255,0.5)"
             arrow = "→"
 
         st.markdown(f"""
@@ -15964,28 +15964,28 @@ def render_news_price_explainer():
 
             <div style='display:flex;justify-content:space-between;align-items:flex-start;gap:12px;'>
                 <div style='flex:1;'>
-                    <div style='font-size:11px;color:rgba(15,23,42,0.55);
+                    <div style='font-size:11px;color:rgba(255,255,255,0.4);
                     text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;'>
                         {icon} {cat.upper()} · {item.get("date","Recent")}
                     </div>
-                    <div style='font-size:16px;font-weight:600;line-height:1.4;color:#111827;'>
+                    <div style='font-size:16px;font-weight:600;line-height:1.4;'>
                         {item.get("headline","")}
                     </div>
                 </div>
                 <div style='text-align:center;flex-shrink:0;
-                background:rgba(255,255,255,0.72);border:1px solid rgba(15,23,42,0.08);border-radius:10px;padding:10px 16px;'>
-                    <div style='font-size:11px;color:rgba(15,23,42,0.55);'>Est. move</div>
+                background:rgba(255,255,255,0.06);border-radius:10px;padding:10px 16px;'>
+                    <div style='font-size:11px;color:rgba(255,255,255,0.4);'>Est. move</div>
                     <div style='font-size:22px;font-weight:800;color:{impact_color};'>
                         {arrow} {abs(impact):.1f}%</div>
                 </div>
             </div>
 
             <div style='margin-top:14px;padding:12px 16px;
-            background:rgba(255,255,255,0.65);border-radius:8px;
+            background:rgba(255,255,255,0.04);border-radius:8px;
             border-left:3px solid {border_color};'>
-                <span style='font-size:12px;color:rgba(15,23,42,0.55);
+                <span style='font-size:12px;color:rgba(255,255,255,0.5);
                 text-transform:uppercase;letter-spacing:.06em;'>Why it moved: </span>
-                <span style='font-size:14px;color:#111827;line-height:1.6;'>
+                <span style='font-size:14px;color:rgba(255,255,255,0.85);line-height:1.6;'>
                     {item.get("why_it_moved","")}
                 </span>
             </div>
@@ -26440,10 +26440,8 @@ elif selected_page == "💼 Paper Portfolio":
                 # Find position
                 pos_to_sell = None
                 pos_index = None
-                normalized_ticker = str(ticker or '').strip().upper()
                 for i, pos in enumerate(portfolio):
-                    pos_ticker = str(pos.get('ticker', '') or '').strip().upper()
-                    if pos_ticker == normalized_ticker:
+                    if pos['ticker'] == ticker:
                         pos_to_sell = pos
                         pos_index = i
                         break
