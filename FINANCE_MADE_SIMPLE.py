@@ -62,220 +62,6 @@ STARTING_CASH = float(os.environ.get("STARTING_CASH", "100000"))
 
 st.set_page_config(page_title="Investing Made Simple", layout="wide", page_icon="💰")
 
-# ============= BLOOMBERG TERMINAL THEME =============
-# Global CSS: JetBrains Mono, neon green/amber on near-black.
-# Font @import inside the <style> block (not a separate <link>, which Streamlit was rendering as text)
-st.markdown("""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
-
-:root {
-  --term-bg: #0a0e0a;
-  --term-bg-alt: #101510;
-  --term-panel: #0d1410;
-  --term-border: #1a3a1a;
-  --term-green: #00ff41;
-  --term-green-dim: #00c933;
-  --term-amber: #ffb000;
-  --term-amber-dim: #cc8c00;
-  --term-red: #ff3333;
-  --term-cyan: #00d9d9;
-  --term-text: #c8e6c8;
-  --term-text-dim: #6a8a6a;
-  --term-mono: 'JetBrains Mono', 'IBM Plex Mono', 'Courier New', monospace;
-}
-
-html, body, [class*="stApp"], .main, .block-container {
-  background: var(--term-bg) !important;
-  color: var(--term-text) !important;
-  font-family: var(--term-mono) !important;
-}
-
-h1, h2, h3, h4, h5, h6 {
-  font-family: var(--term-mono) !important;
-  color: var(--term-green) !important;
-  text-shadow: 0 0 8px rgba(0, 255, 65, 0.3) !important;
-  letter-spacing: 0.02em !important;
-  font-weight: 700 !important;
-}
-h1 { font-size: 2rem !important; }
-h2 { color: var(--term-amber) !important; text-shadow: 0 0 6px rgba(255, 176, 0, 0.25) !important; }
-
-p, span, div, li, label, .stMarkdown {
-  font-family: var(--term-mono) !important;
-}
-
-section[data-testid="stSidebar"] {
-  background: var(--term-bg-alt) !important;
-  border-right: 1px solid var(--term-border) !important;
-}
-section[data-testid="stSidebar"] * {
-  font-family: var(--term-mono) !important;
-}
-
-.stApp::before {
-  content: "";
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: repeating-linear-gradient(
-    0deg,
-    rgba(0, 255, 65, 0.015) 0px,
-    rgba(0, 255, 65, 0.015) 1px,
-    transparent 1px,
-    transparent 3px
-  );
-  pointer-events: none;
-  z-index: 9999;
-}
-
-.stTextInput input, .stNumberInput input, .stTextArea textarea, .stSelectbox div[data-baseweb="select"] > div {
-  background: var(--term-panel) !important;
-  color: var(--term-green) !important;
-  border: 1px solid var(--term-border) !important;
-  border-radius: 2px !important;
-  font-family: var(--term-mono) !important;
-  font-weight: 500 !important;
-}
-.stTextInput input:focus, .stNumberInput input:focus, .stTextArea textarea:focus {
-  border-color: var(--term-green) !important;
-  box-shadow: 0 0 8px rgba(0, 255, 65, 0.4) !important;
-  outline: none !important;
-}
-
-.stButton > button {
-  font-family: var(--term-mono) !important;
-  font-weight: 700 !important;
-  letter-spacing: 0.05em !important;
-  text-transform: uppercase !important;
-  border-radius: 2px !important;
-  border: 1px solid var(--term-green) !important;
-  background: transparent !important;
-  color: var(--term-green) !important;
-  transition: all 0.15s !important;
-}
-.stButton > button:hover {
-  background: var(--term-green) !important;
-  color: var(--term-bg) !important;
-  box-shadow: 0 0 12px rgba(0, 255, 65, 0.6) !important;
-}
-.stButton > button[kind="primary"] {
-  background: var(--term-amber) !important;
-  color: var(--term-bg) !important;
-  border-color: var(--term-amber) !important;
-}
-.stButton > button[kind="primary"]:hover {
-  background: var(--term-amber-dim) !important;
-  box-shadow: 0 0 12px rgba(255, 176, 0, 0.6) !important;
-}
-
-[data-testid="stMetricValue"] {
-  font-family: var(--term-mono) !important;
-  color: var(--term-amber) !important;
-  text-shadow: 0 0 6px rgba(255, 176, 0, 0.3) !important;
-  font-weight: 700 !important;
-}
-[data-testid="stMetricLabel"] {
-  font-family: var(--term-mono) !important;
-  color: var(--term-text-dim) !important;
-  text-transform: uppercase !important;
-  letter-spacing: 0.08em !important;
-  font-size: 0.75rem !important;
-}
-[data-testid="stMetricDelta"] {
-  font-family: var(--term-mono) !important;
-}
-
-.stTabs [data-baseweb="tab-list"] {
-  background: var(--term-panel) !important;
-  border-bottom: 1px solid var(--term-border) !important;
-  gap: 0 !important;
-}
-.stTabs [data-baseweb="tab"] {
-  font-family: var(--term-mono) !important;
-  text-transform: uppercase !important;
-  letter-spacing: 0.05em !important;
-  color: var(--term-text-dim) !important;
-  border-radius: 0 !important;
-}
-.stTabs [aria-selected="true"] {
-  color: var(--term-green) !important;
-  border-bottom: 2px solid var(--term-green) !important;
-  background: rgba(0, 255, 65, 0.05) !important;
-}
-
-[data-testid="stDataFrame"], .dataframe {
-  font-family: var(--term-mono) !important;
-  background: var(--term-panel) !important;
-  border: 1px solid var(--term-border) !important;
-}
-
-[data-testid="stAlert"] {
-  font-family: var(--term-mono) !important;
-  border-radius: 2px !important;
-  border-left-width: 3px !important;
-}
-
-.streamlit-expanderHeader {
-  font-family: var(--term-mono) !important;
-  background: var(--term-panel) !important;
-  border: 1px solid var(--term-border) !important;
-  color: var(--term-green) !important;
-  text-transform: uppercase !important;
-  letter-spacing: 0.05em !important;
-}
-
-.stCaption, [data-testid="stCaptionContainer"] {
-  font-family: var(--term-mono) !important;
-  color: var(--term-text-dim) !important;
-  font-size: 0.8rem !important;
-}
-
-code, pre {
-  font-family: var(--term-mono) !important;
-  background: var(--term-panel) !important;
-  color: var(--term-amber) !important;
-  border: 1px solid var(--term-border) !important;
-  border-radius: 2px !important;
-}
-
-.stRadio label, .stCheckbox label {
-  font-family: var(--term-mono) !important;
-  color: var(--term-text) !important;
-}
-
-.stSlider [data-baseweb="slider"] {
-  color: var(--term-green) !important;
-}
-
-a { color: var(--term-cyan) !important; }
-a:hover { color: var(--term-green) !important; text-shadow: 0 0 4px rgba(0, 255, 65, 0.5) !important; }
-
-hr {
-  border-color: var(--term-border) !important;
-  border-style: dashed !important;
-}
-
-strong, b { color: var(--term-amber) !important; font-weight: 700 !important; }
-
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: var(--term-bg); }
-::-webkit-scrollbar-thumb { background: var(--term-border); border-radius: 0; }
-::-webkit-scrollbar-thumb:hover { background: var(--term-green-dim); }
-
-h1::after {
-  content: "_";
-  color: var(--term-green);
-  animation: term-blink 1s step-end infinite;
-  margin-left: 6px;
-}
-@keyframes term-blink {
-  0%, 50% { opacity: 1; }
-  51%, 100% { opacity: 0; }
-}
-</style>
-""", unsafe_allow_html=True)
-# ============= END TERMINAL THEME =============
-
 # ============= SECURITY UTILITIES =============
 import re as _re
 def sanitize_ticker(ticker: str) -> str:
@@ -5302,82 +5088,6 @@ _UNIFIED_LINE_COLORS = [
 ]
 
 
-def render_growth_calculator(key_suffix="default", default_old=100.0, default_new=120.0):
-    """
-    Terminal-style % growth calculator — drops next to any chart.
-    Plug in old & new values, get absolute change + % change + CAGR (if periods > 1).
-    Uses unique widget keys so it can be embedded multiple times on the same page.
-    """
-    st.markdown(
-        """<div style="background:#0d1410;border:1px solid #1a3a1a;border-left:3px solid #00ff41;border-radius:2px;padding:14px 16px;margin-bottom:8px;">
-<div style="font-family:'JetBrains Mono',monospace;color:#00ff41;font-size:12px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px;">▸ GROWTH CALC</div>
-<div style="font-family:'JetBrains Mono',monospace;color:#6a8a6a;font-size:11px;">Plug in two values. Get % change + CAGR.</div>
-</div>""",
-        unsafe_allow_html=True,
-    )
-
-    _old = st.number_input(
-        "OLD VALUE",
-        value=float(default_old),
-        step=1.0,
-        format="%.4f",
-        key=f"gc_old_{key_suffix}",
-    )
-    _new = st.number_input(
-        "NEW VALUE",
-        value=float(default_new),
-        step=1.0,
-        format="%.4f",
-        key=f"gc_new_{key_suffix}",
-    )
-    _periods = st.number_input(
-        "# PERIODS (for CAGR)",
-        value=1,
-        min_value=1,
-        max_value=100,
-        step=1,
-        key=f"gc_periods_{key_suffix}",
-        help="Number of years/quarters between OLD and NEW. Used for CAGR only.",
-    )
-
-    # Compute
-    try:
-        _abs = _new - _old
-        _pct = ((_new - _old) / _old * 100.0) if _old not in (0, 0.0) else None
-        _cagr = None
-        if _old > 0 and _new > 0 and _periods >= 1:
-            _cagr = ((_new / _old) ** (1.0 / _periods) - 1.0) * 100.0
-    except Exception:
-        _abs, _pct, _cagr = None, None, None
-
-    # Output — terminal readout
-    _pct_color = "#00ff41" if (_pct is not None and _pct >= 0) else "#ff3333"
-    _pct_sign = "+" if (_pct is not None and _pct >= 0) else ""
-    _abs_sign = "+" if (_abs is not None and _abs >= 0) else ""
-
-    _pct_txt = f"{_pct_sign}{_pct:,.2f}%" if _pct is not None else "—"
-    _abs_txt = f"{_abs_sign}{_abs:,.4f}" if _abs is not None else "—"
-    _cagr_txt = f"{'+' if _cagr and _cagr >= 0 else ''}{_cagr:,.2f}%" if _cagr is not None else "N/A"
-
-    st.markdown(
-        f"""<div style="background:#0a0e0a;border:1px solid #1a3a1a;border-radius:2px;padding:14px 16px;margin-top:8px;font-family:'JetBrains Mono',monospace;">
-<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed #1a3a1a;">
-<span style="color:#6a8a6a;font-size:11px;letter-spacing:0.1em;">Δ ABSOLUTE</span>
-<span style="color:#ffb000;font-weight:700;font-size:14px;">{_abs_txt}</span>
-</div>
-<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed #1a3a1a;">
-<span style="color:#6a8a6a;font-size:11px;letter-spacing:0.1em;">Δ PERCENT</span>
-<span style="color:{_pct_color};font-weight:700;font-size:16px;text-shadow:0 0 6px {_pct_color}55;">{_pct_txt}</span>
-</div>
-<div style="display:flex;justify-content:space-between;padding:6px 0 2px 0;">
-<span style="color:#6a8a6a;font-size:11px;letter-spacing:0.1em;">CAGR ({_periods}P)</span>
-<span style="color:#00d9d9;font-weight:700;font-size:14px;">{_cagr_txt}</span>
-</div>
-</div>""",
-        unsafe_allow_html=True,
-    )
-
-
 def create_unified_ratio_chart(df, selected_items, company_name, sector=None, df2=None, company_name2=None):
     """
     Dark-themed grouped bar chart for financial ratios over time.
@@ -5398,9 +5108,6 @@ def create_unified_ratio_chart(df, selected_items, company_name, sector=None, df
     # Colors for ticker 1 and ticker 2
     T1_COLORS = ['#00E5FF', '#FFD700', '#BF5FFF', '#00FF96', '#FF6B6B', '#FF9500', '#7C83FD', '#50FA7B']
     T2_COLORS = ['#FF6B6B', '#FF9500', '#7C83FD', '#50FA7B', '#00E5FF', '#FFD700', '#BF5FFF', '#E040FB']
-    # Neon highlight for LATEST (most-recent) bar — signals it's the freshly-reported period
-    LATEST_HIGHLIGHT = '#FF00AA'  # neon magenta — pops against any base color
-    LATEST_HIGHLIGHT_T2 = '#FFD000'  # amber for ticker 2's latest
 
     df_sorted = df.sort_values('date').reset_index(drop=True)
     has_t2 = df2 is not None and not df2.empty and company_name2
@@ -5423,19 +5130,13 @@ def create_unified_ratio_chart(df, selected_items, company_name, sector=None, df
         plot_values = col_data * multiplier
         color = T1_COLORS[added % len(T1_COLORS)]
 
-        # Build per-bar color list: all base, last bar gets neon highlight
-        n_bars = len(plot_values)
-        bar_colors = [color] * n_bars
-        if n_bars > 0:
-            bar_colors[-1] = LATEST_HIGHLIGHT
-
         # Ticker 1 bars
         label_1 = f'{display_name} ({company_name})' if has_t2 else display_name
         fig.add_trace(go.Bar(
             x=df_sorted['date'],
             y=plot_values,
             name=label_1,
-            marker=dict(color=bar_colors, opacity=0.85, line=dict(width=0)),
+            marker=dict(color=color, opacity=0.85, line=dict(width=0)),
             hovertemplate=f'<b>{label_1}</b>: %{{y:.2f}}{y_suffix}<extra></extra>',
         ))
 
@@ -5445,17 +5146,12 @@ def create_unified_ratio_chart(df, selected_items, company_name, sector=None, df
             if not col_data2.isna().all():
                 plot_values2 = col_data2 * multiplier
                 color2 = T2_COLORS[added % len(T2_COLORS)]
-                # Highlight latest bar for ticker 2 too
-                n_bars2 = len(plot_values2)
-                bar_colors2 = [color2] * n_bars2
-                if n_bars2 > 0:
-                    bar_colors2[-1] = LATEST_HIGHLIGHT_T2
                 label_2 = f'{display_name} ({company_name2})'
                 fig.add_trace(go.Bar(
                     x=df2_sorted['date'],
                     y=plot_values2,
                     name=label_2,
-                    marker=dict(color=bar_colors2, opacity=0.70, line=dict(width=0)),
+                    marker=dict(color=color2, opacity=0.70, line=dict(width=0)),
                     hovertemplate=f'<b>{label_2}</b>: %{{y:.2f}}{y_suffix}<extra></extra>',
                 ))
 
