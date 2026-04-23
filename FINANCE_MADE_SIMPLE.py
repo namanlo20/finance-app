@@ -25020,32 +25020,27 @@ elif selected_page == "📡 Dip Radar":
 
 elif selected_page == "👑 Ultimate":
 
-    # ── HARD PAYWALL: Free users see upgrade CTA, nothing else ─────────────
+    # ── HARD PAYWALL: Free users see TradingView chart preview + technicals list, but no analysis ─────────────
     if get_user_tier() == "free":
+        # Header paywall card
         st.markdown("""
         <div style="background:linear-gradient(135deg,#FFF8E1 0%,#FFECB3 100%);
                     border:3px solid #FFD700; border-radius:16px;
-                    padding:44px 32px; text-align:center; margin:40px auto; max-width:720px;
+                    padding:28px 32px; text-align:center; margin:12px auto 20px auto; max-width:900px;
                     box-shadow:0 4px 20px rgba(255,215,0,0.25);">
-            <div style="font-size:56px; margin-bottom:8px;">👑</div>
-            <h1 style="color:#B8860B; margin:0 0 8px 0; font-size:32px;">Ultimate is a Premium Feature</h1>
-            <p style="color:#555; font-size:16px; margin:0 0 20px 0;">
+            <div style="font-size:44px; margin-bottom:4px;">👑</div>
+            <h1 style="color:#B8860B; margin:0 0 8px 0; font-size:28px;">Ultimate is a Premium Feature</h1>
+            <p style="color:#555; font-size:15px; margin:0 0 14px 0;">
                 AI Signal Dashboard, fact-locked Deep Dive, scenario analysis, visual key levels, and trader alerts — all in one place.
             </p>
             <div style="background:#E8F5E9; border:1px solid #A5D6A7; border-radius:10px;
-                        padding:14px 18px; margin:18px auto; max-width:440px;">
-                <div style="color:#2E7D32; font-weight:700; font-size:18px;">🎉 First month FREE</div>
-                <div style="color:#555; font-size:13px; margin-top:4px;">then $10/month · cancel anytime</div>
+                        padding:10px 14px; margin:10px auto; max-width:380px;">
+                <div style="color:#2E7D32; font-weight:700; font-size:16px;">🎉 First month FREE</div>
+                <div style="color:#555; font-size:12px; margin-top:2px;">then $10/month · cancel anytime</div>
             </div>
-            <ul style="text-align:left; max-width:440px; margin:20px auto; color:#333; font-size:14px; line-height:1.9;">
-                <li>📊 Signal Dashboard — momentum, trend, volume, setup quality</li>
-                <li>🤖 AI Deep Dive — bull vs bear case, fact-locked to live data</li>
-                <li>🎯 Visual key levels — entry, stop, targets drawn on the chart</li>
-                <li>🚨 Trader alerts — RSI extremes, breakouts, gap events</li>
-                <li>🎲 Scenario analysis — bull / base / bear probabilities</li>
-            </ul>
         </div>
         """, unsafe_allow_html=True)
+
         _ucol1, _ucol2, _ucol3 = st.columns([1, 2, 1])
         with _ucol2:
             if st.button("👑 Unlock Ultimate — First Month Free", key="ult_paywall_cta",
@@ -25053,6 +25048,105 @@ elif selected_page == "👑 Ultimate":
                 st.session_state.selected_page = "👑 Become a VIP"
                 st.rerun()
             st.caption("🔒 Secured by Stripe · No charge for 30 days")
+
+        st.markdown("---")
+
+        # ── PREVIEW: Ticker input + TradingView chart (view-only, no analysis) ─────
+        st.markdown("### 👀 Preview the Chart")
+        st.caption("See the TradingView chart for any stock. To run analysis, signal dashboard, AI Deep Dive, or trader alerts — unlock Ultimate above.")
+
+        _preview_ticker = st.text_input(
+            "Enter a ticker to view the chart",
+            value=st.session_state.get("ult_preview_ticker", "AAPL"),
+            key="ult_preview_ticker_input",
+            placeholder="AAPL, TSLA, NVDA...",
+        ).strip().upper()
+
+        if _preview_ticker:
+            st.session_state.ult_preview_ticker = _preview_ticker
+
+            # TradingView advanced chart embed (read-only, full TradingView look & feel)
+            _tv_html = f"""
+            <div style="border-radius:12px; overflow:hidden; border:1px solid rgba(255,255,255,0.1); background:#131722;">
+              <div class="tradingview-widget-container" style="height:560px;width:100%;">
+                <div id="tradingview_{_preview_ticker}" style="height:560px;width:100%;"></div>
+                <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+                <script type="text/javascript">
+                new TradingView.widget({{
+                  "autosize": true,
+                  "symbol": "{_preview_ticker}",
+                  "interval": "D",
+                  "timezone": "America/New_York",
+                  "theme": "dark",
+                  "style": "1",
+                  "locale": "en",
+                  "toolbar_bg": "#131722",
+                  "enable_publishing": false,
+                  "withdateranges": true,
+                  "hide_side_toolbar": false,
+                  "allow_symbol_change": true,
+                  "studies": [
+                    "MASimple@tv-basicstudies",
+                    "RSI@tv-basicstudies",
+                    "MACD@tv-basicstudies",
+                    "Volume@tv-basicstudies"
+                  ],
+                  "container_id": "tradingview_{_preview_ticker}"
+                }});
+                </script>
+              </div>
+            </div>
+            """
+            import streamlit.components.v1 as _tv_components
+            _tv_components.html(_tv_html, height=580, scrolling=False)
+
+            st.caption(f"📊 Viewing **{_preview_ticker}** on TradingView · Daily candles with SMA, RSI, MACD, Volume")
+
+        st.markdown("---")
+
+        # ── What Ultimate analyzes (list of signals / technicals) ──────────────────
+        st.markdown("### 🔬 What Ultimate Analyzes")
+        st.caption("Here's what the full Ultimate engine runs on this ticker once you unlock it:")
+
+        _tech_rows = [
+            ("📈", "Trend — SMA 20 / 50 / 200", "Golden / death cross detection, price vs moving averages, trend strength score."),
+            ("⚡", "Momentum — RSI (14)", "Overbought >70 / oversold <30 flags, bullish & bearish divergences vs price."),
+            ("🌊", "MACD — 12/26/9", "Bullish/bearish crossovers, histogram expansion, signal-line momentum."),
+            ("📊", "Volume Profile", "Volume vs 20-day average, accumulation / distribution spikes, breakout volume confirmation."),
+            ("🎯", "Key Price Levels", "Swing highs / lows, recent support & resistance, 52-week high/low, pivot points."),
+            ("🕯️", "Candlestick Patterns", "Engulfing, doji, hammer, shooting star, inside bars — with context-weighted reliability."),
+            ("🚨", "Trader Alerts", "RSI extremes, gap ups / downs, breakouts above resistance, breakdowns below support."),
+            ("🤖", "AI Deep Dive", "Bull vs Bear case built from live fundamentals, earnings, and news — fact-locked, no hallucinations."),
+            ("🎲", "Scenario Analysis", "Bull / Base / Bear price targets with probabilities and 3-month time horizon."),
+            ("🏆", "Setup Quality Score", "Composite 0–100 grade combining all signals into one verdict: BULLISH / NEUTRAL / BEARISH."),
+        ]
+
+        for _icon, _name, _desc in _tech_rows:
+            st.markdown(
+                f"""<div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-left:3px solid #FFD700; border-radius:10px; padding:12px 16px; margin-bottom:8px;">
+<div style="display:flex; align-items:flex-start; gap:12px;">
+<div style="font-size:22px; flex-shrink:0;">{_icon}</div>
+<div style="flex:1;">
+<div style="font-weight:700; font-size:15px; margin-bottom:2px;">{_name}</div>
+<div style="font-size:13px; color:rgba(255,255,255,0.65); line-height:1.5;">{_desc}</div>
+</div>
+<div style="flex-shrink:0; background:rgba(255,215,0,0.15); border:1px solid rgba(255,215,0,0.4); color:#FFD700; font-size:11px; font-weight:700; padding:4px 10px; border-radius:12px; align-self:center;">🔒 LOCKED</div>
+</div>
+</div>""",
+                unsafe_allow_html=True,
+            )
+
+        st.markdown("---")
+
+        # Final CTA
+        _fcol1, _fcol2, _fcol3 = st.columns([1, 2, 1])
+        with _fcol2:
+            if st.button("👑 Unlock Ultimate — First Month Free", key="ult_paywall_cta_bottom",
+                         type="primary", use_container_width=True):
+                st.session_state.selected_page = "👑 Become a VIP"
+                st.rerun()
+            st.caption("🔒 Secured by Stripe · No charge for 30 days · Cancel anytime")
+
         st.stop()
 
     # ============= ULTIMATE TAB — COMPLETE REBUILD =============
