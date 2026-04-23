@@ -62,6 +62,239 @@ STARTING_CASH = float(os.environ.get("STARTING_CASH", "100000"))
 
 st.set_page_config(page_title="Investing Made Simple", layout="wide", page_icon="💰")
 
+# ============= BLOOMBERG TERMINAL THEME =============
+# Global CSS: JetBrains Mono, neon green/amber on near-black. Applied site-wide.
+st.markdown("""
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --term-bg: #0a0e0a;
+  --term-bg-alt: #101510;
+  --term-panel: #0d1410;
+  --term-border: #1a3a1a;
+  --term-green: #00ff41;
+  --term-green-dim: #00c933;
+  --term-amber: #ffb000;
+  --term-amber-dim: #cc8c00;
+  --term-red: #ff3333;
+  --term-cyan: #00d9d9;
+  --term-text: #c8e6c8;
+  --term-text-dim: #6a8a6a;
+  --term-mono: 'JetBrains Mono', 'IBM Plex Mono', 'Courier New', monospace;
+}
+
+/* Global body + Streamlit container */
+html, body, [class*="stApp"], .main, .block-container {
+  background: var(--term-bg) !important;
+  color: var(--term-text) !important;
+  font-family: var(--term-mono) !important;
+}
+
+/* Headers — neon green with amber accents, slight CRT glow */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--term-mono) !important;
+  color: var(--term-green) !important;
+  text-shadow: 0 0 8px rgba(0, 255, 65, 0.3) !important;
+  letter-spacing: 0.02em !important;
+  font-weight: 700 !important;
+}
+h1 { font-size: 2rem !important; }
+h2 { color: var(--term-amber) !important; text-shadow: 0 0 6px rgba(255, 176, 0, 0.25) !important; }
+
+/* Body text */
+p, span, div, li, label, .stMarkdown {
+  font-family: var(--term-mono) !important;
+}
+
+/* Sidebar */
+section[data-testid="stSidebar"] {
+  background: var(--term-bg-alt) !important;
+  border-right: 1px solid var(--term-border) !important;
+}
+section[data-testid="stSidebar"] * {
+  font-family: var(--term-mono) !important;
+}
+
+/* Scan-line overlay for CRT effect (very subtle) */
+.stApp::before {
+  content: "";
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 255, 65, 0.015) 0px,
+    rgba(0, 255, 65, 0.015) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* Inputs — terminal style */
+.stTextInput input, .stNumberInput input, .stTextArea textarea, .stSelectbox div[data-baseweb="select"] > div {
+  background: var(--term-panel) !important;
+  color: var(--term-green) !important;
+  border: 1px solid var(--term-border) !important;
+  border-radius: 2px !important;
+  font-family: var(--term-mono) !important;
+  font-weight: 500 !important;
+}
+.stTextInput input:focus, .stNumberInput input:focus, .stTextArea textarea:focus {
+  border-color: var(--term-green) !important;
+  box-shadow: 0 0 8px rgba(0, 255, 65, 0.4) !important;
+  outline: none !important;
+}
+
+/* Buttons — amber primary, green secondary, sharp corners */
+.stButton > button {
+  font-family: var(--term-mono) !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.05em !important;
+  text-transform: uppercase !important;
+  border-radius: 2px !important;
+  border: 1px solid var(--term-green) !important;
+  background: transparent !important;
+  color: var(--term-green) !important;
+  transition: all 0.15s !important;
+}
+.stButton > button:hover {
+  background: var(--term-green) !important;
+  color: var(--term-bg) !important;
+  box-shadow: 0 0 12px rgba(0, 255, 65, 0.6) !important;
+}
+.stButton > button[kind="primary"] {
+  background: var(--term-amber) !important;
+  color: var(--term-bg) !important;
+  border-color: var(--term-amber) !important;
+}
+.stButton > button[kind="primary"]:hover {
+  background: var(--term-amber-dim) !important;
+  box-shadow: 0 0 12px rgba(255, 176, 0, 0.6) !important;
+}
+
+/* Metrics — terminal readout style */
+[data-testid="stMetricValue"] {
+  font-family: var(--term-mono) !important;
+  color: var(--term-amber) !important;
+  text-shadow: 0 0 6px rgba(255, 176, 0, 0.3) !important;
+  font-weight: 700 !important;
+}
+[data-testid="stMetricLabel"] {
+  font-family: var(--term-mono) !important;
+  color: var(--term-text-dim) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.08em !important;
+  font-size: 0.75rem !important;
+}
+[data-testid="stMetricDelta"] {
+  font-family: var(--term-mono) !important;
+}
+
+/* Tabs — terminal pane style */
+.stTabs [data-baseweb="tab-list"] {
+  background: var(--term-panel) !important;
+  border-bottom: 1px solid var(--term-border) !important;
+  gap: 0 !important;
+}
+.stTabs [data-baseweb="tab"] {
+  font-family: var(--term-mono) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  color: var(--term-text-dim) !important;
+  border-radius: 0 !important;
+}
+.stTabs [aria-selected="true"] {
+  color: var(--term-green) !important;
+  border-bottom: 2px solid var(--term-green) !important;
+  background: rgba(0, 255, 65, 0.05) !important;
+}
+
+/* Dataframes / tables */
+[data-testid="stDataFrame"], .dataframe {
+  font-family: var(--term-mono) !important;
+  background: var(--term-panel) !important;
+  border: 1px solid var(--term-border) !important;
+}
+
+/* Alerts */
+[data-testid="stAlert"] {
+  font-family: var(--term-mono) !important;
+  border-radius: 2px !important;
+  border-left-width: 3px !important;
+}
+
+/* Expander */
+.streamlit-expanderHeader {
+  font-family: var(--term-mono) !important;
+  background: var(--term-panel) !important;
+  border: 1px solid var(--term-border) !important;
+  color: var(--term-green) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+}
+
+/* Captions and small text */
+.stCaption, [data-testid="stCaptionContainer"] {
+  font-family: var(--term-mono) !important;
+  color: var(--term-text-dim) !important;
+  font-size: 0.8rem !important;
+}
+
+/* Code blocks — already mono but make terminal-colored */
+code, pre {
+  font-family: var(--term-mono) !important;
+  background: var(--term-panel) !important;
+  color: var(--term-amber) !important;
+  border: 1px solid var(--term-border) !important;
+  border-radius: 2px !important;
+}
+
+/* Radio / checkbox labels */
+.stRadio label, .stCheckbox label {
+  font-family: var(--term-mono) !important;
+  color: var(--term-text) !important;
+}
+
+/* Slider */
+.stSlider [data-baseweb="slider"] {
+  color: var(--term-green) !important;
+}
+
+/* Links */
+a { color: var(--term-cyan) !important; }
+a:hover { color: var(--term-green) !important; text-shadow: 0 0 4px rgba(0, 255, 65, 0.5) !important; }
+
+/* Dividers */
+hr {
+  border-color: var(--term-border) !important;
+  border-style: dashed !important;
+}
+
+/* Strong / bold — amber pops */
+strong, b { color: var(--term-amber) !important; font-weight: 700 !important; }
+
+/* Scrollbar — terminal style */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--term-bg); }
+::-webkit-scrollbar-thumb { background: var(--term-border); border-radius: 0; }
+::-webkit-scrollbar-thumb:hover { background: var(--term-green-dim); }
+
+/* Blinking cursor effect on h1 (optional flair) */
+h1::after {
+  content: "_";
+  color: var(--term-green);
+  animation: term-blink 1s step-end infinite;
+  margin-left: 6px;
+}
+@keyframes term-blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+</style>
+""", unsafe_allow_html=True)
+# ============= END TERMINAL THEME =============
+
 # ============= SECURITY UTILITIES =============
 import re as _re
 def sanitize_ticker(ticker: str) -> str:
