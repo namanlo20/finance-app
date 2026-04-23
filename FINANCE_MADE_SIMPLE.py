@@ -9407,12 +9407,22 @@ def render_ai_chatbot():
     # Add logo and prominent button in sidebar
     with st.sidebar:
         # LOGO at top of sidebar - CENTERED
-        try:
-            col_logo1, col_logo2, col_logo3 = st.columns([1, 3, 1])
-            with col_logo2:
-                st.image("logo.png", width=150)
-        except Exception:
-            st.markdown('<div style="font-weight:700; color:#FF4444; font-size:1.1rem; margin-bottom:10px; text-align:center;">📈 STOCKINVESTING.AI</div>', unsafe_allow_html=True)
+        import os as _os_logo
+        _logo_candidates = ["logo.png", "./logo.png", "assets/logo.png", "static/logo.png"]
+        _logo_found = None
+        for _lp in _logo_candidates:
+            if _os_logo.path.exists(_lp):
+                _logo_found = _lp
+                break
+        if _logo_found:
+            try:
+                col_logo1, col_logo2, col_logo3 = st.columns([1, 3, 1])
+                with col_logo2:
+                    st.image(_logo_found, width=150)
+            except Exception:
+                st.markdown('<div style="font-weight:700; color:#FF4444; font-size:1.1rem; margin-bottom:10px; text-align:center;">📈 STOCKINVESTING.AI</div>', unsafe_allow_html=True)
+        else:
+            st.markdown('<div style="font-weight:700; color:#FF4444; font-size:1.3rem; margin-bottom:10px; text-align:center; padding:10px 0;">📈 STOCKINVESTING<span style="color:#FFA500;">.AI</span></div>', unsafe_allow_html=True)
         
         st.markdown("---")
         # AI Assistant button - FREE FOR ALL - BOLD, GLOWING, ATTENTION-GRABBING
@@ -15959,9 +15969,7 @@ def render_news_price_explainer():
             arrow = "→"
 
         st.markdown(f"""
-        <div style='background:{bg_color};border:1px solid {border_color};
-        border-radius:14px;padding:20px 24px;margin-bottom:14px;'>
-
+        <div style='background:{bg_color};border:1px solid {border_color};border-radius:14px;padding:20px 24px;margin-bottom:14px;'>
             <div style='display:flex;justify-content:space-between;align-items:flex-start;gap:12px;'>
                 <div style='flex:1;'>
                     <div style='font-size:11px;color:rgba(255,255,255,0.4);
