@@ -15969,37 +15969,25 @@ def render_news_price_explainer():
             impact_color = "rgba(255,255,255,0.5)"
             arrow = "→"
 
-        st.markdown(f"""
-        <div style='background:{bg_color};border:1px solid {border_color};border-radius:14px;padding:20px 24px;margin-bottom:14px;'>
-            <div style='display:flex;justify-content:space-between;align-items:flex-start;gap:12px;'>
-                <div style='flex:1;'>
-                    <div style='font-size:11px;color:rgba(255,255,255,0.4);
-                    text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;'>
-                        {icon} {cat.upper()} · {item.get("date","Recent")}
-                    </div>
-                    <div style='font-size:16px;font-weight:600;line-height:1.4;'>
-                        {item.get("headline","")}
-                    </div>
-                </div>
-                <div style='text-align:center;flex-shrink:0;
-                background:rgba(255,255,255,0.06);border-radius:10px;padding:10px 16px;'>
-                    <div style='font-size:11px;color:rgba(255,255,255,0.4);'>Est. move</div>
-                    <div style='font-size:22px;font-weight:800;color:{impact_color};'>
-                        {arrow} {abs(impact):.1f}%</div>
-                </div>
-            </div>
-
-            <div style='margin-top:14px;padding:12px 16px;
-            background:rgba(255,255,255,0.04);border-radius:8px;
-            border-left:3px solid {border_color};'>
-                <span style='font-size:12px;color:rgba(255,255,255,0.5);
-                text-transform:uppercase;letter-spacing:.06em;'>Why it moved: </span>
-                <span style='font-size:14px;color:rgba(255,255,255,0.85);line-height:1.6;'>
-                    {item.get("why_it_moved","")}
-                </span>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(
+            f"""<div style="background:{bg_color};border:1px solid {border_color};border-radius:14px;padding:20px 24px;margin-bottom:14px;">
+<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+<div style="flex:1;">
+<div style="font-size:11px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;">{icon} {cat.upper()} · {item.get("date","Recent")}</div>
+<div style="font-size:16px;font-weight:600;line-height:1.4;">{item.get("headline","")}</div>
+</div>
+<div style="text-align:center;flex-shrink:0;background:rgba(255,255,255,0.06);border-radius:10px;padding:10px 16px;">
+<div style="font-size:11px;color:rgba(255,255,255,0.4);">Est. move</div>
+<div style="font-size:22px;font-weight:800;color:{impact_color};">{arrow} {abs(impact):.1f}%</div>
+</div>
+</div>
+<div style="margin-top:14px;padding:12px 16px;background:rgba(255,255,255,0.04);border-radius:8px;border-left:3px solid {border_color};">
+<span style="font-size:12px;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:.06em;">Why it moved: </span>
+<span style="font-size:14px;color:rgba(255,255,255,0.85);line-height:1.6;">{item.get("why_it_moved","")}</span>
+</div>
+</div>""",
+            unsafe_allow_html=True,
+        )
 
     # Key lesson
     st.markdown("---")
