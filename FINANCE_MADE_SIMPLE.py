@@ -5088,6 +5088,54 @@ _UNIFIED_LINE_COLORS = [
 ]
 
 
+def render_quarterly_chart_note(chart_type="ratios", period_override=None):
+    """
+    Display a small context note below charts when user is in quarterly view.
+    Explains that quarterly values for margins/returns are raw per-quarter numbers,
+    while valuation ratios (P/E, P/S, EV/EBITDA) use TTM figures and will look
+    different from annual. Call AFTER st.plotly_chart in quarterly view.
+
+    chart_type:
+        "ratios"     — for unified ratio chart (margins + valuation + returns mix)
+        "margins"    — only margin/profitability metrics
+        "valuation"  — only valuation multiples (P/E, P/S, etc.)
+        "financials" — income/balance/cashflow absolute dollar values
+    period_override:
+        None       — use global sidebar setting (st.session_state.global_period)
+        'quarter'  — force-show the note (for views with a local period toggle)
+        'annual'   — force-hide (no-op)
+    """
+    _period = period_override if period_override is not None else st.session_state.get('global_period')
+    if _period != 'quarter':
+        return
+
+    if chart_type == "valuation":
+        _msg = ("📅 **Quarterly view** — Valuation ratios like P/E and P/S are calculated using "
+                "trailing-twelve-month (TTM) earnings/sales at each quarter-end. The stock price "
+                "is the point-in-time close, so quarterly P/E can look higher than annual if "
+                "earnings are seasonal.")
+    elif chart_type == "margins":
+        _msg = ("📅 **Quarterly view** — Each bar shows that single quarter's margin. Quarterly "
+                "margins can swing more than annual due to seasonality, one-time charges, or "
+                "product mix. Compare to the same quarter a year ago (YoY), not quarter-over-quarter.")
+    elif chart_type == "financials":
+        _msg = ("📅 **Quarterly view** — Values shown are for that single quarter, not annualized. "
+                "Multiply by 4 for a rough annual run-rate, but watch for seasonal businesses where "
+                "Q4 ≠ other quarters.")
+    else:  # "ratios" — generic mix
+        _msg = ("📅 **Quarterly view** — Margin and return ratios show that single quarter's value. "
+                "Valuation ratios (P/E, P/S, EV/EBITDA) use trailing-twelve-month numbers and will "
+                "differ from annual. For apples-to-apples comparison across companies, switch to "
+                "Annual view in the left sidebar.")
+
+    st.markdown(
+        f'<div style="background:rgba(157,78,221,0.06);border:1px solid rgba(157,78,221,0.25);'
+        f'border-radius:8px;padding:10px 14px;margin:6px 0 14px;font-size:12px;color:#555;line-height:1.5;">'
+        f'{_msg}</div>',
+        unsafe_allow_html=True,
+    )
+
+
 def create_unified_ratio_chart(df, selected_items, company_name, sector=None, df2=None, company_name2=None):
     """
     Dark-themed grouped bar chart for financial ratios over time.
@@ -22311,6 +22359,7 @@ elif selected_page == "📊 Company Analysis":
 
                         if fig:
                             st.plotly_chart(fig, use_container_width=True)
+                            render_quarterly_chart_note("financials", period_override=_ca_period_type)
 
                             # Display CAGR summary
                             if growth_rates:
@@ -22410,6 +22459,7 @@ elif selected_page == "📊 Company Analysis":
 
                         if fig:
                             st.plotly_chart(fig, use_container_width=True)
+                            render_quarterly_chart_note("financials", period_override=_ca_period_type)
 
                             # Display CAGR summary
                             if growth_rates:
@@ -22508,6 +22558,7 @@ elif selected_page == "📊 Company Analysis":
 
                         if fig:
                             st.plotly_chart(fig, use_container_width=True)
+                            render_quarterly_chart_note("financials", period_override=_ca_period_type)
 
                             # Display CAGR summary
                             if growth_rates:
@@ -22957,6 +23008,19 @@ elif selected_page == "📊 Company Analysis":
                         st.plotly_chart(fig, use_container_width=True)
 
                     st.caption("Solid lines = company · Dashed lines = S&P 500 average")
+
+                    # Context note for quarterly view — uses local period_param
+                    # (this sub-tab has its own period radio, not the global sidebar)
+                    _chart_kind = "valuation" if all(
+                        c in ('priceEarningsRatio', 'priceToSalesRatio', 'priceToBookRatio',
+                              'enterpriseValueMultiple', 'priceEarningsToGrowthRatio', 'forwardPE',
+                              'priceToFreeCashFlowsRatio', 'freeCashFlowYield')
+                        for _, c in selected_items
+                    ) else "margins" if all(
+                        c in ('grossProfitMargin', 'operatingProfitMargin', 'netProfitMargin')
+                        for _, c in selected_items
+                    ) else "ratios"
+                    render_quarterly_chart_note(_chart_kind, period_override=period_param)
 
                     st.markdown("**Latest Values**")
                     val_cols = st.columns(min(len(selected_items), 5))
@@ -23557,6 +23621,18 @@ elif selected_page == "📈 Financial Health":
                     company_name2=_fh_name2 if _fh_ticker2 else None,
                 )
                 st.plotly_chart(_fh_fig, use_container_width=True)
+
+                # Quarterly context note — inherits from global sidebar period
+                _fh_chart_kind = "valuation" if all(
+                    c in ('priceEarningsRatio', 'priceToSalesRatio', 'priceToBookRatio',
+                          'enterpriseValueMultiple', 'priceEarningsToGrowthRatio', 'forwardPE',
+                          'freeCashFlowYield', 'dividendYield')
+                    for _, c in _fh_selected_items
+                ) else "margins" if all(
+                    c in ('grossProfitMargin', 'operatingProfitMargin', 'netProfitMargin')
+                    for _, c in _fh_selected_items
+                ) else "ratios"
+                render_quarterly_chart_note(_fh_chart_kind)
 
                 # Latest values row - show both tickers
                 _fh_cols = st.columns(min(len(_fh_selected_items), 4))
