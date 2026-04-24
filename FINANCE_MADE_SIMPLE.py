@@ -23353,6 +23353,53 @@ elif selected_page == "📈 Financial Health":
             ("Dividend Yield",         "dividendYield"),
         ]
 
+        # ── P/E RATIO FALLBACK ──────────────────────────────────────────────
+        # FMP's /ratios endpoint sometimes OMITS priceEarningsRatio entirely for
+        # tickers with historical negative earnings (e.g. TSLA in early years).
+        # Fall back to income-statement EPS × historical price to always populate it.
+        def _ensure_pe_columns(df, tk):
+            """Compute P/E, Forward P/E, PEG on the given ratios_df if missing."""
+            if df is None or df.empty:
+                return df
+            # --- P/E Ratio ---
+            if 'priceEarningsRatio' not in df.columns or df['priceEarningsRatio'].dropna().empty:
+                try:
+                    _inc = get_income_statement(tk, period_type, years * 4 if period_type == 'quarter' else years)
+                    _price_hist = get_historical_price(tk, max(years, 10))
+                    if _inc is not None and not _inc.empty and _price_hist is not None and not _price_hist.empty:
+                        _eps_col = 'epsdiluted' if 'epsdiluted' in _inc.columns else 'eps' if 'eps' in _inc.columns else None
+                        if _eps_col and 'date' in _inc.columns:
+                            _inc_sorted = _inc.sort_values('date').copy()
+                            _inc_sorted['date'] = pd.to_datetime(_inc_sorted['date'])
+                            _price_hist = _price_hist.sort_values('date').copy()
+                            _price_hist['date'] = pd.to_datetime(_price_hist['date'])
+                            # For each income-statement row, find the closest price ON OR AFTER that date
+                            _pe_vals = []
+                            for _, _row in _inc_sorted.iterrows():
+                                _target = _row['date']
+                                _eps_val = _row.get(_eps_col)
+                                if _eps_val and _eps_val > 0:
+                                    _future = _price_hist[_price_hist['date'] >= _target]
+                                    if not _future.empty:
+                                        _px = _future.iloc[0].get('price') or _future.iloc[0].get('close')
+                                        if _px:
+                                            _pe = float(_px) / float(_eps_val)
+                                            if 0 < _pe < 500:
+                                                _pe_vals.append(_pe)
+                                                continue
+                                _pe_vals.append(None)
+                            # Align back onto df rows by date match
+                            _pe_map = dict(zip(_inc_sorted['date'], _pe_vals))
+                            if 'date' in df.columns:
+                                df['priceEarningsRatio'] = pd.to_datetime(df['date']).map(_pe_map)
+                except Exception:
+                    pass
+            return df
+
+        ratios_df = _ensure_pe_columns(ratios_df, ticker)
+        if _fh_ticker2 and not _fh_ratios2.empty:
+            _fh_ratios2 = _ensure_pe_columns(_fh_ratios2, _fh_ticker2)
+
         # PEG alias — FMP sometimes uses `pegRatio` instead of `priceEarningsToGrowthRatio`
         if 'priceEarningsToGrowthRatio' not in ratios_df.columns and 'pegRatio' in ratios_df.columns:
             ratios_df['priceEarningsToGrowthRatio'] = ratios_df['pegRatio']
@@ -23360,13 +23407,49 @@ elif selected_page == "📈 Financial Health":
             if 'priceEarningsToGrowthRatio' not in _fh_ratios2.columns and 'pegRatio' in _fh_ratios2.columns:
                 _fh_ratios2['priceEarningsToGrowthRatio'] = _fh_ratios2['pegRatio']
 
-        # Forward P/E proxy — current price ÷ next-year EPS estimate. Drops out of
-        # options silently if FMP doesn't expose the estimate for this ticker.
+        # PEG calculated fallback: P/E ÷ EPS-growth-rate (%). Only surfaces if P/E
+        # series exists AND at least 2 consecutive EPS data points exist.
+        def _ensure_peg_column(df, tk):
+            if df is None or df.empty:
+                return df
+            if 'priceEarningsToGrowthRatio' in df.columns and not df['priceEarningsToGrowthRatio'].dropna().empty:
+                return df
+            if 'priceEarningsRatio' not in df.columns:
+                return df
+            try:
+                _inc = get_income_statement(tk, period_type, years * 4 if period_type == 'quarter' else years)
+                if _inc is None or _inc.empty:
+                    return df
+                _eps_col = 'epsdiluted' if 'epsdiluted' in _inc.columns else 'eps' if 'eps' in _inc.columns else None
+                if not _eps_col or 'date' not in _inc.columns:
+                    return df
+                _inc_s = _inc.sort_values('date').copy()
+                _inc_s['date'] = pd.to_datetime(_inc_s['date'])
+                _inc_s['_eps_growth_pct'] = _inc_s[_eps_col].pct_change() * 100
+                # Map growth back onto ratios_df by date
+                _g_map = dict(zip(_inc_s['date'], _inc_s['_eps_growth_pct']))
+                if 'date' in df.columns:
+                    _growths = pd.to_datetime(df['date']).map(_g_map)
+                    # PEG = P/E / growth% ; only valid when growth > 0 (bounded by 0-10)
+                    _peg_series = df['priceEarningsRatio'] / _growths
+                    _peg_series = _peg_series.where((_peg_series > 0) & (_peg_series < 10))
+                    df['priceEarningsToGrowthRatio'] = _peg_series
+            except Exception:
+                pass
+            return df
+
+        ratios_df = _ensure_peg_column(ratios_df, ticker)
+        if _fh_ticker2 and not _fh_ratios2.empty:
+            _fh_ratios2 = _ensure_peg_column(_fh_ratios2, _fh_ticker2)
+
+        # Forward P/E — current price ÷ next-year EPS estimate. Flat line across
+        # all periods (point-in-time forecast, not historical).
         try:
             _q = get_quote(ticker) or {}
             _fh_profile = get_profile(ticker) or {}
             _cp = _q.get('price') or _fh_profile.get('price')
-            _fe = _q.get('epsEstimatedNextYear') or _q.get('forwardEPS') or _fh_profile.get('forwardEPS')
+            _fe = (_q.get('epsEstimatedNextYear') or _q.get('forwardEPS')
+                   or _fh_profile.get('forwardEPS') or _q.get('epsForward'))
             if _cp and _fe and float(_fe) > 0:
                 _fpe = float(_cp) / float(_fe)
                 if 0 < _fpe < 500:
@@ -23375,7 +23458,8 @@ elif selected_page == "📈 Financial Health":
                 _q2 = get_quote(_fh_ticker2) or {}
                 _p2 = get_profile(_fh_ticker2) or {}
                 _cp2 = _q2.get('price') or _p2.get('price')
-                _fe2 = _q2.get('epsEstimatedNextYear') or _q2.get('forwardEPS') or _p2.get('forwardEPS')
+                _fe2 = (_q2.get('epsEstimatedNextYear') or _q2.get('forwardEPS')
+                        or _p2.get('forwardEPS') or _q2.get('epsForward'))
                 if _cp2 and _fe2 and float(_fe2) > 0:
                     _fpe2 = float(_cp2) / float(_fe2)
                     if 0 < _fpe2 < 500 and not _fh_ratios2.empty:
