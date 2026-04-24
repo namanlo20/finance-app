@@ -23341,8 +23341,10 @@ elif selected_page == "📈 Financial Health":
             ("ROA",                    "returnOnAssets"),
             ("ROCE",                   "returnOnCapitalEmployed"),
             ("P/E Ratio",              "priceEarningsRatio"),
+            ("Forward P/E",            "forwardPE"),
             ("P/S Ratio",              "priceToSalesRatio"),
             ("P/B Ratio",              "priceToBookRatio"),
+            ("PEG Ratio",              "priceEarningsToGrowthRatio"),
             ("EV/EBITDA",              "enterpriseValueMultiple"),
             ("FCF Yield",              "freeCashFlowYield"),
             ("Current Ratio",          "currentRatio"),
@@ -23350,6 +23352,37 @@ elif selected_page == "📈 Financial Health":
             ("Debt-to-Equity",         "debtToEquity"),
             ("Dividend Yield",         "dividendYield"),
         ]
+
+        # PEG alias — FMP sometimes uses `pegRatio` instead of `priceEarningsToGrowthRatio`
+        if 'priceEarningsToGrowthRatio' not in ratios_df.columns and 'pegRatio' in ratios_df.columns:
+            ratios_df['priceEarningsToGrowthRatio'] = ratios_df['pegRatio']
+        if _fh_ticker2 and not _fh_ratios2.empty:
+            if 'priceEarningsToGrowthRatio' not in _fh_ratios2.columns and 'pegRatio' in _fh_ratios2.columns:
+                _fh_ratios2['priceEarningsToGrowthRatio'] = _fh_ratios2['pegRatio']
+
+        # Forward P/E proxy — current price ÷ next-year EPS estimate. Drops out of
+        # options silently if FMP doesn't expose the estimate for this ticker.
+        try:
+            _q = get_quote(ticker) or {}
+            _fh_profile = get_profile(ticker) or {}
+            _cp = _q.get('price') or _fh_profile.get('price')
+            _fe = _q.get('epsEstimatedNextYear') or _q.get('forwardEPS') or _fh_profile.get('forwardEPS')
+            if _cp and _fe and float(_fe) > 0:
+                _fpe = float(_cp) / float(_fe)
+                if 0 < _fpe < 500:
+                    ratios_df['forwardPE'] = _fpe
+            if _fh_ticker2:
+                _q2 = get_quote(_fh_ticker2) or {}
+                _p2 = get_profile(_fh_ticker2) or {}
+                _cp2 = _q2.get('price') or _p2.get('price')
+                _fe2 = _q2.get('epsEstimatedNextYear') or _q2.get('forwardEPS') or _p2.get('forwardEPS')
+                if _cp2 and _fe2 and float(_fe2) > 0:
+                    _fpe2 = float(_cp2) / float(_fe2)
+                    if 0 < _fpe2 < 500 and not _fh_ratios2.empty:
+                        _fh_ratios2['forwardPE'] = _fpe2
+        except Exception:
+            pass
+
         _fh_available = [(d, c) for d, c in _fh_ratio_options if c in ratios_df.columns]
 
         if _fh_available:
@@ -23358,13 +23391,48 @@ elif selected_page == "📈 Financial Health":
             if not _fh_defaults:
                 _fh_defaults = _fh_display_names[:2]
 
+            # Quick-pick preset buttons — one-tap switch between metric themes.
+            # Session state preserves selection across reruns so reactive elements
+            # (slider, compare ticker) don't reset the user's preset choice.
+            _fh_preset_key = "fh_standalone_preset_selection"
+            if _fh_preset_key not in st.session_state:
+                st.session_state[_fh_preset_key] = _fh_defaults
+
+            st.markdown("**Quick picks:**")
+            _fh_pc1, _fh_pc2, _fh_pc3, _fh_pc4 = st.columns(4)
+            _fh_presets = {
+                "margins":   ["Gross Margin", "Operating Margin", "Net Margin"],
+                "valuation": ["P/E Ratio", "Forward P/E", "P/S Ratio", "PEG Ratio"],
+                "returns":   ["ROE", "ROA", "ROCE"],
+                "safety":    ["Current Ratio", "Quick Ratio", "Debt-to-Equity"],
+            }
+            with _fh_pc1:
+                if st.button("📈 Margins", key="fh_preset_margins", use_container_width=True):
+                    st.session_state[_fh_preset_key] = [n for n in _fh_presets["margins"] if n in _fh_display_names]
+                    st.rerun()
+            with _fh_pc2:
+                if st.button("💰 Valuation", key="fh_preset_valuation", use_container_width=True):
+                    st.session_state[_fh_preset_key] = [n for n in _fh_presets["valuation"] if n in _fh_display_names]
+                    st.rerun()
+            with _fh_pc3:
+                if st.button("🏆 Returns", key="fh_preset_returns", use_container_width=True):
+                    st.session_state[_fh_preset_key] = [n for n in _fh_presets["returns"] if n in _fh_display_names]
+                    st.rerun()
+            with _fh_pc4:
+                if st.button("🛡️ Safety", key="fh_preset_safety", use_container_width=True):
+                    st.session_state[_fh_preset_key] = [n for n in _fh_presets["safety"] if n in _fh_display_names]
+                    st.rerun()
+
             _fh_selected_names = st.multiselect(
                 "Select ratios to compare:",
                 options=_fh_display_names,
-                default=_fh_defaults,
+                default=st.session_state[_fh_preset_key],
                 key="fh_standalone_multiselect",
-                help="Choose one or more ratios to plot over time. Dashed lines show S&P 500 averages."
+                help="Choose one or more ratios to plot over time. Dashed lines show S&P 500 averages. Use the left sidebar slider to change time range."
             )
+            # Keep session state aligned with manual multiselect edits
+            if _fh_selected_names != st.session_state[_fh_preset_key]:
+                st.session_state[_fh_preset_key] = _fh_selected_names
 
             _fh_selected_items = [(d, c) for d, c in _fh_available if d in _fh_selected_names]
 
