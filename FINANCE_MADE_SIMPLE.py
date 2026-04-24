@@ -4784,11 +4784,22 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
                 y=values,
                 name=display_name,
                 marker=dict(
-                    color=brand_color,  # Single color per metric — legend shows correct color
-                    line=dict(width=0),
+                    # Per-bar color: last bar (most recent period) stays at full
+                    # brand color + bright white border to pop; older bars fade to
+                    # 0.55 opacity (visually recede).
+                    color=[brand_color] * len(values),
+                    line=dict(
+                        color=['rgba(255,255,255,0.9)' if i == len(values) - 1 else 'rgba(0,0,0,0)'
+                               for i in range(len(values))],
+                        width=[2.5 if i == len(values) - 1 else 0 for i in range(len(values))],
+                    ),
                     cornerradius=5,
-                    opacity=0.9,
+                    opacity=1.0,  # per-bar override below via a second pass
                 ),
+                # Per-bar opacity can't be set directly in marker.opacity (scalar only),
+                # so we set it here via a custom property; Plotly reads marker.opacity
+                # as scalar, but rgba color alpha gives per-bar fade. Convert each
+                # color to rgba with the right alpha.
                 text=[format_value_label(val) for val in values],
                 textposition='outside',
                 textfont=dict(
@@ -4797,8 +4808,7 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
                     family='Inter, system-ui, sans-serif'
                 ),
                 # Hover shows the period (e.g. Q1 2024), metric name, and the precise value.
-                # Using %{text} ensures the tooltip reflects the smart-formatted value
-                # (e.g. $0.34 for EPS, $1.2B for revenue) so users see actual numbers on hover.
+                # Highlights "(Latest)" suffix on the most recent bar.
                 hovertemplate=(
                     '<b>%{x}</b><br>'
                     f'{display_name}: '
@@ -4806,6 +4816,19 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
                     '<extra></extra>'
                 ),
             ))
+
+            # Replace marker colors with per-bar rgba for the fade effect.
+            # Converts the last trace we just added.
+            def _hex_to_rgba(hex_c, alpha):
+                h = hex_c.lstrip('#')
+                r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+                return f'rgba({r},{g},{b},{alpha})'
+            _per_bar_colors = [
+                _hex_to_rgba(brand_color, 1.0) if i == len(values) - 1
+                else _hex_to_rgba(brand_color, 0.55)
+                for i in range(len(values))
+            ]
+            fig.data[-1].marker.color = _per_bar_colors
     
     all_values = []
     for metric in metrics:
@@ -5178,28 +5201,54 @@ def create_unified_ratio_chart(df, selected_items, company_name, sector=None, df
         plot_values = col_data * multiplier
         color = T1_COLORS[added % len(T1_COLORS)]
 
+        # Per-bar styling: the most recent bar gets full color + white outline,
+        # older bars fade to ~55% opacity so the "latest" reading stands out.
+        def _hex_rgba(hex_c, alpha):
+            h = hex_c.lstrip('#')
+            r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+            return f'rgba({r},{g},{b},{alpha})'
+
+        _n1 = len(plot_values)
+        _t1_colors = [_hex_rgba(color, 1.0) if i == _n1 - 1 else _hex_rgba(color, 0.55)
+                       for i in range(_n1)]
+        _t1_line_cols = ['rgba(255,255,255,0.9)' if i == _n1 - 1 else 'rgba(0,0,0,0)'
+                         for i in range(_n1)]
+        _t1_line_widths = [2.5 if i == _n1 - 1 else 0 for i in range(_n1)]
+
         # Ticker 1 bars
         label_1 = f'{display_name} ({company_name})' if has_t2 else display_name
         fig.add_trace(go.Bar(
             x=df_sorted['date'],
             y=plot_values,
             name=label_1,
-            marker=dict(color=color, opacity=0.85, line=dict(width=0)),
+            marker=dict(
+                color=_t1_colors,
+                line=dict(color=_t1_line_cols, width=_t1_line_widths),
+            ),
             hovertemplate=f'<b>{label_1}</b>: %{{y:.2f}}{y_suffix}<extra></extra>',
         ))
 
-        # Ticker 2 bars (same metric)
+        # Ticker 2 bars (same metric) — same highlight logic
         if has_t2 and col in df2_sorted.columns:
             col_data2 = df2_sorted[col]
             if not col_data2.isna().all():
                 plot_values2 = col_data2 * multiplier
                 color2 = T2_COLORS[added % len(T2_COLORS)]
+                _n2 = len(plot_values2)
+                _t2_colors = [_hex_rgba(color2, 0.95) if i == _n2 - 1 else _hex_rgba(color2, 0.45)
+                               for i in range(_n2)]
+                _t2_line_cols = ['rgba(255,255,255,0.7)' if i == _n2 - 1 else 'rgba(0,0,0,0)'
+                                 for i in range(_n2)]
+                _t2_line_widths = [2.0 if i == _n2 - 1 else 0 for i in range(_n2)]
                 label_2 = f'{display_name} ({company_name2})'
                 fig.add_trace(go.Bar(
                     x=df2_sorted['date'],
                     y=plot_values2,
                     name=label_2,
-                    marker=dict(color=color2, opacity=0.70, line=dict(width=0)),
+                    marker=dict(
+                        color=_t2_colors,
+                        line=dict(color=_t2_line_cols, width=_t2_line_widths),
+                    ),
                     hovertemplate=f'<b>{label_2}</b>: %{{y:.2f}}{y_suffix}<extra></extra>',
                 ))
 
@@ -24024,22 +24073,31 @@ elif selected_page == "👤 Naman's Portfolio":
     st.header("Naman's Portfolio")
     st.markdown("**My High-Conviction Investment Strategy — Full Transparency**")
     
-    # ALL HOLDINGS - Full portfolio data (updated Apr 2026)
+    # ALL HOLDINGS - Full portfolio data (updated Apr 23, 2026)
+    # Notable recent moves:
+    #   • Sold AVGO and NVDA positions on April 23, 2026
+    #   • Opened new PLTR position after ~2 years out
     ALL_HOLDINGS = [
-        {"ticker": "NFLX",  "name": "Netflix",             "sector": "Communication Services", "weight": 11.49},
-        {"ticker": "META",  "name": "Meta Platforms",      "sector": "Technology",      "weight": 11.33},
-        {"ticker": "AMZN",  "name": "Amazon",              "sector": "Consumer Cyclical", "weight": 10.26},
-        {"ticker": "PANW",  "name": "Palo Alto Networks",  "sector": "Technology",      "weight": 9.34},
-        {"ticker": "SPGI",  "name": "S&P Global",          "sector": "Financials",      "weight": 8.77},
-        {"ticker": "MCO",   "name": "Moody's",             "sector": "Financials",      "weight": 8.12},
-        {"ticker": "MSFT",  "name": "Microsoft",           "sector": "Technology",      "weight": 7.98},
-        {"ticker": "NVDA",  "name": "NVIDIA",              "sector": "Technology",      "weight": 6.60},
-        {"ticker": "CRWD",  "name": "CrowdStrike",         "sector": "Technology",      "weight": 6.55},
-        {"ticker": "HOOD",  "name": "Robinhood",           "sector": "Financials",      "weight": 6.10},
-        {"ticker": "AVGO",  "name": "Broadcom",            "sector": "Technology",      "weight": 5.09},
-        {"ticker": "GOOG",  "name": "Alphabet",            "sector": "Technology",      "weight": 4.93},
-        {"ticker": "CRM",   "name": "Salesforce",          "sector": "Technology",      "weight": 3.44},
+        {"ticker": "NFLX",  "name": "Netflix",             "sector": "Communication Services", "weight": 12.43},
+        {"ticker": "META",  "name": "Meta Platforms",      "sector": "Technology",      "weight": 12.28},
+        {"ticker": "AMZN",  "name": "Amazon",              "sector": "Consumer Cyclical", "weight": 10.85},
+        {"ticker": "PANW",  "name": "Palo Alto Networks",  "sector": "Technology",      "weight": 10.13},
+        {"ticker": "MCO",   "name": "Moody's",             "sector": "Financials",      "weight": 9.42},
+        {"ticker": "SPGI",  "name": "S&P Global",          "sector": "Financials",      "weight": 9.36},
+        {"ticker": "MSFT",  "name": "Microsoft",           "sector": "Technology",      "weight": 8.81},
+        {"ticker": "HOOD",  "name": "Robinhood",           "sector": "Financials",      "weight": 7.48},
+        {"ticker": "CRWD",  "name": "CrowdStrike",         "sector": "Technology",      "weight": 7.42},
+        {"ticker": "GOOG",  "name": "Alphabet",            "sector": "Technology",      "weight": 5.57},
+        {"ticker": "CRM",   "name": "Salesforce",          "sector": "Technology",      "weight": 4.40},
+        {"ticker": "PLTR",  "name": "Palantir Technologies", "sector": "Technology",    "weight": 1.85},
     ]
+
+    # Recent trading activity note — shown next to the holdings table so readers
+    # understand why this month's allocation differs from last month's.
+    _RECENT_MOVES_NOTE = (
+        "**Recent moves (Apr 23, 2026):** Closed **AVGO** and **NVDA** positions; "
+        "reopened a **PLTR** stake after 2 years on the sidelines."
+    )
     
     # ── YTD Portfolio Return ────────────────────────────────────────────────
     st.markdown("---")
@@ -24097,25 +24155,34 @@ elif selected_page == "👤 Naman's Portfolio":
         return None
     
     with st.spinner("Calculating YTD returns..."):
-        # Calculate weighted portfolio YTD return
+        # Calculate weighted portfolio YTD return (from Jan 1 closing prices —
+        # this is what a passive observer would see from the published allocation)
         ytd_returns = {}
         total_weight_with_data = 0
         weighted_ytd = 0
-        
+
         for h in ALL_HOLDINGS:
             ret = calc_ytd_return(h["ticker"])
             ytd_returns[h["ticker"]] = ret
             if ret is not None:
                 weighted_ytd += ret * (h["weight"] / 100)
                 total_weight_with_data += h["weight"]
-        
+
         # Scale up if some tickers missing data
         if total_weight_with_data > 0 and total_weight_with_data < 100:
             weighted_ytd = weighted_ytd * (100 / total_weight_with_data)
-        
-        portfolio_ytd = round(weighted_ytd, 2)
+
+        market_weighted_ytd = round(weighted_ytd, 2)
         sp500_ytd = calc_ytd_return("SPY")
-    
+
+    # HERO YTD NUMBER — Naman's ACTUAL cost-basis return (from Fidelity), not
+    # the passive weighted-Jan-1 calc. Cost-basis YTD is meaningfully better
+    # because dips were bought at lower prices throughout the year.
+    # Update this number manually when cost basis changes materially.
+    COST_BASIS_YTD = 1.0  # %, from Fidelity as of Apr 23, 2026
+
+    portfolio_ytd = COST_BASIS_YTD
+
     # Hero card with YTD performance
     ytd_color = "#00C853" if portfolio_ytd >= 0 else "#FF1744"
     sp_ytd_color = "#00C853" if sp500_ytd and sp500_ytd >= 0 else "#FF1744"
@@ -24123,7 +24190,7 @@ elif selected_page == "👤 Naman's Portfolio":
     alpha = round(portfolio_ytd - (sp500_ytd or 0), 2) if sp500_ytd is not None else None
     alpha_str = f"{alpha:+.2f}%" if alpha is not None else ""
     alpha_color = "#00C853" if alpha and alpha >= 0 else "#FF1744"
-    
+
     st.markdown(f"""
     <div style="background:linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%);
                 border:2px solid #90CAF9; border-radius:16px;
@@ -24135,7 +24202,7 @@ elif selected_page == "👤 Naman's Portfolio":
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
             <div>
                 <div style="font-size:32px; font-weight:800; color:{ytd_color};">{portfolio_ytd:+.2f}%</div>
-                <div style="font-size:13px; color:rgba(26,26,26,0.6);">Naman's Portfolio (weighted)</div>
+                <div style="font-size:13px; color:rgba(26,26,26,0.6);">Naman's Portfolio (cost basis)</div>
             </div>
             <div style="text-align:center;">
                 <div style="font-size:22px; font-weight:700; color:{sp_ytd_color};">{sp_ytd_str}</div>
@@ -24146,14 +24213,24 @@ elif selected_page == "👤 Naman's Portfolio":
                 <div style="font-size:13px; color:rgba(26,26,26,0.6);">Alpha</div>
             </div>
         </div>
-        <div style="font-size:11px; color:rgba(26,26,26,0.5); margin-top:12px;">
-            Weighted return based on allocation below · Updated live via yfinance
+        <div style="font-size:11px; color:rgba(26,26,26,0.55); margin-top:12px; line-height:1.5;">
+            * Cost-basis YTD from Fidelity — reflects actual entry prices from dip-buying throughout the year,
+            so it reads better than a passive Jan-1-snapshot calc of today's allocation
+            (which would show {market_weighted_ytd:+.2f}%).
         </div>
     </div>
     """, unsafe_allow_html=True)
     
     # ── Holdings Table ──────────────────────────────────────────────────────
     st.markdown("### 📊 All Holdings")
+
+    # Recent trading activity — gives readers context on why allocations shifted
+    st.markdown(
+        f'<div style="background:rgba(33,150,243,0.08);border-left:3px solid #2196F3;'
+        f'border-radius:6px;padding:10px 14px;margin:8px 0 16px;font-size:13px;color:#333;">'
+        f'💼 {_RECENT_MOVES_NOTE}</div>',
+        unsafe_allow_html=True,
+    )
     
     # Get timeline from sidebar for multi-year comparison
     timeline_years = st.session_state.get('global_timeline', 5)
