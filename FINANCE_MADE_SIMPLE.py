@@ -23354,51 +23354,79 @@ elif selected_page == "📈 Financial Health":
         ]
 
         # ── P/E RATIO FALLBACK ──────────────────────────────────────────────
-        # FMP's /ratios endpoint sometimes OMITS priceEarningsRatio entirely for
-        # tickers with historical negative earnings (e.g. TSLA in early years).
-        # Fall back to income-statement EPS × historical price to always populate it.
+        # FMP's /ratios endpoint can OMIT individual rows where EPS was negative,
+        # OR drop the priceEarningsRatio column entirely. Fill per-row gaps by
+        # computing price ÷ EPS ourselves. Also reject unreasonable FMP-provided
+        # P/E values (spikes near zero EPS).
         def _ensure_pe_columns(df, tk):
-            """Compute P/E, Forward P/E, PEG on the given ratios_df if missing."""
+            """Populate / gap-fill priceEarningsRatio on the given ratios_df."""
             if df is None or df.empty:
                 return df
-            # --- P/E Ratio ---
-            if 'priceEarningsRatio' not in df.columns or df['priceEarningsRatio'].dropna().empty:
-                try:
-                    _inc = get_income_statement(tk, period_type, years * 4 if period_type == 'quarter' else years)
-                    _price_hist = get_historical_price(tk, max(years, 10))
-                    if _inc is not None and not _inc.empty and _price_hist is not None and not _price_hist.empty:
-                        _eps_col = 'epsdiluted' if 'epsdiluted' in _inc.columns else 'eps' if 'eps' in _inc.columns else None
-                        if _eps_col and 'date' in _inc.columns:
-                            _inc_sorted = _inc.sort_values('date').copy()
-                            _inc_sorted['date'] = pd.to_datetime(_inc_sorted['date'])
-                            _price_hist = _price_hist.sort_values('date').copy()
-                            _price_hist['date'] = pd.to_datetime(_price_hist['date'])
-                            # For each income-statement row, find the closest price ON OR AFTER that date
-                            _pe_vals = []
-                            for _, _row in _inc_sorted.iterrows():
-                                _target = _row['date']
-                                _eps_val = _row.get(_eps_col)
-                                if _eps_val and _eps_val > 0:
-                                    _future = _price_hist[_price_hist['date'] >= _target]
-                                    if not _future.empty:
-                                        _px = _future.iloc[0].get('price') or _future.iloc[0].get('close')
-                                        if _px:
-                                            _pe = float(_px) / float(_eps_val)
-                                            if 0 < _pe < 500:
-                                                _pe_vals.append(_pe)
-                                                continue
-                                _pe_vals.append(None)
-                            # Align back onto df rows by date match
-                            _pe_map = dict(zip(_inc_sorted['date'], _pe_vals))
-                            if 'date' in df.columns:
-                                df['priceEarningsRatio'] = pd.to_datetime(df['date']).map(_pe_map)
-                except Exception:
-                    pass
+            try:
+                _inc = get_income_statement(tk, period_type, years * 4 if period_type == 'quarter' else years)
+                _price_hist = get_historical_price(tk, max(years, 10))
+                if _inc is None or _inc.empty or _price_hist is None or _price_hist.empty:
+                    return df
+                _eps_col = 'epsdiluted' if 'epsdiluted' in _inc.columns else 'eps' if 'eps' in _inc.columns else None
+                if not _eps_col or 'date' not in _inc.columns or 'date' not in df.columns:
+                    return df
+
+                _inc_sorted = _inc.sort_values('date').copy()
+                _inc_sorted['date'] = pd.to_datetime(_inc_sorted['date'])
+                _price_hist = _price_hist.sort_values('date').copy()
+                _price_hist['date'] = pd.to_datetime(_price_hist['date'])
+
+                # Build a {date -> computed P/E} map for every income-statement row
+                # that has positive EPS. Negative/zero EPS rows → leave as NaN (correct:
+                # P/E is undefined for money-losing companies).
+                _pe_computed = {}
+                for _, _row in _inc_sorted.iterrows():
+                    _target = _row['date']
+                    _eps_val = _row.get(_eps_col)
+                    if _eps_val is None or _eps_val <= 0:
+                        continue
+                    _future = _price_hist[_price_hist['date'] >= _target]
+                    if _future.empty:
+                        # No forward price; use latest available close instead
+                        _px = _price_hist.iloc[-1].get('price') or _price_hist.iloc[-1].get('close')
+                    else:
+                        _px = _future.iloc[0].get('price') or _future.iloc[0].get('close')
+                    if _px:
+                        _pe = float(_px) / float(_eps_val)
+                        if 0 < _pe < 2000:  # raised ceiling — TSLA has traded at 800-1000× historically
+                            _pe_computed[_target] = _pe
+
+                # Apply to ratios_df: fill missing rows, also overwrite obviously bad values
+                df_dates = pd.to_datetime(df['date'])
+                if 'priceEarningsRatio' not in df.columns:
+                    df['priceEarningsRatio'] = df_dates.map(_pe_computed)
+                else:
+                    # Gap-fill + sanitize. Trust our computation when FMP's value is null,
+                    # negative, or absurdly high (>2000 = likely divided by tiny EPS).
+                    for _i, _d in enumerate(df_dates):
+                        _fmp_val = df.iloc[_i].get('priceEarningsRatio')
+                        _our_val = _pe_computed.get(_d)
+                        _needs_fill = (
+                            _fmp_val is None or pd.isna(_fmp_val)
+                            or _fmp_val <= 0 or _fmp_val > 2000
+                        )
+                        if _needs_fill and _our_val is not None:
+                            df.at[df.index[_i], 'priceEarningsRatio'] = _our_val
+            except Exception:
+                pass
             return df
 
         ratios_df = _ensure_pe_columns(ratios_df, ticker)
         if _fh_ticker2 and not _fh_ratios2.empty:
             _fh_ratios2 = _ensure_pe_columns(_fh_ratios2, _fh_ticker2)
+
+        # ── EV/EBITDA sanitization ──────────────────────────────────────────
+        # When EBITDA is near zero, FMP's enterpriseValueMultiple can explode into
+        # 4-digit territory (e.g. 1422x). Cap at 500× — anything higher is noise.
+        for _df_san in [ratios_df, _fh_ratios2]:
+            if _df_san is not None and not _df_san.empty and 'enterpriseValueMultiple' in _df_san.columns:
+                _df_san.loc[_df_san['enterpriseValueMultiple'] > 500, 'enterpriseValueMultiple'] = None
+                _df_san.loc[_df_san['enterpriseValueMultiple'] <= 0, 'enterpriseValueMultiple'] = None
 
         # PEG alias — FMP sometimes uses `pegRatio` instead of `priceEarningsToGrowthRatio`
         if 'priceEarningsToGrowthRatio' not in ratios_df.columns and 'pegRatio' in ratios_df.columns:
