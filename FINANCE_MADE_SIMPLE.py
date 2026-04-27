@@ -22526,6 +22526,256 @@ elif selected_page == "📊 Company Analysis":
                         cols[i].metric(f"Latest {name}", format_number(income_df[metric].iloc[-1]))
 
                     show_financial_data_notice(income_df, period)
+
+            # ── YoY % Growth chart (Revenue, COGS, Gross Profit, Operating Income, Net Income) ──
+            # Respects the same years slider — uses income_df already sliced to that range.
+            # Annual: YoY = vs prior period. Quarterly: YoY = vs same quarter prior year (4 periods back).
+            st.markdown("")
+            st.markdown(f"#### 📈 {company_name} - YoY Growth %")
+            st.caption(
+                "Year-over-year % growth for the core P&L lines. "
+                "Annual view compares each year vs the prior year; quarterly view compares each quarter vs the same quarter one year ago."
+            )
+
+            _yoy_metric_map = [
+                ('revenue', 'Revenue'),
+                ('costOfRevenue', 'COGS'),
+                ('grossProfit', 'Gross Profit'),
+                ('operatingIncome', 'Operating Income'),
+                ('netIncome', 'Net Income'),
+            ]
+            _yoy_available = [(col, label) for col, label in _yoy_metric_map if col in income_df.columns]
+
+            if not _yoy_available:
+                st.info("YoY growth chart not available — required P&L lines weren't returned by the data source.")
+            else:
+                _yoy_default_labels = [label for _, label in _yoy_available]
+                _yoy_selected_labels = st.multiselect(
+                    "Select lines to chart:",
+                    options=[label for _, label in _yoy_available],
+                    default=_yoy_default_labels,
+                    key="income_yoy_metrics",
+                    help="All five P&L lines shown by default. Deselect any you want to hide."
+                )
+
+                if not _yoy_selected_labels:
+                    st.info("👆 Select at least one line above to see the YoY growth chart.")
+                else:
+                    # Sort ascending so YoY math compares each row to the prior period
+                    _yoy_df = income_df.sort_values('date', ascending=True).reset_index(drop=True).copy()
+                    _yoy_lag = 4 if _ca_period_type == 'quarter' else 1
+
+                    # Build x-axis labels matching the P&L chart's fiscal-period style
+                    def _yoy_format_period(row):
+                        try:
+                            if 'period' in row.index and 'calendarYear' in row.index:
+                                _p = row.get('period', '')
+                                _cy = row.get('calendarYear', '')
+                                if _p and _cy:
+                                    if _ca_period_type == 'annual' or _p == 'FY':
+                                        return f"FY {_cy}"
+                                    return f"{_p} {_cy}"
+                            _d = pd.to_datetime(row.get('date'))
+                            if _ca_period_type == 'annual':
+                                return f"FY {_d.year}"
+                            return f"Q{((_d.month - 1) // 3) + 1} {_d.year}"
+                        except Exception:
+                            return str(row.get('date', ''))
+
+                    _yoy_x_labels = [_yoy_format_period(r) for _, r in _yoy_df.iterrows()]
+
+                    # Build a label -> column lookup
+                    _yoy_label_to_col = {label: col for col, label in _yoy_available}
+
+                    # Match the exact visual style of create_financial_chart_with_growth:
+                    # dark space background, METRIC_PALETTE colors, latest bar full-opacity
+                    # with white border, older bars faded to 55% opacity, rounded corners.
+                    _YOY_PALETTE = [
+                        '#00E5FF',   # 0: Cyan
+                        '#FFD700',   # 1: Gold
+                        '#BF5FFF',   # 2: Purple
+                        '#00FF88',   # 3: Green
+                        '#FF6B9D',   # 4: Pink
+                        '#4ADEBB',   # 5: Teal
+                        '#FFA45C',   # 6: Orange
+                        '#5B8FFF',   # 7: Blue
+                        '#FFEA00',   # 8: Yellow
+                        '#E879F9',   # 9: Magenta
+                    ]
+                    _YOY_BG_SPACE = '#0A0A1A'
+                    _YOY_BG_PLOT = '#0D0D20'
+                    _YOY_ZERO_LINE = 'rgba(255,255,255,0.25)'
+                    _YOY_TEXT_BRIGHT = '#FFFFFF'
+                    _YOY_TEXT_DIM = 'rgba(255,255,255,0.55)'
+                    _YOY_GRID_COLOR = 'rgba(255,255,255,0.04)'
+
+                    def _yoy_hex_to_rgba(hex_c, alpha):
+                        h = hex_c.lstrip('#')
+                        r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+                        return f'rgba({r},{g},{b},{alpha})'
+
+                    _yoy_fig = go.Figure()
+                    _yoy_any_data = False
+                    _yoy_all_vals = []
+
+                    for _idx, _label in enumerate(_yoy_selected_labels):
+                        _col = _yoy_label_to_col[_label]
+                        _series = pd.to_numeric(_yoy_df[_col], errors='coerce')
+                        _prior = _series.shift(_yoy_lag)
+
+                        # Compute YoY % using absolute prior value as the base so sign-flips
+                        # (e.g. loss → profit) and negatives still produce intuitive growth %.
+                        # If prior value is 0 or NaN, leave as NaN (no bar drawn).
+                        _yoy_vals = []
+                        for _curr, _prv in zip(_series, _prior):
+                            if pd.isna(_curr) or pd.isna(_prv) or _prv == 0:
+                                _yoy_vals.append(None)
+                            else:
+                                _yoy_vals.append(((_curr - _prv) / abs(_prv)) * 100.0)
+
+                        if any(v is not None for v in _yoy_vals):
+                            _yoy_any_data = True
+                        _yoy_all_vals.extend([v for v in _yoy_vals if v is not None])
+
+                        _text_labels = [
+                            f"{v:+.1f}%" if v is not None else ""
+                            for v in _yoy_vals
+                        ]
+
+                        _brand_color = _YOY_PALETTE[_idx % len(_YOY_PALETTE)]
+                        _per_bar_colors = [
+                            _yoy_hex_to_rgba(_brand_color, 1.0) if i == len(_yoy_vals) - 1
+                            else _yoy_hex_to_rgba(_brand_color, 0.55)
+                            for i in range(len(_yoy_vals))
+                        ]
+                        _per_bar_borders = [
+                            'rgba(255,255,255,0.9)' if i == len(_yoy_vals) - 1 else 'rgba(0,0,0,0)'
+                            for i in range(len(_yoy_vals))
+                        ]
+                        _per_bar_border_widths = [
+                            2.5 if i == len(_yoy_vals) - 1 else 0
+                            for i in range(len(_yoy_vals))
+                        ]
+
+                        _yoy_fig.add_trace(go.Bar(
+                            x=_yoy_x_labels,
+                            y=_yoy_vals,
+                            name=_label,
+                            marker=dict(
+                                color=_per_bar_colors,
+                                line=dict(color=_per_bar_borders, width=_per_bar_border_widths),
+                                cornerradius=5,
+                            ),
+                            text=_text_labels,
+                            textposition='outside',
+                            textfont=dict(
+                                size=11,
+                                color=_YOY_TEXT_BRIGHT,
+                                family='Inter, system-ui, sans-serif'
+                            ),
+                            hovertemplate=(
+                                '<b>%{x}</b><br>'
+                                f'{_label} YoY: '
+                                '<b>%{y:+.1f}%</b>'
+                                '<extra></extra>'
+                            ),
+                        ))
+
+                    if not _yoy_any_data:
+                        _need = _yoy_lag + 1
+                        st.info(
+                            f"Not enough history to compute YoY growth — need at least {_need} {('quarters' if _ca_period_type == 'quarter' else 'years')} of data. "
+                            "Try increasing the years slider on the left."
+                        )
+                    else:
+                        # Compute padded y-range so labels above bars don't get clipped
+                        _y_max = max(_yoy_all_vals)
+                        _y_min = min(_yoy_all_vals)
+                        _y_span = (_y_max - _y_min) if _y_max != _y_min else (abs(_y_max) * 0.5 or 1)
+                        _y_pad = _y_span * 0.28
+                        _y_range_max = _y_max + _y_pad
+                        _y_range_min = _y_min - _y_pad if _y_min < 0 else 0
+
+                        _yoy_fig.update_layout(
+                            title=dict(
+                                text=f'<b>{company_name} - YoY Growth % ({"Quarterly" if _ca_period_type == "quarter" else "Annual"})</b>',
+                                font=dict(size=18, color=_YOY_TEXT_BRIGHT, family='Inter, system-ui, sans-serif'),
+                                x=0.5,
+                                xanchor='center',
+                                y=0.97,
+                                yanchor='top'
+                            ),
+                            xaxis_title=None,
+                            yaxis_title='YoY Growth (%)',
+                            barmode='group',
+                            hovermode='x unified',
+                            height=500,
+                            showlegend=True,
+                            legend=dict(
+                                orientation="h",
+                                yanchor="top",
+                                y=-0.13,
+                                xanchor="center",
+                                x=0.5,
+                                bgcolor='rgba(0,0,0,0)',
+                                borderwidth=0,
+                                font=dict(size=13, color=_YOY_TEXT_DIM, family='Inter, system-ui, sans-serif'),
+                                itemsizing='constant'
+                            ),
+                            yaxis=dict(
+                                showgrid=True,
+                                gridcolor=_YOY_GRID_COLOR,
+                                gridwidth=1,
+                                zeroline=True,
+                                zerolinewidth=1.5,
+                                zerolinecolor=_YOY_ZERO_LINE,
+                                showline=False,
+                                ticksuffix='%',
+                                tickfont=dict(size=11, color=_YOY_TEXT_DIM, family='Inter, system-ui, sans-serif'),
+                                title_font=dict(size=12, color=_YOY_TEXT_DIM, family='Inter, system-ui, sans-serif'),
+                                range=[_y_range_min, _y_range_max],
+                            ),
+                            xaxis=dict(
+                                showgrid=False,
+                                showline=False,
+                                tickfont=dict(size=13, color=_YOY_TEXT_DIM, family='Inter, system-ui, sans-serif'),
+                                tickangle=0,
+                            ),
+                            plot_bgcolor=_YOY_BG_PLOT,
+                            paper_bgcolor=_YOY_BG_SPACE,
+                            margin=dict(t=55, b=80, l=70, r=30),
+                            bargap=0.22,
+                            bargroupgap=0.06,
+                            hoverlabel=dict(
+                                bgcolor='#1A1A35',
+                                font_size=13,
+                                font_family='Inter, system-ui, sans-serif',
+                                font_color=_YOY_TEXT_BRIGHT,
+                                bordercolor='rgba(140,100,255,0.5)',
+                            ),
+                        )
+
+                        st.plotly_chart(_yoy_fig, use_container_width=True)
+                        render_quarterly_chart_note("financials", period_override=_ca_period_type)
+
+                        # Latest YoY metric tiles
+                        _yoy_latest_cols = st.columns(len(_yoy_selected_labels))
+                        for _i, _label in enumerate(_yoy_selected_labels):
+                            _col = _yoy_label_to_col[_label]
+                            _series = pd.to_numeric(_yoy_df[_col], errors='coerce')
+                            if len(_series) > _yoy_lag:
+                                _curr = _series.iloc[-1]
+                                _prv = _series.iloc[-1 - _yoy_lag]
+                                if pd.notna(_curr) and pd.notna(_prv) and _prv != 0:
+                                    _latest_yoy = ((_curr - _prv) / abs(_prv)) * 100.0
+                                    _yoy_latest_cols[_i].metric(
+                                        f"Latest YoY · {_label}",
+                                        f"{_latest_yoy:+.1f}%"
+                                    )
+                                else:
+                                    _yoy_latest_cols[_i].metric(f"Latest YoY · {_label}", "N/A")
+                            else:
+                                _yoy_latest_cols[_i].metric(f"Latest YoY · {_label}", "N/A")
         else:
             st.warning("⚠️ Income statement not available")
         
