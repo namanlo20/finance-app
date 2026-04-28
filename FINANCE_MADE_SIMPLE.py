@@ -8408,6 +8408,315 @@ def get_product_segments(ticker, period='annual'):
     except Exception:
         return pd.DataFrame()
 
+# ────────────────────────────────────────────────────────────────────────────
+# OPERATIONAL KPI DATA (manually sourced from earnings press releases)
+# ────────────────────────────────────────────────────────────────────────────
+# These are the operational metrics companies report in earnings releases that
+# DON'T live in any clean API (FMP doesn't have them). Updated quarterly when
+# companies report. Source: official earnings press releases / 10-Q filings.
+#
+# Format: {TICKER: {KPI_NAME: {'unit': str, 'data': {date_str: value, ...}}}}
+# Dates are quarter-end ISO format (YYYY-MM-DD). Annual rollup happens
+# automatically (last quarter of fiscal year, i.e. Q4 = full-year value for
+# stock metrics like DAU, sum across quarters for flow metrics like Trips).
+#
+# Last updated: April 2026 — covers data through Q4 2025 (latest reported).
+
+OPERATIONAL_KPIS = {
+    'META': {
+        'Family DAUs (DAP)': {
+            'unit': 'B', 'aggregation': 'last',  # Stock metric — annual = Q4 value
+            'data': {
+                '2022-03-31': 2.87, '2022-06-30': 2.88, '2022-09-30': 2.93, '2022-12-31': 2.96,
+                '2023-03-31': 3.02, '2023-06-30': 3.07, '2023-09-30': 3.14, '2023-12-31': 3.19,
+                '2024-03-31': 3.24, '2024-06-30': 3.27, '2024-09-30': 3.29, '2024-12-31': 3.35,
+                '2025-03-31': 3.43, '2025-06-30': 3.48, '2025-09-30': 3.54, '2025-12-31': 3.58,
+            }
+        },
+        'Family ARPP ($)': {
+            'unit': '$', 'aggregation': 'last',
+            'data': {
+                '2024-12-31': 14.25,
+                '2025-12-31': 16.56,  # Q4 2025: Family ARPP $16.56
+            }
+        },
+    },
+    'SPOT': {
+        'MAUs': {
+            'unit': 'M', 'aggregation': 'last',
+            'data': {
+                '2022-03-31': 422, '2022-06-30': 433, '2022-09-30': 456, '2022-12-31': 489,
+                '2023-03-31': 515, '2023-06-30': 551, '2023-09-30': 574, '2023-12-31': 602,
+                '2024-03-31': 615, '2024-06-30': 626, '2024-09-30': 640, '2024-12-31': 675,
+                '2025-03-31': 678, '2025-06-30': 696, '2025-09-30': 713, '2025-12-31': 751,
+            }
+        },
+        'Premium Subscribers': {
+            'unit': 'M', 'aggregation': 'last',
+            'data': {
+                '2022-03-31': 182, '2022-06-30': 188, '2022-09-30': 195, '2022-12-31': 205,
+                '2023-03-31': 210, '2023-06-30': 220, '2023-09-30': 226, '2023-12-31': 236,
+                '2024-03-31': 239, '2024-06-30': 246, '2024-09-30': 252, '2024-12-31': 263,
+                '2025-03-31': 268, '2025-06-30': 276, '2025-09-30': 281, '2025-12-31': 290,
+            }
+        },
+        'Ad-Supported MAUs': {
+            'unit': 'M', 'aggregation': 'last',
+            'data': {
+                '2024-03-31': 388, '2024-06-30': 393, '2024-09-30': 402, '2024-12-31': 425,
+                '2025-03-31': 423, '2025-06-30': 433, '2025-09-30': 446, '2025-12-31': 461,
+            }
+        },
+    },
+    'UBER': {
+        'MAPCs': {
+            'unit': 'M', 'aggregation': 'last',
+            'data': {
+                '2022-03-31': 115, '2022-06-30': 122, '2022-09-30': 124, '2022-12-31': 131,
+                '2023-03-31': 130, '2023-06-30': 137, '2023-09-30': 142, '2023-12-31': 150,
+                '2024-03-31': 149, '2024-06-30': 156, '2024-09-30': 161, '2024-12-31': 171,
+                '2025-03-31': 170, '2025-06-30': 180, '2025-09-30': 192, '2025-12-31': 202,
+            }
+        },
+        'Trips': {
+            'unit': 'B', 'aggregation': 'sum',  # Flow metric — annual = sum of quarters
+            'data': {
+                '2022-03-31': 1.71, '2022-06-30': 1.87, '2022-09-30': 1.95, '2022-12-31': 2.10,
+                '2023-03-31': 2.12, '2023-06-30': 2.28, '2023-09-30': 2.44, '2023-12-31': 2.60,
+                '2024-03-31': 2.57, '2024-06-30': 2.77, '2024-09-30': 2.88, '2024-12-31': 3.07,
+                '2025-03-31': 3.04, '2025-06-30': 3.30, '2025-09-30': 3.50, '2025-12-31': 3.80,
+            }
+        },
+        'Gross Bookings ($B)': {
+            'unit': '$B', 'aggregation': 'sum',
+            'data': {
+                '2022-03-31': 26.4, '2022-06-30': 29.1, '2022-09-30': 29.1, '2022-12-31': 30.7,
+                '2023-03-31': 31.4, '2023-06-30': 33.6, '2023-09-30': 35.3, '2023-12-31': 37.6,
+                '2024-03-31': 37.7, '2024-06-30': 40.0, '2024-09-30': 41.0, '2024-12-31': 44.2,
+                '2025-03-31': 42.8, '2025-06-30': 46.8, '2025-09-30': 49.7, '2025-12-31': 54.1,
+            }
+        },
+    },
+    'ABNB': {
+        'Nights & Seats Booked': {
+            'unit': 'M', 'aggregation': 'sum',
+            'data': {
+                '2022-03-31': 102.1, '2022-06-30': 103.7, '2022-09-30': 99.7, '2022-12-31': 88.2,
+                '2023-03-31': 121.1, '2023-06-30': 115.1, '2023-09-30': 113.2, '2023-12-31': 98.8,
+                '2024-03-31': 132.6, '2024-06-30': 125.1, '2024-09-30': 122.8, '2024-12-31': 111.0,
+                '2025-03-31': 143.1, '2025-06-30': 134.9, '2025-09-30': 133.6, '2025-12-31': 121.9,
+            }
+        },
+        'Gross Booking Value ($B)': {
+            'unit': '$B', 'aggregation': 'sum',
+            'data': {
+                '2022-03-31': 17.2, '2022-06-30': 17.0, '2022-09-30': 16.0, '2022-12-31': 13.5,
+                '2023-03-31': 20.4, '2023-06-30': 19.1, '2023-09-30': 18.3, '2023-12-31': 15.5,
+                '2024-03-31': 22.9, '2024-06-30': 21.2, '2024-09-30': 20.1, '2024-12-31': 17.6,
+                '2025-03-31': 24.5, '2025-06-30': 23.3, '2025-09-30': 22.9, '2025-12-31': 20.4,
+            }
+        },
+    },
+    'TSLA': {
+        'Vehicle Deliveries': {
+            'unit': 'K', 'aggregation': 'sum',
+            'data': {
+                '2022-03-31': 310, '2022-06-30': 254, '2022-09-30': 343, '2022-12-31': 405,
+                '2023-03-31': 423, '2023-06-30': 466, '2023-09-30': 435, '2023-12-31': 485,
+                '2024-03-31': 387, '2024-06-30': 444, '2024-09-30': 463, '2024-12-31': 496,
+                '2025-03-31': 337, '2025-06-30': 384, '2025-09-30': 497, '2025-12-31': 418,
+            }
+        },
+        'Vehicle Production': {
+            'unit': 'K', 'aggregation': 'sum',
+            'data': {
+                '2022-03-31': 305, '2022-06-30': 259, '2022-09-30': 366, '2022-12-31': 440,
+                '2023-03-31': 441, '2023-06-30': 480, '2023-09-30': 431, '2023-12-31': 495,
+                '2024-03-31': 433, '2024-06-30': 411, '2024-09-30': 470, '2024-12-31': 459,
+                '2025-03-31': 363, '2025-06-30': 410, '2025-09-30': 447, '2025-12-31': 434,
+            }
+        },
+        'Energy Storage Deployed (GWh)': {
+            'unit': 'GWh', 'aggregation': 'sum',
+            'data': {
+                '2022-03-31': 0.85, '2022-06-30': 1.13, '2022-09-30': 2.10, '2022-12-31': 2.46,
+                '2023-03-31': 3.89, '2023-06-30': 3.65, '2023-09-30': 4.00, '2023-12-31': 3.20,
+                '2024-03-31': 4.05, '2024-06-30': 9.40, '2024-09-30': 6.90, '2024-12-31': 11.0,
+                '2025-03-31': 10.4, '2025-06-30': 9.6, '2025-09-30': 12.5, '2025-12-31': 14.2,
+            }
+        },
+    },
+    'RBLX': {
+        'DAUs': {
+            'unit': 'M', 'aggregation': 'last',
+            'data': {
+                '2022-03-31': 54.1, '2022-06-30': 52.2, '2022-09-30': 58.8, '2022-12-31': 65.5,
+                '2023-03-31': 66.2, '2023-06-30': 65.5, '2023-09-30': 70.2, '2023-12-31': 71.5,
+                '2024-03-31': 77.7, '2024-06-30': 79.5, '2024-09-30': 88.9, '2024-12-31': 85.3,
+                '2025-03-31': 97.8, '2025-06-30': 111.8, '2025-09-30': 151.5, '2025-12-31': 144.0,
+            }
+        },
+        'Hours Engaged (B)': {
+            'unit': 'B', 'aggregation': 'sum',
+            'data': {
+                '2022-03-31': 11.0, '2022-06-30': 11.3, '2022-09-30': 13.4, '2022-12-31': 14.5,
+                '2023-03-31': 14.5, '2023-06-30': 14.0, '2023-09-30': 16.0, '2023-12-31': 15.5,
+                '2024-03-31': 16.7, '2024-06-30': 17.4, '2024-09-30': 20.7, '2024-12-31': 18.7,
+                '2025-03-31': 21.7, '2025-06-30': 26.5, '2025-09-30': 41.0, '2025-12-31': 35.0,
+            }
+        },
+        'Bookings ($M)': {
+            'unit': '$M', 'aggregation': 'sum',
+            'data': {
+                '2022-03-31': 631, '2022-06-30': 639, '2022-09-30': 702, '2022-12-31': 899,
+                '2023-03-31': 774, '2023-06-30': 781, '2023-09-30': 839, '2023-12-31': 1130,
+                '2024-03-31': 924, '2024-06-30': 955, '2024-09-30': 1130, '2024-12-31': 1362,
+                '2025-03-31': 1207, '2025-06-30': 1438, '2025-09-30': 1735, '2025-12-31': 2220,
+            }
+        },
+    },
+    'SNAP': {
+        'DAUs': {
+            'unit': 'M', 'aggregation': 'last',
+            'data': {
+                '2022-03-31': 332, '2022-06-30': 347, '2022-09-30': 363, '2022-12-31': 375,
+                '2023-03-31': 383, '2023-06-30': 397, '2023-09-30': 406, '2023-12-31': 414,
+                '2024-03-31': 422, '2024-06-30': 432, '2024-09-30': 443, '2024-12-31': 453,
+                '2025-03-31': 460, '2025-06-30': 469, '2025-09-30': 477, '2025-12-31': 484,
+            }
+        },
+    },
+    'PINS': {
+        'MAUs': {
+            'unit': 'M', 'aggregation': 'last',
+            'data': {
+                '2022-03-31': 433, '2022-06-30': 433, '2022-09-30': 445, '2022-12-31': 450,
+                '2023-03-31': 463, '2023-06-30': 465, '2023-09-30': 482, '2023-12-31': 498,
+                '2024-03-31': 518, '2024-06-30': 522, '2024-09-30': 537, '2024-12-31': 553,
+                '2025-03-31': 570, '2025-06-30': 578, '2025-09-30': 600, '2025-12-31': 614,
+            }
+        },
+        'Global ARPU ($)': {
+            'unit': '$', 'aggregation': 'last',
+            'data': {
+                '2022-12-31': 1.96, '2023-12-31': 2.00, '2024-12-31': 2.12, '2025-12-31': 2.30,
+            }
+        },
+    },
+    'COIN': {
+        'MTUs': {
+            'unit': 'M', 'aggregation': 'last',
+            'data': {
+                '2022-03-31': 9.2, '2022-06-30': 9.0, '2022-09-30': 8.5, '2022-12-31': 8.3,
+                '2023-03-31': 8.4, '2023-06-30': 7.0, '2023-09-30': 6.7, '2023-12-31': 8.4,
+                '2024-03-31': 8.0, '2024-06-30': 8.1, '2024-09-30': 7.8, '2024-12-31': 9.7,
+                '2025-03-31': 9.7, '2025-06-30': 8.5, '2025-09-30': 7.3, '2025-12-31': 9.0,
+            }
+        },
+        'Total Trading Volume ($B)': {
+            'unit': '$B', 'aggregation': 'sum',
+            'data': {
+                '2022-03-31': 309, '2022-06-30': 217, '2022-09-30': 159, '2022-12-31': 145,
+                '2023-03-31': 145, '2023-06-30': 92, '2023-09-30': 76, '2023-12-31': 154,
+                '2024-03-31': 312, '2024-06-30': 226, '2024-09-30': 185, '2024-12-31': 439,
+                '2025-03-31': 393, '2025-06-30': 245, '2025-09-30': 211, '2025-12-31': 530,
+            }
+        },
+    },
+    'NFLX': {
+        # Netflix stopped reporting subscribers QUARTERLY in Q1 2025, but they
+        # disclose milestones ad hoc (e.g. they confirmed 325M in Q4 2025
+        # shareholder letter). So quarterly data exists through Q4 2024,
+        # then sparse milestone-only after that.
+        'Paid Subscribers': {
+            'unit': 'M', 'aggregation': 'last',
+            'data': {
+                '2022-03-31': 221.6, '2022-06-30': 220.7, '2022-09-30': 223.1, '2022-12-31': 230.8,
+                '2023-03-31': 232.5, '2023-06-30': 238.4, '2023-09-30': 247.2, '2023-12-31': 260.3,
+                '2024-03-31': 269.6, '2024-06-30': 277.6, '2024-09-30': 282.7, '2024-12-31': 301.6,
+                # 2025 quarterly NOT REPORTED. Q4 2025 milestone disclosure only:
+                '2025-12-31': 325.0,
+            }
+        },
+        # Engagement hours are now disclosed only twice a year (semi-annual basis).
+        'Engagement Hours (B)': {
+            'unit': 'B', 'aggregation': 'sum',
+            'data': {
+                # H1 + H2 reported separately; placed at quarter-end of reporting period
+                '2023-06-30': 100.0, '2023-12-31': 94.0,  # H1 + H2 2023 = 194B total
+                '2024-06-30': 94.0, '2024-12-31': 100.0,  # H1 + H2 2024 = 194B total
+                '2025-06-30': 95.0, '2025-12-31': 105.0,  # H1 + H2 2025 = 200B total (approx)
+            }
+        },
+    },
+}
+
+
+def get_operational_kpis(ticker, period='annual'):
+    """Return KPI DataFrame for a ticker — empty if not in our hardcoded set.
+
+    Returns a tidy DataFrame: ['date', 'kpi', 'value', 'unit'] — same shape
+    as the segment fetcher so the chart code can reuse the same plot pipeline.
+
+    For annual mode: aggregates quarterly data per the KPI's 'aggregation' rule:
+      - 'last'  → use Q4 value (for stock metrics like DAU, subscribers)
+      - 'sum'   → sum the four quarters (for flow metrics like Trips, Bookings)
+    """
+    ticker_upper = (ticker or '').upper()
+    if ticker_upper not in OPERATIONAL_KPIS:
+        return pd.DataFrame()
+
+    rows = []
+    for kpi_name, kpi_meta in OPERATIONAL_KPIS[ticker_upper].items():
+        unit = kpi_meta.get('unit', '')
+        agg = kpi_meta.get('aggregation', 'last')
+        data_points = kpi_meta.get('data', {})
+
+        if not data_points:
+            continue
+
+        # Build per-quarter rows first
+        per_q = []
+        for date_str, val in data_points.items():
+            try:
+                _d = pd.to_datetime(date_str)
+                per_q.append({'date': _d, 'value': float(val)})
+            except Exception:
+                continue
+        if not per_q:
+            continue
+        per_q.sort(key=lambda r: r['date'])
+
+        if period == 'quarter':
+            # One row per quarter as-is
+            for r in per_q:
+                rows.append({
+                    'date': r['date'], 'kpi': kpi_name,
+                    'value': r['value'], 'unit': unit
+                })
+        else:
+            # Annual roll-up: group by year, apply aggregation rule
+            df_q = pd.DataFrame(per_q)
+            df_q['year'] = df_q['date'].dt.year
+            for year, grp in df_q.groupby('year'):
+                grp_sorted = grp.sort_values('date')
+                if agg == 'sum':
+                    # Only include years with all 4 quarters reported (avoid partial-year totals)
+                    if len(grp_sorted) < 4:
+                        continue
+                    val = grp_sorted['value'].sum()
+                else:  # 'last' — use Q4 (or latest available in year)
+                    val = grp_sorted['value'].iloc[-1]
+                # Annual date = Dec 31 of that year
+                rows.append({
+                    'date': pd.Timestamp(year=int(year), month=12, day=31),
+                    'kpi': kpi_name, 'value': float(val), 'unit': unit
+                })
+
+    if not rows:
+        return pd.DataFrame()
+    return pd.DataFrame(rows).sort_values('date').reset_index(drop=True)
+
 @st.cache_data(ttl=3600)
 @st.cache_data(ttl=3600)
 def get_historical_price(ticker, years=5):
@@ -22874,286 +23183,555 @@ elif selected_page == "📊 Company Analysis":
                                 _yoy_latest_cols[_i].metric(f"Latest {_growth_mode} · {_label}", "N/A")
 
             # ── Product Segment chart (Google Cloud, AWS, iPhone vs Mac, etc.) ──
-            # Pulls FMP's revenue-product-segmentation endpoint and lets the user toggle
-            # between Revenue $ and YoY Growth % views. Only renders if FMP returns segments
-            # for this ticker (smaller companies often don't break out segments at all).
+            # ── Product Segments + Operational KPIs section ──
+            # Top-level toggle lets the user choose: segment Revenue $ / segment YoY Growth %
+            # / operational KPIs (DAU, MAU, subs, etc. for hand-curated companies).
+            # Segment data comes from FMP. KPI data is hardcoded from earnings releases
+            # because no clean API exposes operational KPIs (Daloopa-style data is paywalled).
             st.markdown("")
-            st.markdown(f"#### 🧩 {company_name} - Product Segments")
+            st.markdown(f"#### 🧩 {company_name} - Segments & KPIs")
 
+            # Fetch both data sources up front so we know what's actually available
             _seg_df = get_product_segments(ticker, _ca_period_type)
+            _kpi_df = get_operational_kpis(ticker, _ca_period_type)
 
-            if _seg_df.empty:
+            _has_segments = not _seg_df.empty
+            _has_kpis = not _kpi_df.empty
+
+            if not _has_segments and not _has_kpis:
                 st.info(
-                    f"No product segment data available for **{ticker}** from the data source. "
-                    "Many smaller companies don't break out revenue by product line — segment data is most reliable for "
-                    "large-caps like AAPL, GOOGL, AMZN, MSFT, META, NVDA."
+                    f"No segment or operational KPI data available for **{ticker}**. "
+                    "Segment data from FMP is most reliable for large-caps like AAPL, GOOGL, AMZN, MSFT, META, NVDA. "
+                    "Operational KPIs (DAU, MAU, subscribers, etc.) are hand-curated for: "
+                    "META, SPOT, UBER, ABNB, TSLA, RBLX, SNAP, PINS, COIN, NFLX."
                 )
             else:
-                # Slice to the same time window as the years slider.
-                # Annual: keep last `years` years of data. Quarterly: keep last `years*4` quarters.
-                _seg_keep = years * 4 if _ca_period_type == 'quarter' else years
-                # Get the unique periods in the data, take the most recent N
-                _seg_periods_sorted = sorted(_seg_df['date'].unique())
-                _seg_periods_kept = _seg_periods_sorted[-_seg_keep:] if len(_seg_periods_sorted) > _seg_keep else _seg_periods_sorted
-                _seg_df = _seg_df[_seg_df['date'].isin(_seg_periods_kept)].reset_index(drop=True)
+                # Build the top-level view options dynamically based on what we have
+                _view_options = []
+                if _has_segments:
+                    _view_options.append("Revenue $")
+                    _view_options.append("YoY Growth %")
+                if _has_kpis:
+                    _view_options.append("KPIs")
 
-                # Identify the top segments by latest-period revenue (companies report
-                # many tiny "Other" segments — limit to top 6 for readability).
-                _latest_period = _seg_df['date'].max()
-                _latest_slice = _seg_df[_seg_df['date'] == _latest_period].copy()
-                _latest_slice = _latest_slice.sort_values('value', ascending=False)
-                _all_segments = _latest_slice['segment'].tolist()
-                _top_n_default = min(6, len(_all_segments))
-                _top_segments = _all_segments[:_top_n_default]
-
-                # Mode toggle: Revenue $ vs YoY Growth %
                 _seg_view_mode = st.radio(
-                    "Segment view:",
-                    options=["Revenue $", "YoY Growth %"],
+                    "View:",
+                    options=_view_options,
                     index=0,
                     horizontal=True,
                     key=f"segment_view_mode_{ticker}",
-                    help="Revenue $ shows absolute dollar contribution per segment over time. YoY Growth % shows year-over-year change for each segment."
+                    help=(
+                        "Revenue $ — absolute dollar contribution per segment. "
+                        "YoY Growth % — year-over-year change per segment. "
+                        "KPIs — operational metrics like DAUs, MAUs, subscribers, trips (hand-curated from earnings releases)."
+                    )
                 )
 
-                # Multi-select: which segments to chart
-                _seg_selected = st.multiselect(
-                    "Select segments to chart:",
-                    options=_all_segments,
-                    default=_top_segments,
-                    key=f"segment_metrics_{ticker}",
-                    help=f"Showing top {_top_n_default} segments by latest revenue. Add or remove as needed."
-                )
+                # ────────────────────────────────────────────────────────────
+                # KPI BRANCH — show operational KPIs (DAU, MAU, subs, etc.)
+                # ────────────────────────────────────────────────────────────
+                if _seg_view_mode == "KPIs":
+                    # Slice KPI data to the years window
+                    _kpi_keep = years * 4 if _ca_period_type == 'quarter' else years
+                    _kpi_periods_sorted = sorted(_kpi_df['date'].unique())
+                    _kpi_periods_kept = _kpi_periods_sorted[-_kpi_keep:] if len(_kpi_periods_sorted) > _kpi_keep else _kpi_periods_sorted
+                    _kpi_df = _kpi_df[_kpi_df['date'].isin(_kpi_periods_kept)].reset_index(drop=True)
 
-                if not _seg_selected:
-                    st.info("👆 Select at least one segment above to see the chart.")
-                else:
-                    # Build x-axis labels (one per unique period)
-                    _seg_periods = sorted(_seg_df['date'].unique())
+                    _all_kpis = sorted(_kpi_df['kpi'].unique().tolist())
+                    _kpi_default = _all_kpis[:3] if len(_all_kpis) > 3 else _all_kpis
 
-                    def _seg_format_period(d):
-                        try:
-                            _d = pd.to_datetime(d)
-                            if _ca_period_type == 'annual':
-                                return f"FY {_d.year}"
-                            return f"Q{((_d.month - 1) // 3) + 1} {_d.year}"
-                        except Exception:
-                            return str(d)
+                    # Sub-toggle: Absolute vs YoY Growth %
+                    _kpi_view_mode = st.radio(
+                        "KPI view:",
+                        options=["Absolute", "YoY Growth %"],
+                        index=0,
+                        horizontal=True,
+                        key=f"kpi_view_mode_{ticker}",
+                        help="Absolute shows the actual KPI value (e.g. 290M subscribers). YoY Growth % shows year-over-year change."
+                    )
 
-                    _seg_x_labels = [_seg_format_period(d) for d in _seg_periods]
+                    _kpi_selected = st.multiselect(
+                        "Select KPIs to chart:",
+                        options=_all_kpis,
+                        default=_kpi_default,
+                        key=f"kpi_metrics_{ticker}",
+                        help="KPIs reported by the company in earnings releases. Add or remove as needed."
+                    )
 
-                    # Pivot into wide format: rows=periods, cols=segments
-                    _seg_pivot = _seg_df.pivot_table(
-                        index='date', columns='segment', values='value', aggfunc='sum'
-                    ).reindex(_seg_periods)
-
-                    # Reuse the same dark-space styling from the YoY chart
-                    _SEG_PALETTE = [
-                        '#00E5FF', '#FFD700', '#BF5FFF', '#00FF88', '#FF6B9D',
-                        '#4ADEBB', '#FFA45C', '#5B8FFF', '#FFEA00', '#E879F9',
-                    ]
-                    _SEG_BG_SPACE = '#0A0A1A'
-                    _SEG_BG_PLOT = '#0D0D20'
-                    _SEG_ZERO_LINE = 'rgba(255,255,255,0.25)'
-                    _SEG_TEXT_BRIGHT = '#FFFFFF'
-                    _SEG_TEXT_DIM = 'rgba(255,255,255,0.55)'
-                    _SEG_GRID_COLOR = 'rgba(255,255,255,0.04)'
-
-                    def _seg_hex_to_rgba(hex_c, alpha):
-                        h = hex_c.lstrip('#')
-                        r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
-                        return f'rgba({r},{g},{b},{alpha})'
-
-                    def _seg_format_value_label(val):
-                        if val is None or pd.isna(val):
-                            return ""
-                        abs_val = abs(val)
-                        sign = "-" if val < 0 else ""
-                        if abs_val >= 1e9:
-                            return f"{sign}${abs_val/1e9:.1f}B"
-                        elif abs_val >= 1e6:
-                            return f"{sign}${abs_val/1e6:.1f}M"
-                        elif abs_val >= 1e3:
-                            return f"{sign}${abs_val/1e3:.1f}K"
-                        return f"{sign}${abs_val:.0f}"
-
-                    _seg_fig = go.Figure()
-                    _seg_all_vals = []
-
-                    if _seg_view_mode == "Revenue $":
-                        # Absolute dollar values per segment per period
-                        for _idx, _seg_name in enumerate(_seg_selected):
-                            if _seg_name not in _seg_pivot.columns:
-                                continue
-                            _vals = _seg_pivot[_seg_name].tolist()
-                            _seg_all_vals.extend([v for v in _vals if pd.notna(v)])
-
-                            _brand_color = _SEG_PALETTE[_idx % len(_SEG_PALETTE)]
-                            _per_bar_colors = [
-                                _seg_hex_to_rgba(_brand_color, 1.0) if i == len(_vals) - 1
-                                else _seg_hex_to_rgba(_brand_color, 0.55)
-                                for i in range(len(_vals))
-                            ]
-                            _per_bar_borders = [
-                                'rgba(255,255,255,0.9)' if i == len(_vals) - 1 else 'rgba(0,0,0,0)'
-                                for i in range(len(_vals))
-                            ]
-                            _per_bar_widths = [
-                                2.5 if i == len(_vals) - 1 else 0
-                                for i in range(len(_vals))
-                            ]
-
-                            _seg_fig.add_trace(go.Bar(
-                                x=_seg_x_labels,
-                                y=_vals,
-                                name=_seg_name,
-                                marker=dict(
-                                    color=_per_bar_colors,
-                                    line=dict(color=_per_bar_borders, width=_per_bar_widths),
-                                    cornerradius=5,
-                                ),
-                                text=[_seg_format_value_label(v) for v in _vals],
-                                textposition='outside',
-                                textfont=dict(size=10, color=_SEG_TEXT_BRIGHT, family='Inter, system-ui, sans-serif'),
-                                hovertemplate=f'<b>%{{x}}</b><br>{_seg_name}: <b>%{{text}}</b><extra></extra>',
-                            ))
-
-                        _seg_yaxis_title = 'Revenue ($)'
-                        _seg_chart_title = f'{company_name} - Segment Revenue ({"Quarterly" if _ca_period_type == "quarter" else "Annual"})'
-                        _seg_ticksuffix = ''
+                    if not _kpi_selected:
+                        st.info("👆 Select at least one KPI above to see the chart.")
                     else:
-                        # YoY Growth % per segment
-                        # Lag = 4 in quarterly, 1 in annual (segments use YoY only — QoQ for segments
-                        # is too noisy and rarely useful since segments often have heavy seasonality)
-                        _seg_lag = 4 if _ca_period_type == 'quarter' else 1
+                        _kpi_periods = sorted(_kpi_df['date'].unique())
 
-                        for _idx, _seg_name in enumerate(_seg_selected):
-                            if _seg_name not in _seg_pivot.columns:
-                                continue
-                            _vals_raw = pd.to_numeric(_seg_pivot[_seg_name], errors='coerce')
-                            _prior_raw = _vals_raw.shift(_seg_lag)
-                            _yoy_segs = []
-                            for _curr, _prv in zip(_vals_raw, _prior_raw):
-                                if pd.isna(_curr) or pd.isna(_prv) or _prv == 0:
-                                    _yoy_segs.append(None)
-                                else:
-                                    _yoy_segs.append(((_curr - _prv) / abs(_prv)) * 100.0)
-                            _seg_all_vals.extend([v for v in _yoy_segs if v is not None])
+                        def _kpi_format_period(d):
+                            try:
+                                _d = pd.to_datetime(d)
+                                if _ca_period_type == 'annual':
+                                    return f"FY {_d.year}"
+                                return f"Q{((_d.month - 1) // 3) + 1} {_d.year}"
+                            except Exception:
+                                return str(d)
 
-                            _brand_color = _SEG_PALETTE[_idx % len(_SEG_PALETTE)]
-                            _per_bar_colors = [
-                                _seg_hex_to_rgba(_brand_color, 1.0) if i == len(_yoy_segs) - 1
-                                else _seg_hex_to_rgba(_brand_color, 0.55)
-                                for i in range(len(_yoy_segs))
-                            ]
-                            _per_bar_borders = [
-                                'rgba(255,255,255,0.9)' if i == len(_yoy_segs) - 1 else 'rgba(0,0,0,0)'
-                                for i in range(len(_yoy_segs))
-                            ]
-                            _per_bar_widths = [
-                                2.5 if i == len(_yoy_segs) - 1 else 0
-                                for i in range(len(_yoy_segs))
-                            ]
+                        _kpi_x_labels = [_kpi_format_period(d) for d in _kpi_periods]
 
-                            _seg_fig.add_trace(go.Bar(
-                                x=_seg_x_labels,
-                                y=_yoy_segs,
-                                name=_seg_name,
-                                marker=dict(
-                                    color=_per_bar_colors,
-                                    line=dict(color=_per_bar_borders, width=_per_bar_widths),
-                                    cornerradius=5,
+                        _kpi_pivot = _kpi_df.pivot_table(
+                            index='date', columns='kpi', values='value', aggfunc='sum'
+                        ).reindex(_kpi_periods)
+
+                        # Build {kpi_name: unit} lookup for formatting axis labels
+                        _kpi_units = {row['kpi']: row['unit'] for _, row in _kpi_df.iterrows()}
+
+                        # Reuse same dark-space styling as segment chart
+                        _KPI_PALETTE = [
+                            '#00E5FF', '#FFD700', '#BF5FFF', '#00FF88', '#FF6B9D',
+                            '#4ADEBB', '#FFA45C', '#5B8FFF', '#FFEA00', '#E879F9',
+                        ]
+                        _KPI_BG_SPACE = '#0A0A1A'
+                        _KPI_BG_PLOT = '#0D0D20'
+                        _KPI_ZERO_LINE = 'rgba(255,255,255,0.25)'
+                        _KPI_TEXT_BRIGHT = '#FFFFFF'
+                        _KPI_TEXT_DIM = 'rgba(255,255,255,0.55)'
+                        _KPI_GRID_COLOR = 'rgba(255,255,255,0.04)'
+
+                        def _kpi_hex_to_rgba(hex_c, alpha):
+                            h = hex_c.lstrip('#')
+                            r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+                            return f'rgba({r},{g},{b},{alpha})'
+
+                        def _kpi_format_value(val, unit):
+                            """Format a value with its unit suffix — handles M, B, K, $, $B, $M, %, GWh."""
+                            if val is None or pd.isna(val):
+                                return ""
+                            if unit == '$':
+                                return f"${val:.2f}"
+                            if unit == '$B':
+                                return f"${val:.1f}B"
+                            if unit == '$M':
+                                return f"${val:.0f}M"
+                            if unit in ('M', 'B', 'K', 'GWh'):
+                                return f"{val:.1f}{unit}"
+                            return f"{val:.1f}"
+
+                        _kpi_fig = go.Figure()
+                        _kpi_all_vals = []
+
+                        if _kpi_view_mode == "Absolute":
+                            # NOTE: KPIs have mixed units (M users + $ ARPU + GWh storage),
+                            # so we put each KPI on its own y-axis or just rely on hover for clarity.
+                            # For simplicity and consistency with the segment chart, we use a single
+                            # axis but show the unit in each bar's label so the magnitude is clear.
+                            # Users typically chart KPIs of similar magnitude together anyway.
+                            for _idx, _kpi_name in enumerate(_kpi_selected):
+                                if _kpi_name not in _kpi_pivot.columns:
+                                    continue
+                                _vals = _kpi_pivot[_kpi_name].tolist()
+                                _kpi_all_vals.extend([v for v in _vals if pd.notna(v)])
+                                _unit = _kpi_units.get(_kpi_name, '')
+
+                                _brand_color = _KPI_PALETTE[_idx % len(_KPI_PALETTE)]
+                                _per_bar_colors = [
+                                    _kpi_hex_to_rgba(_brand_color, 1.0) if i == len(_vals) - 1
+                                    else _kpi_hex_to_rgba(_brand_color, 0.55)
+                                    for i in range(len(_vals))
+                                ]
+                                _per_bar_borders = [
+                                    'rgba(255,255,255,0.9)' if i == len(_vals) - 1 else 'rgba(0,0,0,0)'
+                                    for i in range(len(_vals))
+                                ]
+                                _per_bar_widths = [
+                                    2.5 if i == len(_vals) - 1 else 0
+                                    for i in range(len(_vals))
+                                ]
+
+                                _kpi_fig.add_trace(go.Bar(
+                                    x=_kpi_x_labels,
+                                    y=_vals,
+                                    name=_kpi_name,
+                                    marker=dict(
+                                        color=_per_bar_colors,
+                                        line=dict(color=_per_bar_borders, width=_per_bar_widths),
+                                        cornerradius=5,
+                                    ),
+                                    text=[_kpi_format_value(v, _unit) for v in _vals],
+                                    textposition='outside',
+                                    textfont=dict(size=10, color=_KPI_TEXT_BRIGHT, family='Inter, system-ui, sans-serif'),
+                                    hovertemplate=f'<b>%{{x}}</b><br>{_kpi_name}: <b>%{{text}}</b><extra></extra>',
+                                ))
+
+                            _kpi_yaxis_title = 'Value'
+                            _kpi_chart_title = f'{company_name} - Operational KPIs ({"Quarterly" if _ca_period_type == "quarter" else "Annual"})'
+                            _kpi_ticksuffix = ''
+                        else:
+                            # YoY Growth % per KPI
+                            _kpi_lag = 4 if _ca_period_type == 'quarter' else 1
+
+                            for _idx, _kpi_name in enumerate(_kpi_selected):
+                                if _kpi_name not in _kpi_pivot.columns:
+                                    continue
+                                _vals_raw = pd.to_numeric(_kpi_pivot[_kpi_name], errors='coerce')
+                                _prior_raw = _vals_raw.shift(_kpi_lag)
+                                _yoy_kpis = []
+                                for _curr, _prv in zip(_vals_raw, _prior_raw):
+                                    if pd.isna(_curr) or pd.isna(_prv) or _prv == 0:
+                                        _yoy_kpis.append(None)
+                                    else:
+                                        _yoy_kpis.append(((_curr - _prv) / abs(_prv)) * 100.0)
+                                _kpi_all_vals.extend([v for v in _yoy_kpis if v is not None])
+
+                                _brand_color = _KPI_PALETTE[_idx % len(_KPI_PALETTE)]
+                                _per_bar_colors = [
+                                    _kpi_hex_to_rgba(_brand_color, 1.0) if i == len(_yoy_kpis) - 1
+                                    else _kpi_hex_to_rgba(_brand_color, 0.55)
+                                    for i in range(len(_yoy_kpis))
+                                ]
+                                _per_bar_borders = [
+                                    'rgba(255,255,255,0.9)' if i == len(_yoy_kpis) - 1 else 'rgba(0,0,0,0)'
+                                    for i in range(len(_yoy_kpis))
+                                ]
+                                _per_bar_widths = [
+                                    2.5 if i == len(_yoy_kpis) - 1 else 0
+                                    for i in range(len(_yoy_kpis))
+                                ]
+
+                                _kpi_fig.add_trace(go.Bar(
+                                    x=_kpi_x_labels,
+                                    y=_yoy_kpis,
+                                    name=_kpi_name,
+                                    marker=dict(
+                                        color=_per_bar_colors,
+                                        line=dict(color=_per_bar_borders, width=_per_bar_widths),
+                                        cornerradius=5,
+                                    ),
+                                    text=[f"{v:+.1f}%" if v is not None else "" for v in _yoy_kpis],
+                                    textposition='outside',
+                                    textfont=dict(size=10, color=_KPI_TEXT_BRIGHT, family='Inter, system-ui, sans-serif'),
+                                    hovertemplate=f'<b>%{{x}}</b><br>{_kpi_name} YoY: <b>%{{y:+.1f}}%</b><extra></extra>',
+                                ))
+
+                            _kpi_yaxis_title = 'YoY Growth (%)'
+                            _kpi_chart_title = f'{company_name} - KPI YoY Growth % ({"Quarterly" if _ca_period_type == "quarter" else "Annual"})'
+                            _kpi_ticksuffix = '%'
+
+                        if not _kpi_all_vals:
+                            st.info(
+                                "Not enough KPI data to render this view. "
+                                "If you're on YoY Growth %, try increasing the years slider."
+                            )
+                        else:
+                            _y_max = max(_kpi_all_vals)
+                            _y_min = min(_kpi_all_vals)
+                            _y_span = (_y_max - _y_min) if _y_max != _y_min else (abs(_y_max) * 0.5 or 1)
+                            _y_pad = _y_span * 0.28
+                            _kpi_y_max = _y_max + _y_pad
+                            _kpi_y_min = _y_min - _y_pad if _y_min < 0 else 0
+
+                            _kpi_fig.update_layout(
+                                title=dict(
+                                    text=f'<b>{_kpi_chart_title}</b>',
+                                    font=dict(size=18, color=_KPI_TEXT_BRIGHT, family='Inter, system-ui, sans-serif'),
+                                    x=0.5, xanchor='center', y=0.97, yanchor='top'
                                 ),
-                                text=[f"{v:+.1f}%" if v is not None else "" for v in _yoy_segs],
-                                textposition='outside',
-                                textfont=dict(size=10, color=_SEG_TEXT_BRIGHT, family='Inter, system-ui, sans-serif'),
-                                hovertemplate=f'<b>%{{x}}</b><br>{_seg_name} YoY: <b>%{{y:+.1f}}%</b><extra></extra>',
-                            ))
+                                xaxis_title=None,
+                                yaxis_title=_kpi_yaxis_title,
+                                barmode='group',
+                                hovermode='x unified',
+                                height=500,
+                                showlegend=True,
+                                legend=dict(
+                                    orientation="h", yanchor="top", y=-0.13, xanchor="center", x=0.5,
+                                    bgcolor='rgba(0,0,0,0)', borderwidth=0,
+                                    font=dict(size=13, color=_KPI_TEXT_DIM, family='Inter, system-ui, sans-serif'),
+                                    itemsizing='constant'
+                                ),
+                                yaxis=dict(
+                                    showgrid=True, gridcolor=_KPI_GRID_COLOR, gridwidth=1,
+                                    zeroline=True, zerolinewidth=1.5, zerolinecolor=_KPI_ZERO_LINE,
+                                    showline=False, ticksuffix=_kpi_ticksuffix,
+                                    tickfont=dict(size=11, color=_KPI_TEXT_DIM, family='Inter, system-ui, sans-serif'),
+                                    title_font=dict(size=12, color=_KPI_TEXT_DIM, family='Inter, system-ui, sans-serif'),
+                                    range=[_kpi_y_min, _kpi_y_max],
+                                ),
+                                xaxis=dict(
+                                    showgrid=False, showline=False,
+                                    tickfont=dict(size=13, color=_KPI_TEXT_DIM, family='Inter, system-ui, sans-serif'),
+                                    tickangle=0,
+                                ),
+                                plot_bgcolor=_KPI_BG_PLOT, paper_bgcolor=_KPI_BG_SPACE,
+                                margin=dict(t=55, b=80, l=70, r=30),
+                                bargap=0.22, bargroupgap=0.06,
+                                hoverlabel=dict(
+                                    bgcolor='#1A1A35', font_size=13, font_family='Inter, system-ui, sans-serif',
+                                    font_color=_KPI_TEXT_BRIGHT, bordercolor='rgba(140,100,255,0.5)',
+                                ),
+                            )
 
-                        _seg_yaxis_title = 'YoY Growth (%)'
-                        _seg_chart_title = f'{company_name} - Segment YoY Growth % ({"Quarterly" if _ca_period_type == "quarter" else "Annual"})'
-                        _seg_ticksuffix = '%'
+                            st.plotly_chart(_kpi_fig, use_container_width=True)
+                            st.caption(
+                                "⚠️ KPI data is hand-curated from official earnings press releases and 10-Q filings. "
+                                "Updated quarterly when companies report. "
+                                "**Note:** KPIs have mixed units (millions of users, dollars of ARPU, GWh of energy storage), "
+                                "so charting KPIs of similar magnitude together is recommended for readability."
+                            )
 
-                    if not _seg_all_vals:
-                        st.info(
-                            "Not enough data to render this view. "
-                            "If you're on YoY Growth %, try increasing the years slider — segment YoY needs at least 2 periods of overlap."
-                        )
+                # ────────────────────────────────────────────────────────────
+                # SEGMENT BRANCH — original Revenue $ / YoY Growth % flow
+                # ────────────────────────────────────────────────────────────
+                elif _has_segments:
+                    # Slice to the same time window as the years slider.
+                    # Annual: keep last `years` years of data. Quarterly: keep last `years*4` quarters.
+                    _seg_keep = years * 4 if _ca_period_type == 'quarter' else years
+                    # Get the unique periods in the data, take the most recent N
+                    _seg_periods_sorted = sorted(_seg_df['date'].unique())
+                    _seg_periods_kept = _seg_periods_sorted[-_seg_keep:] if len(_seg_periods_sorted) > _seg_keep else _seg_periods_sorted
+                    _seg_df = _seg_df[_seg_df['date'].isin(_seg_periods_kept)].reset_index(drop=True)
+
+                    # Identify the top segments by latest-period revenue (companies report
+                    # many tiny "Other" segments — limit to top 6 for readability).
+                    _latest_period = _seg_df['date'].max()
+                    _latest_slice = _seg_df[_seg_df['date'] == _latest_period].copy()
+                    _latest_slice = _latest_slice.sort_values('value', ascending=False)
+                    _all_segments = _latest_slice['segment'].tolist()
+                    _top_n_default = min(6, len(_all_segments))
+                    _top_segments = _all_segments[:_top_n_default]
+
+                    # Multi-select: which segments to chart
+                    _seg_selected = st.multiselect(
+                        "Select segments to chart:",
+                        options=_all_segments,
+                        default=_top_segments,
+                        key=f"segment_metrics_{ticker}",
+                        help=f"Showing top {_top_n_default} segments by latest revenue. Add or remove as needed."
+                    )
+
+                    if not _seg_selected:
+                        st.info("👆 Select at least one segment above to see the chart.")
                     else:
-                        # Padded y-range so the value labels above bars don't get clipped
-                        _y_max = max(_seg_all_vals)
-                        _y_min = min(_seg_all_vals)
-                        _y_span = (_y_max - _y_min) if _y_max != _y_min else (abs(_y_max) * 0.5 or 1)
-                        _y_pad = _y_span * 0.28
-                        _seg_y_max = _y_max + _y_pad
-                        _seg_y_min = _y_min - _y_pad if _y_min < 0 else 0
+                        # Build x-axis labels (one per unique period)
+                        _seg_periods = sorted(_seg_df['date'].unique())
 
-                        _seg_fig.update_layout(
-                            title=dict(
-                                text=f'<b>{_seg_chart_title}</b>',
-                                font=dict(size=18, color=_SEG_TEXT_BRIGHT, family='Inter, system-ui, sans-serif'),
-                                x=0.5,
-                                xanchor='center',
-                                y=0.97,
-                                yanchor='top'
-                            ),
-                            xaxis_title=None,
-                            yaxis_title=_seg_yaxis_title,
-                            barmode='group',
-                            hovermode='x unified',
-                            height=500,
-                            showlegend=True,
-                            legend=dict(
-                                orientation="h",
-                                yanchor="top",
-                                y=-0.13,
-                                xanchor="center",
-                                x=0.5,
-                                bgcolor='rgba(0,0,0,0)',
-                                borderwidth=0,
-                                font=dict(size=13, color=_SEG_TEXT_DIM, family='Inter, system-ui, sans-serif'),
-                                itemsizing='constant'
-                            ),
-                            yaxis=dict(
-                                showgrid=True,
-                                gridcolor=_SEG_GRID_COLOR,
-                                gridwidth=1,
-                                zeroline=True,
-                                zerolinewidth=1.5,
-                                zerolinecolor=_SEG_ZERO_LINE,
-                                showline=False,
-                                ticksuffix=_seg_ticksuffix,
-                                tickfont=dict(size=11, color=_SEG_TEXT_DIM, family='Inter, system-ui, sans-serif'),
-                                title_font=dict(size=12, color=_SEG_TEXT_DIM, family='Inter, system-ui, sans-serif'),
-                                range=[_seg_y_min, _seg_y_max],
-                            ),
-                            xaxis=dict(
-                                showgrid=False,
-                                showline=False,
-                                tickfont=dict(size=13, color=_SEG_TEXT_DIM, family='Inter, system-ui, sans-serif'),
-                                tickangle=0,
-                            ),
-                            plot_bgcolor=_SEG_BG_PLOT,
-                            paper_bgcolor=_SEG_BG_SPACE,
-                            margin=dict(t=55, b=80, l=70, r=30),
-                            bargap=0.22,
-                            bargroupgap=0.06,
-                            hoverlabel=dict(
-                                bgcolor='#1A1A35',
-                                font_size=13,
-                                font_family='Inter, system-ui, sans-serif',
-                                font_color=_SEG_TEXT_BRIGHT,
-                                bordercolor='rgba(140,100,255,0.5)',
-                            ),
-                        )
+                        def _seg_format_period(d):
+                            try:
+                                _d = pd.to_datetime(d)
+                                if _ca_period_type == 'annual':
+                                    return f"FY {_d.year}"
+                                return f"Q{((_d.month - 1) // 3) + 1} {_d.year}"
+                            except Exception:
+                                return str(d)
 
-                        st.plotly_chart(_seg_fig, use_container_width=True)
-                        st.caption(
-                            "Segment data sourced from company filings via FMP. "
-                            "Naming can shift across periods (e.g. 'Google Cloud' vs 'Google Cloud Services'), "
-                            "which may cause apparent gaps in the time series. "
-                            "Companies report segments however they choose — coverage and granularity vary."
-                        )
+                        _seg_x_labels = [_seg_format_period(d) for d in _seg_periods]
+
+                        # Pivot into wide format: rows=periods, cols=segments
+                        _seg_pivot = _seg_df.pivot_table(
+                            index='date', columns='segment', values='value', aggfunc='sum'
+                        ).reindex(_seg_periods)
+
+                        # Reuse the same dark-space styling from the YoY chart
+                        _SEG_PALETTE = [
+                            '#00E5FF', '#FFD700', '#BF5FFF', '#00FF88', '#FF6B9D',
+                            '#4ADEBB', '#FFA45C', '#5B8FFF', '#FFEA00', '#E879F9',
+                        ]
+                        _SEG_BG_SPACE = '#0A0A1A'
+                        _SEG_BG_PLOT = '#0D0D20'
+                        _SEG_ZERO_LINE = 'rgba(255,255,255,0.25)'
+                        _SEG_TEXT_BRIGHT = '#FFFFFF'
+                        _SEG_TEXT_DIM = 'rgba(255,255,255,0.55)'
+                        _SEG_GRID_COLOR = 'rgba(255,255,255,0.04)'
+
+                        def _seg_hex_to_rgba(hex_c, alpha):
+                            h = hex_c.lstrip('#')
+                            r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+                            return f'rgba({r},{g},{b},{alpha})'
+
+                        def _seg_format_value_label(val):
+                            if val is None or pd.isna(val):
+                                return ""
+                            abs_val = abs(val)
+                            sign = "-" if val < 0 else ""
+                            if abs_val >= 1e9:
+                                return f"{sign}${abs_val/1e9:.1f}B"
+                            elif abs_val >= 1e6:
+                                return f"{sign}${abs_val/1e6:.1f}M"
+                            elif abs_val >= 1e3:
+                                return f"{sign}${abs_val/1e3:.1f}K"
+                            return f"{sign}${abs_val:.0f}"
+
+                        _seg_fig = go.Figure()
+                        _seg_all_vals = []
+
+                        if _seg_view_mode == "Revenue $":
+                            # Absolute dollar values per segment per period
+                            for _idx, _seg_name in enumerate(_seg_selected):
+                                if _seg_name not in _seg_pivot.columns:
+                                    continue
+                                _vals = _seg_pivot[_seg_name].tolist()
+                                _seg_all_vals.extend([v for v in _vals if pd.notna(v)])
+
+                                _brand_color = _SEG_PALETTE[_idx % len(_SEG_PALETTE)]
+                                _per_bar_colors = [
+                                    _seg_hex_to_rgba(_brand_color, 1.0) if i == len(_vals) - 1
+                                    else _seg_hex_to_rgba(_brand_color, 0.55)
+                                    for i in range(len(_vals))
+                                ]
+                                _per_bar_borders = [
+                                    'rgba(255,255,255,0.9)' if i == len(_vals) - 1 else 'rgba(0,0,0,0)'
+                                    for i in range(len(_vals))
+                                ]
+                                _per_bar_widths = [
+                                    2.5 if i == len(_vals) - 1 else 0
+                                    for i in range(len(_vals))
+                                ]
+
+                                _seg_fig.add_trace(go.Bar(
+                                    x=_seg_x_labels,
+                                    y=_vals,
+                                    name=_seg_name,
+                                    marker=dict(
+                                        color=_per_bar_colors,
+                                        line=dict(color=_per_bar_borders, width=_per_bar_widths),
+                                        cornerradius=5,
+                                    ),
+                                    text=[_seg_format_value_label(v) for v in _vals],
+                                    textposition='outside',
+                                    textfont=dict(size=10, color=_SEG_TEXT_BRIGHT, family='Inter, system-ui, sans-serif'),
+                                    hovertemplate=f'<b>%{{x}}</b><br>{_seg_name}: <b>%{{text}}</b><extra></extra>',
+                                ))
+
+                            _seg_yaxis_title = 'Revenue ($)'
+                            _seg_chart_title = f'{company_name} - Segment Revenue ({"Quarterly" if _ca_period_type == "quarter" else "Annual"})'
+                            _seg_ticksuffix = ''
+                        else:
+                            # YoY Growth % per segment
+                            # Lag = 4 in quarterly, 1 in annual (segments use YoY only — QoQ for segments
+                            # is too noisy and rarely useful since segments often have heavy seasonality)
+                            _seg_lag = 4 if _ca_period_type == 'quarter' else 1
+
+                            for _idx, _seg_name in enumerate(_seg_selected):
+                                if _seg_name not in _seg_pivot.columns:
+                                    continue
+                                _vals_raw = pd.to_numeric(_seg_pivot[_seg_name], errors='coerce')
+                                _prior_raw = _vals_raw.shift(_seg_lag)
+                                _yoy_segs = []
+                                for _curr, _prv in zip(_vals_raw, _prior_raw):
+                                    if pd.isna(_curr) or pd.isna(_prv) or _prv == 0:
+                                        _yoy_segs.append(None)
+                                    else:
+                                        _yoy_segs.append(((_curr - _prv) / abs(_prv)) * 100.0)
+                                _seg_all_vals.extend([v for v in _yoy_segs if v is not None])
+
+                                _brand_color = _SEG_PALETTE[_idx % len(_SEG_PALETTE)]
+                                _per_bar_colors = [
+                                    _seg_hex_to_rgba(_brand_color, 1.0) if i == len(_yoy_segs) - 1
+                                    else _seg_hex_to_rgba(_brand_color, 0.55)
+                                    for i in range(len(_yoy_segs))
+                                ]
+                                _per_bar_borders = [
+                                    'rgba(255,255,255,0.9)' if i == len(_yoy_segs) - 1 else 'rgba(0,0,0,0)'
+                                    for i in range(len(_yoy_segs))
+                                ]
+                                _per_bar_widths = [
+                                    2.5 if i == len(_yoy_segs) - 1 else 0
+                                    for i in range(len(_yoy_segs))
+                                ]
+
+                                _seg_fig.add_trace(go.Bar(
+                                    x=_seg_x_labels,
+                                    y=_yoy_segs,
+                                    name=_seg_name,
+                                    marker=dict(
+                                        color=_per_bar_colors,
+                                        line=dict(color=_per_bar_borders, width=_per_bar_widths),
+                                        cornerradius=5,
+                                    ),
+                                    text=[f"{v:+.1f}%" if v is not None else "" for v in _yoy_segs],
+                                    textposition='outside',
+                                    textfont=dict(size=10, color=_SEG_TEXT_BRIGHT, family='Inter, system-ui, sans-serif'),
+                                    hovertemplate=f'<b>%{{x}}</b><br>{_seg_name} YoY: <b>%{{y:+.1f}}%</b><extra></extra>',
+                                ))
+
+                            _seg_yaxis_title = 'YoY Growth (%)'
+                            _seg_chart_title = f'{company_name} - Segment YoY Growth % ({"Quarterly" if _ca_period_type == "quarter" else "Annual"})'
+                            _seg_ticksuffix = '%'
+
+                        if not _seg_all_vals:
+                            st.info(
+                                "Not enough data to render this view. "
+                                "If you're on YoY Growth %, try increasing the years slider — segment YoY needs at least 2 periods of overlap."
+                            )
+                        else:
+                            # Padded y-range so the value labels above bars don't get clipped
+                            _y_max = max(_seg_all_vals)
+                            _y_min = min(_seg_all_vals)
+                            _y_span = (_y_max - _y_min) if _y_max != _y_min else (abs(_y_max) * 0.5 or 1)
+                            _y_pad = _y_span * 0.28
+                            _seg_y_max = _y_max + _y_pad
+                            _seg_y_min = _y_min - _y_pad if _y_min < 0 else 0
+
+                            _seg_fig.update_layout(
+                                title=dict(
+                                    text=f'<b>{_seg_chart_title}</b>',
+                                    font=dict(size=18, color=_SEG_TEXT_BRIGHT, family='Inter, system-ui, sans-serif'),
+                                    x=0.5,
+                                    xanchor='center',
+                                    y=0.97,
+                                    yanchor='top'
+                                ),
+                                xaxis_title=None,
+                                yaxis_title=_seg_yaxis_title,
+                                barmode='group',
+                                hovermode='x unified',
+                                height=500,
+                                showlegend=True,
+                                legend=dict(
+                                    orientation="h",
+                                    yanchor="top",
+                                    y=-0.13,
+                                    xanchor="center",
+                                    x=0.5,
+                                    bgcolor='rgba(0,0,0,0)',
+                                    borderwidth=0,
+                                    font=dict(size=13, color=_SEG_TEXT_DIM, family='Inter, system-ui, sans-serif'),
+                                    itemsizing='constant'
+                                ),
+                                yaxis=dict(
+                                    showgrid=True,
+                                    gridcolor=_SEG_GRID_COLOR,
+                                    gridwidth=1,
+                                    zeroline=True,
+                                    zerolinewidth=1.5,
+                                    zerolinecolor=_SEG_ZERO_LINE,
+                                    showline=False,
+                                    ticksuffix=_seg_ticksuffix,
+                                    tickfont=dict(size=11, color=_SEG_TEXT_DIM, family='Inter, system-ui, sans-serif'),
+                                    title_font=dict(size=12, color=_SEG_TEXT_DIM, family='Inter, system-ui, sans-serif'),
+                                    range=[_seg_y_min, _seg_y_max],
+                                ),
+                                xaxis=dict(
+                                    showgrid=False,
+                                    showline=False,
+                                    tickfont=dict(size=13, color=_SEG_TEXT_DIM, family='Inter, system-ui, sans-serif'),
+                                    tickangle=0,
+                                ),
+                                plot_bgcolor=_SEG_BG_PLOT,
+                                paper_bgcolor=_SEG_BG_SPACE,
+                                margin=dict(t=55, b=80, l=70, r=30),
+                                bargap=0.22,
+                                bargroupgap=0.06,
+                                hoverlabel=dict(
+                                    bgcolor='#1A1A35',
+                                    font_size=13,
+                                    font_family='Inter, system-ui, sans-serif',
+                                    font_color=_SEG_TEXT_BRIGHT,
+                                    bordercolor='rgba(140,100,255,0.5)',
+                                ),
+                            )
+
+                            st.plotly_chart(_seg_fig, use_container_width=True)
+                            st.caption(
+                                "Segment data sourced from company filings via FMP. "
+                                "Naming can shift across periods (e.g. 'Google Cloud' vs 'Google Cloud Services'), "
+                                "which may cause apparent gaps in the time series. "
+                                "Companies report segments however they choose — coverage and granularity vary."
+                            )
         else:
             st.warning("⚠️ Income statement not available")
         
