@@ -22603,7 +22603,7 @@ elif selected_page == "📊 Company Analysis":
                 options=_growth_mode_options,
                 index=0,
                 horizontal=True,
-                key="income_growth_mode",
+                key=f"income_growth_mode_{ticker}",
                 help=(
                     "YoY = Year-over-Year (vs same period one year ago). "
                     "QoQ = Quarter-over-Quarter (vs immediately prior quarter). "
@@ -22642,7 +22642,7 @@ elif selected_page == "📊 Company Analysis":
                     "Select lines to chart:",
                     options=[label for _, label in _yoy_available],
                     default=_yoy_default_labels,
-                    key="income_yoy_metrics",
+                    key=f"income_yoy_metrics_{ticker}",
                     help="All five P&L lines shown by default. Deselect any you want to hide."
                 )
 
@@ -22912,7 +22912,7 @@ elif selected_page == "📊 Company Analysis":
                     options=["Revenue $", "YoY Growth %"],
                     index=0,
                     horizontal=True,
-                    key="segment_view_mode",
+                    key=f"segment_view_mode_{ticker}",
                     help="Revenue $ shows absolute dollar contribution per segment over time. YoY Growth % shows year-over-year change for each segment."
                 )
 
@@ -22921,7 +22921,7 @@ elif selected_page == "📊 Company Analysis":
                     "Select segments to chart:",
                     options=_all_segments,
                     default=_top_segments,
-                    key="segment_metrics",
+                    key=f"segment_metrics_{ticker}",
                     help=f"Showing top {_top_n_default} segments by latest revenue. Add or remove as needed."
                 )
 
