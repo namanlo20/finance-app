@@ -8349,6 +8349,66 @@ def get_financial_ratios(ticker, period='annual', limit=5):
     return pd.DataFrame()
 
 @st.cache_data(ttl=3600)
+def get_product_segments(ticker, period='annual'):
+    """Get product-level revenue segmentation from FMP.
+
+    Returns a tidy DataFrame: one row per (period, segment_name) with columns
+    ['date', 'fiscalYear', 'period_label', 'segment', 'value'].
+
+    FMP's flat structure returns one record per filing date, where each record
+    looks like {date, symbol, fiscalYear, period, data: {SegmentA: $$, SegmentB: $$}}
+    OR (older response shape) the segment name/value are top-level keys.
+    We normalize both shapes into a long/tidy DataFrame for easy charting.
+    """
+    url = f"{BASE_URL}/revenue-product-segmentation?symbol={ticker}&structure=flat&period={period}&apikey={FMP_API_KEY}"
+    try:
+        response = requests.get(url, timeout=10)
+        if response.status_code != 200:
+            return pd.DataFrame()
+        data = response.json()
+        if not data or not isinstance(data, list):
+            return pd.DataFrame()
+
+        rows = []
+        for record in data:
+            if not isinstance(record, dict):
+                continue
+            _date = record.get('date')
+            _fy = record.get('fiscalYear', record.get('calendarYear', ''))
+            _period_label = record.get('period', '')
+            # Two possible response shapes — handle both
+            _seg_data = record.get('data', None)
+            if isinstance(_seg_data, dict):
+                _segments = _seg_data
+            else:
+                # Legacy shape: segment names live at top level alongside meta keys
+                _meta_keys = {'date', 'symbol', 'fiscalYear', 'calendarYear', 'period', 'reportedCurrency'}
+                _segments = {k: v for k, v in record.items()
+                             if k not in _meta_keys and isinstance(v, (int, float))}
+
+            for _seg_name, _seg_val in _segments.items():
+                # Skip non-numeric values (sometimes nested dicts sneak through)
+                if not isinstance(_seg_val, (int, float)) or pd.isna(_seg_val):
+                    continue
+                rows.append({
+                    'date': _date,
+                    'fiscalYear': _fy,
+                    'period_label': _period_label,
+                    'segment': _seg_name,
+                    'value': float(_seg_val),
+                })
+
+        if not rows:
+            return pd.DataFrame()
+
+        df = pd.DataFrame(rows)
+        df['date'] = pd.to_datetime(df['date'], errors='coerce')
+        df = df.dropna(subset=['date']).sort_values('date').reset_index(drop=True)
+        return df
+    except Exception:
+        return pd.DataFrame()
+
+@st.cache_data(ttl=3600)
 @st.cache_data(ttl=3600)
 def get_historical_price(ticker, years=5):
     """Get historical prices"""
@@ -22527,15 +22587,43 @@ elif selected_page == "📊 Company Analysis":
 
                     show_financial_data_notice(income_df, period)
 
-            # ── YoY % Growth chart (Revenue, COGS, Gross Profit, Operating Income, Net Income) ──
+            # ── YoY / QoQ % Growth chart (Revenue, COGS, Gross Profit, Operating Income, Net Income) ──
             # Respects the same years slider — uses income_df already sliced to that range.
-            # Annual: YoY = vs prior period. Quarterly: YoY = vs same quarter prior year (4 periods back).
+            # YoY annual: vs prior year. YoY quarterly: vs same quarter prior year (4 periods back).
+            # QoQ quarterly: vs immediately prior quarter (1 period back). QoQ N/A in annual mode.
             st.markdown("")
-            st.markdown(f"#### 📈 {company_name} - YoY Growth %")
-            st.caption(
-                "Year-over-year % growth for the core P&L lines. "
-                "Annual view compares each year vs the prior year; quarterly view compares each quarter vs the same quarter one year ago."
+            st.markdown(f"#### 📈 {company_name} - Growth %")
+
+            # Growth-mode toggle: YoY default; QoQ only meaningful in quarterly mode.
+            _growth_mode_options = ["YoY"]
+            if _ca_period_type == 'quarter':
+                _growth_mode_options.append("QoQ")
+            _growth_mode = st.radio(
+                "Growth view:",
+                options=_growth_mode_options,
+                index=0,
+                horizontal=True,
+                key="income_growth_mode",
+                help=(
+                    "YoY = Year-over-Year (vs same period one year ago). "
+                    "QoQ = Quarter-over-Quarter (vs immediately prior quarter). "
+                    "QoQ is only available in quarterly mode."
+                )
             )
+            if _ca_period_type != 'quarter':
+                st.caption("💡 Switch the period to **Quarterly** in the left sidebar to also see Quarter-over-Quarter (QoQ) growth.")
+
+            if _growth_mode == "QoQ":
+                _growth_caption = (
+                    "Quarter-over-quarter % growth — each quarter compared to the immediately prior quarter. "
+                    "Useful for catching inflection points, but seasonality (e.g. retail Q4) can make it noisy."
+                )
+            else:
+                _growth_caption = (
+                    "Year-over-year % growth for the core P&L lines. "
+                    "Annual view compares each year vs the prior year; quarterly view compares each quarter vs the same quarter one year ago."
+                )
+            st.caption(_growth_caption)
 
             _yoy_metric_map = [
                 ('revenue', 'Revenue'),
@@ -22547,7 +22635,7 @@ elif selected_page == "📊 Company Analysis":
             _yoy_available = [(col, label) for col, label in _yoy_metric_map if col in income_df.columns]
 
             if not _yoy_available:
-                st.info("YoY growth chart not available — required P&L lines weren't returned by the data source.")
+                st.info("Growth chart not available — required P&L lines weren't returned by the data source.")
             else:
                 _yoy_default_labels = [label for _, label in _yoy_available]
                 _yoy_selected_labels = st.multiselect(
@@ -22559,11 +22647,18 @@ elif selected_page == "📊 Company Analysis":
                 )
 
                 if not _yoy_selected_labels:
-                    st.info("👆 Select at least one line above to see the YoY growth chart.")
+                    st.info("👆 Select at least one line above to see the growth chart.")
                 else:
-                    # Sort ascending so YoY math compares each row to the prior period
+                    # Sort ascending so growth math compares each row to the prior period.
                     _yoy_df = income_df.sort_values('date', ascending=True).reset_index(drop=True).copy()
-                    _yoy_lag = 4 if _ca_period_type == 'quarter' else 1
+                    # Lag depends on growth mode AND period type:
+                    #   YoY annual       → lag 1 (prior year)
+                    #   YoY quarterly    → lag 4 (same quarter, prior year)
+                    #   QoQ quarterly    → lag 1 (immediately prior quarter)
+                    if _growth_mode == "QoQ":
+                        _yoy_lag = 1
+                    else:
+                        _yoy_lag = 4 if _ca_period_type == 'quarter' else 1
 
                     # Build x-axis labels matching the P&L chart's fiscal-period style
                     def _yoy_format_period(row):
@@ -22675,7 +22770,7 @@ elif selected_page == "📊 Company Analysis":
                             ),
                             hovertemplate=(
                                 '<b>%{x}</b><br>'
-                                f'{_label} YoY: '
+                                f'{_label} {_growth_mode}: '
                                 '<b>%{y:+.1f}%</b>'
                                 '<extra></extra>'
                             ),
@@ -22683,8 +22778,9 @@ elif selected_page == "📊 Company Analysis":
 
                     if not _yoy_any_data:
                         _need = _yoy_lag + 1
+                        _unit = 'quarters' if _ca_period_type == 'quarter' else 'years'
                         st.info(
-                            f"Not enough history to compute YoY growth — need at least {_need} {('quarters' if _ca_period_type == 'quarter' else 'years')} of data. "
+                            f"Not enough history to compute {_growth_mode} growth — need at least {_need} {_unit} of data. "
                             "Try increasing the years slider on the left."
                         )
                     else:
@@ -22698,7 +22794,7 @@ elif selected_page == "📊 Company Analysis":
 
                         _yoy_fig.update_layout(
                             title=dict(
-                                text=f'<b>{company_name} - YoY Growth % ({"Quarterly" if _ca_period_type == "quarter" else "Annual"})</b>',
+                                text=f'<b>{company_name} - {_growth_mode} Growth % ({"Quarterly" if _ca_period_type == "quarter" else "Annual"})</b>',
                                 font=dict(size=18, color=_YOY_TEXT_BRIGHT, family='Inter, system-ui, sans-serif'),
                                 x=0.5,
                                 xanchor='center',
@@ -22706,7 +22802,7 @@ elif selected_page == "📊 Company Analysis":
                                 yanchor='top'
                             ),
                             xaxis_title=None,
-                            yaxis_title='YoY Growth (%)',
+                            yaxis_title=f'{_growth_mode} Growth (%)',
                             barmode='group',
                             hovermode='x unified',
                             height=500,
@@ -22758,7 +22854,7 @@ elif selected_page == "📊 Company Analysis":
                         st.plotly_chart(_yoy_fig, use_container_width=True)
                         render_quarterly_chart_note("financials", period_override=_ca_period_type)
 
-                        # Latest YoY metric tiles
+                        # Latest growth metric tiles
                         _yoy_latest_cols = st.columns(len(_yoy_selected_labels))
                         for _i, _label in enumerate(_yoy_selected_labels):
                             _col = _yoy_label_to_col[_label]
@@ -22769,13 +22865,295 @@ elif selected_page == "📊 Company Analysis":
                                 if pd.notna(_curr) and pd.notna(_prv) and _prv != 0:
                                     _latest_yoy = ((_curr - _prv) / abs(_prv)) * 100.0
                                     _yoy_latest_cols[_i].metric(
-                                        f"Latest YoY · {_label}",
+                                        f"Latest {_growth_mode} · {_label}",
                                         f"{_latest_yoy:+.1f}%"
                                     )
                                 else:
-                                    _yoy_latest_cols[_i].metric(f"Latest YoY · {_label}", "N/A")
+                                    _yoy_latest_cols[_i].metric(f"Latest {_growth_mode} · {_label}", "N/A")
                             else:
-                                _yoy_latest_cols[_i].metric(f"Latest YoY · {_label}", "N/A")
+                                _yoy_latest_cols[_i].metric(f"Latest {_growth_mode} · {_label}", "N/A")
+
+            # ── Product Segment chart (Google Cloud, AWS, iPhone vs Mac, etc.) ──
+            # Pulls FMP's revenue-product-segmentation endpoint and lets the user toggle
+            # between Revenue $ and YoY Growth % views. Only renders if FMP returns segments
+            # for this ticker (smaller companies often don't break out segments at all).
+            st.markdown("")
+            st.markdown(f"#### 🧩 {company_name} - Product Segments")
+
+            _seg_df = get_product_segments(ticker, _ca_period_type)
+
+            if _seg_df.empty:
+                st.info(
+                    f"No product segment data available for **{ticker}** from the data source. "
+                    "Many smaller companies don't break out revenue by product line — segment data is most reliable for "
+                    "large-caps like AAPL, GOOGL, AMZN, MSFT, META, NVDA."
+                )
+            else:
+                # Slice to the same time window as the years slider.
+                # Annual: keep last `years` years of data. Quarterly: keep last `years*4` quarters.
+                _seg_keep = years * 4 if _ca_period_type == 'quarter' else years
+                # Get the unique periods in the data, take the most recent N
+                _seg_periods_sorted = sorted(_seg_df['date'].unique())
+                _seg_periods_kept = _seg_periods_sorted[-_seg_keep:] if len(_seg_periods_sorted) > _seg_keep else _seg_periods_sorted
+                _seg_df = _seg_df[_seg_df['date'].isin(_seg_periods_kept)].reset_index(drop=True)
+
+                # Identify the top segments by latest-period revenue (companies report
+                # many tiny "Other" segments — limit to top 6 for readability).
+                _latest_period = _seg_df['date'].max()
+                _latest_slice = _seg_df[_seg_df['date'] == _latest_period].copy()
+                _latest_slice = _latest_slice.sort_values('value', ascending=False)
+                _all_segments = _latest_slice['segment'].tolist()
+                _top_n_default = min(6, len(_all_segments))
+                _top_segments = _all_segments[:_top_n_default]
+
+                # Mode toggle: Revenue $ vs YoY Growth %
+                _seg_view_mode = st.radio(
+                    "Segment view:",
+                    options=["Revenue $", "YoY Growth %"],
+                    index=0,
+                    horizontal=True,
+                    key="segment_view_mode",
+                    help="Revenue $ shows absolute dollar contribution per segment over time. YoY Growth % shows year-over-year change for each segment."
+                )
+
+                # Multi-select: which segments to chart
+                _seg_selected = st.multiselect(
+                    "Select segments to chart:",
+                    options=_all_segments,
+                    default=_top_segments,
+                    key="segment_metrics",
+                    help=f"Showing top {_top_n_default} segments by latest revenue. Add or remove as needed."
+                )
+
+                if not _seg_selected:
+                    st.info("👆 Select at least one segment above to see the chart.")
+                else:
+                    # Build x-axis labels (one per unique period)
+                    _seg_periods = sorted(_seg_df['date'].unique())
+
+                    def _seg_format_period(d):
+                        try:
+                            _d = pd.to_datetime(d)
+                            if _ca_period_type == 'annual':
+                                return f"FY {_d.year}"
+                            return f"Q{((_d.month - 1) // 3) + 1} {_d.year}"
+                        except Exception:
+                            return str(d)
+
+                    _seg_x_labels = [_seg_format_period(d) for d in _seg_periods]
+
+                    # Pivot into wide format: rows=periods, cols=segments
+                    _seg_pivot = _seg_df.pivot_table(
+                        index='date', columns='segment', values='value', aggfunc='sum'
+                    ).reindex(_seg_periods)
+
+                    # Reuse the same dark-space styling from the YoY chart
+                    _SEG_PALETTE = [
+                        '#00E5FF', '#FFD700', '#BF5FFF', '#00FF88', '#FF6B9D',
+                        '#4ADEBB', '#FFA45C', '#5B8FFF', '#FFEA00', '#E879F9',
+                    ]
+                    _SEG_BG_SPACE = '#0A0A1A'
+                    _SEG_BG_PLOT = '#0D0D20'
+                    _SEG_ZERO_LINE = 'rgba(255,255,255,0.25)'
+                    _SEG_TEXT_BRIGHT = '#FFFFFF'
+                    _SEG_TEXT_DIM = 'rgba(255,255,255,0.55)'
+                    _SEG_GRID_COLOR = 'rgba(255,255,255,0.04)'
+
+                    def _seg_hex_to_rgba(hex_c, alpha):
+                        h = hex_c.lstrip('#')
+                        r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+                        return f'rgba({r},{g},{b},{alpha})'
+
+                    def _seg_format_value_label(val):
+                        if val is None or pd.isna(val):
+                            return ""
+                        abs_val = abs(val)
+                        sign = "-" if val < 0 else ""
+                        if abs_val >= 1e9:
+                            return f"{sign}${abs_val/1e9:.1f}B"
+                        elif abs_val >= 1e6:
+                            return f"{sign}${abs_val/1e6:.1f}M"
+                        elif abs_val >= 1e3:
+                            return f"{sign}${abs_val/1e3:.1f}K"
+                        return f"{sign}${abs_val:.0f}"
+
+                    _seg_fig = go.Figure()
+                    _seg_all_vals = []
+
+                    if _seg_view_mode == "Revenue $":
+                        # Absolute dollar values per segment per period
+                        for _idx, _seg_name in enumerate(_seg_selected):
+                            if _seg_name not in _seg_pivot.columns:
+                                continue
+                            _vals = _seg_pivot[_seg_name].tolist()
+                            _seg_all_vals.extend([v for v in _vals if pd.notna(v)])
+
+                            _brand_color = _SEG_PALETTE[_idx % len(_SEG_PALETTE)]
+                            _per_bar_colors = [
+                                _seg_hex_to_rgba(_brand_color, 1.0) if i == len(_vals) - 1
+                                else _seg_hex_to_rgba(_brand_color, 0.55)
+                                for i in range(len(_vals))
+                            ]
+                            _per_bar_borders = [
+                                'rgba(255,255,255,0.9)' if i == len(_vals) - 1 else 'rgba(0,0,0,0)'
+                                for i in range(len(_vals))
+                            ]
+                            _per_bar_widths = [
+                                2.5 if i == len(_vals) - 1 else 0
+                                for i in range(len(_vals))
+                            ]
+
+                            _seg_fig.add_trace(go.Bar(
+                                x=_seg_x_labels,
+                                y=_vals,
+                                name=_seg_name,
+                                marker=dict(
+                                    color=_per_bar_colors,
+                                    line=dict(color=_per_bar_borders, width=_per_bar_widths),
+                                    cornerradius=5,
+                                ),
+                                text=[_seg_format_value_label(v) for v in _vals],
+                                textposition='outside',
+                                textfont=dict(size=10, color=_SEG_TEXT_BRIGHT, family='Inter, system-ui, sans-serif'),
+                                hovertemplate=f'<b>%{{x}}</b><br>{_seg_name}: <b>%{{text}}</b><extra></extra>',
+                            ))
+
+                        _seg_yaxis_title = 'Revenue ($)'
+                        _seg_chart_title = f'{company_name} - Segment Revenue ({"Quarterly" if _ca_period_type == "quarter" else "Annual"})'
+                        _seg_ticksuffix = ''
+                    else:
+                        # YoY Growth % per segment
+                        # Lag = 4 in quarterly, 1 in annual (segments use YoY only — QoQ for segments
+                        # is too noisy and rarely useful since segments often have heavy seasonality)
+                        _seg_lag = 4 if _ca_period_type == 'quarter' else 1
+
+                        for _idx, _seg_name in enumerate(_seg_selected):
+                            if _seg_name not in _seg_pivot.columns:
+                                continue
+                            _vals_raw = pd.to_numeric(_seg_pivot[_seg_name], errors='coerce')
+                            _prior_raw = _vals_raw.shift(_seg_lag)
+                            _yoy_segs = []
+                            for _curr, _prv in zip(_vals_raw, _prior_raw):
+                                if pd.isna(_curr) or pd.isna(_prv) or _prv == 0:
+                                    _yoy_segs.append(None)
+                                else:
+                                    _yoy_segs.append(((_curr - _prv) / abs(_prv)) * 100.0)
+                            _seg_all_vals.extend([v for v in _yoy_segs if v is not None])
+
+                            _brand_color = _SEG_PALETTE[_idx % len(_SEG_PALETTE)]
+                            _per_bar_colors = [
+                                _seg_hex_to_rgba(_brand_color, 1.0) if i == len(_yoy_segs) - 1
+                                else _seg_hex_to_rgba(_brand_color, 0.55)
+                                for i in range(len(_yoy_segs))
+                            ]
+                            _per_bar_borders = [
+                                'rgba(255,255,255,0.9)' if i == len(_yoy_segs) - 1 else 'rgba(0,0,0,0)'
+                                for i in range(len(_yoy_segs))
+                            ]
+                            _per_bar_widths = [
+                                2.5 if i == len(_yoy_segs) - 1 else 0
+                                for i in range(len(_yoy_segs))
+                            ]
+
+                            _seg_fig.add_trace(go.Bar(
+                                x=_seg_x_labels,
+                                y=_yoy_segs,
+                                name=_seg_name,
+                                marker=dict(
+                                    color=_per_bar_colors,
+                                    line=dict(color=_per_bar_borders, width=_per_bar_widths),
+                                    cornerradius=5,
+                                ),
+                                text=[f"{v:+.1f}%" if v is not None else "" for v in _yoy_segs],
+                                textposition='outside',
+                                textfont=dict(size=10, color=_SEG_TEXT_BRIGHT, family='Inter, system-ui, sans-serif'),
+                                hovertemplate=f'<b>%{{x}}</b><br>{_seg_name} YoY: <b>%{{y:+.1f}}%</b><extra></extra>',
+                            ))
+
+                        _seg_yaxis_title = 'YoY Growth (%)'
+                        _seg_chart_title = f'{company_name} - Segment YoY Growth % ({"Quarterly" if _ca_period_type == "quarter" else "Annual"})'
+                        _seg_ticksuffix = '%'
+
+                    if not _seg_all_vals:
+                        st.info(
+                            "Not enough data to render this view. "
+                            "If you're on YoY Growth %, try increasing the years slider — segment YoY needs at least 2 periods of overlap."
+                        )
+                    else:
+                        # Padded y-range so the value labels above bars don't get clipped
+                        _y_max = max(_seg_all_vals)
+                        _y_min = min(_seg_all_vals)
+                        _y_span = (_y_max - _y_min) if _y_max != _y_min else (abs(_y_max) * 0.5 or 1)
+                        _y_pad = _y_span * 0.28
+                        _seg_y_max = _y_max + _y_pad
+                        _seg_y_min = _y_min - _y_pad if _y_min < 0 else 0
+
+                        _seg_fig.update_layout(
+                            title=dict(
+                                text=f'<b>{_seg_chart_title}</b>',
+                                font=dict(size=18, color=_SEG_TEXT_BRIGHT, family='Inter, system-ui, sans-serif'),
+                                x=0.5,
+                                xanchor='center',
+                                y=0.97,
+                                yanchor='top'
+                            ),
+                            xaxis_title=None,
+                            yaxis_title=_seg_yaxis_title,
+                            barmode='group',
+                            hovermode='x unified',
+                            height=500,
+                            showlegend=True,
+                            legend=dict(
+                                orientation="h",
+                                yanchor="top",
+                                y=-0.13,
+                                xanchor="center",
+                                x=0.5,
+                                bgcolor='rgba(0,0,0,0)',
+                                borderwidth=0,
+                                font=dict(size=13, color=_SEG_TEXT_DIM, family='Inter, system-ui, sans-serif'),
+                                itemsizing='constant'
+                            ),
+                            yaxis=dict(
+                                showgrid=True,
+                                gridcolor=_SEG_GRID_COLOR,
+                                gridwidth=1,
+                                zeroline=True,
+                                zerolinewidth=1.5,
+                                zerolinecolor=_SEG_ZERO_LINE,
+                                showline=False,
+                                ticksuffix=_seg_ticksuffix,
+                                tickfont=dict(size=11, color=_SEG_TEXT_DIM, family='Inter, system-ui, sans-serif'),
+                                title_font=dict(size=12, color=_SEG_TEXT_DIM, family='Inter, system-ui, sans-serif'),
+                                range=[_seg_y_min, _seg_y_max],
+                            ),
+                            xaxis=dict(
+                                showgrid=False,
+                                showline=False,
+                                tickfont=dict(size=13, color=_SEG_TEXT_DIM, family='Inter, system-ui, sans-serif'),
+                                tickangle=0,
+                            ),
+                            plot_bgcolor=_SEG_BG_PLOT,
+                            paper_bgcolor=_SEG_BG_SPACE,
+                            margin=dict(t=55, b=80, l=70, r=30),
+                            bargap=0.22,
+                            bargroupgap=0.06,
+                            hoverlabel=dict(
+                                bgcolor='#1A1A35',
+                                font_size=13,
+                                font_family='Inter, system-ui, sans-serif',
+                                font_color=_SEG_TEXT_BRIGHT,
+                                bordercolor='rgba(140,100,255,0.5)',
+                            ),
+                        )
+
+                        st.plotly_chart(_seg_fig, use_container_width=True)
+                        st.caption(
+                            "Segment data sourced from company filings via FMP. "
+                            "Naming can shift across periods (e.g. 'Google Cloud' vs 'Google Cloud Services'), "
+                            "which may cause apparent gaps in the time series. "
+                            "Companies report segments however they choose — coverage and granularity vary."
+                        )
         else:
             st.warning("⚠️ Income statement not available")
         
