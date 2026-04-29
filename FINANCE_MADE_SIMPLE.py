@@ -23022,7 +23022,13 @@ elif selected_page == "📊 Company Analysis":
                     _yoy_any_data = False
                     _yoy_all_vals = []
 
-                    for _idx, _label in enumerate(_yoy_selected_labels):
+                    # PASS 1: compute all per-metric YoY/QoQ value arrays so we can
+                    # identify which x-axis periods have at least one non-null bar.
+                    # This lets us drop leading periods that can't compute growth
+                    # (e.g. on a 3-yr quarterly view, the first 4 quarters have no
+                    # prior-year comparison and would otherwise render as empty space).
+                    _yoy_per_metric_vals = []
+                    for _label in _yoy_selected_labels:
                         _col = _yoy_label_to_col[_label]
                         _series = pd.to_numeric(_yoy_df[_col], errors='coerce')
                         _prior = _series.shift(_yoy_lag)
@@ -23030,12 +23036,28 @@ elif selected_page == "📊 Company Analysis":
                         # Compute YoY % using absolute prior value as the base so sign-flips
                         # (e.g. loss → profit) and negatives still produce intuitive growth %.
                         # If prior value is 0 or NaN, leave as NaN (no bar drawn).
-                        _yoy_vals = []
+                        _vals = []
                         for _curr, _prv in zip(_series, _prior):
                             if pd.isna(_curr) or pd.isna(_prv) or _prv == 0:
-                                _yoy_vals.append(None)
+                                _vals.append(None)
                             else:
-                                _yoy_vals.append(((_curr - _prv) / abs(_prv)) * 100.0)
+                                _vals.append(((_curr - _prv) / abs(_prv)) * 100.0)
+                        _yoy_per_metric_vals.append(_vals)
+
+                    # Find indices where at least one selected metric has a value.
+                    _n_periods = len(_yoy_x_labels)
+                    _keep_idx = [
+                        i for i in range(_n_periods)
+                        if any(_vals[i] is not None for _vals in _yoy_per_metric_vals)
+                    ]
+
+                    # Filter x-axis labels to only periods with at least one bar
+                    _yoy_x_labels_filtered = [_yoy_x_labels[i] for i in _keep_idx]
+
+                    for _idx, _label in enumerate(_yoy_selected_labels):
+                        _yoy_vals_full = _yoy_per_metric_vals[_idx]
+                        # Filter values to match the trimmed x-axis
+                        _yoy_vals = [_yoy_vals_full[i] for i in _keep_idx]
 
                         if any(v is not None for v in _yoy_vals):
                             _yoy_any_data = True
@@ -23062,7 +23084,7 @@ elif selected_page == "📊 Company Analysis":
                         ]
 
                         _yoy_fig.add_trace(go.Bar(
-                            x=_yoy_x_labels,
+                            x=_yoy_x_labels_filtered,
                             y=_yoy_vals,
                             name=_label,
                             marker=dict(
@@ -23365,17 +23387,38 @@ elif selected_page == "📊 Company Analysis":
                             # YoY Growth % per KPI
                             _kpi_lag = 4 if _ca_period_type == 'quarter' else 1
 
-                            for _idx, _kpi_name in enumerate(_kpi_selected):
+                            # PASS 1: compute all per-KPI YoY arrays so we can drop
+                            # leading periods that have no prior-year comparison.
+                            _kpi_per_metric_vals = []
+                            _kpi_valid_names = []
+                            for _kpi_name in _kpi_selected:
                                 if _kpi_name not in _kpi_pivot.columns:
                                     continue
                                 _vals_raw = pd.to_numeric(_kpi_pivot[_kpi_name], errors='coerce')
                                 _prior_raw = _vals_raw.shift(_kpi_lag)
-                                _yoy_kpis = []
+                                _yoy_vals = []
                                 for _curr, _prv in zip(_vals_raw, _prior_raw):
                                     if pd.isna(_curr) or pd.isna(_prv) or _prv == 0:
-                                        _yoy_kpis.append(None)
+                                        _yoy_vals.append(None)
                                     else:
-                                        _yoy_kpis.append(((_curr - _prv) / abs(_prv)) * 100.0)
+                                        _yoy_vals.append(((_curr - _prv) / abs(_prv)) * 100.0)
+                                _kpi_per_metric_vals.append(_yoy_vals)
+                                _kpi_valid_names.append(_kpi_name)
+
+                            # Find indices where at least one KPI has a value
+                            _n_kpi_periods = len(_kpi_x_labels)
+                            _kpi_keep_idx = [
+                                i for i in range(_n_kpi_periods)
+                                if any(
+                                    i < len(_vals) and _vals[i] is not None
+                                    for _vals in _kpi_per_metric_vals
+                                )
+                            ]
+                            _kpi_x_labels_filtered = [_kpi_x_labels[i] for i in _kpi_keep_idx]
+
+                            for _idx, _kpi_name in enumerate(_kpi_valid_names):
+                                _yoy_kpis_full = _kpi_per_metric_vals[_idx]
+                                _yoy_kpis = [_yoy_kpis_full[i] for i in _kpi_keep_idx]
                                 _kpi_all_vals.extend([v for v in _yoy_kpis if v is not None])
 
                                 _brand_color = _KPI_PALETTE[_idx % len(_KPI_PALETTE)]
@@ -23394,7 +23437,7 @@ elif selected_page == "📊 Company Analysis":
                                 ]
 
                                 _kpi_fig.add_trace(go.Bar(
-                                    x=_kpi_x_labels,
+                                    x=_kpi_x_labels_filtered,
                                     y=_yoy_kpis,
                                     name=_kpi_name,
                                     marker=dict(
@@ -23605,17 +23648,38 @@ elif selected_page == "📊 Company Analysis":
                             # is too noisy and rarely useful since segments often have heavy seasonality)
                             _seg_lag = 4 if _ca_period_type == 'quarter' else 1
 
-                            for _idx, _seg_name in enumerate(_seg_selected):
+                            # PASS 1: compute all per-segment YoY arrays so we can drop
+                            # leading periods that have no prior-year comparison.
+                            _seg_per_metric_vals = []
+                            _seg_valid_names = []
+                            for _seg_name in _seg_selected:
                                 if _seg_name not in _seg_pivot.columns:
                                     continue
                                 _vals_raw = pd.to_numeric(_seg_pivot[_seg_name], errors='coerce')
                                 _prior_raw = _vals_raw.shift(_seg_lag)
-                                _yoy_segs = []
+                                _yoy_vals = []
                                 for _curr, _prv in zip(_vals_raw, _prior_raw):
                                     if pd.isna(_curr) or pd.isna(_prv) or _prv == 0:
-                                        _yoy_segs.append(None)
+                                        _yoy_vals.append(None)
                                     else:
-                                        _yoy_segs.append(((_curr - _prv) / abs(_prv)) * 100.0)
+                                        _yoy_vals.append(((_curr - _prv) / abs(_prv)) * 100.0)
+                                _seg_per_metric_vals.append(_yoy_vals)
+                                _seg_valid_names.append(_seg_name)
+
+                            # Find indices where at least one segment has a value
+                            _n_seg_periods = len(_seg_x_labels)
+                            _seg_keep_idx = [
+                                i for i in range(_n_seg_periods)
+                                if any(
+                                    i < len(_vals) and _vals[i] is not None
+                                    for _vals in _seg_per_metric_vals
+                                )
+                            ]
+                            _seg_x_labels_filtered = [_seg_x_labels[i] for i in _seg_keep_idx]
+
+                            for _idx, _seg_name in enumerate(_seg_valid_names):
+                                _yoy_segs_full = _seg_per_metric_vals[_idx]
+                                _yoy_segs = [_yoy_segs_full[i] for i in _seg_keep_idx]
                                 _seg_all_vals.extend([v for v in _yoy_segs if v is not None])
 
                                 _brand_color = _SEG_PALETTE[_idx % len(_SEG_PALETTE)]
@@ -23634,7 +23698,7 @@ elif selected_page == "📊 Company Analysis":
                                 ]
 
                                 _seg_fig.add_trace(go.Bar(
-                                    x=_seg_x_labels,
+                                    x=_seg_x_labels_filtered,
                                     y=_yoy_segs,
                                     name=_seg_name,
                                     marker=dict(
