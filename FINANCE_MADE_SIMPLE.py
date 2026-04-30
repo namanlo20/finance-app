@@ -24218,45 +24218,6 @@ elif selected_page == "📊 Company Analysis":
                             index='date', columns='segment', values='value', aggfunc='sum'
                         ).reindex(_seg_periods)
 
-                        # ── DATA QUALITY CHECK: detect FMP outliers ──
-                        # FMP occasionally returns wildly wrong segment values (e.g. Google Cloud
-                        # Q1 2026 at $465B instead of $20B). Catches this by flagging any segment
-                        # whose latest value is >5x the median of its prior 4 periods. Real growth
-                        # rarely exceeds 2-3x quarter-over-quarter even at hypergrowth scale.
-                        _seg_outliers = []
-                        try:
-                            for _seg_name in _seg_pivot.columns:
-                                _series = pd.to_numeric(_seg_pivot[_seg_name], errors='coerce').dropna()
-                                if len(_series) < 5:
-                                    continue
-                                _latest_val = _series.iloc[-1]
-                                _prior = _series.iloc[-5:-1]  # 4 periods before latest
-                                _prior_med = _prior.median()
-                                if _prior_med > 0 and _latest_val > _prior_med * 5:
-                                    _seg_outliers.append({
-                                        'segment': _seg_name,
-                                        'period': _seg_x_labels[-1] if _seg_x_labels else 'latest',
-                                        'reported': _latest_val,
-                                        'prior_typical': _prior_med,
-                                        'multiple': _latest_val / _prior_med,
-                                    })
-                        except Exception:
-                            pass
-
-                        if _seg_outliers:
-                            _o = _seg_outliers[0]  # show the most obvious one prominently
-                            _msg = (
-                                f"⚠️ **Possible data error detected**: {_o['segment']} for {_o['period']} "
-                                f"shows ${_o['reported']/1e9:.1f}B, which is {_o['multiple']:.1f}x its typical "
-                                f"prior value (~${_o['prior_typical']/1e9:.1f}B). FMP segment data sometimes "
-                                f"contains parsing errors for the most recent quarter."
-                            )
-                            if len(_seg_outliers) > 1:
-                                _msg += f" ({len(_seg_outliers) - 1} other anomal{'y' if len(_seg_outliers) == 2 else 'ies'} also detected.)"
-                            if _FOUNDER_MODE:
-                                _msg += " Use the patch panel below to correct it."
-                            st.warning(_msg)
-
                         # ── FOUNDER EDITOR: Segments ──
                         if _FOUNDER_MODE:
                             with st.expander("✏️ Patch segment data (founder)", expanded=False):
