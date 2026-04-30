@@ -8408,6 +8408,68 @@ def get_product_segments(ticker, period='annual'):
     except Exception:
         return pd.DataFrame()
 
+
+def get_business_segments(ticker, period='annual'):
+    """Get business/operating-segment revenue from FMP.
+
+    Different from product segmentation: companies often report two breakdowns
+    in their 10-Ks. Product segmentation = revenue by what they sell (e.g. MSFT's
+    'Server Products and Cloud Services'). Business segmentation = revenue by
+    operating segment / division (e.g. MSFT's 'Intelligent Cloud',
+    'Productivity and Business Processes', 'More Personal Computing').
+
+    For MSFT the business view is what people actually reference (Intelligent
+    Cloud is the closest public proxy to Azure). For AAPL the business and
+    product views are essentially the same. For GOOGL business segments
+    include 'Google Services', 'Google Cloud', 'Other Bets'.
+
+    Same return shape as get_product_segments for consistency.
+    """
+    url = f"{BASE_URL}/revenue-business-segmentation?symbol={ticker}&structure=flat&period={period}&apikey={FMP_API_KEY}"
+    try:
+        response = requests.get(url, timeout=10)
+        if response.status_code != 200:
+            return pd.DataFrame()
+        data = response.json()
+        if not data or not isinstance(data, list):
+            return pd.DataFrame()
+
+        rows = []
+        for record in data:
+            if not isinstance(record, dict):
+                continue
+            _date = record.get('date')
+            _fy = record.get('fiscalYear', record.get('calendarYear', ''))
+            _period_label = record.get('period', '')
+            _seg_data = record.get('data', None)
+            if isinstance(_seg_data, dict):
+                _segments = _seg_data
+            else:
+                _meta_keys = {'date', 'symbol', 'fiscalYear', 'calendarYear', 'period', 'reportedCurrency'}
+                _segments = {k: v for k, v in record.items()
+                             if k not in _meta_keys and isinstance(v, (int, float))}
+
+            for _seg_name, _seg_val in _segments.items():
+                if not isinstance(_seg_val, (int, float)) or pd.isna(_seg_val):
+                    continue
+                rows.append({
+                    'date': _date,
+                    'fiscalYear': _fy,
+                    'period_label': _period_label,
+                    'segment': _seg_name,
+                    'value': float(_seg_val),
+                })
+
+        if not rows:
+            return pd.DataFrame()
+
+        df = pd.DataFrame(rows)
+        df['date'] = pd.to_datetime(df['date'], errors='coerce')
+        df = df.dropna(subset=['date']).sort_values('date').reset_index(drop=True)
+        return df
+    except Exception:
+        return pd.DataFrame()
+
 # ────────────────────────────────────────────────────────────────────────────
 # OPERATIONAL KPI DATA (manually sourced from earnings press releases)
 # ────────────────────────────────────────────────────────────────────────────
@@ -8423,6 +8485,76 @@ def get_product_segments(ticker, period='annual'):
 # Last updated: April 2026 — covers data through Q4 2025 (latest reported).
 
 OPERATIONAL_KPIS = {
+    'MSFT': {
+        # Azure & other cloud services revenue growth (GAAP YoY, as reported)
+        # Source: MSFT 8-K filings + IR earnings press releases. MSFT doesn't disclose
+        # absolute Azure $ — only growth %. Stored as already-computed %, unit '%'
+        # tells the chart to skip YoY-of-YoY math. Dates are calendar quarter-end
+        # (matches MSFT's filing date convention; fiscal labels resolved at chart time).
+        'Azure Growth (%)': {
+            'unit': '%', 'aggregation': 'last',
+            'data': {
+                # FY24 (Sep 2023 - Jun 2024)
+                '2023-09-30': 29, '2023-12-31': 30, '2024-03-31': 31, '2024-06-30': 30,
+                # FY25 (Sep 2024 - Jun 2025)
+                '2024-09-30': 33, '2024-12-31': 31, '2025-03-31': 33, '2025-06-30': 39,
+                # FY26 (Sep 2025 - present)
+                '2025-09-30': 40, '2025-12-31': 39, '2026-03-31': 40,
+            }
+        },
+        # M365 Commercial Cloud growth — second most-cited MSFT KPI on earnings calls
+        'M365 Commercial Cloud Growth (%)': {
+            'unit': '%', 'aggregation': 'last',
+            'data': {
+                '2024-03-31': 17, '2024-06-30': 15,
+                '2024-09-30': 16, '2024-12-31': 16, '2025-03-31': 15, '2025-06-30': 18,
+                '2025-09-30': 17, '2025-12-31': 17, '2026-03-31': 19,
+            }
+        },
+    },
+    'AMZN': {
+        # AWS operating margin % — Wall Street's headline AMZN metric. Computed from
+        # AWS operating income / AWS revenue (both disclosed in segment reporting).
+        # Source: AMZN 10-Q segment data, cross-referenced with sell-side notes.
+        'AWS Operating Margin (%)': {
+            'unit': '%', 'aggregation': 'last',
+            'data': {
+                # 2024 — full year of margin expansion
+                '2024-03-31': 37.6, '2024-06-30': 35.5, '2024-09-30': 38.1, '2024-12-31': 36.9,
+                # 2025 — Q1 record, Q2 dip, Q3 hit by ~$4.3B special charges
+                '2025-03-31': 39.5, '2025-06-30': 32.9, '2025-09-30': 30.0, '2025-12-31': 32.5,
+            }
+        },
+        # AWS revenue growth — re-acceleration story through 2025
+        'AWS Growth (%)': {
+            'unit': '%', 'aggregation': 'last',
+            'data': {
+                '2024-03-31': 17, '2024-06-30': 19, '2024-09-30': 19, '2024-12-31': 19,
+                '2025-03-31': 16.9, '2025-06-30': 17.5, '2025-09-30': 20.2, '2025-12-31': 24,
+            }
+        },
+    },
+    # GOOGL & AAPL: Google Cloud and AAPL Services are already broken out as
+    # separate lines in FMP's product segmentation, so they show up automatically
+    # in the segment chart. Dedicated KPI rows here intentionally left empty for
+    # now — add growth/margin numbers via founder-mode (?founder=1) when you want
+    # a specific metric chartable on its own.
+    'GOOGL': {
+        'Google Cloud Growth (%)': {
+            'unit': '%', 'aggregation': 'last',
+            'data': {
+                # Backfill these via founder mode from earnings releases
+            }
+        },
+    },
+    'AAPL': {
+        'Services Growth (%)': {
+            'unit': '%', 'aggregation': 'last',
+            'data': {
+                # Backfill these via founder mode from earnings releases
+            }
+        },
+    },
     'META': {
         'Family DAUs (DAP)': {
             'unit': 'B', 'aggregation': 'last',  # Stock metric — annual = Q4 value
@@ -22896,12 +23028,119 @@ elif selected_page == "📊 Company Analysis":
 
                     show_financial_data_notice(income_df, period)
 
+            # ─────────────────────────────────────────────────────────────────
+            # FOUNDER MODE — manual data overrides for charts
+            # ─────────────────────────────────────────────────────────────────
+            # Activated by adding ?founder=1 to the URL. Lets the founder patch
+            # missing periods (e.g. Q1 2026 not yet in FMP) so charts can be
+            # screenshotted for posts. Overrides live in session_state and reset
+            # on browser refresh — fastest possible build, zero persistence.
+            #
+            # Storage key: ("pnl"|"seg"|"kpi", ticker, period_type, period_label, metric_name) -> float
+            # Charts read overrides BEFORE computing YoY/QoQ so growth math stays consistent.
+            def _is_founder_mode():
+                try:
+                    _qp = st.query_params
+                    return _qp.get("founder", "0") in ("1", "true", "yes")
+                except Exception:
+                    try:
+                        _qp = st.experimental_get_query_params()
+                        _v = _qp.get("founder", ["0"])
+                        return (_v[0] if isinstance(_v, list) else _v) in ("1", "true", "yes")
+                    except Exception:
+                        return False
+
+            _FOUNDER_MODE = _is_founder_mode()
+
+            if "manual_overrides" not in st.session_state:
+                st.session_state["manual_overrides"] = {}
+
+            # ── KNOWN FMP DATA CORRECTIONS ──
+            # Hardcoded fixes for documented FMP bugs/parsing errors. These apply
+            # for ALL users (not just founder mode) and persist across refresh
+            # because they're code, not session state. Session overrides still take
+            # priority — so the founder can correct a correction if FMP fixes their
+            # data and ours becomes stale.
+            #
+            # Format: {(scope, ticker, period_type, period_label, metric): correct_value}
+            # Add new entries when FMP returns obviously-wrong data and we have the
+            # right value from the company's actual filing.
+            _KNOWN_FMP_CORRECTIONS = {
+                # GOOGL Q1 2026: FMP returned ~$465B for Google Cloud (off by ~23x).
+                # Correct values from Alphabet 8-K filed 2026-04-29 (quarter ended 2026-03-31).
+                ("seg", "GOOGL", "quarter", "Q1 2026", "Google Cloud"): 20_028_000_000,
+                ("seg", "GOOGL", "quarter", "Q1 2026", "Google Search & Other"): 60_402_000_000,
+                ("seg", "GOOGL", "quarter", "Q1 2026", "YouTube Advertising Revenue"): 9_881_000_000,
+                ("seg", "GOOGL", "quarter", "Q1 2026", "Subscriptions, Platforms, And Devices Revenue"): 12_375_000_000,
+                ("seg", "GOOG", "quarter", "Q1 2026", "Google Cloud"): 20_028_000_000,
+                ("seg", "GOOG", "quarter", "Q1 2026", "Google Search & Other"): 60_402_000_000,
+                ("seg", "GOOG", "quarter", "Q1 2026", "YouTube Advertising Revenue"): 9_881_000_000,
+                ("seg", "GOOG", "quarter", "Q1 2026", "Subscriptions, Platforms, And Devices Revenue"): 12_375_000_000,
+            }
+
+            def _ovr_key(scope, ticker_, period_type, period_label, metric_name):
+                return (scope, ticker_, period_type, period_label, metric_name)
+
+            def _get_override(scope, ticker_, period_type, period_label, metric_name):
+                # Session override wins over hardcoded correction wins over FMP raw value.
+                _k = _ovr_key(scope, ticker_, period_type, period_label, metric_name)
+                _session_v = st.session_state["manual_overrides"].get(_k)
+                if _session_v is not None:
+                    return _session_v
+                return _KNOWN_FMP_CORRECTIONS.get(_k)
+
+            def _set_override(scope, ticker_, period_type, period_label, metric_name, value):
+                _k = _ovr_key(scope, ticker_, period_type, period_label, metric_name)
+                if value is None or (isinstance(value, float) and pd.isna(value)):
+                    st.session_state["manual_overrides"].pop(_k, None)
+                else:
+                    st.session_state["manual_overrides"][_k] = float(value)
+
+            def _next_period_label(last_label, period_type):
+                """Given 'Q4 2025' returns 'Q1 2026'. Given 'FY 2025' returns 'FY 2026'."""
+                try:
+                    if period_type == 'annual' or last_label.startswith("FY"):
+                        _yr = int(last_label.replace("FY", "").strip())
+                        return f"FY {_yr + 1}"
+                    # Quarter format: "Q3 2025"
+                    _parts = last_label.split()
+                    if len(_parts) == 2 and _parts[0].startswith("Q"):
+                        _q = int(_parts[0][1:])
+                        _yr = int(_parts[1])
+                        if _q == 4:
+                            return f"Q1 {_yr + 1}"
+                        return f"Q{_q + 1} {_yr}"
+                except Exception:
+                    pass
+                return None
+
             # ── YoY / QoQ % Growth chart (Revenue, COGS, Gross Profit, Operating Income, Net Income) ──
             # Respects the same years slider — uses income_df already sliced to that range.
             # YoY annual: vs prior year. YoY quarterly: vs same quarter prior year (4 periods back).
             # QoQ quarterly: vs immediately prior quarter (1 period back). QoQ N/A in annual mode.
             st.markdown("")
             st.markdown(f"#### 📈 {company_name} - Growth %")
+
+            # Founder-mode banner: shown once per page when ?founder=1 is in URL.
+            if _FOUNDER_MODE:
+                _total_ovr = sum(
+                    1 for _k in st.session_state.get("manual_overrides", {})
+                    if _k[1] == ticker
+                )
+                _bcol1, _bcol2 = st.columns([4, 1])
+                with _bcol1:
+                    st.info(
+                        f"🛠️ **Founder mode active** — patch missing periods inline. "
+                        f"{_total_ovr} active override{'s' if _total_ovr != 1 else ''} for {ticker}. "
+                        "Session-only (resets on refresh)."
+                    )
+                with _bcol2:
+                    if st.button("Clear all", key=f"founder_clear_all_{ticker}", help="Remove all overrides for this ticker"):
+                        st.session_state["manual_overrides"] = {
+                            _k: _v for _k, _v in st.session_state["manual_overrides"].items()
+                            if _k[1] != ticker
+                        }
+                        st.rerun()
 
             # Growth-mode toggle: YoY default; QoQ only meaningful in quarterly mode.
             _growth_mode_options = ["YoY"]
@@ -22990,6 +23229,166 @@ elif selected_page == "📊 Company Analysis":
 
                     # Build a label -> column lookup
                     _yoy_label_to_col = {label: col for col, label in _yoy_available}
+
+                    # ── FOUNDER EDITOR: P&L Growth ──
+                    # Only renders if ?founder=1 is in the URL. Lets you patch periods
+                    # (e.g. add Q1 2026 if FMP hasn't picked it up yet) so charts can
+                    # be screenshotted for posts. Stores raw $ values; YoY auto-computes.
+                    if _FOUNDER_MODE:
+                        with st.expander("✏️ Patch data (founder)", expanded=False):
+                            st.caption(
+                                "Type raw dollar values (not %). YoY/QoQ auto-recomputes. "
+                                "Leave blank to remove a patch. Use the row at the bottom to add a future period."
+                            )
+                            # Build the editable table: existing periods + one extra "next period" row
+                            _ovr_rows = []
+                            for _i, _row in _yoy_df.iterrows():
+                                _plabel = _yoy_x_labels[_i]
+                                _row_data = {"Period": _plabel}
+                                for _col, _label in _yoy_available:
+                                    _existing_ovr = _get_override("pnl", ticker, _ca_period_type, _plabel, _col)
+                                    if _existing_ovr is not None:
+                                        _row_data[_label] = _existing_ovr
+                                    else:
+                                        _v = _row.get(_col)
+                                        _row_data[_label] = float(_v) if pd.notna(_v) else None
+                                _ovr_rows.append(_row_data)
+
+                            # Add empty row(s) for future periods user might want to add
+                            _last_label = _yoy_x_labels[-1] if _yoy_x_labels else None
+                            _next_lbl = _next_period_label(_last_label, _ca_period_type) if _last_label else None
+                            if _next_lbl:
+                                _next_row = {"Period": _next_lbl}
+                                for _col, _label in _yoy_available:
+                                    _existing_ovr = _get_override("pnl", ticker, _ca_period_type, _next_lbl, _col)
+                                    _next_row[_label] = _existing_ovr  # may be None
+                                _ovr_rows.append(_next_row)
+
+                            _ovr_df_in = pd.DataFrame(_ovr_rows)
+                            _ovr_df_out = st.data_editor(
+                                _ovr_df_in,
+                                key=f"founder_pnl_editor_{ticker}_{_ca_period_type}",
+                                disabled=["Period"],
+                                hide_index=True,
+                                use_container_width=True,
+                                column_config={
+                                    "Period": st.column_config.TextColumn("Period", width="small"),
+                                    **{
+                                        _label: st.column_config.NumberColumn(_label, format="%.0f")
+                                        for _, _label in _yoy_available
+                                    }
+                                }
+                            )
+
+                            _c1, _c2 = st.columns([1, 5])
+                            with _c1:
+                                if st.button("Apply", key=f"founder_pnl_apply_{ticker}_{_ca_period_type}", type="primary"):
+                                    # Diff: write any value the user typed, clear any they wiped
+                                    for _i in range(len(_ovr_df_out)):
+                                        _plabel = _ovr_df_out.iloc[_i]["Period"]
+                                        for _col, _label in _yoy_available:
+                                            _new_v = _ovr_df_out.iloc[_i].get(_label)
+                                            # Compare against original df value (not override) to decide if it's a real edit
+                                            _orig_v = None
+                                            if _i < len(_yoy_df):
+                                                _o = _yoy_df.iloc[_i].get(_col)
+                                                _orig_v = float(_o) if pd.notna(_o) else None
+                                            if pd.isna(_new_v) or _new_v is None:
+                                                # User cleared the cell — remove any override
+                                                _set_override("pnl", ticker, _ca_period_type, _plabel, _col, None)
+                                            elif _orig_v is None or abs(float(_new_v) - _orig_v) > 0.01:
+                                                # Different from original (or original was empty) → store override
+                                                _set_override("pnl", ticker, _ca_period_type, _plabel, _col, float(_new_v))
+                                            else:
+                                                # Matches original — no override needed
+                                                _set_override("pnl", ticker, _ca_period_type, _plabel, _col, None)
+                                    st.rerun()
+                            with _c2:
+                                _ovr_count = sum(
+                                    1 for _k in st.session_state["manual_overrides"]
+                                    if _k[0] == "pnl" and _k[1] == ticker and _k[2] == _ca_period_type
+                                )
+                                if _ovr_count > 0:
+                                    st.caption(f"📌 {_ovr_count} active override{'s' if _ovr_count != 1 else ''}")
+
+                    # Apply P&L overrides BEFORE growth computation — this is the key step.
+                    # Includes session-level overrides AND hardcoded FMP corrections.
+                    # 1) Patch existing rows with override values
+                    # 2) Append new rows for future periods that have at least one override
+                    if True:  # always run — corrections + overrides handled inside _get_override
+                        # Patch existing rows
+                        for _i in range(len(_yoy_df)):
+                            _plabel = _yoy_x_labels[_i]
+                            for _col, _ in _yoy_available:
+                                _ovr = _get_override("pnl", ticker, _ca_period_type, _plabel, _col)
+                                if _ovr is not None:
+                                    _yoy_df.at[_i, _col] = _ovr
+
+                        # Look for overrides on future periods (e.g. Q1 2026 when df ends Q4 2025)
+                        # and append synthetic rows so the chart can render them.
+                        # Walks BOTH session overrides AND hardcoded corrections.
+                        _existing_label_set = set(_yoy_x_labels)
+                        _future_labels = []
+                        for _src_dict in (st.session_state["manual_overrides"], _KNOWN_FMP_CORRECTIONS):
+                            for _k in _src_dict:
+                                _scope, _t, _pt, _plabel, _col = _k
+                                if _scope == "pnl" and _t == ticker and _pt == _ca_period_type and _plabel not in _existing_label_set:
+                                    if _plabel not in _future_labels:
+                                        _future_labels.append(_plabel)
+
+                        # Append future periods in order. Use _next_period_label chain to respect ordering.
+                        if _future_labels:
+                            _last = _yoy_x_labels[-1] if _yoy_x_labels else None
+                            _ordered_futures = []
+                            _cursor = _last
+                            # Walk forward finding the next label and including it if patched
+                            _safety = 0
+                            while _cursor is not None and _safety < 24:
+                                _nxt = _next_period_label(_cursor, _ca_period_type)
+                                if _nxt is None:
+                                    break
+                                if _nxt in _future_labels:
+                                    _ordered_futures.append(_nxt)
+                                    _future_labels.remove(_nxt)
+                                _cursor = _nxt
+                                _safety += 1
+                                if not _future_labels:
+                                    break
+
+                            for _plabel in _ordered_futures:
+                                _new_row = {c: None for c in _yoy_df.columns}
+                                # Try to set period/calendarYear/date so formatting still works
+                                if _ca_period_type == 'quarter' and _plabel.startswith("Q"):
+                                    try:
+                                        _q = int(_plabel.split()[0][1:])
+                                        _yr = int(_plabel.split()[1])
+                                        if 'period' in _new_row:
+                                            _new_row['period'] = f"Q{_q}"
+                                        if 'calendarYear' in _new_row:
+                                            _new_row['calendarYear'] = str(_yr)
+                                        if 'date' in _new_row:
+                                            _month = _q * 3
+                                            _new_row['date'] = pd.Timestamp(year=_yr, month=_month, day=28)
+                                    except Exception:
+                                        pass
+                                elif _ca_period_type == 'annual' and _plabel.startswith("FY"):
+                                    try:
+                                        _yr = int(_plabel.replace("FY", "").strip())
+                                        if 'period' in _new_row:
+                                            _new_row['period'] = "FY"
+                                        if 'calendarYear' in _new_row:
+                                            _new_row['calendarYear'] = str(_yr)
+                                        if 'date' in _new_row:
+                                            _new_row['date'] = pd.Timestamp(year=_yr, month=12, day=31)
+                                    except Exception:
+                                        pass
+                                # Apply each metric's override to the new row
+                                for _col, _ in _yoy_available:
+                                    _ovr = _get_override("pnl", ticker, _ca_period_type, _plabel, _col)
+                                    if _ovr is not None:
+                                        _new_row[_col] = _ovr
+                                _yoy_df = pd.concat([_yoy_df, pd.DataFrame([_new_row])], ignore_index=True)
+                                _yoy_x_labels.append(_plabel)
 
                     # Match the exact visual style of create_financial_chart_with_growth:
                     # dark space background, METRIC_PALETTE colors, latest bar full-opacity
@@ -23214,10 +23613,13 @@ elif selected_page == "📊 Company Analysis":
             st.markdown(f"#### 🧩 {company_name} - Segments & KPIs")
 
             # Fetch both data sources up front so we know what's actually available
-            _seg_df = get_product_segments(ticker, _ca_period_type)
+            _seg_df_product = get_product_segments(ticker, _ca_period_type)
+            _seg_df_business = get_business_segments(ticker, _ca_period_type)
             _kpi_df = get_operational_kpis(ticker, _ca_period_type)
 
-            _has_segments = not _seg_df.empty
+            # Default to product segmentation (current behavior); user can toggle.
+            _seg_df = _seg_df_product
+            _has_segments = (not _seg_df_product.empty) or (not _seg_df_business.empty)
             _has_kpis = not _kpi_df.empty
 
             if not _has_segments and not _has_kpis:
@@ -23262,15 +23664,12 @@ elif selected_page == "📊 Company Analysis":
                     _all_kpis = sorted(_kpi_df['kpi'].unique().tolist())
                     _kpi_default = _all_kpis[:3] if len(_all_kpis) > 3 else _all_kpis
 
-                    # Sub-toggle: Absolute vs YoY Growth %
-                    _kpi_view_mode = st.radio(
-                        "KPI view:",
-                        options=["Absolute", "YoY Growth %"],
-                        index=0,
-                        horizontal=True,
-                        key=f"kpi_view_mode_{ticker}",
-                        help="Absolute shows the actual KPI value (e.g. 290M subscribers). YoY Growth % shows year-over-year change."
-                    )
+                    # Build {kpi: unit} from the (filtered) df so we can detect
+                    # already-percentage KPIs (Azure growth %, AWS margin %, etc.)
+                    # where YoY-of-YoY math is nonsense.
+                    _kpi_units_for_detect = {}
+                    for _, _r in _kpi_df.iterrows():
+                        _kpi_units_for_detect[_r['kpi']] = _r.get('unit', '')
 
                     _kpi_selected = st.multiselect(
                         "Select KPIs to chart:",
@@ -23280,14 +23679,66 @@ elif selected_page == "📊 Company Analysis":
                         help="KPIs reported by the company in earnings releases. Add or remove as needed."
                     )
 
+                    # If every selected KPI is already a % (growth rate / margin),
+                    # don't offer the YoY toggle — it would compute YoY of YoY.
+                    _all_selected_are_pct = bool(_kpi_selected) and all(
+                        _kpi_units_for_detect.get(_k, '') == '%' for _k in _kpi_selected
+                    )
+
+                    if _all_selected_are_pct:
+                        _kpi_view_mode = "Absolute"
+                        st.caption(
+                            "📊 Showing absolute values — these KPIs are already percentages "
+                            "(growth rates / margins), so YoY-of-YoY isn't meaningful."
+                        )
+                    else:
+                        _kpi_view_mode = st.radio(
+                            "KPI view:",
+                            options=["Absolute", "YoY Growth %"],
+                            index=0,
+                            horizontal=True,
+                            key=f"kpi_view_mode_{ticker}",
+                            help="Absolute shows the actual KPI value (e.g. 290M subscribers). YoY Growth % shows year-over-year change."
+                        )
+
                     if not _kpi_selected:
                         st.info("👆 Select at least one KPI above to see the chart.")
                     else:
                         _kpi_periods = sorted(_kpi_df['date'].unique())
 
+                        # Build date -> (period, fiscalYear) from income_df. KPI data uses
+                        # calendar-end dates, but the chart should show fiscal quarters.
+                        # We match each KPI date to the closest income_df row (within 5 days)
+                        # and use that row's period/calendarYear.
+                        _kpi_period_lookup = {}
+                        try:
+                            if income_df is not None and not income_df.empty and 'date' in income_df.columns:
+                                _inc_dates = pd.to_datetime(income_df['date'])
+                                for _d in _kpi_periods:
+                                    _d_ts = pd.to_datetime(_d)
+                                    _diffs = (_inc_dates - _d_ts).abs()
+                                    _min_idx = _diffs.idxmin()
+                                    if _diffs.loc[_min_idx] <= pd.Timedelta(days=5):
+                                        _row = income_df.loc[_min_idx]
+                                        _kpi_period_lookup[_d_ts] = (
+                                            _row.get('period', ''),
+                                            _row.get('calendarYear', ''),
+                                        )
+                        except Exception:
+                            pass
+
                         def _kpi_format_period(d):
                             try:
                                 _d = pd.to_datetime(d)
+                                # Prefer fiscal period from income_df when available
+                                _info = _kpi_period_lookup.get(_d)
+                                if _info:
+                                    _p, _cy = _info
+                                    if _p and _cy:
+                                        if _ca_period_type == 'annual' or _p == 'FY':
+                                            return f"FY {_cy}"
+                                        return f"{_p} {_cy}"
+                                # Fallback: calendar quarter math
                                 if _ca_period_type == 'annual':
                                     return f"FY {_d.year}"
                                 return f"Q{((_d.month - 1) // 3) + 1} {_d.year}"
@@ -23302,6 +23753,150 @@ elif selected_page == "📊 Company Analysis":
 
                         # Build {kpi_name: unit} lookup for formatting axis labels
                         _kpi_units = {row['kpi']: row['unit'] for _, row in _kpi_df.iterrows()}
+
+                        # ── FOUNDER EDITOR: KPIs ──
+                        if _FOUNDER_MODE:
+                            with st.expander("✏️ Patch KPI data (founder)", expanded=False):
+                                st.caption(
+                                    "Type raw KPI values (millions, dollars, etc. — use the unit shown). "
+                                    "Both Absolute and YoY views auto-recompute."
+                                )
+                                _kpi_ovr_rows = []
+                                _kpi_pivot_reset = _kpi_pivot.reset_index(drop=True)
+                                for _i in range(len(_kpi_x_labels)):
+                                    _plabel = _kpi_x_labels[_i]
+                                    _row_data = {"Period": _plabel}
+                                    for _kpi_name in _kpi_selected:
+                                        _existing_ovr = _get_override("kpi", ticker, _ca_period_type, _plabel, _kpi_name)
+                                        if _existing_ovr is not None:
+                                            _row_data[_kpi_name] = _existing_ovr
+                                        else:
+                                            _v = _kpi_pivot_reset[_kpi_name].iloc[_i] if _kpi_name in _kpi_pivot_reset.columns else None
+                                            _row_data[_kpi_name] = float(_v) if pd.notna(_v) else None
+                                    _kpi_ovr_rows.append(_row_data)
+
+                                _last_kpi_label = _kpi_x_labels[-1] if _kpi_x_labels else None
+                                _next_kpi_lbl = _next_period_label(_last_kpi_label, _ca_period_type) if _last_kpi_label else None
+                                if _next_kpi_lbl:
+                                    _next_row = {"Period": _next_kpi_lbl}
+                                    for _kpi_name in _kpi_selected:
+                                        _next_row[_kpi_name] = _get_override("kpi", ticker, _ca_period_type, _next_kpi_lbl, _kpi_name)
+                                    _kpi_ovr_rows.append(_next_row)
+
+                                _kpi_ovr_in = pd.DataFrame(_kpi_ovr_rows)
+                                _kpi_ovr_out = st.data_editor(
+                                    _kpi_ovr_in,
+                                    key=f"founder_kpi_editor_{ticker}_{_ca_period_type}",
+                                    disabled=["Period"],
+                                    hide_index=True,
+                                    use_container_width=True,
+                                    column_config={
+                                        "Period": st.column_config.TextColumn("Period", width="small"),
+                                        **{
+                                            _kpi_name: st.column_config.NumberColumn(
+                                                f"{_kpi_name} ({_kpi_units.get(_kpi_name, '')})" if _kpi_units.get(_kpi_name) else _kpi_name,
+                                                format="%.2f"
+                                            )
+                                            for _kpi_name in _kpi_selected
+                                        }
+                                    }
+                                )
+
+                                _kc1, _kc2 = st.columns([1, 5])
+                                with _kc1:
+                                    if st.button("Apply", key=f"founder_kpi_apply_{ticker}_{_ca_period_type}", type="primary"):
+                                        for _i in range(len(_kpi_ovr_out)):
+                                            _plabel = _kpi_ovr_out.iloc[_i]["Period"]
+                                            for _kpi_name in _kpi_selected:
+                                                # Display column may be "name (unit)" — match by source name
+                                                _new_v = _kpi_ovr_out.iloc[_i].get(_kpi_name)
+                                                _orig_v = None
+                                                if _i < len(_kpi_pivot_reset) and _kpi_name in _kpi_pivot_reset.columns:
+                                                    _o = _kpi_pivot_reset[_kpi_name].iloc[_i]
+                                                    _orig_v = float(_o) if pd.notna(_o) else None
+                                                if pd.isna(_new_v) or _new_v is None:
+                                                    _set_override("kpi", ticker, _ca_period_type, _plabel, _kpi_name, None)
+                                                elif _orig_v is None or abs(float(_new_v) - _orig_v) > 0.01:
+                                                    _set_override("kpi", ticker, _ca_period_type, _plabel, _kpi_name, float(_new_v))
+                                                else:
+                                                    _set_override("kpi", ticker, _ca_period_type, _plabel, _kpi_name, None)
+                                        st.rerun()
+                                with _kc2:
+                                    _kpi_ovr_count = sum(
+                                        1 for _k in st.session_state["manual_overrides"]
+                                        if _k[0] == "kpi" and _k[1] == ticker and _k[2] == _ca_period_type
+                                    )
+                                    if _kpi_ovr_count > 0:
+                                        st.caption(f"📌 {_kpi_ovr_count} active override{'s' if _kpi_ovr_count != 1 else ''}")
+
+                        # Apply KPI overrides BEFORE chart computation
+                        # Always run — _get_override returns hardcoded corrections too
+                        if True:
+                            # Patch existing rows
+                            for _i in range(len(_kpi_x_labels)):
+                                _plabel = _kpi_x_labels[_i]
+                                for _kpi_name in _kpi_selected:
+                                    _ovr = _get_override("kpi", ticker, _ca_period_type, _plabel, _kpi_name)
+                                    if _ovr is not None:
+                                        if _kpi_name not in _kpi_pivot.columns:
+                                            _kpi_pivot[_kpi_name] = float('nan')
+                                        _date_idx = _kpi_pivot.index[_i]
+                                        _kpi_pivot.at[_date_idx, _kpi_name] = _ovr
+
+                            # Append future periods if patched (from session OR corrections)
+                            _existing_kpi_set = set(_kpi_x_labels)
+                            _future_kpi_labels = []
+                            for _src_dict in (st.session_state["manual_overrides"], _KNOWN_FMP_CORRECTIONS):
+                                for _k in _src_dict:
+                                    _scope, _t, _pt, _plabel, _kpi_name = _k
+                                    if (_scope == "kpi" and _t == ticker and _pt == _ca_period_type
+                                            and _plabel not in _existing_kpi_set):
+                                        if _plabel not in _future_kpi_labels:
+                                            _future_kpi_labels.append(_plabel)
+
+                            if _future_kpi_labels:
+                                _last = _kpi_x_labels[-1] if _kpi_x_labels else None
+                                _ordered_kpi_futures = []
+                                _cursor = _last
+                                _safety = 0
+                                while _cursor is not None and _safety < 24:
+                                    _nxt = _next_period_label(_cursor, _ca_period_type)
+                                    if _nxt is None:
+                                        break
+                                    if _nxt in _future_kpi_labels:
+                                        _ordered_kpi_futures.append(_nxt)
+                                        _future_kpi_labels.remove(_nxt)
+                                    _cursor = _nxt
+                                    _safety += 1
+                                    if not _future_kpi_labels:
+                                        break
+
+                                for _plabel in _ordered_kpi_futures:
+                                    try:
+                                        if _ca_period_type == 'quarter' and _plabel.startswith("Q"):
+                                            _q = int(_plabel.split()[0][1:])
+                                            _yr = int(_plabel.split()[1])
+                                            _new_date = pd.Timestamp(year=_yr, month=_q * 3, day=28)
+                                        elif _ca_period_type == 'annual' and _plabel.startswith("FY"):
+                                            _yr = int(_plabel.replace("FY", "").strip())
+                                            _new_date = pd.Timestamp(year=_yr, month=12, day=31)
+                                        else:
+                                            continue
+                                    except Exception:
+                                        continue
+
+                                    _new_row_data = {c: float('nan') for c in _kpi_pivot.columns}
+                                    for _kpi_name in _kpi_selected:
+                                        _ovr = _get_override("kpi", ticker, _ca_period_type, _plabel, _kpi_name)
+                                        if _ovr is not None:
+                                            if _kpi_name not in _new_row_data:
+                                                _kpi_pivot[_kpi_name] = float('nan')
+                                                _new_row_data[_kpi_name] = float('nan')
+                                            _new_row_data[_kpi_name] = _ovr
+                                    _new_row_df = pd.DataFrame([_new_row_data], index=[_new_date])
+                                    _kpi_pivot = pd.concat([_kpi_pivot, _new_row_df])
+                                    _kpi_x_labels.append(_plabel)
+                                _kpi_periods = list(_kpi_pivot.index)
 
                         # Reuse same dark-space styling as segment chart
                         _KPI_PALETTE = [
@@ -23330,6 +23925,8 @@ elif selected_page == "📊 Company Analysis":
                                 return f"${val:.1f}B"
                             if unit == '$M':
                                 return f"${val:.0f}M"
+                            if unit == '%':
+                                return f"{val:+.1f}%" if val < 0 else f"{val:.1f}%"
                             if unit in ('M', 'B', 'K', 'GWh'):
                                 return f"{val:.1f}{unit}"
                             return f"{val:.1f}"
@@ -23520,6 +24117,38 @@ elif selected_page == "📊 Company Analysis":
                 # SEGMENT BRANCH — original Revenue $ / YoY Growth % flow
                 # ────────────────────────────────────────────────────────────
                 elif _has_segments:
+                    # Segment-type toggle: Product vs Business segmentation.
+                    # Most useful for MSFT (Intelligent Cloud ≈ Azure proxy) and GOOGL
+                    # (Google Cloud as its own line), but it shows up for any ticker
+                    # where FMP returns both breakdowns. Skip the toggle if only one
+                    # is available so the UI stays clean.
+                    _has_product_seg = not _seg_df_product.empty
+                    _has_business_seg = not _seg_df_business.empty
+
+                    if _has_product_seg and _has_business_seg:
+                        _seg_type_options = ["By Product", "By Business"]
+                        # Default to Business for MSFT (Intelligent Cloud is the standard view);
+                        # Product for everyone else (matches what people generally expect).
+                        _default_seg_type = "By Business" if ticker.upper() == "MSFT" else "By Product"
+                        _seg_type_choice = st.radio(
+                            "Segmentation:",
+                            options=_seg_type_options,
+                            index=_seg_type_options.index(_default_seg_type),
+                            horizontal=True,
+                            key=f"segment_type_{ticker}",
+                            help=(
+                                "Product = revenue by what they sell (e.g. iPhone, Server Products). "
+                                "Business = revenue by operating segment (e.g. Intelligent Cloud, Google Cloud). "
+                                "MSFT bundles Azure inside 'Server Products' on the product view — switch to Business to see Intelligent Cloud."
+                            )
+                        )
+                        _seg_df = _seg_df_business if _seg_type_choice == "By Business" else _seg_df_product
+                    elif _has_business_seg and not _has_product_seg:
+                        _seg_df = _seg_df_business
+                        st.caption("Showing business segments (product breakdown unavailable for this ticker).")
+                    else:
+                        _seg_df = _seg_df_product
+
                     # Slice to the same time window as the years slider.
                     # Annual: keep last `years` years of data. Quarterly: keep last `years*4` quarters.
                     _seg_keep = years * 4 if _ca_period_type == 'quarter' else years
@@ -23552,9 +24181,30 @@ elif selected_page == "📊 Company Analysis":
                         # Build x-axis labels (one per unique period)
                         _seg_periods = sorted(_seg_df['date'].unique())
 
+                        # Build a date -> (period, fiscalYear) lookup from the segment data itself.
+                        # FMP returns fiscal-quarter labels (Q1-Q4) keyed to filing date, which
+                        # matters for companies whose fiscal year != calendar year (MSFT FY ends
+                        # June 30, so 2026-03-31 is fiscal Q3 2026 not calendar Q1 2026).
+                        _seg_period_lookup = {}
+                        for _d, _grp in _seg_df.groupby('date'):
+                            _row0 = _grp.iloc[0]
+                            _seg_period_lookup[pd.to_datetime(_d)] = (
+                                _row0.get('period_label', ''),
+                                _row0.get('fiscalYear', ''),
+                            )
+
                         def _seg_format_period(d):
                             try:
                                 _d = pd.to_datetime(d)
+                                # Prefer fiscal period from FMP when available
+                                _info = _seg_period_lookup.get(_d)
+                                if _info:
+                                    _p, _fy = _info
+                                    if _p and _fy:
+                                        if _ca_period_type == 'annual' or _p == 'FY':
+                                            return f"FY {_fy}"
+                                        return f"{_p} {_fy}"
+                                # Fallback: calendar quarter math
                                 if _ca_period_type == 'annual':
                                     return f"FY {_d.year}"
                                 return f"Q{((_d.month - 1) // 3) + 1} {_d.year}"
@@ -23567,6 +24217,188 @@ elif selected_page == "📊 Company Analysis":
                         _seg_pivot = _seg_df.pivot_table(
                             index='date', columns='segment', values='value', aggfunc='sum'
                         ).reindex(_seg_periods)
+
+                        # ── DATA QUALITY CHECK: detect FMP outliers ──
+                        # FMP occasionally returns wildly wrong segment values (e.g. Google Cloud
+                        # Q1 2026 at $465B instead of $20B). Catches this by flagging any segment
+                        # whose latest value is >5x the median of its prior 4 periods. Real growth
+                        # rarely exceeds 2-3x quarter-over-quarter even at hypergrowth scale.
+                        _seg_outliers = []
+                        try:
+                            for _seg_name in _seg_pivot.columns:
+                                _series = pd.to_numeric(_seg_pivot[_seg_name], errors='coerce').dropna()
+                                if len(_series) < 5:
+                                    continue
+                                _latest_val = _series.iloc[-1]
+                                _prior = _series.iloc[-5:-1]  # 4 periods before latest
+                                _prior_med = _prior.median()
+                                if _prior_med > 0 and _latest_val > _prior_med * 5:
+                                    _seg_outliers.append({
+                                        'segment': _seg_name,
+                                        'period': _seg_x_labels[-1] if _seg_x_labels else 'latest',
+                                        'reported': _latest_val,
+                                        'prior_typical': _prior_med,
+                                        'multiple': _latest_val / _prior_med,
+                                    })
+                        except Exception:
+                            pass
+
+                        if _seg_outliers:
+                            _o = _seg_outliers[0]  # show the most obvious one prominently
+                            _msg = (
+                                f"⚠️ **Possible data error detected**: {_o['segment']} for {_o['period']} "
+                                f"shows ${_o['reported']/1e9:.1f}B, which is {_o['multiple']:.1f}x its typical "
+                                f"prior value (~${_o['prior_typical']/1e9:.1f}B). FMP segment data sometimes "
+                                f"contains parsing errors for the most recent quarter."
+                            )
+                            if len(_seg_outliers) > 1:
+                                _msg += f" ({len(_seg_outliers) - 1} other anomal{'y' if len(_seg_outliers) == 2 else 'ies'} also detected.)"
+                            if _FOUNDER_MODE:
+                                _msg += " Use the patch panel below to correct it."
+                            st.warning(_msg)
+
+                        # ── FOUNDER EDITOR: Segments ──
+                        if _FOUNDER_MODE:
+                            with st.expander("✏️ Patch segment data (founder)", expanded=False):
+                                st.caption(
+                                    "Type raw segment $ values. Both Revenue $ and YoY Growth % views auto-recompute. "
+                                    "Leave blank to remove a patch. Bottom row adds a future period."
+                                )
+                                _seg_ovr_rows = []
+                                _seg_pivot_reset = _seg_pivot.reset_index(drop=True)
+                                for _i in range(len(_seg_x_labels)):
+                                    _plabel = _seg_x_labels[_i]
+                                    _row_data = {"Period": _plabel}
+                                    for _seg_name in _seg_selected:
+                                        _existing_ovr = _get_override("seg", ticker, _ca_period_type, _plabel, _seg_name)
+                                        if _existing_ovr is not None:
+                                            _row_data[_seg_name] = _existing_ovr
+                                        else:
+                                            _v = _seg_pivot_reset[_seg_name].iloc[_i] if _seg_name in _seg_pivot_reset.columns else None
+                                            _row_data[_seg_name] = float(_v) if pd.notna(_v) else None
+                                    _seg_ovr_rows.append(_row_data)
+
+                                _last_seg_label = _seg_x_labels[-1] if _seg_x_labels else None
+                                _next_seg_lbl = _next_period_label(_last_seg_label, _ca_period_type) if _last_seg_label else None
+                                if _next_seg_lbl:
+                                    _next_row = {"Period": _next_seg_lbl}
+                                    for _seg_name in _seg_selected:
+                                        _next_row[_seg_name] = _get_override("seg", ticker, _ca_period_type, _next_seg_lbl, _seg_name)
+                                    _seg_ovr_rows.append(_next_row)
+
+                                _seg_ovr_in = pd.DataFrame(_seg_ovr_rows)
+                                _seg_ovr_out = st.data_editor(
+                                    _seg_ovr_in,
+                                    key=f"founder_seg_editor_{ticker}_{_ca_period_type}",
+                                    disabled=["Period"],
+                                    hide_index=True,
+                                    use_container_width=True,
+                                    column_config={
+                                        "Period": st.column_config.TextColumn("Period", width="small"),
+                                        **{
+                                            _seg_name: st.column_config.NumberColumn(_seg_name, format="%.0f")
+                                            for _seg_name in _seg_selected
+                                        }
+                                    }
+                                )
+
+                                _sc1, _sc2 = st.columns([1, 5])
+                                with _sc1:
+                                    if st.button("Apply", key=f"founder_seg_apply_{ticker}_{_ca_period_type}", type="primary"):
+                                        for _i in range(len(_seg_ovr_out)):
+                                            _plabel = _seg_ovr_out.iloc[_i]["Period"]
+                                            for _seg_name in _seg_selected:
+                                                _new_v = _seg_ovr_out.iloc[_i].get(_seg_name)
+                                                _orig_v = None
+                                                if _i < len(_seg_pivot_reset) and _seg_name in _seg_pivot_reset.columns:
+                                                    _o = _seg_pivot_reset[_seg_name].iloc[_i]
+                                                    _orig_v = float(_o) if pd.notna(_o) else None
+                                                if pd.isna(_new_v) or _new_v is None:
+                                                    _set_override("seg", ticker, _ca_period_type, _plabel, _seg_name, None)
+                                                elif _orig_v is None or abs(float(_new_v) - _orig_v) > 0.01:
+                                                    _set_override("seg", ticker, _ca_period_type, _plabel, _seg_name, float(_new_v))
+                                                else:
+                                                    _set_override("seg", ticker, _ca_period_type, _plabel, _seg_name, None)
+                                        st.rerun()
+                                with _sc2:
+                                    _seg_ovr_count = sum(
+                                        1 for _k in st.session_state["manual_overrides"]
+                                        if _k[0] == "seg" and _k[1] == ticker and _k[2] == _ca_period_type
+                                    )
+                                    if _seg_ovr_count > 0:
+                                        st.caption(f"📌 {_seg_ovr_count} active override{'s' if _seg_ovr_count != 1 else ''}")
+
+                        # Apply segment overrides BEFORE growth/value computation
+                        # Always run — _get_override returns hardcoded corrections too
+                        if True:
+                            # Patch existing rows
+                            for _i in range(len(_seg_x_labels)):
+                                _plabel = _seg_x_labels[_i]
+                                for _seg_name in _seg_selected:
+                                    _ovr = _get_override("seg", ticker, _ca_period_type, _plabel, _seg_name)
+                                    if _ovr is not None:
+                                        if _seg_name not in _seg_pivot.columns:
+                                            _seg_pivot[_seg_name] = float('nan')
+                                        _date_idx = _seg_pivot.index[_i]
+                                        _seg_pivot.at[_date_idx, _seg_name] = _ovr
+
+                            # Append future period rows for segment overrides + corrections
+                            _existing_seg_set = set(_seg_x_labels)
+                            _future_seg_labels = []
+                            # Collect from both session overrides and hardcoded corrections
+                            for _src_dict in (st.session_state["manual_overrides"], _KNOWN_FMP_CORRECTIONS):
+                                for _k in _src_dict:
+                                    _scope, _t, _pt, _plabel, _seg_name = _k
+                                    if (_scope == "seg" and _t == ticker and _pt == _ca_period_type
+                                            and _plabel not in _existing_seg_set):
+                                        if _plabel not in _future_seg_labels:
+                                            _future_seg_labels.append(_plabel)
+
+                            if _future_seg_labels:
+                                _last = _seg_x_labels[-1] if _seg_x_labels else None
+                                _ordered_seg_futures = []
+                                _cursor = _last
+                                _safety = 0
+                                while _cursor is not None and _safety < 24:
+                                    _nxt = _next_period_label(_cursor, _ca_period_type)
+                                    if _nxt is None:
+                                        break
+                                    if _nxt in _future_seg_labels:
+                                        _ordered_seg_futures.append(_nxt)
+                                        _future_seg_labels.remove(_nxt)
+                                    _cursor = _nxt
+                                    _safety += 1
+                                    if not _future_seg_labels:
+                                        break
+
+                                for _plabel in _ordered_seg_futures:
+                                    # Build a synthetic date for the new row
+                                    try:
+                                        if _ca_period_type == 'quarter' and _plabel.startswith("Q"):
+                                            _q = int(_plabel.split()[0][1:])
+                                            _yr = int(_plabel.split()[1])
+                                            _new_date = pd.Timestamp(year=_yr, month=_q * 3, day=28)
+                                        elif _ca_period_type == 'annual' and _plabel.startswith("FY"):
+                                            _yr = int(_plabel.replace("FY", "").strip())
+                                            _new_date = pd.Timestamp(year=_yr, month=12, day=31)
+                                        else:
+                                            continue
+                                    except Exception:
+                                        continue
+
+                                    # Add row to pivot with NaN, then patch overridden segments
+                                    _new_row_data = {c: float('nan') for c in _seg_pivot.columns}
+                                    for _seg_name in _seg_selected:
+                                        _ovr = _get_override("seg", ticker, _ca_period_type, _plabel, _seg_name)
+                                        if _ovr is not None:
+                                            if _seg_name not in _new_row_data:
+                                                _seg_pivot[_seg_name] = float('nan')
+                                                _new_row_data[_seg_name] = float('nan')
+                                            _new_row_data[_seg_name] = _ovr
+                                    _new_row_df = pd.DataFrame([_new_row_data], index=[_new_date])
+                                    _seg_pivot = pd.concat([_seg_pivot, _new_row_df])
+                                    _seg_x_labels.append(_plabel)
+                                _seg_periods = list(_seg_pivot.index)
 
                         # Reuse the same dark-space styling from the YoY chart
                         _SEG_PALETTE = [
