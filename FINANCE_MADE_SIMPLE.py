@@ -8333,8 +8333,19 @@ def get_cash_flow(ticker, period='annual', limit=5):
 
 @st.cache_data(ttl=3600)
 def get_financial_ratios(ticker, period='annual', limit=5):
-    """Get financial ratios"""
-    url = f"{BASE_URL}/ratios?symbol={ticker}&period={period}&limit={limit}&apikey={FMP_API_KEY}"
+    """Get financial ratios.
+
+    Note on FMP endpoints: the /stable/ratios endpoint quietly ignores the
+    period=quarter param and always returns annual data, which makes the
+    Quarterly view show only ~5 bars (one per fiscal year). The /v3/ratios
+    endpoint correctly honors period=quarter, so we route quarterly requests
+    there explicitly. Annual requests stay on /stable/ for parity with other
+    endpoints.
+    """
+    if period == 'quarter':
+        url = f"https://financialmodelingprep.com/api/v3/ratios/{ticker}?period=quarter&limit={limit}&apikey={FMP_API_KEY}"
+    else:
+        url = f"{BASE_URL}/ratios?symbol={ticker}&period={period}&limit={limit}&apikey={FMP_API_KEY}"
     try:
         response = requests.get(url, timeout=10)
         data = response.json()
@@ -23114,6 +23125,24 @@ elif selected_page == "📊 Company Analysis":
                     pass
                 return None
 
+            # Plotly chart config tuned for social-media-ready exports.
+            # Camera icon → exports at 1600×900 @ 3x scale (4800×2700 actual pixels),
+            # which is the sweet spot for X / LinkedIn landscape posts: 16:9 ratio,
+            # well above their compression threshold so re-encoding stays sharp.
+            # `displaylogo=False` hides the Plotly watermark.
+            def _hd_chart_config(filename_stub):
+                return {
+                    'displaylogo': False,
+                    'toImageButtonOptions': {
+                        'format': 'png',
+                        'filename': f'{ticker}_{filename_stub}',
+                        'height': 900,
+                        'width': 1600,
+                        'scale': 3,
+                    },
+                    'modeBarButtonsToRemove': ['lasso2d', 'select2d', 'autoScale2d'],
+                }
+
             # ── YoY / QoQ % Growth chart (Revenue, COGS, Gross Profit, Operating Income, Net Income) ──
             # Respects the same years slider — uses income_df already sliced to that range.
             # YoY annual: vs prior year. YoY quarterly: vs same quarter prior year (4 periods back).
@@ -23581,7 +23610,7 @@ elif selected_page == "📊 Company Analysis":
                             ),
                         )
 
-                        st.plotly_chart(_yoy_fig, use_container_width=True)
+                        st.plotly_chart(_yoy_fig, use_container_width=True, config=_hd_chart_config(f"growth_{_ca_period_type}"))
                         render_quarterly_chart_note("financials", period_override=_ca_period_type)
 
                         # Latest growth metric tiles
@@ -24105,7 +24134,7 @@ elif selected_page == "📊 Company Analysis":
                                 ),
                             )
 
-                            st.plotly_chart(_kpi_fig, use_container_width=True)
+                            st.plotly_chart(_kpi_fig, use_container_width=True, config=_hd_chart_config(f"kpi_{_ca_period_type}"))
                             st.caption(
                                 "⚠️ KPI data is hand-curated from official earnings press releases and 10-Q filings. "
                                 "Updated quarterly when companies report. "
@@ -24582,7 +24611,7 @@ elif selected_page == "📊 Company Analysis":
                                 ),
                             )
 
-                            st.plotly_chart(_seg_fig, use_container_width=True)
+                            st.plotly_chart(_seg_fig, use_container_width=True, config=_hd_chart_config(f"segments_{_ca_period_type}"))
                             st.caption(
                                 "Segment data sourced from company filings via FMP. "
                                 "Naming can shift across periods (e.g. 'Google Cloud' vs 'Google Cloud Services'), "
