@@ -10446,6 +10446,86 @@ def get_unhinged_comment(context, extra_data=None):
     # Return a random comment
     return random.choice(comments)
 
+# ═══════════════════════════════════════════════════════════════════════════
+# FOUNDER ACCESS HELPERS — read-only public mode + founder unlocks
+# ═══════════════════════════════════════════════════════════════════════════
+# Anonymous & non-founder users get read-only access to public pages, but
+# locked to GOOGL only and with Pro features showing a sign-in gate.
+# Founder = whoever's email matches FOUNDER_EMAIL env var when logged in.
+#
+# These helpers are imported by every protected page and the ticker selector.
+
+def _is_founder_user():
+    """True only if the current session is the authenticated founder.
+    Re-derives from email each call so it can't get stale or be spoofed.
+
+    Founder email lookup order (first one found wins):
+    1. FOUNDER_EMAIL env var (Render, Railway, Fly, Heroku, local export)
+    2. st.secrets["FOUNDER_EMAIL"] (Streamlit Cloud)
+    3. Hardcoded fallback: namanlohia02@gmail.com
+
+    The hardcoded fallback means the gate works out of the box on any platform,
+    even if the env var isn't set yet. Change/remove the fallback if you ever
+    need to lock it down without code access.
+    """
+    _founder_email = (os.getenv("FOUNDER_EMAIL") or "").strip().lower()
+    if not _founder_email:
+        try:
+            _founder_email = (st.secrets.get("FOUNDER_EMAIL", "") or "").strip().lower()
+        except Exception:
+            pass
+    if not _founder_email:
+        # Hardcoded fallback so gate works without any setup
+        _founder_email = "namanlohia02@gmail.com"
+
+    if not st.session_state.get("is_logged_in"):
+        return False
+    _email = (st.session_state.get("user_email") or "").strip().lower()
+    return _email == _founder_email
+
+
+# Public read-only mode is locked to this single ticker so visitors can
+# explore the UI without burning FMP API budget on arbitrary lookups.
+PUBLIC_DEFAULT_TICKER = "GOOGL"
+
+
+def _show_signin_gate(feature_name=""):
+    """Render a centered sign-in CTA when a non-founder hits a Pro page.
+    Should be called inside the page's branch, followed by `st.stop()` or
+    a `return` if the call site is inside a function. Does NOT halt by
+    itself — the caller decides the control flow."""
+    # Centered card with the existing brand styling
+    st.markdown(f"""
+    <div style="text-align: center; padding: 80px 20px 40px 20px;
+                max-width: 600px; margin: 0 auto;">
+        <div style="font-size: 56px; margin-bottom: 16px;">🔒</div>
+        <h1 style="font-size: 32px; font-weight: 700; margin: 0; color: #1a1a2e;">
+            Sign in to access{f' {feature_name}' if feature_name else ''}
+        </h1>
+        <p style="font-size: 16px; color: #666; margin-top: 14px; line-height: 1.5;">
+            This feature requires an account. Sign in to continue exploring
+            institutional-grade financial tools.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    _gc1, _gc2, _gc3 = st.columns([1, 1.6, 1])
+    with _gc2:
+        # Unique key per call site so multiple gates on different pages don't collide
+        _btn_key = f"signin_gate_btn_{feature_name.replace(' ', '_') or 'default'}"
+        if st.button("🔐 Sign In", key=_btn_key, use_container_width=True, type="primary"):
+            st.session_state.show_login_popup = True
+            st.rerun()
+
+    # Open the login dialog if requested. login_dialog is defined below in the
+    # file but Python resolves the name at call time so this works fine.
+    if st.session_state.get("show_login_popup"):
+        try:
+            login_dialog()
+        except NameError:
+            pass
+
+
 # ============= LOGOUT HELPER =============
 def do_logout():
     """Logout helper function to sign out and clear session state"""
@@ -11751,16 +11831,17 @@ def _render_upgrade_gate(feature, limit):
             st.session_state.selected_page = "👑 Become a VIP"
             st.rerun()
 
-def gate_ticker_change(requested_ticker, current_ticker=None, default_ticker="GOOG",
+def gate_ticker_change(requested_ticker, current_ticker=None, default_ticker="GOOGL",
                         action_label="change tickers", page_key=None):
     """
     Call BEFORE accepting a user's ticker change on gated pages.
     Returns True = allow, False = block (gate UI already rendered, caller should
     revert to current_ticker/default_ticker and stop further processing).
 
-    Anonymous users get ONE free ticker change per page (tracked by `page_key`)
-    before the signup gate appears — gives them a taste of the feature so they
-    understand what they're signing up for.
+    Founder-only build:
+    - Anonymous & non-founder users are LOCKED to the default ticker (GOOGL).
+      Any attempt to switch to a different ticker triggers the sign-in gate.
+    - Founder has unlimited ticker access.
     """
     if not requested_ticker:
         return True
@@ -11770,50 +11851,26 @@ def gate_ticker_change(requested_ticker, current_ticker=None, default_ticker="GO
     if requested == baseline or (default_ticker and requested == default_ticker.upper()):
         return True
 
-    if _is_paid_tier():
+    # Founder bypass — full access
+    if _is_founder_user():
         return True
 
-    if _is_anonymous():
-        # "1 free taste" allowance — per page, per session. Lets anonymous users
-        # try one ticker change (e.g. GOOGL → NVDA) so they see real value
-        # before we ask for signup. Second attempt triggers the gate.
-        key = f"_anon_free_used_{page_key or action_label}"
-        if not st.session_state.get(key):
-            # Mark this page's free change as used — but allow the change
-            st.session_state[key] = requested
-            return True
-        # Already used their free change → gate
-        _render_signup_gate(action_label=action_label)
-        return False
-
-    # Free tier: dedupe — searching the same ticker twice in one day doesn't double-count
-    u = _get_session_usage()
-    if requested in u["tickers_seen"]:
-        return True
-    limit = TIER_LIMITS["free"]["ticker_changes_per_day"]
-    if _synced_count("ticker_changes") >= limit:
-        _render_upgrade_gate("ticker_changes", limit)
-        return False
-
-    u["tickers_seen"].add(requested)
-    _record_usage("ticker_changes")
-    return True
+    # Everyone else is locked. No "free taste", no per-day allowance.
+    # Show the sign-in gate and refuse the change.
+    _render_signup_gate(action_label=action_label)
+    return False
 
 def gate_ai_feature(feature_name="AI analysis"):
     """
     Call BEFORE invoking an AI endpoint. Returns True = allow, False = block.
+
+    Founder-only build: only the authenticated founder can use AI features.
+    AI calls cost real money per request, so non-founders see a sign-in gate.
     """
-    if _is_paid_tier():
+    if _is_founder_user():
         return True
-    if _is_anonymous():
-        _render_signup_gate(action_label=f"use {feature_name}")
-        return False
-    limit = TIER_LIMITS["free"]["ai_queries_per_day"]
-    if _synced_count("ai_calls") >= limit:
-        _render_upgrade_gate("ai_calls", limit)
-        return False
-    _record_usage("ai_calls")
-    return True
+    _render_signup_gate(action_label=f"use {feature_name}")
+    return False
 
 def render_quota_badge():
     """Small unobtrusive badge showing today's remaining quota for free users."""
@@ -23050,6 +23107,14 @@ elif selected_page == "📊 Company Analysis":
             # Storage key: ("pnl"|"seg"|"kpi", ticker, period_type, period_label, metric_name) -> float
             # Charts read overrides BEFORE computing YoY/QoQ so growth math stays consistent.
             def _is_founder_mode():
+                """Founder data-edit mode is enabled only when:
+                1. ?founder=1 is in the URL (intent signal), AND
+                2. The user is the authenticated founder (auth check).
+                URL alone is no longer enough — anyone could guess that.
+                """
+                # Auth check first — if not the founder, no edit mode regardless of URL
+                if not _is_founder_user():
+                    return False
                 try:
                     _qp = st.query_params
                     return _qp.get("founder", "0") in ("1", "true", "yes")
@@ -26162,6 +26227,10 @@ elif selected_page == "📰 Market Intelligence":
 
 
 elif selected_page == "👤 Naman's Portfolio":
+    # 🔒 Founder-only — non-founders see sign-in CTA instead of the page
+    if not _is_founder_user():
+        _show_signin_gate("Naman's Portfolio")
+        st.stop()
     st.header("Naman's Portfolio")
     st.markdown("**My High-Conviction Investment Strategy — Full Transparency**")
     
@@ -26524,6 +26593,10 @@ elif selected_page == "👤 Naman's Portfolio":
 
 
 elif selected_page == "👑 Become a VIP":
+    # 🔒 Founder-only — non-founders see sign-in CTA instead of the page
+    if not _is_founder_user():
+        _show_signin_gate("VIP")
+        st.stop()
 
     st.markdown("""
     <div style="background:linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 50%, #E8F5E9 100%);
@@ -26816,6 +26889,10 @@ elif selected_page == "👑 Become a VIP":
 
 
 elif selected_page == "📊 Pro Checklist":
+    # 🔒 Founder-only — non-founders see sign-in CTA instead of the page
+    if not _is_founder_user():
+        _show_signin_gate("Pro Checklist")
+        st.stop()
     # Pro Checklist has been merged into Ultimate
     st.session_state.selected_page = "👑 Ultimate"
     st.rerun()
@@ -26825,6 +26902,10 @@ elif selected_page == "📊 Pro Checklist":
 
 # ============= TRADE IDEAS PAGE =============
 elif selected_page == "💡 Trade Ideas":
+    # 🔒 Founder-only — non-founders see sign-in CTA instead of the page
+    if not _is_founder_user():
+        _show_signin_gate("Trade Ideas")
+        st.stop()
 
     # ── Header ──────────────────────────────────────────────────────────────
     st.markdown("""
@@ -27261,6 +27342,10 @@ elif selected_page == "💡 Trade Ideas":
 
 # ============= DIP RADAR PAGE (standalone) =============
 elif selected_page == "📡 Dip Radar":
+    # 🔒 Founder-only — non-founders see sign-in CTA instead of the page
+    if not _is_founder_user():
+        _show_signin_gate("Dip Radar")
+        st.stop()
 
     st.markdown("""
     <div class="hero-container-simple">
@@ -27444,6 +27529,10 @@ elif selected_page == "📡 Dip Radar":
     st.caption("*DQ Score powered by FMP API, yfinance, and Perplexity AI. Educational purposes only. Not financial advice.*")
 
 elif selected_page == "👑 Ultimate":
+    # 🔒 Founder-only — non-founders see sign-in CTA instead of the page
+    if not _is_founder_user():
+        _show_signin_gate("Ultimate")
+        st.stop()
 
     # ── HARD PAYWALL: Free users see TradingView chart preview + technicals list, but no analysis ─────────────
     if get_user_tier() == "free":
@@ -28752,6 +28841,10 @@ CRITICAL: No [bracket] tags. All prices with $. All % with %. Be specific — ci
             st.info("No paper portfolio positions yet. Head to the Paper Portfolio tab to start tracking trades.")
 
 elif selected_page == "💼 Paper Portfolio":
+    # 🔒 Founder-only — non-founders see sign-in CTA instead of the page
+    if not _is_founder_user():
+        _show_signin_gate("Paper Portfolio")
+        st.stop()
     
     # Page popup removed - user requested no popups except welcome
     
@@ -29660,6 +29753,10 @@ elif selected_page == "💼 Paper Portfolio":
         #REMOVED: render_ai_coach("Paper Portfolio", ticker=None, facts=None)
 
 elif selected_page == "✅ Portfolio Risk Analyzer":
+    # 🔒 Founder-only — non-founders see sign-in CTA instead of the page
+    if not _is_founder_user():
+        _show_signin_gate("Portfolio Risk Analyzer")
+        st.stop()
     st.header("📈 Portfolio Risk Analyzer")
     st.write("Deep risk analysis with AI-powered roasts 😈")
     
@@ -29934,6 +30031,10 @@ elif selected_page == "✅ Portfolio Risk Analyzer":
 
 # ============= FOUNDER TRACK RECORD (PUBLIC READ-ONLY) =============
 elif selected_page == "📜 Founder Track Record":
+    # 🔒 Founder-only — non-founders see sign-in CTA instead of the page
+    if not _is_founder_user():
+        _show_signin_gate("Founder Track Record")
+        st.stop()
     st.header("📜 Founder Track Record")
     st.caption("*Public, read-only view of the founder's paper trading performance.*")
     
@@ -30232,6 +30333,10 @@ elif selected_page == "📜 Founder Track Record":
 
 
 elif selected_page == "💥 Stress Test":
+    # 🔒 Founder-only — non-founders see sign-in CTA instead of the page
+    if not _is_founder_user():
+        _show_signin_gate("Stress Test")
+        st.stop()
     # Redirect to Paper Portfolio (Stress Test is now a tab there)
     st.session_state.selected_page = "💼 Paper Portfolio"
     st.rerun()
@@ -30242,6 +30347,10 @@ elif selected_page == "📰 News Explainer":
     st.rerun()
 
 elif selected_page == "📓 Investing Journal":
+    # 🔒 Founder-only — non-founders see sign-in CTA instead of the page
+    if not _is_founder_user():
+        _show_signin_gate("Investing Journal")
+        st.stop()
     # Redirect to Paper Portfolio (Journal is now a tab there)
     st.session_state.selected_page = "💼 Paper Portfolio"
     st.rerun()
