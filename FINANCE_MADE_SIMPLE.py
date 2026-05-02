@@ -10679,19 +10679,26 @@ def login_dialog():
                     st.error(f"❌ Login error: {msg}")
 
 # ============= SIGNUP DIALOG =============
-@st.dialog("📝 Create Your Account", width="large")
+@st.dialog("✨ Joining the waitlist", width="large")
 def signup_dialog():
-    """Sign up dialog for new users"""
+    """Soft-disabled signup. Currently in private founder-only mode — visitors
+    can browse but can't create accounts. This dialog tells them why and
+    captures email interest if they want to be notified later.
+
+    The dialog deliberately leans into scarcity ('higher than expected demand')
+    to turn the limitation into a positive signal rather than feeling broken.
+    """
+    # Match the existing visual style of the login/signup dialogs
     st.markdown("""
     <style>
     [data-testid="stDialog"] {
         background: linear-gradient(180deg, #1a1a2e 0%, #0f0f1a 100%) !important;
-        border: 2px solid #00C853 !important;
+        border: 2px solid #FFD700 !important;
         border-radius: 20px !important;
     }
     [data-testid="stDialog"] input {
         background: #FFFFFF !important;
-        border: 2px solid #00C853 !important;
+        border: 2px solid #FFD700 !important;
         border-radius: 10px !important;
         color: #000000 !important;
         padding: 12px !important;
@@ -10701,171 +10708,76 @@ def signup_dialog():
     }
     </style>
     """, unsafe_allow_html=True)
-    
-    # Welcome header with icon
+
+    # Hero
     st.markdown("""
-    <div style="text-align: center; margin-bottom: 18px;">
-        <div style="font-size: 50px; margin-bottom: 10px;">🚀</div>
-        <h2 style="color: #00C853; margin: 0;">Welcome to Investing Made Simple!</h2>
-        <p style="color: #888888; margin-top: 5px;">Create your free account to get started</p>
+    <div style="text-align: center; padding: 12px 0 8px 0;">
+        <div style="font-size: 56px; margin-bottom: 12px;">⏳</div>
+        <h2 style="color: #FFD700; margin: 0; font-size: 26px;">
+            Signups paused — for now
+        </h2>
+        <p style="color: #DDD; margin-top: 14px; font-size: 15px; line-height: 1.55;">
+            We've had way more interest than expected, so we've temporarily
+            paused new accounts to keep the experience fast for everyone
+            already inside. Drop your email below and we'll let you know
+            the moment we open back up.
+        </p>
     </div>
     """, unsafe_allow_html=True)
 
-    # What you get for free — shown BEFORE the form so users see the value
-    st.markdown("""
-    <div style="background:linear-gradient(135deg,rgba(0,200,83,0.12),rgba(0,150,60,0.08));
-                border:1px solid rgba(0,200,83,0.4);border-radius:12px;
-                padding:14px 18px;margin-bottom:18px;">
-        <div style="color:#00C853;font-weight:700;font-size:13px;letter-spacing:0.5px;margin-bottom:8px;">
-            ✨ WHAT YOU GET — FREE FOREVER
-        </div>
-        <div style="color:#ddd;font-size:13px;line-height:1.9;">
-            🔍 <b>5 ticker searches per day</b> — Dip Finder + Company Analysis<br>
-            🤖 <b>3 AI analyses per day</b> — chatbot + stock research<br>
-            📊 <b>Full beginner course</b> — 15 video lessons, risk quiz<br>
-            📌 <b>Pin up to 5 favorite tickers</b> + save 3 custom views<br>
-            📈 <b>Paper portfolio</b> — practice trading, track P&L<br>
-            🆓 <b>No credit card required</b>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    # Email capture
+    st.markdown("<div style='margin-top: 8px;'></div>", unsafe_allow_html=True)
+    waitlist_email = st.text_input(
+        "Email",
+        placeholder="you@example.com",
+        key="waitlist_email_input",
+        label_visibility="collapsed"
+    )
 
-    st.markdown("<p style='color: #333333; font-weight: bold;'>👤 First Name</p>", unsafe_allow_html=True)
-    first_name = st.text_input("First Name", placeholder="John", key="signup_first_name", label_visibility="collapsed")
-    
-    st.markdown("<p style='color: #333333; font-weight: bold;'>📧 Email Address</p>", unsafe_allow_html=True)
-    email = st.text_input("Email", placeholder="john@example.com", key="signup_email", label_visibility="collapsed")
-    
-    col3, col4 = st.columns(2)
-    with col3:
-        st.markdown("<p style='color: #333333; font-weight: bold;'>📱 Phone Number</p>", unsafe_allow_html=True)
-        phone = st.text_input("Phone", placeholder="+1 (555) 123-4567", key="signup_phone", label_visibility="collapsed")
-    with col4:
-        st.markdown("<p style='color: #333333; font-weight: bold;'>🎂 Age</p>", unsafe_allow_html=True)
-        age = st.number_input("Age", min_value=1, max_value=120, value=25, key="signup_age", label_visibility="collapsed")
-    
-    st.markdown("<p style='color: #333333; font-weight: bold;'>🔒 Create Password</p>", unsafe_allow_html=True)
-    password = st.text_input("Password", type="password", placeholder="Enter a strong password", key="signup_password", label_visibility="collapsed")
-    
-    st.markdown("<p style='color: #333333; font-weight: bold;'>🔒 Confirm Password</p>", unsafe_allow_html=True)
-    password_confirm = st.text_input("Confirm", type="password", placeholder="Re-enter your password", key="signup_confirm", label_visibility="collapsed")
-    
-    st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
-    
-    col_btn1, col_btn2 = st.columns(2)
-    with col_btn1:
-        if st.button("❌ Cancel", use_container_width=True, type="secondary", key="signup_cancel"):
-            st.session_state.show_signup_popup = False
-            st.rerun()
-    with col_btn2:
-        if st.button("✅ Create Account", use_container_width=True, type="primary", key="signup_submit"):
-            # Validation
-            if not all([first_name, email, phone, password, password_confirm]):
-                st.error("❌ Please fill in all fields")
-            elif age < 18:
-                st.warning("🎂 You must be 18 or older to create an account.")
-            elif password != password_confirm:
-                st.error("❌ Passwords don't match")
-            elif len(password) < 8:
-                st.error("❌ Password must be at least 8 characters")
-            elif "@" not in email or "." not in email:
-                st.error("❌ Please enter a valid email address")
+    _wc1, _wc2, _wc3 = st.columns([1, 2, 1])
+    with _wc2:
+        if st.button("✉️ Notify me when signups reopen", key="waitlist_submit",
+                     use_container_width=True, type="primary"):
+            _email_clean = (waitlist_email or "").strip().lower()
+            # Lightweight validation
+            if not _email_clean or "@" not in _email_clean or "." not in _email_clean.split("@")[-1]:
+                st.error("Please enter a valid email address.")
             else:
-                if SUPABASE_ENABLED:
-                    try:
-                        response = supabase.auth.sign_up({
-                            "email": email,
-                            "password": password,
-                            "options": {
-                                "data": {
-                                    "first_name": first_name,
-                                    "phone": phone,
-                                    "age": age
-                                }
-                            }
-                        })
-                        
-                        if response.user:
-                            uid = response.user.id
-                            # Save first name to profiles table
-                            # Use REST API with service_role key to bypass RLS
-                            profile_saved = False
-                            try:
-                                supabase.table("profiles").upsert({
-                                    "id": uid,
-                                    "first_name": first_name,
-                                    "tier": "free"
-                                }).execute()
-                                profile_saved = True
-                            except Exception as profile_err:
-                                # RLS policy may block direct insert - try REST API with service key
-                                try:
-                                    import requests as _req
-                                    svc_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
-                                    if svc_key and SUPABASE_URL:
-                                        _req.post(
-                                            f"{SUPABASE_URL}/rest/v1/profiles",
-                                            headers={
-                                                "apikey": svc_key,
-                                                "Authorization": f"Bearer {svc_key}",
-                                                "Content-Type": "application/json",
-                                                "Prefer": "resolution=merge-duplicates"
-                                            },
-                                            json={"id": uid, "first_name": first_name, "tier": "free"}
-                                        )
-                                        profile_saved = True
-                                    else:
-                                        # No service key - profile will be created on first login via trigger
-                                        profile_saved = False
-                                except Exception:
-                                    profile_saved = False
-                            
-                            if response.session:
-                                # Email verification disabled - log in immediately
-                                st.session_state.user_id = uid
-                                st.session_state.user_email = email
-                                st.session_state.first_name = first_name
-                                st.session_state.is_logged_in = True
-                                st.session_state.user_tier = "free"
+                # Best-effort persistence to Supabase if available; otherwise
+                # session-state log so the founder can pull from logs later.
+                _saved = False
+                try:
+                    if SUPABASE_ENABLED:
+                        # Insert into a 'waitlist' table if it exists. Won't
+                        # blow up if the table is missing — just falls through.
+                        supabase.table("waitlist").insert({
+                            "email": _email_clean,
+                            "source": "signup_dialog",
+                        }).execute()
+                        _saved = True
+                except Exception:
+                    pass
 
-                                # Persist refresh token so signup-then-refresh doesn't log them out
-                                try:
-                                    _rt = getattr(response.session, "refresh_token", None)
-                                    if _rt:
-                                        _save_auth_cookie(_rt)
-                                except Exception:
-                                    pass
+                if not _saved:
+                    # Session fallback
+                    _wl = st.session_state.get("_waitlist_emails", [])
+                    if _email_clean not in _wl:
+                        _wl.append(_email_clean)
+                    st.session_state["_waitlist_emails"] = _wl
 
-                                # Founder flag
-                                FOUNDER_EMAIL = (os.getenv("FOUNDER_EMAIL") or "").strip().lower()
-                                st.session_state.is_founder = (email or "").strip().lower() == FOUNDER_EMAIL
-                                
-                                save_user_progress()
-                                track_signup("email")
-                                st.success("✅ Account created successfully!")
-                                st.balloons()
-                            else:
-                                # Email verification required - still save profile
-                                st.success("✅ Account created! Check your email to verify, then sign in.")
-                                st.info("📧 Check inbox/spam for verification link.")
-                            
-                            st.session_state.show_signup_popup = False
-                            st.rerun()
-                        else:
-                            st.error("❌ Error creating account.")
-                    except Exception as e:
-                        error_msg = str(e)
-                        if "already registered" in error_msg.lower():
-                            st.error("❌ This email is already registered. Please sign in instead.")
-                        elif "rate limit" in error_msg.lower() or "rate_limit" in error_msg.lower() or "429" in error_msg:
-                            st.error("⏳ Too many attempts. Please wait a few minutes and try again.")
-                        elif "row-level security" in error_msg.lower() or "42501" in error_msg:
-                            # RLS error but user was likely created - tell them to sign in
-                            st.warning("✅ Your account may have been created. Please try signing in with your email and password.")
-                        else:
-                            st.error(f"❌ Error: {error_msg}")
-                else:
-                    st.error("❌ Authentication service not available.")
+                st.success(
+                    f"🎉 You're on the list. We'll email **{_email_clean}** as "
+                    "soon as signups reopen."
+                )
+                st.balloons()
+
+    # Subtle context line so people understand it's not a permanent rejection
+    st.markdown("""
+    <div style="text-align:center; margin-top: 18px; color:#888; font-size:12px;">
+        In the meantime, feel free to explore the public demo — full
+        functionality unlocks once you're in.
+    </div>
+    """, unsafe_allow_html=True)
 
 
 # ============= COFFEE COMPARISON CALCULATOR =============
