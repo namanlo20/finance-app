@@ -5056,6 +5056,143 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
     
     return fig, growth_rates, round(cagr_years, 1)
 
+
+def render_period_comparison_box(df, metrics_to_plot, metric_names, period_type, key_suffix):
+    """Renders a 'pick any period → see YoY/QoQ %' panel below a financial chart.
+
+    Used by Income Statement, Balance Sheet, and Cash Flow charts. Only works
+    in quarterly mode for QoQ; in annual mode QoQ is hidden because it would
+    just duplicate YoY.
+
+    Args:
+        df: DataFrame with 'date' column + the metric columns.
+            Optionally 'period' and 'calendarYear' for fiscal labeling.
+        metrics_to_plot: list of column names (e.g. ['revenue', 'netIncome'])
+        metric_names: human display names parallel to metrics_to_plot
+        period_type: 'quarter' or 'annual'
+        key_suffix: unique string for st widget keys (avoids collisions across
+            multiple charts on the same page)
+    """
+    if df is None or len(df) < 2 or not metrics_to_plot:
+        return
+
+    _cmp_df = df.sort_values('date', ascending=True).reset_index(drop=True)
+
+    def _cmp_label(row):
+        try:
+            if row.get('period') and row.get('calendarYear'):
+                _p = row.get('period')
+                _y = row.get('calendarYear')
+                if period_type == 'annual' or _p == 'FY':
+                    return f"FY {_y}"
+                return f"{_p} {_y}"
+        except Exception:
+            pass
+        _d = pd.to_datetime(row.get('date'))
+        if period_type == 'annual':
+            return f"FY {_d.year}"
+        return f"Q{((_d.month - 1) // 3) + 1} {_d.year}"
+
+    _period_labels = [_cmp_label(r) for _, r in _cmp_df.iterrows()]
+    if len(_period_labels) < 2:
+        return
+
+    st.markdown("---")
+    _cmp_left, _cmp_right = st.columns([1, 3])
+
+    with _cmp_left:
+        st.markdown("##### 📐 Compare a period")
+        st.caption("YoY = vs same quarter last year · QoQ = vs prior quarter")
+        # Default to most recent (newest first)
+        _selected_period = st.selectbox(
+            "Choose period:",
+            options=list(reversed(_period_labels)),
+            index=0,
+            key=f"cmp_period_{key_suffix}",
+            label_visibility="collapsed",
+        )
+
+    with _cmp_right:
+        _sel_idx = _period_labels.index(_selected_period)
+        _yoy_lag = 4 if period_type == 'quarter' else 1
+        _show_qoq = period_type == 'quarter'
+
+        _rows_html = ""
+        for _col, _disp in zip(metrics_to_plot, metric_names):
+            _curr = pd.to_numeric(_cmp_df[_col].iloc[_sel_idx], errors='coerce')
+
+            # YoY
+            _yoy_idx = _sel_idx - _yoy_lag
+            _yoy_str, _yoy_color, _yoy_sub = "—", "#999", ""
+            if _yoy_idx >= 0:
+                _prior_yoy = pd.to_numeric(_cmp_df[_col].iloc[_yoy_idx], errors='coerce')
+                if pd.notna(_curr) and pd.notna(_prior_yoy) and _prior_yoy != 0:
+                    _pct = ((_curr - _prior_yoy) / abs(_prior_yoy)) * 100
+                    _yoy_str = f"{_pct:+.1f}%"
+                    _yoy_color = "#0a8754" if _pct >= 0 else "#c62828"
+                    _yoy_sub = f"vs {_period_labels[_yoy_idx]}"
+            else:
+                _yoy_sub = "no prior-year data"
+
+            # QoQ (quarterly only)
+            _qoq_str, _qoq_color, _qoq_sub = "—", "#999", ""
+            if _show_qoq:
+                _qoq_idx = _sel_idx - 1
+                if _qoq_idx >= 0:
+                    _prior_qoq = pd.to_numeric(_cmp_df[_col].iloc[_qoq_idx], errors='coerce')
+                    if pd.notna(_curr) and pd.notna(_prior_qoq) and _prior_qoq != 0:
+                        _pct = ((_curr - _prior_qoq) / abs(_prior_qoq)) * 100
+                        _qoq_str = f"{_pct:+.1f}%"
+                        _qoq_color = "#0a8754" if _pct >= 0 else "#c62828"
+                        _qoq_sub = f"vs {_period_labels[_qoq_idx]}"
+                else:
+                    _qoq_sub = "no prior-quarter data"
+
+            _curr_fmt = format_number(_curr) if pd.notna(_curr) else "—"
+
+            _qoq_cell = f"""
+                <td style="padding:10px 12px; border-bottom:1px solid #EEE; text-align:right;">
+                    <div style="font-weight:700; font-size:15px; color:{_qoq_color};">{_qoq_str}</div>
+                    <div style="font-size:11px; color:#999; margin-top:2px;">{_qoq_sub}</div>
+                </td>
+            """ if _show_qoq else ""
+
+            _rows_html += f"""
+            <tr>
+                <td style="padding:10px 12px; border-bottom:1px solid #EEE;">
+                    <div style="font-weight:600; color:#1a1a2e;">{_disp}</div>
+                    <div style="font-size:12px; color:#666; margin-top:2px;">{_curr_fmt}</div>
+                </td>
+                <td style="padding:10px 12px; border-bottom:1px solid #EEE; text-align:right;">
+                    <div style="font-weight:700; font-size:15px; color:{_yoy_color};">{_yoy_str}</div>
+                    <div style="font-size:11px; color:#999; margin-top:2px;">{_yoy_sub}</div>
+                </td>
+                {_qoq_cell}
+            </tr>
+            """
+
+        _qoq_header = '<th style="padding:8px 12px; text-align:right; color:#666; font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; border-bottom:2px solid #DDD;">QoQ</th>' if _show_qoq else ''
+        st.markdown(f"""
+        <div style="background:#FAFAFA; border-radius:10px; padding:8px 4px; border:1px solid #EEE;">
+            <div style="padding: 6px 12px 4px 12px; font-size:13px; color:#333;">
+                Selected: <strong>{_selected_period}</strong>
+            </div>
+            <table style="width:100%; border-collapse:collapse;">
+                <thead>
+                    <tr>
+                        <th style="padding:8px 12px; text-align:left; color:#666; font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; border-bottom:2px solid #DDD;">Metric</th>
+                        <th style="padding:8px 12px; text-align:right; color:#666; font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; border-bottom:2px solid #DDD;">YoY</th>
+                        {_qoq_header}
+                    </tr>
+                </thead>
+                <tbody>
+                    {_rows_html}
+                </tbody>
+            </table>
+        </div>
+        """, unsafe_allow_html=True)
+
+
 def create_ratio_trend_chart(df, metric_name, metric_column, title, sector=None):
     """Create line chart for financial ratio trends with S&P 500 and industry benchmarks"""
     if df.empty or metric_column not in df.columns:
@@ -13559,10 +13696,20 @@ render_ai_chatbot()
 # ============= WELCOME POPUP FOR FIRST-TIME USERS =============
 
 # ============= AUTH POPUPS - ONLY ONE AT A TIME =============
+# Signup dialog (now waitlist) shows ONCE per session. Once a user has seen
+# it, clicking Sign Up again on other pages won't repeatedly nag — they
+# just get bounced silently. Refresh = new session = dialog can show again.
+# This keeps the "signups paused" message from feeling spammy as users
+# navigate around the public app.
 if st.session_state.get('show_signup_popup', False):
-    # Signup takes priority — clear login flag to avoid conflict
-    st.session_state.show_login_popup = False
-    signup_dialog()
+    if not st.session_state.get('_signup_dialog_shown_this_session', False):
+        # First time this session — show the dialog
+        st.session_state.show_login_popup = False
+        st.session_state['_signup_dialog_shown_this_session'] = True
+        signup_dialog()
+    else:
+        # Already shown — don't show again, just clear the trigger silently
+        st.session_state.show_signup_popup = False
 elif st.session_state.get('show_login_popup', False):
     login_dialog()
 
@@ -23044,6 +23191,15 @@ elif selected_page == "📊 Company Analysis":
                     for i, (metric, name) in enumerate(zip(metrics_to_plot, metric_names)):
                         cols[i].metric(f"Latest {name}", format_number(cash_df[metric].iloc[-1]))
 
+                    # Period comparison box — pick any quarter, see YoY/QoQ
+                    render_period_comparison_box(
+                        df=cash_df,
+                        metrics_to_plot=metrics_to_plot,
+                        metric_names=metric_names,
+                        period_type=_ca_period_type,
+                        key_suffix=f"cashflow_{ticker}_{_ca_period_type}",
+                    )
+
                     show_financial_data_notice(cash_df, period)
         else:
             st.warning("⚠️ Cash flow data not available")
@@ -23143,6 +23299,15 @@ elif selected_page == "📊 Company Analysis":
                     cols = st.columns(len(metrics_to_plot))
                     for i, (metric, name) in enumerate(zip(metrics_to_plot, metric_names)):
                         cols[i].metric(f"Latest {name}", format_number(income_df[metric].iloc[-1]))
+
+                    # Period comparison box — pick any quarter, see YoY/QoQ
+                    render_period_comparison_box(
+                        df=income_df,
+                        metrics_to_plot=metrics_to_plot,
+                        metric_names=metric_names,
+                        period_type=_ca_period_type,
+                        key_suffix=f"income_{ticker}_{_ca_period_type}",
+                    )
 
                     show_financial_data_notice(income_df, period)
 
@@ -24830,6 +24995,15 @@ elif selected_page == "📊 Company Analysis":
                     cols = st.columns(len(metrics_to_plot))
                     for i, (metric, name) in enumerate(zip(metrics_to_plot, metric_names)):
                         cols[i].metric(f"Latest {name}", format_number(balance_df[metric].iloc[-1]))
+
+                    # Period comparison box — pick any quarter, see YoY/QoQ
+                    render_period_comparison_box(
+                        df=balance_df,
+                        metrics_to_plot=metrics_to_plot,
+                        metric_names=metric_names,
+                        period_type=_ca_period_type,
+                        key_suffix=f"balance_{ticker}_{_ca_period_type}",
+                    )
 
                     show_financial_data_notice(balance_df, period)
         else:
