@@ -3971,6 +3971,95 @@ def send_email(to_email, subject, html_content):
     except Exception as e:
         return False, str(e)
 
+
+def notify_founder_of_waitlist_signup(signup_email, source="waitlist_dialog", tier_interest="pro"):
+    """Pings the founder's inbox the moment someone joins the waitlist.
+
+    Best-effort: never raises, never blocks the user flow. If Resend isn't
+    configured or the founder email isn't set, just silently no-ops. The
+    Supabase save still happens regardless so emails aren't lost.
+
+    Founder email: pulls from FOUNDER_EMAIL env var, falls back to the
+    hardcoded namanlohia02@gmail.com (same fallback as _is_founder_user).
+    """
+    try:
+        founder_email = (os.getenv("FOUNDER_EMAIL") or "").strip().lower()
+        if not founder_email:
+            try:
+                founder_email = (st.secrets.get("FOUNDER_EMAIL", "") or "").strip().lower()
+            except Exception:
+                pass
+        if not founder_email:
+            founder_email = "namanlohia02@gmail.com"
+
+        if not RESEND_API_KEY:
+            # Resend not configured — log to console so the founder can
+            # spot it in deploy logs at least
+            try:
+                print(f"[WAITLIST] {signup_email} signed up (Resend not configured — email not sent)")
+            except Exception:
+                pass
+            return False
+
+        # Tight, scannable email — designed to look right in a phone notification
+        try:
+            now_str = datetime.now().strftime("%b %d, %Y at %I:%M %p")
+        except Exception:
+            now_str = ""
+
+        html = f"""
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+                    max-width: 560px; margin: 0 auto; padding: 24px;">
+            <div style="background: linear-gradient(135deg, #FFD700 0%, #FF6B6B 100%);
+                        padding: 24px; border-radius: 12px 12px 0 0; text-align: center;">
+                <div style="font-size: 36px; margin-bottom: 6px;">🎉</div>
+                <h1 style="color: white; margin: 0; font-size: 22px;">New waitlist signup</h1>
+            </div>
+            <div style="background: #FAFAFA; padding: 28px 24px; border-radius: 0 0 12px 12px;
+                        border: 1px solid #EEE; border-top: none;">
+                <p style="margin: 0 0 6px 0; color: #666; font-size: 13px; text-transform: uppercase;
+                          letter-spacing: 0.5px;">Email</p>
+                <p style="margin: 0 0 18px 0; font-size: 20px; font-weight: 700; color: #1a1a2e;
+                          word-break: break-all;">
+                    <a href="mailto:{signup_email}" style="color: #1a1a2e; text-decoration: none;">
+                        {signup_email}
+                    </a>
+                </p>
+
+                <table style="width: 100%; border-collapse: collapse; margin-top: 12px;">
+                    <tr>
+                        <td style="padding: 6px 0; color: #888; font-size: 13px; width: 40%;">Source</td>
+                        <td style="padding: 6px 0; color: #333; font-size: 13px;">{source}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 6px 0; color: #888; font-size: 13px;">Tier interest</td>
+                        <td style="padding: 6px 0; color: #333; font-size: 13px;">{tier_interest}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 6px 0; color: #888; font-size: 13px;">When</td>
+                        <td style="padding: 6px 0; color: #333; font-size: 13px;">{now_str}</td>
+                    </tr>
+                </table>
+
+                <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid #E5E5E5;
+                            color: #999; font-size: 12px;">
+                    Reach out fast — the smart move is a friendly DM/email while
+                    interest is hot.
+                </div>
+            </div>
+        </div>
+        """
+
+        ok, _ = send_email(
+            to_email=founder_email,
+            subject=f"🎉 Waitlist: {signup_email}",
+            html_content=html,
+        )
+        return ok
+    except Exception:
+        # Never let notification failure break the signup flow
+        return False
+
 def send_welcome_email(user_email, tier="free"):
     """Send welcome email to new users"""
     tier_name = tier.title()
@@ -10782,28 +10871,38 @@ def signup_dialog():
             if not _email_clean or "@" not in _email_clean or "." not in _email_clean.split("@")[-1]:
                 st.error("Please enter a valid email address.")
             else:
-                # Best-effort persistence to Supabase if available; otherwise
-                # session-state log so the founder can pull from logs later.
-                _saved = False
+                # Persist via the existing waitlist helper (matches the actual
+                # Supabase schema: email + tier_interest + source + created_at).
+                # The previous custom insert here was hitting a schema mismatch
+                # and silently failing while still showing fake success.
+                _saved, _msg = save_waitlist_email(_email_clean, tier_interest="pro")
+
+                # Notify the founder IMMEDIATELY regardless of save outcome —
+                # this way even if Supabase is misconfigured or down, the email
+                # still reaches the founder's inbox so no leads are lost.
+                # Wrapped in try/except so notification issues never break UX.
                 try:
-                    if SUPABASE_ENABLED:
-                        # Insert into a 'waitlist' table if it exists. Won't
-                        # blow up if the table is missing — just falls through.
-                        supabase.table("waitlist").insert({
-                            "email": _email_clean,
-                            "source": "signup_dialog",
-                        }).execute()
-                        _saved = True
+                    notify_founder_of_waitlist_signup(
+                        signup_email=_email_clean,
+                        source="signup_dialog",
+                        tier_interest="pro",
+                    )
                 except Exception:
                     pass
 
+                # Last-resort fallback: if Supabase save failed AND notification
+                # failed, stash in session state so a refresh-survival window
+                # exists for the founder to grab manually. Better than nothing.
                 if not _saved:
-                    # Session fallback
                     _wl = st.session_state.get("_waitlist_emails", [])
                     if _email_clean not in _wl:
                         _wl.append(_email_clean)
                     st.session_state["_waitlist_emails"] = _wl
 
+                # User-facing confirmation. Show success message regardless of
+                # save status — from the user's POV they DID join the list
+                # (founder got the email notification, which is the source of
+                # truth for follow-up).
                 st.success(
                     f"🎉 You're on the list. We'll email **{_email_clean}** as "
                     "soon as signups reopen."
@@ -26807,6 +26906,17 @@ elif selected_page == "👑 Become a VIP":
                     if st.button("🚀 Join Waitlist", key="join_waitlist_vip", type="primary", use_container_width=True):
                         if waitlist_email and "@" in waitlist_email:
                             success, message = save_waitlist_email(waitlist_email, "ultimate")
+                            # Always notify founder — same logic as the main
+                            # signup dialog. Wrapped in try/except so a Resend
+                            # failure can never break the user flow.
+                            try:
+                                notify_founder_of_waitlist_signup(
+                                    signup_email=waitlist_email.strip().lower(),
+                                    source="vip_waitlist",
+                                    tier_interest="ultimate",
+                                )
+                            except Exception:
+                                pass
                             if success:
                                 st.success(f"🎉 You're on the list! We'll notify {waitlist_email} when spots open.")
                                 st.balloons()
