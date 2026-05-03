@@ -8114,6 +8114,30 @@ def _yf_income_to_fmp(ticker, period='annual', limit=5):
             raw = raw.tail(limit)
         else:
             raw = raw.tail(limit)
+
+        # Pull fiscal year-end month so we can map filing dates to fiscal quarters.
+        # AAPL ends Sep → fiscal Q1 = Oct-Dec, Q2 = Jan-Mar, Q3 = Apr-Jun, Q4 = Jul-Sep.
+        # Without this, calendar-quarter math says March = Q1 which is wrong for AAPL.
+        try:
+            _info = t.info or {}
+            _fy_end_str = str(_info.get('fiscalYearEnd', '') or '').strip()
+            # fiscalYearEnd is sometimes "0930" or "Sep 30" etc.; pull the month
+            if _fy_end_str.isdigit() and len(_fy_end_str) >= 3:
+                _fy_end_month = int(_fy_end_str[:2]) if len(_fy_end_str) == 4 else int(_fy_end_str[:1])
+            else:
+                # Try parsing words like "Sep 30"
+                _months_map = {
+                    'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6,
+                    'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12
+                }
+                _fy_end_month = 12  # default to December (calendar year)
+                for k, v in _months_map.items():
+                    if k in _fy_end_str.lower():
+                        _fy_end_month = v
+                        break
+        except Exception:
+            _fy_end_month = 12
+
         col_map = {
             'Total Revenue': 'revenue',
             'Cost Of Revenue': 'costOfRevenue',
@@ -8148,11 +8172,26 @@ def _yf_income_to_fmp(ticker, period='annual', limit=5):
                         break
             if 'grossProfit' not in r and 'revenue' in r and 'costOfRevenue' in r:
                 r['grossProfit'] = r['revenue'] - r['costOfRevenue']
-            # Period label
+            # Period label — uses fiscal quarter math relative to fiscal year-end month.
+            # For AAPL (FY ends Sep), a March filing falls in fiscal Q2 because
+            # months 10-12 → Q1, 1-3 → Q2, 4-6 → Q3, 7-9 → Q4.
             if period == 'quarter':
-                q = (dt.month - 1) // 3 + 1
-                r['period'] = f"Q{q}"
-                r['calendarYear'] = str(dt.year)
+                # months_since_fy_end = (filing_month - fy_end_month) mod 12
+                # +1 because Q1 starts the month AFTER fy-end
+                _months_since = (dt.month - _fy_end_month - 1) % 12
+                _fiscal_q = _months_since // 3 + 1
+                r['period'] = f"Q{_fiscal_q}"
+                # Fiscal year for the filing: companies with non-Dec fiscal year typically
+                # label the year the fiscal year ENDS. For AAPL, March 2026 filing is
+                # part of FY2026 (ends Sep 2026) — calendar year 2026.
+                if _fy_end_month == 12:
+                    r['calendarYear'] = str(dt.year)
+                elif dt.month > _fy_end_month:
+                    # Month is after fy-end (e.g. AAPL Oct-Dec 2025) → fiscal year is next calendar year
+                    r['calendarYear'] = str(dt.year + 1)
+                else:
+                    # Month is fy-end-month or earlier → fiscal year = current calendar year
+                    r['calendarYear'] = str(dt.year)
             else:
                 r['period'] = 'FY'
                 r['calendarYear'] = str(dt.year)
@@ -22860,7 +22899,7 @@ elif selected_page == "📊 Company Analysis":
                     plot_df = None
                 else:
                     # Prepare data for chart
-                    plot_df = cash_df[["date"] + metrics_to_plot].copy()
+                    plot_df = cash_df[[c for c in (["date", "period", "calendarYear"] + metrics_to_plot) if c in cash_df.columns]].copy()
                 
                 # Create chart with y-axis padding and growth rates (only if metrics picked)
                 if plot_df is not None and metrics_to_plot:
@@ -22976,7 +23015,7 @@ elif selected_page == "📊 Company Analysis":
                             "Income Statement", _ca_period_type, years
                         )
                     else:
-                        plot_df = income_df[["date"] + metrics_to_plot].copy()
+                        plot_df = income_df[[c for c in (["date", "period", "calendarYear"] + metrics_to_plot) if c in income_df.columns]].copy()
 
                         fig, growth_rates, cagr_years = create_financial_chart_with_growth(
                             plot_df,
@@ -24663,7 +24702,7 @@ elif selected_page == "📊 Company Analysis":
                             "Balance Sheet", _ca_period_type, years
                         )
                     else:
-                        plot_df = balance_df[["date"] + metrics_to_plot].copy()
+                        plot_df = balance_df[[c for c in (["date", "period", "calendarYear"] + metrics_to_plot) if c in balance_df.columns]].copy()
 
                         fig, growth_rates, cagr_years = create_financial_chart_with_growth(
                             plot_df,
