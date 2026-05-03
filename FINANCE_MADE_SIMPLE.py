@@ -5064,6 +5064,10 @@ def render_period_comparison_box(df, metrics_to_plot, metric_names, period_type,
     in quarterly mode for QoQ; in annual mode QoQ is hidden because it would
     just duplicate YoY.
 
+    Implementation note: uses native st.columns + st.metric instead of an
+    HTML table to avoid Streamlit's markdown renderer mangling indented
+    <table>/<tr> blocks (which previously rendered as raw escaped HTML).
+
     Args:
         df: DataFrame with 'date' column + the metric columns.
             Optionally 'period' and 'calendarYear' for fiscal labeling.
@@ -5098,12 +5102,11 @@ def render_period_comparison_box(df, metrics_to_plot, metric_names, period_type,
         return
 
     st.markdown("---")
-    _cmp_left, _cmp_right = st.columns([1, 3])
+    st.markdown("##### 📐 Compare a period")
+    st.caption("YoY = vs same quarter last year · QoQ = vs prior quarter")
 
-    with _cmp_left:
-        st.markdown("##### 📐 Compare a period")
-        st.caption("YoY = vs same quarter last year · QoQ = vs prior quarter")
-        # Default to most recent (newest first)
+    _picker_col, _spacer = st.columns([1, 3])
+    with _picker_col:
         _selected_period = st.selectbox(
             "Choose period:",
             options=list(reversed(_period_labels)),
@@ -5112,85 +5115,89 @@ def render_period_comparison_box(df, metrics_to_plot, metric_names, period_type,
             label_visibility="collapsed",
         )
 
-    with _cmp_right:
-        _sel_idx = _period_labels.index(_selected_period)
-        _yoy_lag = 4 if period_type == 'quarter' else 1
-        _show_qoq = period_type == 'quarter'
+    _sel_idx = _period_labels.index(_selected_period)
+    _yoy_lag = 4 if period_type == 'quarter' else 1
+    _show_qoq = period_type == 'quarter'
 
-        _rows_html = ""
-        for _col, _disp in zip(metrics_to_plot, metric_names):
-            _curr = pd.to_numeric(_cmp_df[_col].iloc[_sel_idx], errors='coerce')
+    # Render each metric as a native row with columns. Each row has:
+    #   [metric name + current value] [YoY delta] [QoQ delta if quarterly]
+    for _col, _disp in zip(metrics_to_plot, metric_names):
+        _curr = pd.to_numeric(_cmp_df[_col].iloc[_sel_idx], errors='coerce')
+        _curr_fmt = format_number(_curr) if pd.notna(_curr) else "—"
 
-            # YoY
-            _yoy_idx = _sel_idx - _yoy_lag
-            _yoy_str, _yoy_color, _yoy_sub = "—", "#999", ""
-            if _yoy_idx >= 0:
-                _prior_yoy = pd.to_numeric(_cmp_df[_col].iloc[_yoy_idx], errors='coerce')
-                if pd.notna(_curr) and pd.notna(_prior_yoy) and _prior_yoy != 0:
-                    _pct = ((_curr - _prior_yoy) / abs(_prior_yoy)) * 100
-                    _yoy_str = f"{_pct:+.1f}%"
-                    _yoy_color = "#0a8754" if _pct >= 0 else "#c62828"
-                    _yoy_sub = f"vs {_period_labels[_yoy_idx]}"
+        # YoY
+        _yoy_idx = _sel_idx - _yoy_lag
+        _yoy_pct = None
+        _yoy_sub = ""
+        if _yoy_idx >= 0:
+            _prior_yoy = pd.to_numeric(_cmp_df[_col].iloc[_yoy_idx], errors='coerce')
+            if pd.notna(_curr) and pd.notna(_prior_yoy) and _prior_yoy != 0:
+                _yoy_pct = ((_curr - _prior_yoy) / abs(_prior_yoy)) * 100
+                _yoy_sub = f"vs {_period_labels[_yoy_idx]}"
             else:
-                _yoy_sub = "no prior-year data"
+                _yoy_sub = "n/a"
+        else:
+            _yoy_sub = "no prior-year data"
 
-            # QoQ (quarterly only)
-            _qoq_str, _qoq_color, _qoq_sub = "—", "#999", ""
-            if _show_qoq:
-                _qoq_idx = _sel_idx - 1
-                if _qoq_idx >= 0:
-                    _prior_qoq = pd.to_numeric(_cmp_df[_col].iloc[_qoq_idx], errors='coerce')
-                    if pd.notna(_curr) and pd.notna(_prior_qoq) and _prior_qoq != 0:
-                        _pct = ((_curr - _prior_qoq) / abs(_prior_qoq)) * 100
-                        _qoq_str = f"{_pct:+.1f}%"
-                        _qoq_color = "#0a8754" if _pct >= 0 else "#c62828"
-                        _qoq_sub = f"vs {_period_labels[_qoq_idx]}"
+        # QoQ
+        _qoq_pct = None
+        _qoq_sub = ""
+        if _show_qoq:
+            _qoq_idx = _sel_idx - 1
+            if _qoq_idx >= 0:
+                _prior_qoq = pd.to_numeric(_cmp_df[_col].iloc[_qoq_idx], errors='coerce')
+                if pd.notna(_curr) and pd.notna(_prior_qoq) and _prior_qoq != 0:
+                    _qoq_pct = ((_curr - _prior_qoq) / abs(_prior_qoq)) * 100
+                    _qoq_sub = f"vs {_period_labels[_qoq_idx]}"
                 else:
-                    _qoq_sub = "no prior-quarter data"
+                    _qoq_sub = "n/a"
+            else:
+                _qoq_sub = "no prior-quarter data"
 
-            _curr_fmt = format_number(_curr) if pd.notna(_curr) else "—"
+        # Build a clean row using st.metric (handles delta colors automatically)
+        if _show_qoq:
+            _c1, _c2, _c3 = st.columns([2, 1.5, 1.5])
+        else:
+            _c1, _c2 = st.columns([2, 2])
 
-            _qoq_cell = f"""
-                <td style="padding:10px 12px; border-bottom:1px solid #EEE; text-align:right;">
-                    <div style="font-weight:700; font-size:15px; color:{_qoq_color};">{_qoq_str}</div>
-                    <div style="font-size:11px; color:#999; margin-top:2px;">{_qoq_sub}</div>
-                </td>
-            """ if _show_qoq else ""
+        with _c1:
+            st.markdown(
+                f"<div style='padding-top:6px;'>"
+                f"<div style='font-weight:600; color:#1a1a2e; font-size:15px;'>{_disp}</div>"
+                f"<div style='font-size:13px; color:#666;'>{_curr_fmt}</div>"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
 
-            _rows_html += f"""
-            <tr>
-                <td style="padding:10px 12px; border-bottom:1px solid #EEE;">
-                    <div style="font-weight:600; color:#1a1a2e;">{_disp}</div>
-                    <div style="font-size:12px; color:#666; margin-top:2px;">{_curr_fmt}</div>
-                </td>
-                <td style="padding:10px 12px; border-bottom:1px solid #EEE; text-align:right;">
-                    <div style="font-weight:700; font-size:15px; color:{_yoy_color};">{_yoy_str}</div>
-                    <div style="font-size:11px; color:#999; margin-top:2px;">{_yoy_sub}</div>
-                </td>
-                {_qoq_cell}
-            </tr>
-            """
+        with _c2:
+            _yoy_display = f"{_yoy_pct:+.1f}%" if _yoy_pct is not None else "—"
+            _yoy_color = "#0a8754" if (_yoy_pct is not None and _yoy_pct >= 0) else ("#c62828" if _yoy_pct is not None else "#999")
+            st.markdown(
+                f"<div style='padding-top:6px;'>"
+                f"<div style='font-size:11px; color:#888; text-transform:uppercase; letter-spacing:0.5px;'>YoY</div>"
+                f"<div style='font-weight:700; font-size:18px; color:{_yoy_color};'>{_yoy_display}</div>"
+                f"<div style='font-size:11px; color:#999;'>{_yoy_sub}</div>"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
 
-        _qoq_header = '<th style="padding:8px 12px; text-align:right; color:#666; font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; border-bottom:2px solid #DDD;">QoQ</th>' if _show_qoq else ''
-        st.markdown(f"""
-        <div style="background:#FAFAFA; border-radius:10px; padding:8px 4px; border:1px solid #EEE;">
-            <div style="padding: 6px 12px 4px 12px; font-size:13px; color:#333;">
-                Selected: <strong>{_selected_period}</strong>
-            </div>
-            <table style="width:100%; border-collapse:collapse;">
-                <thead>
-                    <tr>
-                        <th style="padding:8px 12px; text-align:left; color:#666; font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; border-bottom:2px solid #DDD;">Metric</th>
-                        <th style="padding:8px 12px; text-align:right; color:#666; font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; border-bottom:2px solid #DDD;">YoY</th>
-                        {_qoq_header}
-                    </tr>
-                </thead>
-                <tbody>
-                    {_rows_html}
-                </tbody>
-            </table>
-        </div>
-        """, unsafe_allow_html=True)
+        if _show_qoq:
+            with _c3:
+                _qoq_display = f"{_qoq_pct:+.1f}%" if _qoq_pct is not None else "—"
+                _qoq_color = "#0a8754" if (_qoq_pct is not None and _qoq_pct >= 0) else ("#c62828" if _qoq_pct is not None else "#999")
+                st.markdown(
+                    f"<div style='padding-top:6px;'>"
+                    f"<div style='font-size:11px; color:#888; text-transform:uppercase; letter-spacing:0.5px;'>QoQ</div>"
+                    f"<div style='font-weight:700; font-size:18px; color:{_qoq_color};'>{_qoq_display}</div>"
+                    f"<div style='font-size:11px; color:#999;'>{_qoq_sub}</div>"
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )
+
+        st.markdown(
+            "<div style='border-bottom:1px solid #EEE; margin:8px 0;'></div>",
+            unsafe_allow_html=True,
+        )
 
 
 def create_ratio_trend_chart(df, metric_name, metric_column, title, sector=None):
