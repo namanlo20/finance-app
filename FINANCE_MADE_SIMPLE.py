@@ -5058,15 +5058,17 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
 
 
 def render_period_comparison_box(df, metrics_to_plot, metric_names, period_type, key_suffix):
-    """Renders a 'pick any period → see YoY/QoQ %' panel below a financial chart.
+    """Renders a polished 'pick any period → see YoY/QoQ %' panel below a chart.
 
-    Used by Income Statement, Balance Sheet, and Cash Flow charts. Only works
-    in quarterly mode for QoQ; in annual mode QoQ is hidden because it would
-    just duplicate YoY.
+    Used by Income Statement, Balance Sheet, and Cash Flow charts. Visual
+    design: card-style metric tiles with subtle gradients, color-coded
+    deltas, and chip-style "vs Q1 2025" footers.
 
-    Implementation note: uses native st.columns + st.metric instead of an
-    HTML table to avoid Streamlit's markdown renderer mangling indented
-    <table>/<tr> blocks (which previously rendered as raw escaped HTML).
+    Smart sign handling for expense-like metrics: when a metric is consistently
+    reported as negative (CapEx, depreciation, interest paid, taxes paid, etc),
+    we INVERT the YoY/QoQ sign so that "spending more" reads as positive growth
+    and "spending less" reads as negative. Without this, CapEx going from -50B
+    to -90B (clearly more spending) would show as -80% YoY which is confusing.
 
     Args:
         df: DataFrame with 'date' column + the metric columns.
@@ -5101,9 +5103,131 @@ def render_period_comparison_box(df, metrics_to_plot, metric_names, period_type,
     if len(_period_labels) < 2:
         return
 
+    # ── Determine which metrics are "expense-like" so we can flip sign ──
+    # A metric is expense-like if (a) its column name suggests expense/outflow,
+    # OR (b) the median of its values across the chart range is negative.
+    # When both checks miss but values genuinely fluctuate around zero, we leave
+    # the sign alone — better to show a confusing number than a wrong one.
+    _EXPENSE_NAME_HINTS = (
+        'expense', 'expenditure', 'capex', 'depreciation', 'amortization',
+        'interestpaid', 'interest_paid', 'taxespaid', 'taxes_paid',
+        'cost', 'sga', 'rnd', 'r_and_d', 'sellinggeneral', 'researchand',
+        'investingactivit', 'financingactivit',
+    )
+
+    def _is_expense_metric(col_name, series_vals):
+        _name_lower = str(col_name).lower().replace(' ', '').replace('_', '')
+        if any(h in _name_lower for h in _EXPENSE_NAME_HINTS):
+            return True
+        # Stat fallback: if median is meaningfully negative, treat as expense.
+        try:
+            _vals = pd.to_numeric(series_vals, errors='coerce').dropna()
+            if len(_vals) >= 3 and _vals.median() < 0:
+                return True
+        except Exception:
+            pass
+        return False
+
+    _expense_flags = {}
+    for _col in metrics_to_plot:
+        if _col in _cmp_df.columns:
+            _expense_flags[_col] = _is_expense_metric(_col, _cmp_df[_col])
+        else:
+            _expense_flags[_col] = False
+
+    _sel_idx = _period_labels.index(_period_labels[-1])  # default = newest
+    _yoy_lag = 4 if period_type == 'quarter' else 1
+    _show_qoq = period_type == 'quarter'
+
+    # ── Header + period picker ──
+    st.markdown(
+        """
+        <style>
+        .cmp-card {
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%);
+            border: 1px solid #e8e8f0;
+            border-radius: 14px;
+            padding: 18px 20px;
+            margin-bottom: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            transition: all 0.2s ease;
+        }
+        .cmp-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            transform: translateY(-1px);
+        }
+        .cmp-metric-name {
+            font-weight: 700;
+            color: #0f172a;
+            font-size: 15px;
+            letter-spacing: -0.01em;
+        }
+        .cmp-metric-val {
+            font-size: 22px;
+            font-weight: 800;
+            color: #1e293b;
+            margin-top: 2px;
+            letter-spacing: -0.02em;
+        }
+        .cmp-delta-label {
+            font-size: 10px;
+            font-weight: 700;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 2px;
+        }
+        .cmp-delta-val {
+            font-size: 24px;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            line-height: 1.1;
+        }
+        .cmp-delta-sub {
+            display: inline-block;
+            font-size: 11px;
+            color: #64748b;
+            background: #f1f5f9;
+            padding: 2px 8px;
+            border-radius: 999px;
+            margin-top: 6px;
+            font-weight: 500;
+        }
+        .cmp-delta-up { color: #059669; }
+        .cmp-delta-down { color: #dc2626; }
+        .cmp-delta-neutral { color: #94a3b8; }
+        .cmp-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 4px;
+        }
+        .cmp-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #0f172a;
+            letter-spacing: -0.01em;
+        }
+        .cmp-subtitle {
+            font-size: 12px;
+            color: #64748b;
+            margin-top: -2px;
+            margin-bottom: 12px;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
     st.markdown("---")
-    st.markdown("##### 📐 Compare a period")
-    st.caption("YoY = vs same quarter last year · QoQ = vs prior quarter")
+    st.markdown(
+        '<div class="cmp-header">'
+        '<span style="font-size:20px;">📐</span>'
+        '<span class="cmp-title">Compare a period</span>'
+        '</div>'
+        '<div class="cmp-subtitle">YoY = vs same period one year ago · QoQ = vs prior period</div>',
+        unsafe_allow_html=True,
+    )
 
     _picker_col, _spacer = st.columns([1, 3])
     with _picker_col:
@@ -5116,88 +5240,111 @@ def render_period_comparison_box(df, metrics_to_plot, metric_names, period_type,
         )
 
     _sel_idx = _period_labels.index(_selected_period)
-    _yoy_lag = 4 if period_type == 'quarter' else 1
-    _show_qoq = period_type == 'quarter'
 
-    # Render each metric as a native row with columns. Each row has:
-    #   [metric name + current value] [YoY delta] [QoQ delta if quarterly]
+    # ── Render each metric as a polished card ──
     for _col, _disp in zip(metrics_to_plot, metric_names):
+        _is_expense = _expense_flags.get(_col, False)
         _curr = pd.to_numeric(_cmp_df[_col].iloc[_sel_idx], errors='coerce')
         _curr_fmt = format_number(_curr) if pd.notna(_curr) else "—"
 
-        # YoY
-        _yoy_idx = _sel_idx - _yoy_lag
+        # YoY computation
         _yoy_pct = None
         _yoy_sub = ""
+        _yoy_idx = _sel_idx - _yoy_lag
         if _yoy_idx >= 0:
             _prior_yoy = pd.to_numeric(_cmp_df[_col].iloc[_yoy_idx], errors='coerce')
-            if pd.notna(_curr) and pd.notna(_prior_yoy) and _prior_yoy != 0:
-                _yoy_pct = ((_curr - _prior_yoy) / abs(_prior_yoy)) * 100
+            # Stricter "valid prior" check: must not be NaN, not zero, and not
+            # exactly equal to current (which usually signals duplicate/stale rows)
+            if (pd.notna(_curr) and pd.notna(_prior_yoy) and _prior_yoy != 0
+                    and _curr != _prior_yoy):
+                _raw_pct = ((_curr - _prior_yoy) / abs(_prior_yoy)) * 100
+                # Flip sign for expense-like metrics so "spending more" = positive
+                _yoy_pct = -_raw_pct if _is_expense else _raw_pct
                 _yoy_sub = f"vs {_period_labels[_yoy_idx]}"
+            elif pd.notna(_curr) and pd.notna(_prior_yoy) and _curr == _prior_yoy:
+                # Exact match = likely stale data, not real 0% growth
+                _yoy_sub = "data unavailable"
             else:
-                _yoy_sub = "n/a"
+                _yoy_sub = "no prior data"
         else:
             _yoy_sub = "no prior-year data"
 
-        # QoQ
+        # QoQ computation
         _qoq_pct = None
         _qoq_sub = ""
         if _show_qoq:
             _qoq_idx = _sel_idx - 1
             if _qoq_idx >= 0:
                 _prior_qoq = pd.to_numeric(_cmp_df[_col].iloc[_qoq_idx], errors='coerce')
-                if pd.notna(_curr) and pd.notna(_prior_qoq) and _prior_qoq != 0:
-                    _qoq_pct = ((_curr - _prior_qoq) / abs(_prior_qoq)) * 100
+                if (pd.notna(_curr) and pd.notna(_prior_qoq) and _prior_qoq != 0
+                        and _curr != _prior_qoq):
+                    _raw_pct = ((_curr - _prior_qoq) / abs(_prior_qoq)) * 100
+                    _qoq_pct = -_raw_pct if _is_expense else _raw_pct
                     _qoq_sub = f"vs {_period_labels[_qoq_idx]}"
+                elif pd.notna(_curr) and pd.notna(_prior_qoq) and _curr == _prior_qoq:
+                    _qoq_sub = "data unavailable"
                 else:
-                    _qoq_sub = "n/a"
+                    _qoq_sub = "no prior data"
             else:
                 _qoq_sub = "no prior-quarter data"
 
-        # Build a clean row using st.metric (handles delta colors automatically)
+        # ── Build the card ──
+        def _delta_classes(pct):
+            if pct is None:
+                return "cmp-delta-neutral", "—"
+            cls = "cmp-delta-up" if pct >= 0 else "cmp-delta-down"
+            return cls, f"{pct:+.1f}%"
+
+        _yoy_class, _yoy_text = _delta_classes(_yoy_pct)
+        _qoq_class, _qoq_text = _delta_classes(_qoq_pct)
+
+        # Subtle "↑ expense" hint for expense metrics so user knows what's happening
+        _expense_hint = (
+            ' <span style="font-size:10px; color:#94a3b8; font-style:italic;">(expense)</span>'
+            if _is_expense else ''
+        )
+
         if _show_qoq:
-            _c1, _c2, _c3 = st.columns([2, 1.5, 1.5])
+            _c1, _c2, _c3 = st.columns([2.2, 1.4, 1.4])
         else:
-            _c1, _c2 = st.columns([2, 2])
+            _c1, _c2 = st.columns([2.5, 2])
 
         with _c1:
             st.markdown(
-                f"<div style='padding-top:6px;'>"
-                f"<div style='font-weight:600; color:#1a1a2e; font-size:15px;'>{_disp}</div>"
-                f"<div style='font-size:13px; color:#666;'>{_curr_fmt}</div>"
-                f"</div>",
+                f"""
+                <div class="cmp-card" style="height:110px; display:flex; flex-direction:column; justify-content:center;">
+                    <div class="cmp-metric-name">{_disp}{_expense_hint}</div>
+                    <div class="cmp-metric-val">{_curr_fmt}</div>
+                    <div style="font-size:11px; color:#94a3b8; margin-top:4px;">{_selected_period}</div>
+                </div>
+                """,
                 unsafe_allow_html=True,
             )
 
         with _c2:
-            _yoy_display = f"{_yoy_pct:+.1f}%" if _yoy_pct is not None else "—"
-            _yoy_color = "#0a8754" if (_yoy_pct is not None and _yoy_pct >= 0) else ("#c62828" if _yoy_pct is not None else "#999")
             st.markdown(
-                f"<div style='padding-top:6px;'>"
-                f"<div style='font-size:11px; color:#888; text-transform:uppercase; letter-spacing:0.5px;'>YoY</div>"
-                f"<div style='font-weight:700; font-size:18px; color:{_yoy_color};'>{_yoy_display}</div>"
-                f"<div style='font-size:11px; color:#999;'>{_yoy_sub}</div>"
-                f"</div>",
+                f"""
+                <div class="cmp-card" style="height:110px; display:flex; flex-direction:column; justify-content:center; align-items:flex-start;">
+                    <div class="cmp-delta-label">YoY Change</div>
+                    <div class="cmp-delta-val {_yoy_class}">{_yoy_text}</div>
+                    <div class="cmp-delta-sub">{_yoy_sub}</div>
+                </div>
+                """,
                 unsafe_allow_html=True,
             )
 
         if _show_qoq:
             with _c3:
-                _qoq_display = f"{_qoq_pct:+.1f}%" if _qoq_pct is not None else "—"
-                _qoq_color = "#0a8754" if (_qoq_pct is not None and _qoq_pct >= 0) else ("#c62828" if _qoq_pct is not None else "#999")
                 st.markdown(
-                    f"<div style='padding-top:6px;'>"
-                    f"<div style='font-size:11px; color:#888; text-transform:uppercase; letter-spacing:0.5px;'>QoQ</div>"
-                    f"<div style='font-weight:700; font-size:18px; color:{_qoq_color};'>{_qoq_display}</div>"
-                    f"<div style='font-size:11px; color:#999;'>{_qoq_sub}</div>"
-                    f"</div>",
+                    f"""
+                    <div class="cmp-card" style="height:110px; display:flex; flex-direction:column; justify-content:center; align-items:flex-start;">
+                        <div class="cmp-delta-label">QoQ Change</div>
+                        <div class="cmp-delta-val {_qoq_class}">{_qoq_text}</div>
+                        <div class="cmp-delta-sub">{_qoq_sub}</div>
+                    </div>
+                    """,
                     unsafe_allow_html=True,
                 )
-
-        st.markdown(
-            "<div style='border-bottom:1px solid #EEE; margin:8px 0;'></div>",
-            unsafe_allow_html=True,
-        )
 
 
 def create_ratio_trend_chart(df, metric_name, metric_column, title, sector=None):
