@@ -8729,6 +8729,65 @@ def get_balance_sheet(ticker, period='annual', limit=5):
     return pd.DataFrame()
 
 @st.cache_data(ttl=3600)
+def _apply_known_data_corrections(df, ticker, period, kind):
+    """Patches known FMP data errors at the source so all consumers see correct values.
+
+    Some quarters have shifted/stale data in FMP — most notably GOOGL Q1 2026
+    cash flow returned Q1 2025 values for several weeks after the earnings
+    release. Patch these by ticker + period + kind ('cash', 'income', 'balance').
+
+    Format of corrections dict: {(ticker, period_type, period_label, kind, column): value}
+
+    Applied AFTER fetch but BEFORE return, so charts, comparison box, founder
+    mode, and exports all pick up the corrected values automatically.
+    """
+    if df is None or df.empty:
+        return df
+
+    # Hardcoded corrections from actual SEC filings. Add new entries as FMP
+    # bugs are discovered. Format: {(ticker, period, label, kind, col): value}
+    _DATA_FIXES = {
+        # GOOGL Q1 2026 cash flow — FMP returned Q1 2025 values labeled as Q1 2026.
+        # Correct values from Alphabet 10-Q (quarter ended March 31, 2026).
+        # Source: SEC filing 0001652044-26-000048
+        ("GOOGL", "quarter", "Q1 2026", "cash", "operatingCashFlow"): 45_790_000_000,
+        ("GOOGL", "quarter", "Q1 2026", "cash", "capitalExpenditure"): -35_674_000_000,
+        ("GOOGL", "quarter", "Q1 2026", "cash", "freeCashFlow"): 10_116_000_000,
+        ("GOOG",  "quarter", "Q1 2026", "cash", "operatingCashFlow"): 45_790_000_000,
+        ("GOOG",  "quarter", "Q1 2026", "cash", "capitalExpenditure"): -35_674_000_000,
+        ("GOOG",  "quarter", "Q1 2026", "cash", "freeCashFlow"): 10_116_000_000,
+    }
+
+    # Build period label for each row to match against corrections
+    try:
+        df = df.copy()
+        for _idx in df.index:
+            _row = df.loc[_idx]
+            _p = _row.get('period', '')
+            _y = _row.get('calendarYear', '')
+            if _p and _y:
+                if period == 'annual' or _p == 'FY':
+                    _label = f"FY {_y}"
+                else:
+                    _label = f"{_p} {_y}"
+            else:
+                _d = pd.to_datetime(_row.get('date'))
+                if period == 'annual':
+                    _label = f"FY {_d.year}"
+                else:
+                    _label = f"Q{((_d.month - 1) // 3) + 1} {_d.year}"
+
+            # Look up corrections for this row
+            for _col in df.columns:
+                _key = (ticker.upper(), period, _label, kind, _col)
+                if _key in _DATA_FIXES:
+                    df.at[_idx, _col] = _DATA_FIXES[_key]
+    except Exception:
+        pass
+
+    return df
+
+
 def get_cash_flow(ticker, period='annual', limit=5):
     """Get cash flow — FMP primary, yfinance fallback"""
     url = f"{BASE_URL}/cash-flow-statement?symbol={ticker}&period={period}&limit={limit}&apikey={FMP_API_KEY}"
@@ -8741,12 +8800,15 @@ def get_cash_flow(ticker, period='annual', limit=5):
                 df['date'] = pd.to_datetime(df['date'])
                 df = df.sort_values('date')
             if not _fmp_data_is_bad(df, ['operatingCashFlow', 'freeCashFlow']):
+                # Apply known FMP data corrections (e.g. GOOGL Q1 2026 shift bug)
+                df = _apply_known_data_corrections(df, ticker, period, "cash")
                 return df
     except Exception:
         pass
     # Fallback to yfinance
     yf_df = _yf_cashflow_to_fmp(ticker, period, limit)
     if not yf_df.empty:
+        yf_df = _apply_known_data_corrections(yf_df, ticker, period, "cash")
         return yf_df
     return pd.DataFrame()
 
