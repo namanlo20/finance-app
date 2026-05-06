@@ -8684,6 +8684,68 @@ def _yf_cashflow_to_fmp(ticker, period='annual', limit=5):
     except Exception:
         return pd.DataFrame()
 
+
+def _dedupe_fmp_periods(df, period):
+    """Collapse duplicate fiscal periods to a single row.
+
+    FMP occasionally returns two rows for the same period — most commonly when
+    a company restates a prior quarter (e.g. AMD Q3 2023 post-Xilinx restatement
+    returned both the original ~$5.8B revenue and the restated ~$5.4B revenue).
+    Without dedup, the chart renders both bars at the same x-tick which makes
+    one quarter visually 2× too wide and corrupts CAGR math when the duplicates
+    have different signs (e.g. one positive, one negative operating income).
+
+    Strategy: prefer rows with non-null `acceptedDate` (the most recently filed
+    version), then keep the LAST row per period — which after sorting by
+    `acceptedDate` ascending is the most recent restatement. Falls back to
+    keeping the last row per `date` alone if `acceptedDate` is unavailable.
+
+    Period key:
+      - quarter: dedupe on (calendarYear, period) when both exist, else `date`
+      - annual:  dedupe on `calendarYear` when it exists, else `date`
+    """
+    if df is None or df.empty:
+        return df
+    try:
+        # Build a stable period key — calendarYear+period is more reliable than
+        # `date` because companies sometimes file the same fiscal quarter under
+        # slightly different report dates after a restatement.
+        if period == 'quarter' and 'period' in df.columns and 'calendarYear' in df.columns:
+            df = df.copy()
+            df['_period_key'] = df['calendarYear'].astype(str) + '_' + df['period'].astype(str)
+        elif 'calendarYear' in df.columns:
+            df = df.copy()
+            df['_period_key'] = df['calendarYear'].astype(str)
+        elif 'date' in df.columns:
+            df = df.copy()
+            df['_period_key'] = pd.to_datetime(df['date']).astype(str)
+        else:
+            return df
+
+        # Sort so the LAST occurrence of each period is the one we keep.
+        # acceptedDate (when available) is the SEC filing acceptance timestamp —
+        # the highest value is the most recent restatement.
+        sort_cols = []
+        if 'acceptedDate' in df.columns:
+            sort_cols.append('acceptedDate')
+        if 'date' in df.columns:
+            sort_cols.append('date')
+        if sort_cols:
+            df = df.sort_values(sort_cols, ascending=True, kind='stable')
+
+        df = df.drop_duplicates(subset=['_period_key'], keep='last')
+        df = df.drop(columns=['_period_key'])
+
+        # Re-sort by date ascending so downstream code that assumes chronological
+        # order keeps working.
+        if 'date' in df.columns:
+            df = df.sort_values('date', ascending=True).reset_index(drop=True)
+    except Exception:
+        # If anything goes wrong, return the raw df rather than crashing the page.
+        pass
+    return df
+
+
 @st.cache_data(ttl=3600)
 def get_income_statement(ticker, period='annual', limit=5):
     """Get income statement — FMP primary, yfinance fallback"""
@@ -8696,6 +8758,7 @@ def get_income_statement(ticker, period='annual', limit=5):
             if 'date' in df.columns:
                 df['date'] = pd.to_datetime(df['date'])
                 df = df.sort_values('date')
+            df = _dedupe_fmp_periods(df, period)
             if not _fmp_data_is_bad(df, ['revenue', 'netIncome']):
                 return df
     except Exception:
@@ -8703,6 +8766,7 @@ def get_income_statement(ticker, period='annual', limit=5):
     # Fallback to yfinance
     yf_df = _yf_income_to_fmp(ticker, period, limit)
     if not yf_df.empty:
+        yf_df = _dedupe_fmp_periods(yf_df, period)
         return yf_df
     return pd.DataFrame()
 
@@ -8718,6 +8782,7 @@ def get_balance_sheet(ticker, period='annual', limit=5):
             if 'date' in df.columns:
                 df['date'] = pd.to_datetime(df['date'])
                 df = df.sort_values('date')
+            df = _dedupe_fmp_periods(df, period)
             if not _fmp_data_is_bad(df, ['totalAssets', 'totalStockholdersEquity']):
                 return df
     except Exception:
@@ -8725,6 +8790,7 @@ def get_balance_sheet(ticker, period='annual', limit=5):
     # Fallback to yfinance
     yf_df = _yf_balance_to_fmp(ticker, period, limit)
     if not yf_df.empty:
+        yf_df = _dedupe_fmp_periods(yf_df, period)
         return yf_df
     return pd.DataFrame()
 
@@ -8799,6 +8865,7 @@ def get_cash_flow(ticker, period='annual', limit=5):
             if 'date' in df.columns:
                 df['date'] = pd.to_datetime(df['date'])
                 df = df.sort_values('date')
+            df = _dedupe_fmp_periods(df, period)
             if not _fmp_data_is_bad(df, ['operatingCashFlow', 'freeCashFlow']):
                 # Apply known FMP data corrections (e.g. GOOGL Q1 2026 shift bug)
                 df = _apply_known_data_corrections(df, ticker, period, "cash")
@@ -8808,6 +8875,7 @@ def get_cash_flow(ticker, period='annual', limit=5):
     # Fallback to yfinance
     yf_df = _yf_cashflow_to_fmp(ticker, period, limit)
     if not yf_df.empty:
+        yf_df = _dedupe_fmp_periods(yf_df, period)
         yf_df = _apply_known_data_corrections(yf_df, ticker, period, "cash")
         return yf_df
     return pd.DataFrame()
@@ -8835,6 +8903,7 @@ def get_financial_ratios(ticker, period='annual', limit=5):
             if 'date' in df.columns:
                 df['date'] = pd.to_datetime(df['date'])
                 df = df.sort_values('date')
+            df = _dedupe_fmp_periods(df, period)
             return df
     except Exception:
         pass
