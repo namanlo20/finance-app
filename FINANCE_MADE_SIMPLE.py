@@ -4790,6 +4790,16 @@ def create_financial_chart_with_growth(df, metrics, title, period_label, yaxis_t
     
     # Sort by date ASCENDING (oldest first)
     df_sorted = df.sort_values('date', ascending=True).reset_index(drop=True)
+
+    # ── SAFETY NET: dedupe duplicate periods before rendering ──
+    # Data fetchers already dedupe, but defense in depth — if anything upstream
+    # re-introduces duplicates (merge, concat, override hitting a dup row), catch
+    # it here before Plotly draws two bars at the same x-tick.
+    try:
+        df_sorted = _safe_chart_dedupe(df_sorted, period_type)
+    except Exception:
+        pass
+
     x_labels = [format_fiscal_period(row, period_type) for _, row in df_sorted.iterrows()]
     
     # Color palette: one distinct color per metric (expanded to handle 15+ metric choices).
@@ -8688,62 +8698,71 @@ def _yf_cashflow_to_fmp(ticker, period='annual', limit=5):
 def _dedupe_fmp_periods(df, period):
     """Collapse duplicate fiscal periods to a single row.
 
-    FMP occasionally returns two rows for the same period — most commonly when
-    a company restates a prior quarter (e.g. AMD Q3 2023 post-Xilinx restatement
-    returned both the original ~$5.8B revenue and the restated ~$5.4B revenue).
-    Without dedup, the chart renders both bars at the same x-tick which makes
-    one quarter visually 2× too wide and corrupts CAGR math when the duplicates
-    have different signs (e.g. one positive, one negative operating income).
+    FMP occasionally returns two rows for the same period — happens with
+    restatements (AMD Q3 2023 post-Xilinx returned both $5.8B original and
+    $5.4B restated) and with Apple's R&D Q3 2023 (FMP returned a duplicate row).
+    Without dedup, Plotly with barmode='group' renders both bars at the same
+    x-tick which makes one quarter visually 2× too wide and corrupts CAGR.
 
-    Strategy: prefer rows with non-null `acceptedDate` (the most recently filed
-    version), then keep the LAST row per period — which after sorting by
-    `acceptedDate` ascending is the most recent restatement. Falls back to
-    keeping the last row per `date` alone if `acceptedDate` is unavailable.
+    Strategy: dedupe THREE different ways in sequence so nothing slips through:
+      1. (calendarYear, period) — catches fiscal-period duplicates regardless
+         of `date` field formatting
+      2. `date` — catches duplicates with same calendar date but different
+         calendarYear/period values (rare, but happens)
+      3. (fillingDate, acceptedDate) tiebreaker — when two rows survive, keep
+         the most recently filed (latest restatement)
 
-    Period key:
-      - quarter: dedupe on (calendarYear, period) when both exist, else `date`
-      - annual:  dedupe on `calendarYear` when it exists, else `date`
+    Sort order: ascending by acceptedDate (or date), then keep='last' so the
+    newest filing wins.
     """
     if df is None or df.empty:
         return df
     try:
-        # Build a stable period key — calendarYear+period is more reliable than
-        # `date` because companies sometimes file the same fiscal quarter under
-        # slightly different report dates after a restatement.
-        if period == 'quarter' and 'period' in df.columns and 'calendarYear' in df.columns:
-            df = df.copy()
-            df['_period_key'] = df['calendarYear'].astype(str) + '_' + df['period'].astype(str)
-        elif 'calendarYear' in df.columns:
-            df = df.copy()
-            df['_period_key'] = df['calendarYear'].astype(str)
-        elif 'date' in df.columns:
-            df = df.copy()
-            df['_period_key'] = pd.to_datetime(df['date']).astype(str)
-        else:
-            return df
+        df = df.copy()
 
-        # Sort so the LAST occurrence of each period is the one we keep.
-        # acceptedDate (when available) is the SEC filing acceptance timestamp —
-        # the highest value is the most recent restatement.
+        # ── Sort first so keep='last' always picks the most recent filing ──
         sort_cols = []
-        if 'acceptedDate' in df.columns:
-            sort_cols.append('acceptedDate')
-        if 'date' in df.columns:
-            sort_cols.append('date')
+        for col in ('acceptedDate', 'fillingDate', 'date'):
+            if col in df.columns:
+                sort_cols.append(col)
         if sort_cols:
             df = df.sort_values(sort_cols, ascending=True, kind='stable')
 
-        df = df.drop_duplicates(subset=['_period_key'], keep='last')
-        df = df.drop(columns=['_period_key'])
+        # ── Pass 1: dedupe on (calendarYear, period) ──
+        if 'calendarYear' in df.columns and 'period' in df.columns:
+            df = df.drop_duplicates(
+                subset=['calendarYear', 'period'], keep='last'
+            )
+        elif 'calendarYear' in df.columns:
+            df = df.drop_duplicates(subset=['calendarYear'], keep='last')
 
-        # Re-sort by date ascending so downstream code that assumes chronological
-        # order keeps working.
+        # ── Pass 2: dedupe on `date` itself (catches anything that slipped past pass 1) ──
+        if 'date' in df.columns:
+            df = df.drop_duplicates(subset=['date'], keep='last')
+
+        # Re-sort chronologically so downstream code is happy.
         if 'date' in df.columns:
             df = df.sort_values('date', ascending=True).reset_index(drop=True)
+        else:
+            df = df.reset_index(drop=True)
     except Exception:
-        # If anything goes wrong, return the raw df rather than crashing the page.
+        # Never crash the page over dedupe — return raw if something blows up.
         pass
     return df
+
+
+def _safe_chart_dedupe(df, period_type='quarter'):
+    """Last-line-of-defense dedupe applied right before chart rendering.
+
+    The data fetchers already dedupe, but if anything upstream re-introduces
+    duplicates (a merge, a concat, a manual override that targets a duplicate
+    row), this catches it before Plotly draws two bars at the same x-tick.
+
+    Cheap to call — pandas drop_duplicates on a small df is microseconds.
+    """
+    if df is None or df.empty:
+        return df
+    return _dedupe_fmp_periods(df, period_type)
 
 
 @st.cache_data(ttl=3600)
@@ -23493,7 +23512,71 @@ elif selected_page == "📊 Company Analysis":
         
         st.markdown(f"### 💰 {company_name} - Income Statement")
         show_why_it_matters('revenue')
-        
+
+        # ── DEBUG MODE: ?debug=1 in URL exposes raw FMP response + dedupe stats ──
+        # Used to diagnose chart-rendering bugs. Shows for ANY user (not gated to
+        # founder) so we can ask others to send screenshots, but only when the
+        # query param is set so it stays out of the way for normal use.
+        try:
+            _debug_qp = st.query_params.get("debug", "0")
+        except Exception:
+            try:
+                _debug_qp_raw = st.experimental_get_query_params().get("debug", ["0"])
+                _debug_qp = _debug_qp_raw[0] if isinstance(_debug_qp_raw, list) else _debug_qp_raw
+            except Exception:
+                _debug_qp = "0"
+        if _debug_qp in ("1", "true", "yes"):
+            with st.expander("🔬 DEBUG: Raw income statement data", expanded=True):
+                st.markdown(f"**Ticker:** `{ticker}` · **Period:** `{_ca_period_type}` · **Limit:** `{_ca_limit}`")
+                # Re-fetch raw FMP response (bypassing st.cache_data) so we see
+                # exactly what the API is returning right now.
+                _dbg_url = f"{BASE_URL}/income-statement?symbol={ticker}&period={_ca_period_type}&limit={_ca_limit}&apikey={FMP_API_KEY}"
+                try:
+                    _dbg_resp = requests.get(_dbg_url, timeout=10)
+                    _dbg_data = _dbg_resp.json()
+                    st.markdown(f"**Raw FMP response:** `{len(_dbg_data) if isinstance(_dbg_data, list) else 'not-a-list'}` rows")
+                    if isinstance(_dbg_data, list):
+                        _dbg_raw_df = pd.DataFrame(_dbg_data)
+                        # Show key columns + ALL rows so we can spot dupes
+                        _dbg_show_cols = [c for c in [
+                            'date', 'period', 'calendarYear', 'acceptedDate', 'fillingDate',
+                            'revenue', 'operatingIncome', 'netIncome',
+                            'researchAndDevelopmentExpenses'
+                        ] if c in _dbg_raw_df.columns]
+                        st.dataframe(_dbg_raw_df[_dbg_show_cols], use_container_width=True)
+
+                        # Highlight any duplicates by (calendarYear, period) and by date
+                        if 'calendarYear' in _dbg_raw_df.columns and 'period' in _dbg_raw_df.columns:
+                            _dups_pp = _dbg_raw_df.groupby(['calendarYear', 'period']).size()
+                            _dups_pp = _dups_pp[_dups_pp > 1]
+                            if len(_dups_pp) > 0:
+                                st.error(f"🚨 **DUPLICATES found by (calendarYear, period):**")
+                                st.write(_dups_pp.to_dict())
+                            else:
+                                st.success("✅ No duplicates by (calendarYear, period)")
+                        if 'date' in _dbg_raw_df.columns:
+                            _dups_d = _dbg_raw_df.groupby('date').size()
+                            _dups_d = _dups_d[_dups_d > 1]
+                            if len(_dups_d) > 0:
+                                st.error(f"🚨 **DUPLICATES found by date:**")
+                                st.write({str(k): int(v) for k, v in _dups_d.to_dict().items()})
+                            else:
+                                st.success("✅ No duplicates by date")
+                except Exception as _dbg_e:
+                    st.error(f"Debug fetch failed: {_dbg_e}")
+
+                # Also show what the chart actually receives (post-fetcher,
+                # post-dedupe). If this differs from the raw response, the dedupe
+                # is firing — which is good.
+                st.markdown("---")
+                st.markdown(f"**After fetcher + dedupe:** `{len(income_df)}` rows")
+                _post_show_cols = [c for c in [
+                    'date', 'period', 'calendarYear', 'revenue', 'operatingIncome',
+                    'netIncome', 'researchAndDevelopmentExpenses'
+                ] if c in income_df.columns]
+                if _post_show_cols:
+                    st.dataframe(income_df[_post_show_cols], use_container_width=True)
+
         if not income_df.empty:
             available_metrics = get_available_metrics(income_df)
             
