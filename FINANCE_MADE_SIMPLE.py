@@ -374,6 +374,81 @@ code, pre, .stCode, [data-testid="stCodeBlock"] {
 .block-container { padding-top: 1.5rem !important; padding-bottom: 1rem !important; max-width: 100% !important; }
 .element-container { margin-bottom: 0.5rem !important; }
 
+/* ── NUCLEAR TEXT VISIBILITY OVERRIDE ── */
+/* The original light-mode CSS forces dark text on lots of components.
+   This block ensures any text inside a dark container becomes light enough
+   to read. We target both Streamlit's component testids and our own panels. */
+[data-testid="stMetric"] *,
+[data-testid="stMetricValue"], [data-testid="stMetricValue"] *,
+[data-testid="stMetricLabel"], [data-testid="stMetricLabel"] *,
+[data-testid="stMetricDelta"], [data-testid="stMetricDelta"] *,
+[data-testid="stExpander"] *,
+[data-testid="stAlert"] *,
+[data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] *,
+.stDataFrame *, .stTable *,
+[data-baseweb="tab-panel"] *,
+[data-testid="stMarkdownContainer"] p,
+[data-testid="stMarkdownContainer"] li,
+[data-testid="stMarkdownContainer"] span,
+[data-testid="stMarkdownContainer"] div {
+    color: var(--term-text) !important;
+}
+
+/* Re-apply our preferred colors (amber for values, dim for labels) */
+[data-testid="stMetricValue"], [data-testid="stMetricValue"] * {
+    color: var(--term-amber) !important;
+}
+[data-testid="stMetricLabel"], [data-testid="stMetricLabel"] * {
+    color: var(--term-text-dim) !important;
+}
+[data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] * {
+    color: var(--term-text-dim) !important;
+}
+
+/* Help tooltip icons (the (?) circle next to metrics, sliders, etc.) */
+[data-testid="stTooltipIcon"], [data-testid="stTooltipIcon"] * {
+    color: var(--term-text-dim) !important;
+    fill: var(--term-text-dim) !important;
+}
+
+/* SVG icons and arrows in metrics */
+[data-testid="stMetric"] svg, [data-testid="stMetricDelta"] svg {
+    fill: currentColor !important;
+}
+
+/* Tab panels and their contents */
+[data-baseweb="tab-panel"] {
+    color: var(--term-text) !important;
+}
+
+/* Strong/bold text inside markdown should pop */
+[data-testid="stMarkdownContainer"] strong,
+[data-testid="stMarkdownContainer"] b {
+    color: var(--term-amber) !important;
+    font-weight: 700 !important;
+}
+
+/* Code inline */
+[data-testid="stMarkdownContainer"] code {
+    color: var(--term-cyan) !important;
+    background: #050505 !important;
+    padding: 1px 5px !important;
+    border: 1px solid var(--term-border) !important;
+}
+
+/* Treasury rate, S&P benchmark, etc. — any st.metric in a column */
+[data-testid="stHorizontalBlock"] [data-testid="stMetric"] {
+    background: var(--term-bg-panel) !important;
+    border: 1px solid var(--term-border) !important;
+    padding: 12px 14px !important;
+}
+
+/* The "Source: Financial Modeling Prep API" red strip — recolor */
+[data-testid="stAlert"][kind="info"] [data-testid="stMarkdownContainer"] *,
+[data-testid="stAlert"] [data-testid="stMarkdownContainer"] * {
+    color: var(--term-text) !important;
+}
+
 /* ── Terminal mode is now the permanent aesthetic — no banner needed ── */
 </style>
 """
