@@ -75,17 +75,19 @@ st.set_page_config(page_title="Investing Made Simple", layout="wide", page_icon=
 #   - Zero rounded corners — terminals look serious because they're flat
 #   - Tight spacing, dense data, smaller font sizes
 def _is_terminal_mode():
-    # Terminal mode is ON by default. Disable with ?terminal=0 in URL.
+    # Terminal mode is OFF by default (caused too many text-visibility issues
+    # fighting with the existing light-theme CSS). Enable explicitly with
+    # ?terminal=1 in URL if you want to opt back in.
     try:
         _qp = st.query_params
-        return _qp.get("terminal", "1") not in ("0", "false", "no", "off")
+        return _qp.get("terminal", "0") in ("1", "true", "yes")
     except Exception:
         try:
             _qp = st.experimental_get_query_params()
-            _v = _qp.get("terminal", ["1"])
-            return (_v[0] if isinstance(_v, list) else _v) not in ("0", "false", "no", "off")
+            _v = _qp.get("terminal", ["0"])
+            return (_v[0] if isinstance(_v, list) else _v) in ("1", "true", "yes")
         except Exception:
-            return True
+            return False
 
 if _is_terminal_mode():
     # CSS payload kept as a Python string so we can inject it via whichever
