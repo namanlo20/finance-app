@@ -62,6 +62,333 @@ STARTING_CASH = float(os.environ.get("STARTING_CASH", "100000"))
 
 st.set_page_config(page_title="Investing Made Simple", layout="wide", page_icon="💰")
 
+# ============= TERMINAL MODE (?terminal=1) =============
+# Bloomberg/Refinitiv-inspired aesthetic toggle. Activated by adding
+# ?terminal=1 to the URL. Designed to be A/B testable without touching
+# any existing component — pure CSS overrides on top of the current app.
+#
+# Design principles (cribbed from real terminals):
+#   - Monospace everything (numbers especially)
+#   - Pure black background, no gradients, no glassmorphism
+#   - Amber (#FFA500) for emphasized values, cyan (#00C8FF) for accents
+#   - Semantic up/down red/green (high saturation)
+#   - Zero rounded corners — terminals look serious because they're flat
+#   - Tight spacing, dense data, smaller font sizes
+def _is_terminal_mode():
+    try:
+        _qp = st.query_params
+        return _qp.get("terminal", "0") in ("1", "true", "yes")
+    except Exception:
+        try:
+            _qp = st.experimental_get_query_params()
+            _v = _qp.get("terminal", ["0"])
+            return (_v[0] if isinstance(_v, list) else _v) in ("1", "true", "yes")
+        except Exception:
+            return False
+
+if _is_terminal_mode():
+    st.markdown("""
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style id="terminal-mode-overrides">
+/* ============= TERMINAL MODE OVERRIDES ============= */
+/* These rules use !important everywhere to defeat the existing
+   light-mode CSS — when you turn this off (?terminal=0), the original
+   look returns. */
+
+:root {
+    --term-bg: #0a0a0a;
+    --term-bg-panel: #111111;
+    --term-bg-hover: #1a1a1a;
+    --term-border: #2a2a2a;
+    --term-border-bright: #3a3a3a;
+    --term-text: #e8e8e8;
+    --term-text-dim: #888888;
+    --term-text-faint: #555555;
+    --term-amber: #FFA500;        /* Bloomberg signature highlight */
+    --term-cyan: #00C8FF;          /* secondary accent */
+    --term-green: #00D964;         /* up / positive */
+    --term-red: #FF3B3B;            /* down / negative */
+    --term-yellow: #FFD700;
+    --term-purple: #BF5FFF;
+    --term-mono: 'JetBrains Mono', 'IBM Plex Mono', 'Menlo', 'Consolas', monospace;
+    --term-sans: 'Inter', -apple-system, system-ui, sans-serif;
+}
+
+/* ── Background: pure black, no gradients ── */
+html, body, .stApp,
+[data-testid="stAppViewContainer"],
+[data-testid="stHeader"],
+[data-testid="stSidebar"],
+[data-testid="stSidebarContent"],
+[data-testid="stBottomBlockContainer"],
+.main, .block-container, section.main {
+    background: var(--term-bg) !important;
+    background-image: none !important;
+    color: var(--term-text) !important;
+}
+
+/* Kill all the gradient/blur backgrounds that exist in the current theme */
+*[style*="gradient"], *[style*="blur"] {
+    background-image: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+/* ── Typography: monospace for everything numeric ── */
+body, .stApp, [data-testid="stMarkdownContainer"],
+.stMarkdown, .stMarkdown p, .stMarkdown span, .stMarkdown div,
+[data-testid="stMetricValue"], [data-testid="stMetricLabel"], [data-testid="stMetricDelta"],
+.stDataFrame, .stTable,
+input, textarea, select, .stTextInput input, .stNumberInput input,
+.stSelectbox div[data-baseweb="select"] *,
+.stMultiSelect div[data-baseweb="select"] *,
+button, .stButton button {
+    font-family: var(--term-mono) !important;
+    font-feature-settings: "tnum" 1, "zero" 1 !important;  /* tabular nums + slashed zero */
+}
+
+/* Headers stay sans for readability — terminals do this too */
+h1, h2, h3, h4, h5, h6,
+.stMarkdown h1, .stMarkdown h2, .stMarkdown h3,
+.stMarkdown h4, .stMarkdown h5, .stMarkdown h6 {
+    font-family: var(--term-sans) !important;
+    color: var(--term-text) !important;
+    font-weight: 600 !important;
+    letter-spacing: -0.01em !important;
+    text-transform: none !important;
+}
+/* But the section emoji + heading combos look loud — tone them down */
+h1 { font-size: 22px !important; }
+h2 { font-size: 18px !important; }
+h3 { font-size: 15px !important; color: var(--term-amber) !important; text-transform: uppercase !important; letter-spacing: 0.05em !important; }
+h4 { font-size: 13px !important; color: var(--term-text-dim) !important; text-transform: uppercase !important; letter-spacing: 0.08em !important; }
+
+/* ── Zero rounded corners. Terminals are FLAT. ── */
+*, *::before, *::after {
+    border-radius: 0 !important;
+}
+
+/* ── Streamlit components: flat, dark, amber accents ── */
+
+/* Buttons */
+.stButton > button, button[kind="primary"], button[kind="secondary"] {
+    background: var(--term-bg-panel) !important;
+    color: var(--term-amber) !important;
+    border: 1px solid var(--term-border-bright) !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    font-size: 11px !important;
+    padding: 6px 14px !important;
+    transition: none !important;
+    box-shadow: none !important;
+}
+.stButton > button:hover {
+    background: var(--term-amber) !important;
+    color: var(--term-bg) !important;
+    border-color: var(--term-amber) !important;
+}
+
+/* Inputs */
+.stTextInput input, .stNumberInput input, .stTextArea textarea,
+.stSelectbox div[data-baseweb="select"] > div,
+.stMultiSelect div[data-baseweb="select"] > div {
+    background: var(--term-bg-panel) !important;
+    border: 1px solid var(--term-border) !important;
+    color: var(--term-text) !important;
+    box-shadow: none !important;
+}
+.stTextInput input:focus, .stNumberInput input:focus,
+.stSelectbox div[data-baseweb="select"]:focus-within > div {
+    border-color: var(--term-amber) !important;
+}
+
+/* Multi-select chips (e.g., the "Revenue x | Operating Income x" pills above charts) */
+[data-baseweb="tag"] {
+    background: var(--term-bg-panel) !important;
+    border: 1px solid var(--term-amber) !important;
+    color: var(--term-amber) !important;
+    font-family: var(--term-mono) !important;
+    font-size: 11px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+}
+
+/* Sliders */
+[data-testid="stSlider"] [role="slider"] {
+    background: var(--term-amber) !important;
+    border: 2px solid var(--term-amber) !important;
+}
+
+/* Metric cards */
+[data-testid="stMetric"] {
+    background: var(--term-bg-panel) !important;
+    border: 1px solid var(--term-border) !important;
+    padding: 10px 14px !important;
+}
+[data-testid="stMetricLabel"] {
+    color: var(--term-text-dim) !important;
+    font-size: 10px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.08em !important;
+    font-weight: 600 !important;
+}
+[data-testid="stMetricValue"] {
+    color: var(--term-amber) !important;
+    font-size: 24px !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.01em !important;
+}
+[data-testid="stMetricDelta"] {
+    font-size: 12px !important;
+    font-weight: 600 !important;
+}
+/* Override delta colors with bright semantic ones */
+[data-testid="stMetricDelta"] svg[viewBox] path[d*="m23 18-9.5-9.5"], /* up arrow path */
+[data-testid="stMetricDelta"] [data-testid="stMetricDeltaIcon-Up"] {
+    fill: var(--term-green) !important;
+}
+
+/* Tabs */
+[data-baseweb="tab-list"] {
+    border-bottom: 1px solid var(--term-border-bright) !important;
+    background: transparent !important;
+    gap: 0 !important;
+}
+[data-baseweb="tab"] {
+    background: transparent !important;
+    color: var(--term-text-dim) !important;
+    border: none !important;
+    border-bottom: 2px solid transparent !important;
+    text-transform: uppercase !important;
+    font-size: 11px !important;
+    letter-spacing: 0.08em !important;
+    font-weight: 600 !important;
+    padding: 10px 16px !important;
+}
+[data-baseweb="tab"][aria-selected="true"] {
+    color: var(--term-amber) !important;
+    border-bottom-color: var(--term-amber) !important;
+}
+
+/* Expanders */
+[data-testid="stExpander"] {
+    background: var(--term-bg-panel) !important;
+    border: 1px solid var(--term-border) !important;
+}
+[data-testid="stExpander"] summary {
+    color: var(--term-text) !important;
+    font-weight: 600 !important;
+}
+
+/* Dataframes / tables */
+.stDataFrame, [data-testid="stDataFrame"] {
+    background: var(--term-bg-panel) !important;
+    border: 1px solid var(--term-border) !important;
+}
+.stDataFrame thead, .stDataFrame thead th, .stDataFrame thead tr {
+    background: var(--term-bg) !important;
+    color: var(--term-amber) !important;
+    text-transform: uppercase !important;
+    font-size: 10px !important;
+    letter-spacing: 0.08em !important;
+    border-bottom: 1px solid var(--term-border-bright) !important;
+}
+.stDataFrame tbody td {
+    color: var(--term-text) !important;
+    font-family: var(--term-mono) !important;
+    border-bottom: 1px solid var(--term-border) !important;
+}
+
+/* Alerts */
+[data-testid="stAlert"] {
+    background: var(--term-bg-panel) !important;
+    border-left: 3px solid var(--term-amber) !important;
+    color: var(--term-text) !important;
+    border-radius: 0 !important;
+}
+[data-testid="stAlert"][kind="error"] { border-left-color: var(--term-red) !important; }
+[data-testid="stAlert"][kind="success"] { border-left-color: var(--term-green) !important; }
+[data-testid="stAlert"][kind="info"] { border-left-color: var(--term-cyan) !important; }
+[data-testid="stAlert"][kind="warning"] { border-left-color: var(--term-yellow) !important; }
+
+/* Sidebar */
+[data-testid="stSidebar"] {
+    background: var(--term-bg) !important;
+    border-right: 1px solid var(--term-border-bright) !important;
+}
+[data-testid="stSidebar"] * {
+    color: var(--term-text) !important;
+}
+
+/* Links */
+a, a:visited {
+    color: var(--term-cyan) !important;
+    text-decoration: none !important;
+}
+a:hover {
+    color: var(--term-amber) !important;
+    text-decoration: underline !important;
+}
+
+/* Code blocks */
+code, pre, .stCode, [data-testid="stCodeBlock"] {
+    background: #050505 !important;
+    border: 1px solid var(--term-border) !important;
+    color: var(--term-amber) !important;
+    font-family: var(--term-mono) !important;
+}
+
+/* Plotly charts: dark background, no white flash */
+.js-plotly-plot, .plotly, .plot-container {
+    background: var(--term-bg) !important;
+}
+.js-plotly-plot .plotly .modebar {
+    background: transparent !important;
+}
+
+/* Scrollbar - dark and slim */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--term-bg); }
+::-webkit-scrollbar-thumb { background: var(--term-border-bright); }
+::-webkit-scrollbar-thumb:hover { background: var(--term-amber); }
+
+/* ── Up/down semantic coloring ── */
+/* Apply to elements with these classes — components that print +/- values
+   can set className="term-up" or "term-down" to get colored. */
+.term-up { color: var(--term-green) !important; }
+.term-down { color: var(--term-red) !important; }
+.term-amber { color: var(--term-amber) !important; }
+.term-cyan { color: var(--term-cyan) !important; }
+.term-dim { color: var(--term-text-dim) !important; }
+
+/* ── Density: tighten Streamlit's default generous padding ── */
+.block-container { padding-top: 1.5rem !important; padding-bottom: 1rem !important; max-width: 100% !important; }
+.element-container { margin-bottom: 0.5rem !important; }
+
+/* ── Terminal-mode banner so user knows it's active ── */
+body::before {
+    content: "TERMINAL MODE · ?terminal=0 to disable";
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    background: var(--term-amber);
+    color: var(--term-bg);
+    text-align: center;
+    font-family: var(--term-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    padding: 3px 0;
+    z-index: 999999;
+    text-transform: uppercase;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ============= /TERMINAL MODE =============
+
 # ============= SECURITY UTILITIES =============
 import re as _re
 def sanitize_ticker(ticker: str) -> str:
