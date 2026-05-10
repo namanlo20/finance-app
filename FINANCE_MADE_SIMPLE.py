@@ -75,16 +75,17 @@ st.set_page_config(page_title="Investing Made Simple", layout="wide", page_icon=
 #   - Zero rounded corners — terminals look serious because they're flat
 #   - Tight spacing, dense data, smaller font sizes
 def _is_terminal_mode():
+    # Terminal mode is ON by default. Disable with ?terminal=0 in URL.
     try:
         _qp = st.query_params
-        return _qp.get("terminal", "0") in ("1", "true", "yes")
+        return _qp.get("terminal", "1") not in ("0", "false", "no", "off")
     except Exception:
         try:
             _qp = st.experimental_get_query_params()
-            _v = _qp.get("terminal", ["0"])
-            return (_v[0] if isinstance(_v, list) else _v) in ("1", "true", "yes")
+            _v = _qp.get("terminal", ["1"])
+            return (_v[0] if isinstance(_v, list) else _v) not in ("0", "false", "no", "off")
         except Exception:
-            return False
+            return True
 
 if _is_terminal_mode():
     st.markdown("""
@@ -368,22 +369,7 @@ code, pre, .stCode, [data-testid="stCodeBlock"] {
 .block-container { padding-top: 1.5rem !important; padding-bottom: 1rem !important; max-width: 100% !important; }
 .element-container { margin-bottom: 0.5rem !important; }
 
-/* ── Terminal-mode banner so user knows it's active ── */
-body::before {
-    content: "TERMINAL MODE · ?terminal=0 to disable";
-    position: fixed;
-    top: 0; left: 0; right: 0;
-    background: var(--term-amber);
-    color: var(--term-bg);
-    text-align: center;
-    font-family: var(--term-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.15em;
-    padding: 3px 0;
-    z-index: 999999;
-    text-transform: uppercase;
-}
+/* ── Terminal mode is now the permanent aesthetic — no banner needed ── */
 </style>
 """, unsafe_allow_html=True)
 
