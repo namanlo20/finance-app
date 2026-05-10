@@ -10203,14 +10203,14 @@ def render_technical_dashboard(ticker, ohlc_df, signals):
         sub = "Signals are split. Wait for confluence or trade the range."
 
     st.markdown(f"""
-<div style="background: #0a1628; padding: 24px 32px 8px 32px; margin: 0 -1rem; border-bottom: 1px solid #1a2942;">
-    <div style="color: #00C8FF; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.2em; margin-bottom: 12px;">
+<div style="background: #0a1628 !important; padding: 24px 32px 8px 32px; margin: 0 -1rem; border-bottom: 1px solid #1a2942;">
+    <div style="color: #00C8FF !important; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.2em; margin-bottom: 12px;">
         ▮ TECHNICAL READ — DAILY · {ticker}
     </div>
-    <div style="font-family: Georgia, 'Times New Roman', serif; font-size: 32px; font-weight: 700; color: #ffffff; line-height: 1.15; margin-bottom: 6px;">
+    <div style="font-family: Georgia, 'Times New Roman', serif; font-size: 32px; font-weight: 700; color: #ffffff !important; line-height: 1.15; margin-bottom: 6px;">
         {headline}
     </div>
-    <div style="font-family: Georgia, serif; font-style: italic; font-size: 14px; color: #a0b3cc;">
+    <div style="font-family: Georgia, serif; font-style: italic; font-size: 14px; color: #a0b3cc !important;">
         {sub}
     </div>
 </div>
@@ -10278,8 +10278,8 @@ def render_technical_dashboard(ticker, ohlc_df, signals):
 
     with signal_col:
         # Signal Dashboard cards — 7 rows of [label] [value] [verdict badge]
-        cards_html = """<div style="background: #0a1628; padding: 16px 20px; border: 1px solid #1a2942; height: 460px; overflow: hidden;">
-    <div style="color: #00C8FF; font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.2em; margin-bottom: 14px;">SIGNAL DASHBOARD</div>"""
+        cards_html = """<div style="background: #0a1628 !important; padding: 16px 20px; border: 1px solid #1a2942; height: 460px; overflow: hidden;">
+    <div style="color: #00C8FF !important; font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.2em; margin-bottom: 14px;">SIGNAL DASHBOARD</div>"""
 
         rows = [
             ('RSI', signals['rsi']),
@@ -10294,13 +10294,13 @@ def render_technical_dashboard(ticker, ohlc_df, signals):
             color = _signal_color_hex(sig['color'])
             cards_html += f"""
     <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04);">
-        <div style="color: #ffffff; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600;">{label}</div>
-        <div style="color: #e8e8e8; font-family: 'JetBrains Mono', monospace; font-size: 13px; text-align: center;">{sig['value']}</div>
-        <div style="color: {color}; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-align: right;">{sig['verdict']}</div>
+        <div style="color: #ffffff !important; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600;">{label}</div>
+        <div style="color: #e8e8e8 !important; font-family: 'JetBrains Mono', monospace; font-size: 13px; text-align: center;">{sig['value']}</div>
+        <div style="color: {color} !important; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-align: right;">{sig['verdict']}</div>
     </div>"""
 
         cards_html += f"""
-    <div style="margin-top: 14px; color: #00C8FF; font-family: Georgia, serif; font-style: italic; font-size: 12px; line-height: 1.5;">
+    <div style="margin-top: 14px; color: #00C8FF !important; font-family: Georgia, serif; font-style: italic; font-size: 12px; line-height: 1.5;">
         Net read: {signals['net_read']}
     </div>
 </div>"""
@@ -10415,37 +10415,37 @@ def render_terminal_header_strip(ticker, quote, profile=None, key_metrics=None):
         vol_extra = ''
 
     html = f"""
-<div style="background: #0a1628; border: 1px solid #1a2942; padding: 16px 24px; margin-bottom: 16px; font-family: 'JetBrains Mono', 'Menlo', monospace;">
+<div style="background: #0a1628 !important; border: 1px solid #1a2942; padding: 16px 24px; margin-bottom: 16px; font-family: 'JetBrains Mono', 'Menlo', monospace;">
     <!-- Top row: ticker, name, last, change -->
     <div style="display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; margin-bottom: 6px;">
-        <span style="color: #FFA500; font-size: 28px; font-weight: 700; letter-spacing: 0.02em;">{ticker}</span>
-        <span style="color: #a0b3cc; font-size: 13px;">{name}</span>
-        <span style="color: #ffffff; font-size: 26px; font-weight: 600; margin-left: auto;">${last:.2f}</span>
-        <span style="color: {change_color}; font-size: 16px; font-weight: 600;">
+        <span style="color: #FFA500 !important; font-size: 28px; font-weight: 700; letter-spacing: 0.02em;">{ticker}</span>
+        <span style="color: #a0b3cc !important; font-size: 13px;">{name}</span>
+        <span style="color: #ffffff !important; font-size: 26px; font-weight: 600; margin-left: auto;">${last:.2f}</span>
+        <span style="color: {change_color} !important; font-size: 16px; font-weight: 600;">
             {change_arrow} {change:+.2f} ({change_pct:+.2f}%)
         </span>
     </div>
     <!-- Sector/industry line -->
-    <div style="color: #6b7d99; font-size: 11px; margin-bottom: 14px; letter-spacing: 0.05em;">
+    <div style="color: #6b7d99 !important; font-size: 11px; margin-bottom: 14px; letter-spacing: 0.05em;">
         {sector.upper()}{' · ' + industry if industry else ''}
     </div>
     <!-- Dense metric strip -->
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 16px 24px; padding-top: 12px; border-top: 1px solid #1a2942;">
-        <div><div style="color:#6b7d99; font-size:9px; letter-spacing:0.15em; margin-bottom:2px;">VOLUME</div><div style="color:#e8e8e8; font-size:13px;">{fmt_vol(volume)}{vol_extra}</div></div>
-        <div><div style="color:#6b7d99; font-size:9px; letter-spacing:0.15em; margin-bottom:2px;">MKT CAP</div><div style="color:#e8e8e8; font-size:13px;">{fmt_big(mcap)}</div></div>
-        <div><div style="color:#6b7d99; font-size:9px; letter-spacing:0.15em; margin-bottom:2px;">P/E</div><div style="color:#e8e8e8; font-size:13px;">{fmt_num(pe, 'x')}</div></div>
-        <div><div style="color:#6b7d99; font-size:9px; letter-spacing:0.15em; margin-bottom:2px;">P/S</div><div style="color:#e8e8e8; font-size:13px;">{fmt_num(ps, 'x')}</div></div>
-        <div><div style="color:#6b7d99; font-size:9px; letter-spacing:0.15em; margin-bottom:2px;">P/FCF</div><div style="color:#e8e8e8; font-size:13px;">{fmt_num(pfcf, 'x')}</div></div>
-        <div><div style="color:#6b7d99; font-size:9px; letter-spacing:0.15em; margin-bottom:2px;">BETA</div><div style="color:#e8e8e8; font-size:13px;">{fmt_num(beta)}</div></div>
-        <div><div style="color:#6b7d99; font-size:9px; letter-spacing:0.15em; margin-bottom:2px;">DIV YIELD</div><div style="color:#e8e8e8; font-size:13px;">{fmt_num((div_yield or 0)*100 if div_yield and div_yield < 1 else div_yield, '%')}</div></div>
+        <div><div style="color:#6b7d99 !important; font-size:9px; letter-spacing:0.15em; margin-bottom:2px;">VOLUME</div><div style="color:#e8e8e8 !important; font-size:13px;">{fmt_vol(volume)}{vol_extra}</div></div>
+        <div><div style="color:#6b7d99 !important; font-size:9px; letter-spacing:0.15em; margin-bottom:2px;">MKT CAP</div><div style="color:#e8e8e8 !important; font-size:13px;">{fmt_big(mcap)}</div></div>
+        <div><div style="color:#6b7d99 !important; font-size:9px; letter-spacing:0.15em; margin-bottom:2px;">P/E</div><div style="color:#e8e8e8 !important; font-size:13px;">{fmt_num(pe, 'x')}</div></div>
+        <div><div style="color:#6b7d99 !important; font-size:9px; letter-spacing:0.15em; margin-bottom:2px;">P/S</div><div style="color:#e8e8e8 !important; font-size:13px;">{fmt_num(ps, 'x')}</div></div>
+        <div><div style="color:#6b7d99 !important; font-size:9px; letter-spacing:0.15em; margin-bottom:2px;">P/FCF</div><div style="color:#e8e8e8 !important; font-size:13px;">{fmt_num(pfcf, 'x')}</div></div>
+        <div><div style="color:#6b7d99 !important; font-size:9px; letter-spacing:0.15em; margin-bottom:2px;">BETA</div><div style="color:#e8e8e8 !important; font-size:13px;">{fmt_num(beta)}</div></div>
+        <div><div style="color:#6b7d99 !important; font-size:9px; letter-spacing:0.15em; margin-bottom:2px;">DIV YIELD</div><div style="color:#e8e8e8 !important; font-size:13px;">{fmt_num((div_yield or 0)*100 if div_yield and div_yield < 1 else div_yield, '%')}</div></div>
         <div style="grid-column: span 2;">
-            <div style="color:#6b7d99; font-size:9px; letter-spacing:0.15em; margin-bottom:2px;">52W RANGE</div>
-            <div style="color:#e8e8e8; font-size:11px; display:flex; align-items:center; gap:8px;">
-                <span>${low_52:.0f}</span>
+            <div style="color:#6b7d99 !important; font-size:9px; letter-spacing:0.15em; margin-bottom:2px;">52W RANGE</div>
+            <div style="color:#e8e8e8 !important; font-size:11px; display:flex; align-items:center; gap:8px;">
+                <span style="color:#e8e8e8 !important;">${low_52:.0f}</span>
                 <div style="flex:1; height:4px; background:#1a2942; position:relative; min-width:80px;">
                     <div style="position:absolute; top:-4px; left:{pos_pct}%; width:2px; height:12px; background:#FFA500; transform:translateX(-1px);"></div>
                 </div>
-                <span>${high_52:.0f}</span>
+                <span style="color:#e8e8e8 !important;">${high_52:.0f}</span>
             </div>
         </div>
     </div>
@@ -30053,16 +30053,40 @@ elif selected_page == "👑 Ultimate":
     # Overall verdict badge
     _bull_count  = sum(1 for s in [_s1_sig, _s2_sig, _s3_sig, _s4_sig, _s5_conf_sig, _s6_sig] if s == "bullish")
     _bear_count  = sum(1 for s in [_s1_sig, _s2_sig, _s3_sig, _s4_sig, _s5_conf_sig, _s6_sig] if s == "bearish")
-    if _bull_count >= 4:   _verdict, _vcolor, _vbg = "BULLISH", "#00C851", "rgba(0,200,81,0.15)"
-    elif _bear_count >= 4: _verdict, _vcolor, _vbg = "BEARISH", "#FF4444", "rgba(255,68,68,0.15)"
-    else:                  _verdict, _vcolor, _vbg = "MIXED / NEUTRAL", "#FFD700", "rgba(255,200,0,0.12)"
+    _neutral_count = 6 - _bull_count - _bear_count
+
+    # Verdict logic — uses MARGIN, not absolute count.
+    # The old rule (≥4 bullish or ≥4 bearish) almost never fired because most
+    # real stocks have 1-3 signals matching at any time. Result: every stock
+    # showed "MIXED / NEUTRAL", which is useless. New logic:
+    #
+    #   STRONG BULLISH: 4+ bullish signals (high conviction)
+    #   BULLISH:        bull leads bear by 2+ AND at least 2 bullish signals
+    #   STRONG BEARISH: 4+ bearish signals
+    #   BEARISH:        bear leads bull by 2+ AND at least 2 bearish signals
+    #   SLIGHTLY BULLISH/BEARISH: 1-signal lead (a clear but weak tilt)
+    #   MIXED / NEUTRAL: tied counts (genuinely no signal)
+    if _bull_count >= 4:
+        _verdict, _vcolor, _vbg = "STRONG BULLISH", "#00C851", "rgba(0,200,81,0.20)"
+    elif _bear_count >= 4:
+        _verdict, _vcolor, _vbg = "STRONG BEARISH", "#FF4444", "rgba(255,68,68,0.20)"
+    elif _bull_count >= 2 and _bull_count - _bear_count >= 2:
+        _verdict, _vcolor, _vbg = "BULLISH", "#00C851", "rgba(0,200,81,0.15)"
+    elif _bear_count >= 2 and _bear_count - _bull_count >= 2:
+        _verdict, _vcolor, _vbg = "BEARISH", "#FF4444", "rgba(255,68,68,0.15)"
+    elif _bull_count > _bear_count:
+        _verdict, _vcolor, _vbg = "SLIGHTLY BULLISH", "#7DD881", "rgba(125,216,129,0.10)"
+    elif _bear_count > _bull_count:
+        _verdict, _vcolor, _vbg = "SLIGHTLY BEARISH", "#FF8888", "rgba(255,136,136,0.10)"
+    else:
+        _verdict, _vcolor, _vbg = "MIXED / NEUTRAL", "#FFD700", "rgba(255,200,0,0.12)"
 
     st.markdown(f"""
     <div style="background:{_vbg};border:1px solid {_vcolor};border-radius:10px;
                 padding:12px 20px;margin:12px 0 20px;display:flex;align-items:center;gap:16px;">
         <div style="font-size:13px;color:#aaa;font-weight:600;">OVERALL SIGNAL</div>
         <div style="font-size:20px;font-weight:800;color:{_vcolor};">{_verdict}</div>
-        <div style="font-size:13px;color:#888;margin-left:auto;">{_bull_count} bullish · {_bear_count} bearish · {6-_bull_count-_bear_count} neutral</div>
+        <div style="font-size:13px;color:#888;margin-left:auto;">{_bull_count} bullish · {_bear_count} bearish · {_neutral_count} neutral</div>
     </div>
     """, unsafe_allow_html=True)
 
