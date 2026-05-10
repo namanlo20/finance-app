@@ -88,7 +88,12 @@ def _is_terminal_mode():
             return True
 
 if _is_terminal_mode():
-    st.markdown("""
+    # CSS payload kept as a Python string so we can inject it via whichever
+    # Streamlit API works in the deployed version. Some Streamlit versions on
+    # certain browsers render long st.markdown CSS blocks as literal text
+    # instead of parsing them — switching to st.html() (Streamlit ≥1.28) or
+    # st.components.v1.html as a fallback fixes this.
+    _TERMINAL_CSS = """
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -371,7 +376,35 @@ code, pre, .stCode, [data-testid="stCodeBlock"] {
 
 /* ── Terminal mode is now the permanent aesthetic — no banner needed ── */
 </style>
-""", unsafe_allow_html=True)
+"""
+
+    # Inject the CSS using whichever method is available — try st.html() first
+    # (Streamlit ≥1.28, properly handles raw HTML) and fall back to st.markdown
+    # with unsafe_allow_html, then to components.html as a last resort.
+    _injected = False
+    try:
+        # st.html exists in Streamlit ≥1.28 and is the correct API for raw HTML
+        st.html(_TERMINAL_CSS)
+        _injected = True
+    except (AttributeError, Exception):
+        pass
+
+    if not _injected:
+        try:
+            st.markdown(_TERMINAL_CSS, unsafe_allow_html=True)
+            _injected = True
+        except Exception:
+            pass
+
+    if not _injected:
+        # Last resort: components.html — guaranteed to render but creates an
+        # iframe, so styles won't reach the parent doc. Only use if absolutely
+        # necessary for diagnostic purposes.
+        try:
+            import streamlit.components.v1 as _components
+            _components.html(_TERMINAL_CSS, height=0)
+        except Exception:
+            pass
 
 # ============= /TERMINAL MODE =============
 
