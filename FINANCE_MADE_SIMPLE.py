@@ -10267,6 +10267,212 @@ def get_historical_adjusted_prices(ticker, years=10):
     except Exception:
         return pd.DataFrame()
 
+
+# ============= VALUATION BANDS HELPERS =============
+# Renders historical valuation multiples (P/E, P/S, P/FCF) with min/median/max
+# bands and stock price overlaid. Tells you "is this stock cheap or expensive
+# relative to its own history" — Bloomberg/Koyfin's signature analysis.
+
+def _compute_ttm_series(income_df, metric_col):
+    """For each fiscal-quarter end, sum the trailing 4 quarters of `metric_col`.
+
+    Returns a df with columns [date, ttm]. Used to build TTM EPS, TTM revenue,
+    or TTM FCF as of each historical earnings date so we can compute valuation
+    multiples that match what the market would have seen on that day.
+
+    Requires at least 4 quarters of data — earlier rows are dropped.
+    """
+    if income_df is None or income_df.empty or metric_col not in income_df.columns:
+        return pd.DataFrame()
+    df = income_df.copy()
+    df = df[['date', metric_col]].dropna()
+    df = df.sort_values('date').reset_index(drop=True)
+    df['ttm'] = df[metric_col].rolling(window=4, min_periods=4).sum()
+    return df[['date', 'ttm']].dropna().reset_index(drop=True)
+
+
+def _build_valuation_multiple_series(price_df, ttm_df, shares_outstanding=None):
+    """Merge daily price with TTM fundamental, compute the multiple per day.
+
+    For P/E, the convention is price ÷ EPS. For P/S and P/FCF, it's
+    market_cap ÷ revenue (or FCF), but if `shares_outstanding` isn't passed,
+    we fall back to price ÷ per_share_metric, which is mathematically equivalent
+    when the TTM is already in per-share form.
+
+    Strategy: use merge_asof with direction='backward' so each daily price gets
+    the most recent TTM as of that date. This forward-fills the TTM between
+    earnings releases — the standard approach.
+
+    Returns df with [date, price, ttm, multiple], filtered to ttm > 0.
+    """
+    if price_df is None or price_df.empty or ttm_df is None or ttm_df.empty:
+        return pd.DataFrame()
+
+    px = price_df[['date', 'price']].copy()
+    px['date'] = pd.to_datetime(px['date'])
+    px = px.sort_values('date').reset_index(drop=True)
+
+    tt = ttm_df.copy()
+    tt['date'] = pd.to_datetime(tt['date'])
+    tt = tt.sort_values('date').reset_index(drop=True)
+
+    merged = pd.merge_asof(px, tt, on='date', direction='backward')
+    merged = merged.dropna(subset=['ttm'])
+    if merged.empty:
+        return pd.DataFrame()
+
+    if shares_outstanding is not None and shares_outstanding > 0:
+        # market_cap based: multiple = (price × shares) ÷ TTM total
+        merged['multiple'] = (merged['price'] * shares_outstanding) / merged['ttm']
+    else:
+        # per-share based: multiple = price ÷ TTM per share
+        merged['multiple'] = merged['price'] / merged['ttm']
+
+    # P/E (and similar) is undefined or meaningless when the denominator is
+    # zero or negative. Drop those rows.
+    merged = merged[merged['ttm'] > 0]
+    merged = merged[~merged['multiple'].isin([np.inf, -np.inf])]
+    merged = merged.dropna(subset=['multiple'])
+    return merged[['date', 'price', 'ttm', 'multiple']].reset_index(drop=True)
+
+
+def _render_valuation_band_chart(multiple_df, multiple_label, ticker_label):
+    """Build the dual-axis Plotly figure with bands + price overlay.
+
+    Layout:
+      - Left axis (amber): the valuation multiple over time
+      - Right axis (cyan): stock price
+      - Shaded band: min-to-max historical range of the multiple
+      - Dashed line: median of the multiple
+    """
+    if multiple_df is None or multiple_df.empty:
+        return None, None
+
+    m = multiple_df['multiple']
+    stats = {
+        'min': float(m.min()),
+        'max': float(m.max()),
+        'median': float(m.median()),
+        'current': float(m.iloc[-1]),
+        'percentile': float((m < m.iloc[-1]).mean() * 100),
+    }
+
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
+
+    # ── Min/max band as a filled area on the multiple axis ──
+    # Plotly's fill='tonexty' fills between the current trace and the previous one,
+    # so we add the upper edge first (invisible), then the lower edge with fill.
+    fig.add_trace(go.Scatter(
+        x=multiple_df['date'], y=[stats['max']] * len(multiple_df),
+        mode='lines', line=dict(width=0), showlegend=False, hoverinfo='skip',
+    ), secondary_y=False)
+    fig.add_trace(go.Scatter(
+        x=multiple_df['date'], y=[stats['min']] * len(multiple_df),
+        mode='lines', line=dict(width=0), fill='tonexty',
+        fillcolor='rgba(255, 165, 0, 0.08)',
+        name=f'Range ({stats["min"]:.1f}x – {stats["max"]:.1f}x)',
+        hoverinfo='skip',
+    ), secondary_y=False)
+
+    # ── Median dashed line ──
+    fig.add_trace(go.Scatter(
+        x=multiple_df['date'], y=[stats['median']] * len(multiple_df),
+        mode='lines', line=dict(color='#FFA500', width=1, dash='dash'),
+        name=f'Median ({stats["median"]:.1f}x)', hoverinfo='skip',
+    ), secondary_y=False)
+
+    # ── Actual multiple line ──
+    fig.add_trace(go.Scatter(
+        x=multiple_df['date'], y=multiple_df['multiple'],
+        mode='lines', line=dict(color='#FFA500', width=2),
+        name=f'{multiple_label} (TTM)',
+        hovertemplate='%{x|%b %d %Y}<br>' + multiple_label + ': %{y:.1f}x<extra></extra>',
+    ), secondary_y=False)
+
+    # ── Stock price on right axis ──
+    fig.add_trace(go.Scatter(
+        x=multiple_df['date'], y=multiple_df['price'],
+        mode='lines', line=dict(color='#00C8FF', width=1.5),
+        name='Stock Price',
+        hovertemplate='$%{y:.2f}<extra></extra>',
+    ), secondary_y=True)
+
+    fig.update_layout(
+        title=dict(
+            text=f'<b>{ticker_label} — {multiple_label} Valuation Bands</b>',
+            font=dict(size=16, color='#e8e8e8'), x=0.5, xanchor='center',
+        ),
+        height=500,
+        plot_bgcolor='#0a0a0a', paper_bgcolor='#0a0a0a',
+        font=dict(color='#e8e8e8', family='JetBrains Mono, monospace'),
+        hovermode='x unified',
+        legend=dict(
+            bgcolor='rgba(0,0,0,0)', orientation='h',
+            yanchor='top', y=-0.12, xanchor='center', x=0.5,
+            font=dict(size=11),
+        ),
+        margin=dict(t=60, b=70, l=60, r=60),
+    )
+    fig.update_yaxes(
+        title_text=f'{multiple_label} (x)', secondary_y=False,
+        gridcolor='rgba(255,255,255,0.05)', zerolinecolor='rgba(255,255,255,0.1)',
+        title_font=dict(color='#FFA500'), tickfont=dict(color='#FFA500'),
+    )
+    fig.update_yaxes(
+        title_text='Stock Price ($)', secondary_y=True,
+        gridcolor='rgba(0,0,0,0)',
+        title_font=dict(color='#00C8FF'), tickfont=dict(color='#00C8FF'),
+    )
+    fig.update_xaxes(
+        gridcolor='rgba(255,255,255,0.03)',
+        tickfont=dict(color='#888888'),
+    )
+    return fig, stats
+
+
+def _render_valuation_signal_box(stats, multiple_label):
+    """Return Markdown for the signal banner above the chart.
+
+    Color logic:
+      - Below 25th percentile → green (cheap vs own history)
+      - 25–75 percentile → amber (fair / middle)
+      - Above 75th → red (expensive vs own history)
+    """
+    p = stats['percentile']
+    if p < 25:
+        verdict = "CHEAP"
+        verdict_color = "#00D964"
+        nuance = "Trading near the low end of its historical range."
+    elif p > 75:
+        verdict = "EXPENSIVE"
+        verdict_color = "#FF3B3B"
+        nuance = "Trading near the high end of its historical range."
+    else:
+        verdict = "FAIR"
+        verdict_color = "#FFA500"
+        nuance = "Trading in the middle of its historical range."
+
+    return f"""
+<div style="background: #111111; border-left: 3px solid {verdict_color}; padding: 14px 18px; margin: 12px 0; font-family: 'JetBrains Mono', monospace;">
+    <div style="color: #888; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 6px;">Valuation Signal</div>
+    <div style="color: {verdict_color}; font-size: 22px; font-weight: 700; letter-spacing: -0.01em;">
+        {verdict} · {stats['current']:.1f}x {multiple_label}
+    </div>
+    <div style="color: #e8e8e8; font-size: 13px; margin-top: 8px; line-height: 1.6;">
+        Currently in the <b>{p:.0f}th percentile</b> vs its own history. {nuance}
+    </div>
+    <div style="color: #888; font-size: 11px; margin-top: 8px; display: flex; gap: 24px; flex-wrap: wrap;">
+        <span>Range: <b style="color: #e8e8e8;">{stats['min']:.1f}x – {stats['max']:.1f}x</b></span>
+        <span>Median: <b style="color: #e8e8e8;">{stats['median']:.1f}x</b></span>
+        <span>Current: <b style="color: {verdict_color};">{stats['current']:.1f}x</b></span>
+    </div>
+    <div style="color: #555; font-size: 10px; margin-top: 10px; font-style: italic;">
+        Cheap vs own history ≠ guaranteed buy. A stock can stay cheap if the business is in decline. Use as one input among many.
+    </div>
+</div>
+"""
+
+
 def calculate_four_scenarios(ticker, years=5, base_amount=100):
     """Calculate the four investment scenarios using adjusted close prices"""
     stock_data = get_historical_adjusted_prices(ticker, years)
@@ -23695,7 +23901,133 @@ elif selected_page == "📊 Company Analysis":
         balance_df = get_balance_sheet(ticker, _ca_period_type, _ca_limit)
         
         # Stock chart is already shown above - removed duplicate here
-        
+
+        # ============= VALUATION BANDS =============
+        # Headline analysis: is this stock cheap or expensive vs its OWN history?
+        # Shows P/E, P/S, or P/FCF over time with min/median/max shaded bands and
+        # the stock price overlaid on a secondary axis. The signal box above the
+        # chart classifies as CHEAP / FAIR / EXPENSIVE based on percentile.
+        st.markdown("### 📐 Valuation Bands")
+        st.caption(
+            "Is this stock cheap or expensive vs its own history? Multiple plotted on left axis (amber), "
+            "stock price on right axis (cyan). Shaded zone = historical range. Dashed line = median."
+        )
+
+        # Need quarterly data for TTM math regardless of what user has selected
+        # in the sidebar, since annual data only gives 1 data point per year and
+        # bands need granularity. Fetch separately and cache.
+        _vb_qtr_income = get_income_statement(ticker, 'quarter', 40)  # up to 10 yrs of qtrly
+
+        _vb_col1, _vb_col2 = st.columns([2, 3])
+        with _vb_col1:
+            _vb_multiple = st.selectbox(
+                "Multiple:",
+                options=["P/E (Price ÷ EPS)", "P/S (Price ÷ Sales/share)", "P/FCF (Price ÷ FCF/share)"],
+                index=0,
+                key=f"vb_multiple_{ticker}",
+                help="P/E = how many years of earnings to recoup the price. "
+                     "P/S = price relative to revenue (works for unprofitable companies). "
+                     "P/FCF = price relative to free cash flow (the cleanest of the three for cash-generative businesses)."
+            )
+        with _vb_col2:
+            _vb_years = st.slider(
+                "Lookback (years):",
+                min_value=2, max_value=10, value=5, step=1,
+                key=f"vb_years_{ticker}",
+                help="How far back to compute the historical range. More years = more context, but business may have changed."
+            )
+
+        # Map UI selection to the FMP column we need
+        _vb_metric_map = {
+            "P/E (Price ÷ EPS)": ("epsdiluted", "P/E"),
+            "P/S (Price ÷ Sales/share)": ("revenue", "P/S"),  # revenue per share computed below
+            "P/FCF (Price ÷ FCF/share)": (None, "P/FCF"),  # FCF lives in cash_df, handled below
+        }
+        _vb_col_name, _vb_label = _vb_metric_map.get(_vb_multiple, ("epsdiluted", "P/E"))
+
+        try:
+            _vb_price_df = get_historical_price(ticker, years=_vb_years)
+        except Exception:
+            _vb_price_df = pd.DataFrame()
+
+        if _vb_price_df is None or _vb_price_df.empty:
+            st.warning("⚠️ Couldn't load historical price data for valuation bands.")
+        elif _vb_qtr_income is None or _vb_qtr_income.empty:
+            st.warning("⚠️ Couldn't load quarterly fundamentals for valuation bands.")
+        else:
+            try:
+                # Build the TTM series for whichever metric the user picked
+                if _vb_label == "P/E":
+                    _vb_ttm_df = _compute_ttm_series(_vb_qtr_income, 'epsdiluted')
+                    _vb_chart_df = _build_valuation_multiple_series(_vb_price_df, _vb_ttm_df)
+                elif _vb_label == "P/S":
+                    # P/S using revenue per share. Need shares outstanding from each quarter.
+                    if 'weightedAverageShsOutDil' in _vb_qtr_income.columns and 'revenue' in _vb_qtr_income.columns:
+                        _tmp = _vb_qtr_income.copy()
+                        # Revenue per share (using diluted shares from that quarter)
+                        _tmp['revenue_per_share'] = _tmp['revenue'] / _tmp['weightedAverageShsOutDil']
+                        _vb_ttm_df = _compute_ttm_series(_tmp, 'revenue_per_share')
+                        _vb_chart_df = _build_valuation_multiple_series(_vb_price_df, _vb_ttm_df)
+                    else:
+                        _vb_chart_df = pd.DataFrame()
+                elif _vb_label == "P/FCF":
+                    # FCF is in cash flow statement, need to fetch quarterly version
+                    _vb_qtr_cash = get_cash_flow(ticker, 'quarter', 40)
+                    if (_vb_qtr_cash is not None and not _vb_qtr_cash.empty
+                        and 'freeCashFlow' in _vb_qtr_cash.columns
+                        and 'weightedAverageShsOutDil' in _vb_qtr_income.columns):
+                        # Merge shares from income onto cash flow on date
+                        _shares_df = _vb_qtr_income[['date', 'weightedAverageShsOutDil']].copy()
+                        _shares_df['date'] = pd.to_datetime(_shares_df['date'])
+                        _cash_tmp = _vb_qtr_cash[['date', 'freeCashFlow']].copy()
+                        _cash_tmp['date'] = pd.to_datetime(_cash_tmp['date'])
+                        _merged_fcf = _cash_tmp.merge(_shares_df, on='date', how='inner')
+                        _merged_fcf['fcf_per_share'] = _merged_fcf['freeCashFlow'] / _merged_fcf['weightedAverageShsOutDil']
+                        _vb_ttm_df = _compute_ttm_series(_merged_fcf, 'fcf_per_share')
+                        _vb_chart_df = _build_valuation_multiple_series(_vb_price_df, _vb_ttm_df)
+                    else:
+                        _vb_chart_df = pd.DataFrame()
+                else:
+                    _vb_chart_df = pd.DataFrame()
+
+                if _vb_chart_df is None or _vb_chart_df.empty:
+                    st.info(
+                        f"Not enough data to compute {_vb_label} bands. This usually happens when the company "
+                        "has been unprofitable for the entire lookback period (P/E undefined for negative earnings) "
+                        "or when fewer than 4 quarters of data are available."
+                    )
+                else:
+                    # Build the chart and signal box
+                    _vb_fig, _vb_stats = _render_valuation_band_chart(_vb_chart_df, _vb_label, ticker)
+
+                    if _vb_stats is not None:
+                        st.markdown(_render_valuation_signal_box(_vb_stats, _vb_label), unsafe_allow_html=True)
+
+                    if _vb_fig is not None:
+                        st.plotly_chart(_vb_fig, use_container_width=True)
+
+                    with st.expander("💡 How to read this chart", expanded=False):
+                        st.markdown(f"""
+**{_vb_label} valuation bands** show how today's multiple compares to history.
+
+- **Amber line**: the {_vb_label} multiple over time, computed daily using trailing twelve months (TTM) fundamentals.
+- **Cyan line**: stock price (right axis).
+- **Shaded zone**: the min-to-max range over the lookback window.
+- **Dashed amber**: the median multiple over the lookback.
+
+**The signal**: when the amber line is at the bottom of the band, the stock is cheap vs its own history.
+When it's at the top, it's expensive. The percentile in the signal box is the percentage of trading days
+in the lookback when the multiple was *below* the current level.
+
+**The catch**: cheap historically doesn't mean it'll go up. Businesses re-rate lower when growth slows or
+fundamentals deteriorate. Use this alongside actual business analysis (revenue growth, margins, moat).
+                        """)
+            except Exception as _vb_e:
+                st.warning(f"⚠️ Couldn't build valuation bands: {type(_vb_e).__name__}")
+
+        st.markdown("---")
+        # ============= /VALUATION BANDS =============
+
         st.markdown(f"### 💵 {company_name} - Cash Flow Statement")
         show_why_it_matters('fcfAfterSBC')
         show_why_these_metrics("financial_statements")
