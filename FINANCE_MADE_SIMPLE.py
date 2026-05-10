@@ -374,79 +374,132 @@ code, pre, .stCode, [data-testid="stCodeBlock"] {
 .block-container { padding-top: 1.5rem !important; padding-bottom: 1rem !important; max-width: 100% !important; }
 .element-container { margin-bottom: 0.5rem !important; }
 
-/* ── NUCLEAR TEXT VISIBILITY OVERRIDE ── */
-/* The original light-mode CSS forces dark text on lots of components.
-   This block ensures any text inside a dark container becomes light enough
-   to read. We target both Streamlit's component testids and our own panels. */
+/* ──────────────────────────────────────────────────────────────────── */
+/* CONTRAST-AWARE TEXT COLORING                                        */
+/*                                                                       */
+/* The original light-mode CSS forced dark text everywhere. Our terminal */
+/* mode has dark backgrounds for some components and light backgrounds   */
+/* for others (the hero banner stays light blue, etc). This block sets   */
+/* text colors based on the BACKGROUND of each container — light text    */
+/* on dark, dark text on light — instead of one rule for everything.    */
+/* ──────────────────────────────────────────────────────────────────── */
+
+/* ── DARK CONTAINERS (we set background to var(--term-bg-panel)) ── */
+/* These get LIGHT text */
+[data-testid="stMetric"],
 [data-testid="stMetric"] *,
-[data-testid="stMetricValue"], [data-testid="stMetricValue"] *,
-[data-testid="stMetricLabel"], [data-testid="stMetricLabel"] *,
-[data-testid="stMetricDelta"], [data-testid="stMetricDelta"] *,
+[data-testid="stExpander"],
 [data-testid="stExpander"] *,
-[data-testid="stAlert"] *,
-[data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] *,
-.stDataFrame *, .stTable *,
-[data-baseweb="tab-panel"] *,
-[data-testid="stMarkdownContainer"] p,
-[data-testid="stMarkdownContainer"] li,
-[data-testid="stMarkdownContainer"] span,
-[data-testid="stMarkdownContainer"] div {
+.stDataFrame, .stDataFrame *,
+.stTable, .stTable *,
+[data-testid="stCodeBlock"], [data-testid="stCodeBlock"] *,
+pre, pre * {
     color: var(--term-text) !important;
 }
 
-/* Re-apply our preferred colors (amber for values, dim for labels) */
+/* Refine inside metrics — amber for the value, dim for the label */
 [data-testid="stMetricValue"], [data-testid="stMetricValue"] * {
     color: var(--term-amber) !important;
 }
 [data-testid="stMetricLabel"], [data-testid="stMetricLabel"] * {
     color: var(--term-text-dim) !important;
 }
-[data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] * {
-    color: var(--term-text-dim) !important;
-}
 
-/* Help tooltip icons (the (?) circle next to metrics, sliders, etc.) */
-[data-testid="stTooltipIcon"], [data-testid="stTooltipIcon"] * {
-    color: var(--term-text-dim) !important;
+/* Tooltip help icon is a SVG — make it visible on dark backgrounds */
+[data-testid="stMetric"] [data-testid="stTooltipIcon"] svg,
+[data-testid="stMetric"] [data-testid="stTooltipIcon"] svg path {
     fill: var(--term-text-dim) !important;
+    stroke: var(--term-text-dim) !important;
 }
 
-/* SVG icons and arrows in metrics */
-[data-testid="stMetric"] svg, [data-testid="stMetricDelta"] svg {
+/* Delta arrows use currentColor which inherits from parent */
+[data-testid="stMetricDelta"] svg {
     fill: currentColor !important;
 }
 
-/* Tab panels and their contents */
+/* ── LIGHT CONTAINERS (anything we DIDN'T explicitly darken) ── */
+/* These keep DARK text. The hero banner, gradient cards, light blue tip */
+/* boxes, the source-info strip — all of these have light backgrounds    */
+/* baked into their own inline styles, and they should get dark text.   */
+/* We do NOT override these — Streamlit's default text color (dark) is   */
+/* what we want for them.                                               */
+
+/* Streamlit's default markdown text on the page background should be    */
+/* light because the page background IS dark in terminal mode. */
+[data-testid="stAppViewContainer"] > [data-testid="stMarkdownContainer"] p,
+[data-testid="stAppViewContainer"] > [data-testid="stMarkdownContainer"] li,
+[data-testid="stAppViewContainer"] > [data-testid="stMarkdownContainer"] span,
+.main [data-testid="stMarkdownContainer"] > p,
+.main [data-testid="stMarkdownContainer"] > ul,
+.main [data-testid="stMarkdownContainer"] > ol {
+    color: var(--term-text) !important;
+}
+
+/* But preserve dark text inside KNOWN light containers — these are       */
+/* containers Naman has built with custom inline gradient backgrounds.   */
+/* The selector finds any element with inline `background:` containing  */
+/* light colors, and forces dark text on its descendants.               */
+[style*="background: #FFFFFF"] *,
+[style*="background:#FFFFFF"] *,
+[style*="background: #fff"] *,
+[style*="background:#fff"] *,
+[style*="background: white"] *,
+[style*="background-color: #FFFFFF"] *,
+[style*="background-color: white"] *,
+[style*="linear-gradient(135deg, #B0E0F8"] *,  /* light blue tip cards */
+[style*="linear-gradient(135deg, #d4f4dd"] *,  /* light green CAGR boxes */
+[style*="linear-gradient(135deg, #fff"] *,
+[style*="background: #f"] *,
+[style*="background:#f"] * {
+    color: #1a1a1a !important;
+}
+
+/* ── ALERT BOXES — they have their own light background internally ── */
+/* Streamlit's stAlert uses a light tint with dark text. Keep that. */
+[data-testid="stAlert"] {
+    color: #1a1a1a !important;
+}
+[data-testid="stAlert"] [data-testid="stMarkdownContainer"] *,
+[data-testid="stAlert"] p,
+[data-testid="stAlert"] span,
+[data-testid="stAlert"] li,
+[data-testid="stAlert"] strong {
+    color: #1a1a1a !important;
+}
+
+/* But our caption that styled the source strip uses a dark background — 
+   the FMP source banner. Keep that one's text light. */
+[data-testid="stCaptionContainer"] {
+    color: var(--term-text-dim) !important;
+}
+[data-testid="stCaptionContainer"] strong {
+    color: var(--term-amber) !important;
+}
+
+/* Tab panel contents inherit from page (dark bg → light text) */
 [data-baseweb="tab-panel"] {
     color: var(--term-text) !important;
 }
 
-/* Strong/bold text inside markdown should pop */
-[data-testid="stMarkdownContainer"] strong,
-[data-testid="stMarkdownContainer"] b {
-    color: var(--term-amber) !important;
-    font-weight: 700 !important;
-}
-
-/* Code inline */
-[data-testid="stMarkdownContainer"] code {
+/* Inline code keeps cyan on its dark code background */
+[data-testid="stMarkdownContainer"] code:not(pre code) {
     color: var(--term-cyan) !important;
     background: #050505 !important;
     padding: 1px 5px !important;
     border: 1px solid var(--term-border) !important;
 }
 
-/* Treasury rate, S&P benchmark, etc. — any st.metric in a column */
-[data-testid="stHorizontalBlock"] [data-testid="stMetric"] {
-    background: var(--term-bg-panel) !important;
-    border: 1px solid var(--term-border) !important;
-    padding: 12px 14px !important;
+/* Strong/bold in regular flow text → amber (only OUTSIDE light containers) */
+.main > .block-container > [data-testid="stVerticalBlock"] > [data-testid="stMarkdownContainer"] strong,
+.main > .block-container > [data-testid="stVerticalBlock"] > [data-testid="stMarkdownContainer"] b {
+    color: var(--term-amber) !important;
 }
 
-/* The "Source: Financial Modeling Prep API" red strip — recolor */
-[data-testid="stAlert"][kind="info"] [data-testid="stMarkdownContainer"] *,
-[data-testid="stAlert"] [data-testid="stMarkdownContainer"] * {
-    color: var(--term-text) !important;
+/* Headers (h1-h6) — always our amber/dim treatment, regardless of bg */
+h1, h2, h3, h4, h5, h6,
+.stMarkdown h1, .stMarkdown h2, .stMarkdown h3,
+.stMarkdown h4, .stMarkdown h5, .stMarkdown h6 {
+    /* color rules already set above in main block */
 }
 
 /* ── Terminal mode is now the permanent aesthetic — no banner needed ── */
