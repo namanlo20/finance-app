@@ -24130,17 +24130,24 @@ elif selected_page == "📊 Company Analysis":
         key=f"ca_tab_selector_{ticker}",
     )
 
-    # ── TECHNICAL TAB (Ultimate-only) ──
+    # ── TECHNICAL TAB (Ultimate-only, founder always has access) ──
     if _ca_active_tab.startswith("📈 Technical"):
-        if _ca_user_tier != "ultimate":
+        # Founder bypass: signed-in founder always sees the dashboard, regardless
+        # of stored tier. Avoids the awkward "I built it but can't see it" state.
+        try:
+            _is_founder = _is_founder_user()
+        except Exception:
+            _is_founder = False
+
+        if _ca_user_tier != "ultimate" and not _is_founder:
             st.markdown("""
-<div style="background: #0a1628; border: 1px solid #FFA500; padding: 32px 40px; margin: 24px 0; text-align: center;">
-    <div style="color: #FFA500; font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.2em; margin-bottom: 12px;">👑 ULTIMATE FEATURE</div>
-    <div style="font-family: Georgia, serif; font-size: 24px; color: #ffffff; margin-bottom: 8px;">Technical Read</div>
-    <div style="color: #a0b3cc; font-family: Georgia, serif; font-style: italic; font-size: 14px; margin-bottom: 20px;">
+<div style="background: #0a1628 !important; border: 1px solid #FFA500; padding: 32px 40px; margin: 24px 0; text-align: center;">
+    <div style="color: #FFA500 !important; font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.2em; margin-bottom: 12px;">👑 ULTIMATE FEATURE</div>
+    <div style="font-family: Georgia, serif; font-size: 24px; color: #ffffff !important; margin-bottom: 8px;">Technical Read</div>
+    <div style="color: #a0b3cc !important; font-family: Georgia, serif; font-style: italic; font-size: 14px; margin-bottom: 20px;">
         Live signal dashboard with RSI, EMA cross, VWAP, MACD, Williams %R, ADX, and pattern detection.
     </div>
-    <div style="color: #6b7d99; font-size: 12px; font-family: 'JetBrains Mono', monospace;">Upgrade to Ultimate to unlock</div>
+    <div style="color: #6b7d99 !important; font-size: 12px; font-family: 'JetBrains Mono', monospace;">Upgrade to Ultimate to unlock</div>
 </div>
 """, unsafe_allow_html=True)
             st.stop()
