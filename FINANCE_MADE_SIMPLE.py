@@ -9962,6 +9962,501 @@ def get_price_target(ticker):
     except Exception:
         return None
 
+
+# ============= TECHNICAL INDICATORS =============
+# Pure numpy/pandas implementations of the indicators used in the PLTR-style
+# Technical tab. No external TA library — keeps install footprint small and
+# makes behavior auditable.
+
+def _ti_rsi(close, period=14):
+    """Relative Strength Index. Returns a Series same length as `close`."""
+    delta = close.diff()
+    gain = delta.where(delta > 0, 0.0)
+    loss = -delta.where(delta < 0, 0.0)
+    # Wilder's smoothing — standard for RSI
+    avg_gain = gain.ewm(alpha=1.0 / period, adjust=False).mean()
+    avg_loss = loss.ewm(alpha=1.0 / period, adjust=False).mean()
+    rs = avg_gain / avg_loss.replace(0, np.nan)
+    rsi = 100 - (100 / (1 + rs))
+    return rsi
+
+
+def _ti_ema(series, period):
+    """Exponential moving average."""
+    return series.ewm(span=period, adjust=False).mean()
+
+
+def _ti_macd(close, fast=12, slow=26, signal=9):
+    """MACD line, signal line, histogram.
+    Returns dict with keys 'macd', 'signal', 'hist'."""
+    ema_fast = _ti_ema(close, fast)
+    ema_slow = _ti_ema(close, slow)
+    macd = ema_fast - ema_slow
+    sig = _ti_ema(macd, signal)
+    hist = macd - sig
+    return {'macd': macd, 'signal': sig, 'hist': hist}
+
+
+def _ti_vwap(df):
+    """Volume-Weighted Average Price.
+    Cumulative VWAP from the start of the data (used for long timeframes; for
+    intraday VWAP you'd reset at session open). df needs high, low, close, volume.
+    Returns a Series."""
+    typical = (df['high'] + df['low'] + df['close']) / 3
+    cum_vol = df['volume'].cumsum().replace(0, np.nan)
+    cum_pv = (typical * df['volume']).cumsum()
+    return cum_pv / cum_vol
+
+
+def _ti_williams_r(df, period=14):
+    """Williams %R — momentum oscillator, ranges -100 to 0.
+    Below -80 = oversold, above -20 = overbought."""
+    high_n = df['high'].rolling(period).max()
+    low_n = df['low'].rolling(period).min()
+    return -100 * (high_n - df['close']) / (high_n - low_n).replace(0, np.nan)
+
+
+def _ti_adx(df, period=14):
+    """Average Directional Index — measures trend strength regardless of direction.
+    Below 20 = weak/no trend, 20-40 = trending, above 40 = strong trend.
+    Returns a Series."""
+    high = df['high']; low = df['low']; close = df['close']
+    plus_dm = (high.diff()).where((high.diff() > low.diff().abs()) & (high.diff() > 0), 0.0)
+    minus_dm = (-low.diff()).where((low.diff().abs() > high.diff()) & (low.diff() < 0), 0.0)
+    tr1 = high - low
+    tr2 = (high - close.shift()).abs()
+    tr3 = (low - close.shift()).abs()
+    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+    atr = tr.ewm(alpha=1.0 / period, adjust=False).mean()
+    plus_di = 100 * plus_dm.ewm(alpha=1.0 / period, adjust=False).mean() / atr.replace(0, np.nan)
+    minus_di = 100 * minus_dm.ewm(alpha=1.0 / period, adjust=False).mean() / atr.replace(0, np.nan)
+    dx = 100 * (plus_di - minus_di).abs() / (plus_di + minus_di).replace(0, np.nan)
+    adx = dx.ewm(alpha=1.0 / period, adjust=False).mean()
+    return adx
+
+
+def _detect_candle_pattern(df):
+    """Naive single-candle pattern detection on the most recent bar.
+    Returns (name, bias) where bias is 'bullish', 'bearish', 'reversal', or 'none'.
+
+    Order of checks matters — first match wins. Patterns are only as good as
+    the rule, so we keep them conservative: better to say 'none' than mislabel.
+    """
+    if len(df) < 3:
+        return ('None', 'none')
+    last = df.iloc[-1]
+    prev = df.iloc[-2]
+    o, h, l, c = float(last['open']), float(last['high']), float(last['low']), float(last['close'])
+    po, pc = float(prev['open']), float(prev['close'])
+    body = abs(c - o)
+    rng = h - l
+    if rng <= 0:
+        return ('None', 'none')
+    upper_wick = h - max(o, c)
+    lower_wick = min(o, c) - l
+
+    # Doji: tiny body relative to range
+    if body / rng < 0.1:
+        return ('Doji', 'reversal')
+    # Hammer: long lower wick, small body near top
+    if lower_wick > body * 2 and upper_wick < body * 0.5 and c > o:
+        return ('Hammer', 'bullish')
+    # Shooting Star: long upper wick, small body near bottom
+    if upper_wick > body * 2 and lower_wick < body * 0.5 and c < o:
+        return ('Shooting Star', 'bearish')
+    # Bullish Engulfing
+    if pc < po and c > o and o < pc and c > po:
+        return ('Bullish Engulfing', 'bullish')
+    # Bearish Engulfing
+    if pc > po and c < o and o > pc and c < po:
+        return ('Bearish Engulfing', 'bearish')
+    # Strong directional bar
+    if body / rng > 0.7:
+        return ('Strong Bull Bar' if c > o else 'Strong Bear Bar', 'bullish' if c > o else 'bearish')
+    return ('None', 'none')
+
+
+def _compute_signal_dashboard(ohlc_df):
+    """Compute all signals for the Technical tab dashboard.
+
+    Returns a dict shaped like:
+      {
+        'rsi': {'value': 51.0, 'verdict': 'NEUTRAL', 'color': 'amber'},
+        'ema_cross': {'value': 'EMA 9 > 21', 'verdict': 'BULLISH', 'color': 'green'},
+        'vwap': {'value': '$138.11', 'verdict': 'BEARISH', 'color': 'red'},
+        ...
+      }
+    Each entry has a value (display string) and a verdict (BULLISH/BEARISH/NEUTRAL/etc).
+    """
+    if ohlc_df is None or ohlc_df.empty or len(ohlc_df) < 30:
+        return None
+
+    df = ohlc_df.copy().sort_values('date').reset_index(drop=True)
+    close = df['close']
+
+    rsi = _ti_rsi(close).iloc[-1]
+    if pd.isna(rsi): rsi = 50.0
+    if rsi >= 70:    rsi_verdict, rsi_color = 'OVERBOUGHT', 'red'
+    elif rsi >= 55:  rsi_verdict, rsi_color = 'BULLISH', 'green'
+    elif rsi >= 45:  rsi_verdict, rsi_color = 'NEUTRAL', 'amber'
+    elif rsi >= 30:  rsi_verdict, rsi_color = 'BEARISH', 'red'
+    else:            rsi_verdict, rsi_color = 'OVERSOLD', 'green'
+
+    ema9 = _ti_ema(close, 9).iloc[-1]
+    ema21 = _ti_ema(close, 21).iloc[-1]
+    if ema9 > ema21:
+        ema_verdict, ema_color = 'BULLISH', 'green'
+        ema_val = f'EMA 9 > 21'
+    else:
+        ema_verdict, ema_color = 'BEARISH', 'red'
+        ema_val = f'EMA 9 < 21'
+
+    vwap = _ti_vwap(df).iloc[-1]
+    last_close = close.iloc[-1]
+    if last_close > vwap:
+        vwap_verdict, vwap_color = 'BULLISH', 'green'
+    else:
+        vwap_verdict, vwap_color = 'BEARISH', 'red'
+
+    macd_data = _ti_macd(close)
+    macd_val = macd_data['macd'].iloc[-1]
+    macd_sig = macd_data['signal'].iloc[-1]
+    if macd_val > macd_sig:
+        macd_verdict, macd_color = 'BULLISH', 'green'
+    else:
+        macd_verdict, macd_color = 'BEARISH', 'red'
+
+    wr = _ti_williams_r(df).iloc[-1]
+    if pd.isna(wr): wr = -50.0
+    if wr <= -80:    wr_verdict, wr_color = 'OVERSOLD', 'green'
+    elif wr <= -50:  wr_verdict, wr_color = 'SELL', 'red'
+    elif wr <= -20:  wr_verdict, wr_color = 'NEUTRAL', 'amber'
+    else:            wr_verdict, wr_color = 'OVERBOUGHT', 'red'
+
+    adx = _ti_adx(df).iloc[-1]
+    if pd.isna(adx): adx = 0.0
+    if adx >= 40:    adx_verdict, adx_color = 'STRONG TREND', 'green'
+    elif adx >= 25:  adx_verdict, adx_color = 'TRENDING', 'amber'
+    else:            adx_verdict, adx_color = 'WEAK', 'red'
+
+    pattern_name, pattern_bias = _detect_candle_pattern(df)
+    if pattern_bias == 'bullish':   pattern_verdict, pattern_color = 'BULLISH', 'green'
+    elif pattern_bias == 'bearish': pattern_verdict, pattern_color = 'BEARISH', 'red'
+    elif pattern_bias == 'reversal':pattern_verdict, pattern_color = 'REVERSAL', 'amber'
+    else:                            pattern_verdict, pattern_color = 'NONE', 'dim'
+
+    # Net read: count bullish vs bearish across the 7 signals
+    verdicts = [rsi_color, ema_color, vwap_color, macd_color, wr_color, adx_color, pattern_color]
+    n_bull = verdicts.count('green')
+    n_bear = verdicts.count('red')
+    if n_bull > n_bear + 2:    net_verdict = 'Bullish setup. Multiple confirming signals.'
+    elif n_bear > n_bull + 2:  net_verdict = 'Bearish setup. Multiple confirming signals.'
+    elif n_bull > n_bear:      net_verdict = 'Slight bullish bias, but signals are mixed.'
+    elif n_bear > n_bull:      net_verdict = 'Slight bearish bias, but signals are mixed.'
+    else:                       net_verdict = 'Choppy, range-bound, no clean trend.'
+
+    return {
+        'rsi':       {'value': f'{rsi:.1f}',           'verdict': rsi_verdict,     'color': rsi_color},
+        'ema_cross': {'value': ema_val,                 'verdict': ema_verdict,     'color': ema_color},
+        'vwap':      {'value': f'${vwap:.2f}',          'verdict': vwap_verdict,    'color': vwap_color},
+        'macd':      {'value': f'{macd_val:+.2f}',      'verdict': macd_verdict,    'color': macd_color},
+        'williams':  {'value': f'{wr:.1f}',             'verdict': wr_verdict,      'color': wr_color},
+        'adx':       {'value': f'{adx:.1f}',            'verdict': adx_verdict,     'color': adx_color},
+        'pattern':   {'value': pattern_name,            'verdict': pattern_verdict, 'color': pattern_color},
+        'net_read':  net_verdict,
+        'last_close': float(last_close),
+    }
+
+
+def _signal_color_hex(name):
+    return {'green': '#00D964', 'red': '#FF3B3B', 'amber': '#FFA500', 'dim': '#888888'}.get(name, '#888888')
+
+
+def render_technical_dashboard(ticker, ohlc_df, signals):
+    """Render the PLTR-style signal dashboard panel + price chart + RSI/MACD subplots.
+
+    Layout:
+      Row 1: Title + tagline
+      Row 2: [ Price chart with EMA9/EMA21/VWAP overlay (3/5 width) | Signal cards stack (2/5 width) ]
+      Row 3: [ RSI subplot | MACD subplot ]
+      Row 4: Net read line
+    """
+    if signals is None or ohlc_df is None or ohlc_df.empty:
+        st.info("Not enough price data to compute technical signals.")
+        return
+
+    df = ohlc_df.copy().sort_values('date').reset_index(drop=True)
+
+    # Determine bullish/bearish tilt from the verdicts for the headline
+    n_bull = sum(1 for k in ('rsi', 'ema_cross', 'vwap', 'macd', 'williams', 'adx', 'pattern')
+                 if signals[k]['color'] == 'green')
+    n_bear = sum(1 for k in ('rsi', 'ema_cross', 'vwap', 'macd', 'williams', 'adx', 'pattern')
+                 if signals[k]['color'] == 'red')
+    if n_bull > n_bear:
+        headline = "Bullish Setup with Mixed Confirmation"
+        sub = "The trend reads up. Watch the listed signals for failure."
+    elif n_bear > n_bull:
+        headline = "Bearish Setup with Mixed Confirmation"
+        sub = "The trend reads down. Watch the listed signals for failure."
+    else:
+        headline = "Choppy with No Clean Trend"
+        sub = "Signals are split. Wait for confluence or trade the range."
+
+    st.markdown(f"""
+<div style="background: #0a1628; padding: 24px 32px 8px 32px; margin: 0 -1rem; border-bottom: 1px solid #1a2942;">
+    <div style="color: #00C8FF; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.2em; margin-bottom: 12px;">
+        ▮ TECHNICAL READ — DAILY · {ticker}
+    </div>
+    <div style="font-family: Georgia, 'Times New Roman', serif; font-size: 32px; font-weight: 700; color: #ffffff; line-height: 1.15; margin-bottom: 6px;">
+        {headline}
+    </div>
+    <div style="font-family: Georgia, serif; font-style: italic; font-size: 14px; color: #a0b3cc;">
+        {sub}
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+    # Layout: chart left, signal cards right
+    chart_col, signal_col = st.columns([3, 2], gap="medium")
+
+    with chart_col:
+        # Build price chart with overlays
+        ema9 = _ti_ema(df['close'], 9)
+        ema21 = _ti_ema(df['close'], 21)
+        vwap_series = _ti_vwap(df)
+
+        fig = make_subplots(
+            rows=2, cols=1,
+            shared_xaxes=True,
+            vertical_spacing=0.04,
+            row_heights=[0.72, 0.28],
+            subplot_titles=("", ""),
+        )
+
+        # Volume-colored candles
+        fig.add_trace(go.Candlestick(
+            x=df['date'], open=df['open'], high=df['high'], low=df['low'], close=df['close'],
+            increasing=dict(line=dict(color='#00D964'), fillcolor='#00D964'),
+            decreasing=dict(line=dict(color='#FF3B3B'), fillcolor='#FF3B3B'),
+            name='Price', showlegend=False,
+        ), row=1, col=1)
+
+        fig.add_trace(go.Scatter(
+            x=df['date'], y=ema9, mode='lines', name='EMA 9',
+            line=dict(color='#FFA500', width=1.2),
+        ), row=1, col=1)
+        fig.add_trace(go.Scatter(
+            x=df['date'], y=ema21, mode='lines', name='EMA 21',
+            line=dict(color='#00C8FF', width=1.2),
+        ), row=1, col=1)
+        fig.add_trace(go.Scatter(
+            x=df['date'], y=vwap_series, mode='lines', name='VWAP',
+            line=dict(color='#BF5FFF', width=1.2, dash='dot'),
+        ), row=1, col=1)
+
+        # Volume bars below
+        vol_colors = ['#00D964' if c >= o else '#FF3B3B' for c, o in zip(df['close'], df['open'])]
+        fig.add_trace(go.Bar(
+            x=df['date'], y=df['volume'],
+            marker=dict(color=vol_colors), opacity=0.6,
+            name='Volume', showlegend=False,
+        ), row=2, col=1)
+
+        fig.update_layout(
+            height=460,
+            plot_bgcolor='#0a1628', paper_bgcolor='#0a1628',
+            font=dict(color='#e8e8e8', family='JetBrains Mono, monospace', size=10),
+            margin=dict(t=10, b=20, l=50, r=10),
+            xaxis_rangeslider_visible=False,
+            showlegend=True,
+            legend=dict(orientation='h', y=1.05, x=0, bgcolor='rgba(0,0,0,0)', font=dict(size=10)),
+            hovermode='x unified',
+        )
+        fig.update_xaxes(gridcolor='rgba(255,255,255,0.04)', showspikes=True, spikethickness=1, spikecolor='#888')
+        fig.update_yaxes(gridcolor='rgba(255,255,255,0.04)')
+        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+
+    with signal_col:
+        # Signal Dashboard cards — 7 rows of [label] [value] [verdict badge]
+        cards_html = """<div style="background: #0a1628; padding: 16px 20px; border: 1px solid #1a2942; height: 460px; overflow: hidden;">
+    <div style="color: #00C8FF; font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.2em; margin-bottom: 14px;">SIGNAL DASHBOARD</div>"""
+
+        rows = [
+            ('RSI', signals['rsi']),
+            ('EMA 9 > 21', signals['ema_cross']),
+            ('VWAP', signals['vwap']),
+            ('MACD', signals['macd']),
+            ('Williams %R', signals['williams']),
+            ('ADX', signals['adx']),
+            ('Pattern', signals['pattern']),
+        ]
+        for label, sig in rows:
+            color = _signal_color_hex(sig['color'])
+            cards_html += f"""
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04);">
+        <div style="color: #ffffff; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600;">{label}</div>
+        <div style="color: #e8e8e8; font-family: 'JetBrains Mono', monospace; font-size: 13px; text-align: center;">{sig['value']}</div>
+        <div style="color: {color}; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-align: right;">{sig['verdict']}</div>
+    </div>"""
+
+        cards_html += f"""
+    <div style="margin-top: 14px; color: #00C8FF; font-family: Georgia, serif; font-style: italic; font-size: 12px; line-height: 1.5;">
+        Net read: {signals['net_read']}
+    </div>
+</div>"""
+        st.markdown(cards_html, unsafe_allow_html=True)
+
+    # ── Row 3: RSI + MACD subplots side by side ──
+    rsi_col, macd_col = st.columns(2)
+
+    with rsi_col:
+        rsi_series = _ti_rsi(df['close'])
+        rfig = go.Figure()
+        rfig.add_trace(go.Scatter(x=df['date'], y=rsi_series, mode='lines',
+                                   line=dict(color='#00C8FF', width=1.5), name='RSI'))
+        rfig.add_hline(y=70, line=dict(color='rgba(255,59,59,0.4)', width=1, dash='dot'))
+        rfig.add_hline(y=30, line=dict(color='rgba(0,217,100,0.4)', width=1, dash='dot'))
+        rfig.update_layout(
+            title=dict(text=f'RSI (14) · {rsi_series.iloc[-1]:.1f}', font=dict(size=11, color='#888'), x=0, xanchor='left'),
+            height=180, plot_bgcolor='#0a1628', paper_bgcolor='#0a1628',
+            font=dict(color='#888', family='JetBrains Mono, monospace', size=9),
+            margin=dict(t=30, b=10, l=40, r=10), showlegend=False, yaxis=dict(range=[0, 100]),
+        )
+        rfig.update_xaxes(gridcolor='rgba(255,255,255,0.03)')
+        rfig.update_yaxes(gridcolor='rgba(255,255,255,0.03)')
+        st.plotly_chart(rfig, use_container_width=True, config={'displayModeBar': False})
+
+    with macd_col:
+        m = _ti_macd(df['close'])
+        mfig = go.Figure()
+        # Histogram
+        hist_colors = ['#00D964' if v >= 0 else '#FF3B3B' for v in m['hist']]
+        mfig.add_trace(go.Bar(x=df['date'], y=m['hist'], marker=dict(color=hist_colors), opacity=0.6, showlegend=False))
+        mfig.add_trace(go.Scatter(x=df['date'], y=m['macd'], mode='lines', line=dict(color='#00C8FF', width=1.5), name='MACD'))
+        mfig.add_trace(go.Scatter(x=df['date'], y=m['signal'], mode='lines', line=dict(color='#FFA500', width=1.5), name='Signal'))
+        mfig.update_layout(
+            title=dict(text=f'MACD (12/26/9) · Hist: {m["hist"].iloc[-1]:+.3f}', font=dict(size=11, color='#888'), x=0, xanchor='left'),
+            height=180, plot_bgcolor='#0a1628', paper_bgcolor='#0a1628',
+            font=dict(color='#888', family='JetBrains Mono, monospace', size=9),
+            margin=dict(t=30, b=10, l=40, r=10),
+            legend=dict(orientation='h', y=1, x=1, bgcolor='rgba(0,0,0,0)', font=dict(size=8)),
+        )
+        mfig.update_xaxes(gridcolor='rgba(255,255,255,0.03)')
+        mfig.update_yaxes(gridcolor='rgba(255,255,255,0.03)')
+        st.plotly_chart(mfig, use_container_width=True, config={'displayModeBar': False})
+
+
+def render_terminal_header_strip(ticker, quote, profile=None, key_metrics=None):
+    """Bloomberg-style dense header strip for Company Analysis page top.
+
+    One-line dashboard above all the page content showing the most-watched
+    metrics traders glance at first: ticker, name, last, change %, volume,
+    market cap, P/E, P/S, P/FCF, 52w range as inline bar, dividend yield, beta.
+
+    Pure HTML — renders identically across themes.
+    """
+    if quote is None:
+        return
+
+    name = profile.get('companyName', '') if profile else ''
+    sector = profile.get('sector', '') if profile else ''
+    industry = profile.get('industry', '') if profile else ''
+    last = float(quote.get('price') or 0)
+    change = float(quote.get('change') or 0)
+    change_pct = float(quote.get('changesPercentage') or 0)
+    volume = quote.get('volume') or 0
+    avg_vol = quote.get('avgVolume') or 0
+    mcap = quote.get('marketCap') or 0
+    high_52 = float(quote.get('yearHigh') or 0)
+    low_52 = float(quote.get('yearLow') or 0)
+
+    pe = (key_metrics or {}).get('peRatio') or quote.get('pe')
+    ps = (key_metrics or {}).get('priceToSalesRatio')
+    pfcf = (key_metrics or {}).get('priceToFreeCashFlowsRatio') or (key_metrics or {}).get('pfcfRatio')
+    beta = (profile.get('beta') if profile else None)
+    div_yield = (key_metrics or {}).get('dividendYield')
+
+    def fmt_num(n, suffix='', decimals=2):
+        if n is None or pd.isna(n) or n == 0: return '—'
+        try: return f"{float(n):.{decimals}f}{suffix}"
+        except: return '—'
+
+    def fmt_big(n):
+        if not n: return '—'
+        n = float(n)
+        if abs(n) >= 1e12: return f"${n/1e12:.2f}T"
+        if abs(n) >= 1e9:  return f"${n/1e9:.2f}B"
+        if abs(n) >= 1e6:  return f"${n/1e6:.1f}M"
+        return f"${n:,.0f}"
+
+    def fmt_vol(n):
+        if not n: return '—'
+        n = float(n)
+        if n >= 1e9: return f"{n/1e9:.2f}B"
+        if n >= 1e6: return f"{n/1e6:.1f}M"
+        if n >= 1e3: return f"{n/1e3:.0f}K"
+        return f"{n:,.0f}"
+
+    change_color = '#00D964' if change >= 0 else '#FF3B3B'
+    change_arrow = '▲' if change >= 0 else '▼'
+
+    # 52-week range as an inline bar
+    if high_52 > low_52:
+        pos_pct = max(0, min(100, ((last - low_52) / (high_52 - low_52)) * 100))
+    else:
+        pos_pct = 50
+
+    # Volume vs avg
+    if avg_vol and volume:
+        vol_ratio = volume / avg_vol
+        vol_emphasis = '#FFA500' if vol_ratio > 1.5 else ('#888' if vol_ratio < 0.7 else '#e8e8e8')
+        vol_extra = f" <span style='color:{vol_emphasis}; font-size:10px;'>({vol_ratio:.1f}x avg)</span>"
+    else:
+        vol_extra = ''
+
+    html = f"""
+<div style="background: #0a1628; border: 1px solid #1a2942; padding: 16px 24px; margin-bottom: 16px; font-family: 'JetBrains Mono', 'Menlo', monospace;">
+    <!-- Top row: ticker, name, last, change -->
+    <div style="display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; margin-bottom: 6px;">
+        <span style="color: #FFA500; font-size: 28px; font-weight: 700; letter-spacing: 0.02em;">{ticker}</span>
+        <span style="color: #a0b3cc; font-size: 13px;">{name}</span>
+        <span style="color: #ffffff; font-size: 26px; font-weight: 600; margin-left: auto;">${last:.2f}</span>
+        <span style="color: {change_color}; font-size: 16px; font-weight: 600;">
+            {change_arrow} {change:+.2f} ({change_pct:+.2f}%)
+        </span>
+    </div>
+    <!-- Sector/industry line -->
+    <div style="color: #6b7d99; font-size: 11px; margin-bottom: 14px; letter-spacing: 0.05em;">
+        {sector.upper()}{' · ' + industry if industry else ''}
+    </div>
+    <!-- Dense metric strip -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 16px 24px; padding-top: 12px; border-top: 1px solid #1a2942;">
+        <div><div style="color:#6b7d99; font-size:9px; letter-spacing:0.15em; margin-bottom:2px;">VOLUME</div><div style="color:#e8e8e8; font-size:13px;">{fmt_vol(volume)}{vol_extra}</div></div>
+        <div><div style="color:#6b7d99; font-size:9px; letter-spacing:0.15em; margin-bottom:2px;">MKT CAP</div><div style="color:#e8e8e8; font-size:13px;">{fmt_big(mcap)}</div></div>
+        <div><div style="color:#6b7d99; font-size:9px; letter-spacing:0.15em; margin-bottom:2px;">P/E</div><div style="color:#e8e8e8; font-size:13px;">{fmt_num(pe, 'x')}</div></div>
+        <div><div style="color:#6b7d99; font-size:9px; letter-spacing:0.15em; margin-bottom:2px;">P/S</div><div style="color:#e8e8e8; font-size:13px;">{fmt_num(ps, 'x')}</div></div>
+        <div><div style="color:#6b7d99; font-size:9px; letter-spacing:0.15em; margin-bottom:2px;">P/FCF</div><div style="color:#e8e8e8; font-size:13px;">{fmt_num(pfcf, 'x')}</div></div>
+        <div><div style="color:#6b7d99; font-size:9px; letter-spacing:0.15em; margin-bottom:2px;">BETA</div><div style="color:#e8e8e8; font-size:13px;">{fmt_num(beta)}</div></div>
+        <div><div style="color:#6b7d99; font-size:9px; letter-spacing:0.15em; margin-bottom:2px;">DIV YIELD</div><div style="color:#e8e8e8; font-size:13px;">{fmt_num((div_yield or 0)*100 if div_yield and div_yield < 1 else div_yield, '%')}</div></div>
+        <div style="grid-column: span 2;">
+            <div style="color:#6b7d99; font-size:9px; letter-spacing:0.15em; margin-bottom:2px;">52W RANGE</div>
+            <div style="color:#e8e8e8; font-size:11px; display:flex; align-items:center; gap:8px;">
+                <span>${low_52:.0f}</span>
+                <div style="flex:1; height:4px; background:#1a2942; position:relative; min-width:80px;">
+                    <div style="position:absolute; top:-4px; left:{pos_pct}%; width:2px; height:12px; background:#FFA500; transform:translateX(-1px);"></div>
+                </div>
+                <span>${high_52:.0f}</span>
+            </div>
+        </div>
+    </div>
+</div>
+"""
+    st.markdown(html, unsafe_allow_html=True)
+
+
+# ============= /TECHNICAL INDICATORS =============
+
+
 def get_eps_ttm(ticker, income_df):
     """Get TTM EPS"""
     try:
@@ -23603,7 +24098,69 @@ elif selected_page == "📊 Company Analysis":
     
     # Show data source indicator
     show_data_source(source="Financial Modeling Prep API", updated_at=datetime.now())
-    
+
+    # ============= BLOOMBERG-STYLE HEADER STRIP + TAB SELECTOR =============
+    # Dense one-line dashboard at the top of the page showing the metrics
+    # traders glance at first: ticker, last, change, volume, mcap, valuation
+    # ratios, beta, 52w range. Below that, a tab selector lets users switch
+    # between Overview (existing financial views), Technical (Ultimate-only
+    # PLTR-style indicator dashboard), and any future tabs.
+    try:
+        _hdr_quote = get_quote(ticker)
+        _hdr_profile = get_profile(ticker)
+        _hdr_metrics = get_key_metrics_ttm(ticker)
+        # Cache uses the dict shape FMP returns; some endpoints return a list,
+        # so unwrap if necessary.
+        if isinstance(_hdr_metrics, list) and _hdr_metrics:
+            _hdr_metrics = _hdr_metrics[0]
+        elif not isinstance(_hdr_metrics, dict):
+            _hdr_metrics = {}
+        render_terminal_header_strip(ticker, _hdr_quote, _hdr_profile, _hdr_metrics)
+    except Exception:
+        pass
+
+    # Tab selector — default to Overview, Technical is Ultimate-only
+    _ca_user_tier = get_user_tier()
+    _ca_tab_options = ["📊 Overview", "📈 Technical" + (" 👑" if _ca_user_tier != "ultimate" else "")]
+    _ca_active_tab = st.radio(
+        "View:",
+        _ca_tab_options,
+        horizontal=True,
+        label_visibility="collapsed",
+        key=f"ca_tab_selector_{ticker}",
+    )
+
+    # ── TECHNICAL TAB (Ultimate-only) ──
+    if _ca_active_tab.startswith("📈 Technical"):
+        if _ca_user_tier != "ultimate":
+            st.markdown("""
+<div style="background: #0a1628; border: 1px solid #FFA500; padding: 32px 40px; margin: 24px 0; text-align: center;">
+    <div style="color: #FFA500; font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.2em; margin-bottom: 12px;">👑 ULTIMATE FEATURE</div>
+    <div style="font-family: Georgia, serif; font-size: 24px; color: #ffffff; margin-bottom: 8px;">Technical Read</div>
+    <div style="color: #a0b3cc; font-family: Georgia, serif; font-style: italic; font-size: 14px; margin-bottom: 20px;">
+        Live signal dashboard with RSI, EMA cross, VWAP, MACD, Williams %R, ADX, and pattern detection.
+    </div>
+    <div style="color: #6b7d99; font-size: 12px; font-family: 'JetBrains Mono', monospace;">Upgrade to Ultimate to unlock</div>
+</div>
+""", unsafe_allow_html=True)
+            st.stop()
+        else:
+            try:
+                _tech_ohlc = get_historical_ohlc(ticker, years=1)
+                # Trim to 6 months (~130 trading days) for the daily chart
+                if not _tech_ohlc.empty:
+                    _tech_ohlc = _tech_ohlc.tail(130).reset_index(drop=True)
+                if _tech_ohlc.empty or len(_tech_ohlc) < 30:
+                    st.warning("⚠️ Not enough OHLC history to compute technical signals.")
+                else:
+                    _tech_signals = _compute_signal_dashboard(_tech_ohlc)
+                    render_technical_dashboard(ticker, _tech_ohlc, _tech_signals)
+            except Exception as _tech_e:
+                st.error(f"Technical analysis failed: {type(_tech_e).__name__}: {_tech_e}")
+            st.stop()
+    # ── /TECHNICAL TAB ──
+    # ============= /BLOOMBERG-STYLE HEADER =============
+
     # Read sidebar settings BEFORE data loading
     with st.sidebar:
         years = st.session_state.get('years_of_history', 5)
