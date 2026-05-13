@@ -14404,6 +14404,9 @@ with header_cols[2]:
         if st.button("📡 Dip Radar", key="nav_dip_radar", use_container_width=True):
             st.session_state.selected_page = "📡 Dip Radar"
             st.rerun()
+        if st.button("🎯 Macro Nexus", key="nav_macro_nexus", use_container_width=True):
+            st.session_state.selected_page = "🎯 Macro Nexus"
+            st.rerun()
         if st.button("🎬 Company Deep Dives", key="nav_deep_dives", use_container_width=True):
             st.session_state.selected_page = "🎬 Company Deep Dives"
             st.rerun()
@@ -18224,6 +18227,479 @@ def render_investing_journal():
                         st.caption("FOMO is one of the most common reasons beginner investors lose money. Try waiting 24 hours before any FOMO trade.")
                 if confident_count > 0:
                     st.markdown(f"✅ {confident_count/len(emotions_used)*100:.0f}% of trades made with confidence or full research")
+
+
+
+# ============================================================================
+# 🎯 MACRO NEXUS — Theme-based screener (Technical + Fundamental + Rollup)
+# Inspired by AI Macro Nexus excel: 3 tables on one page
+#   1. Theme Rollup (heat-colored avg exhaustion by theme)
+#   2. Technical Screener (RSI, % vs MAs, 52W dist, ATR, RS, Exh Score, Band, TD Setup)
+#   3. Fundamental Screener (Forward P/E, EPS growth, Forward PEG color-coded)
+# ============================================================================
+
+# Universe organized by AI/macro themes (not pure GICS sectors)
+MACRO_NEXUS_THEMES = {
+    "Mega-Cap AI Platforms": ["MSFT", "AMZN", "META", "AAPL", "GOOGL", "NVDA"],
+    "Whole Rack": ["AMD", "INTC", "MU", "AVGO", "MRVL", "DELL", "SMCI"],
+    "Semicon Architecture": ["QCOM", "ASML", "KLAC", "AMAT", "LRCX", "LSCC", "AMKR", "TSM", "ARM"],
+    "Optical & Interconnects": ["ANET", "CIEN", "COHR", "LITE", "VRT", "FN", "ALAB"],
+    "Chemicals & Materials": ["CC", "ESI", "ENTG", "MKSI", "ROG", "LIN", "APD", "ECL"],
+    "Energy & Infrastructure": ["VST", "CEG", "NRG", "GEV", "FLNC", "ETN", "PWR", "TLN", "EXC", "AES"],
+    "Macro Satellite": ["GLD", "SLV", "USO", "URA", "TLT"],
+    "Financials": ["JPM", "BAC", "GS", "MS", "V", "MA", "BX"],
+    "Healthcare": ["LLY", "UNH", "JNJ", "PFE", "ABBV", "MRK"],
+    "Consumer Disc": ["TSLA", "HD", "NKE", "MCD", "SBUX"],
+    "Consumer Staples": ["WMT", "COST", "PG", "KO", "PEP"],
+}
+
+# Flatten to one list with theme attribution
+_MACRO_NEXUS_TICKERS = []
+_MACRO_NEXUS_TICKER_THEME = {}
+for _theme, _tickers in MACRO_NEXUS_THEMES.items():
+    for _t in _tickers:
+        if _t not in _MACRO_NEXUS_TICKER_THEME:
+            _MACRO_NEXUS_TICKERS.append(_t)
+            _MACRO_NEXUS_TICKER_THEME[_t] = _theme
+
+
+@st.cache_data(ttl=900, show_spinner=False)
+def _macro_fetch_quote_metrics(ticker):
+    """Fetch quote + key-metrics-ttm + analyst-estimates for one ticker. Cached 15min."""
+    out = {"ticker": ticker, "price": None, "mcap": None, "pe_ttm": None,
+           "ps_ttm": None, "div_yield": None, "eps_curr_fy": None, "eps_next_fy": None,
+           "curr_fy_end": None, "next_fy_end": None, "company_name": None, "beta": None}
+    try:
+        # Quote
+        url_q = f"{BASE_URL}/quote?symbol={ticker}&apikey={FMP_API_KEY}"
+        r = requests.get(url_q, timeout=10)
+        if r.status_code == 200:
+            d = r.json()
+            if d:
+                q = d[0]
+                out["price"] = q.get("price")
+                out["mcap"] = q.get("marketCap")
+                out["pe_ttm"] = q.get("pe")
+                out["company_name"] = q.get("name")
+        # Key metrics TTM (for P/S, div yield, beta)
+        url_km = f"{BASE_URL}/key-metrics-ttm/{ticker}?apikey={FMP_API_KEY}"
+        rk = requests.get(url_km, timeout=10)
+        if rk.status_code == 200:
+            dk = rk.json()
+            if dk:
+                k = dk[0]
+                out["ps_ttm"] = k.get("priceToSalesRatioTTM") or k.get("priceToSalesRatio")
+                out["div_yield"] = k.get("dividendYieldTTM") or k.get("dividendYield")
+        # Analyst estimates - annual forward (documented FMP stable endpoint)
+        url_ae = f"{BASE_URL}/analyst-estimates?symbol={ticker}&period=annual&page=0&limit=10&apikey={FMP_API_KEY}"
+        ra = requests.get(url_ae, timeout=10)
+        if ra.status_code == 200:
+            da = ra.json()
+            if da and isinstance(da, list):
+                # Sort by date ascending, pick first 2 future entries
+                today_s = datetime.now().strftime("%Y-%m-%d")
+                future = [x for x in da if x.get("date", "") >= today_s]
+                future_sorted = sorted(future, key=lambda x: x.get("date", ""))
+                # Try multiple field name variants (epsAvg is the documented one)
+                def _grab_eps(rec):
+                    return (rec.get("epsAvg") or rec.get("estimatedEpsAvg")
+                            or rec.get("epsAvgEstimate") or rec.get("eps"))
+                if len(future_sorted) >= 1:
+                    out["eps_curr_fy"] = _grab_eps(future_sorted[0])
+                    out["curr_fy_end"] = future_sorted[0].get("date")
+                if len(future_sorted) >= 2:
+                    out["eps_next_fy"] = _grab_eps(future_sorted[1])
+                    out["next_fy_end"] = future_sorted[1].get("date")
+    except Exception:
+        pass
+    return out
+
+
+@st.cache_data(ttl=900, show_spinner=False)
+def _macro_fetch_history(ticker, days=260):
+    """Fetch ~1Y daily OHLCV for technical analysis. Cached 15min."""
+    try:
+        from_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+        url = f"{BASE_URL}/historical-price-eod/full?symbol={ticker}&from={from_date}&apikey={FMP_API_KEY}"
+        r = requests.get(url, timeout=12)
+        if r.status_code == 200:
+            d = r.json()
+            if isinstance(d, list) and len(d) > 0:
+                df = pd.DataFrame(d)
+                if "date" in df.columns:
+                    df["date"] = pd.to_datetime(df["date"])
+                    df = df.sort_values("date").reset_index(drop=True)
+                    return df
+    except Exception:
+        pass
+    return None
+
+
+def _rsi(series, period=14):
+    """Wilder's RSI."""
+    delta = series.diff()
+    gain = delta.where(delta > 0, 0.0)
+    loss = -delta.where(delta < 0, 0.0)
+    avg_gain = gain.ewm(alpha=1/period, adjust=False).mean()
+    avg_loss = loss.ewm(alpha=1/period, adjust=False).mean()
+    rs = avg_gain / avg_loss.replace(0, np.nan)
+    return 100 - (100 / (1 + rs))
+
+
+def _williams_r(high, low, close, period=14):
+    """Williams %R — negative scale -100 to 0. -20 = overbought, -80 = oversold."""
+    hh = high.rolling(period).max()
+    ll = low.rolling(period).min()
+    return -100 * (hh - close) / (hh - ll).replace(0, np.nan)
+
+
+def _atr_pct(high, low, close, period=14):
+    """ATR as % of close — volatility normalized."""
+    prev_close = close.shift(1)
+    tr = pd.concat([
+        (high - low),
+        (high - prev_close).abs(),
+        (low - prev_close).abs()
+    ], axis=1).max(axis=1)
+    atr = tr.rolling(period).mean()
+    return (atr / close) * 100
+
+
+def _td_setup_count(close):
+    """
+    Tom DeMark Sequential Setup count.
+    Counts consecutive closes greater than the close 4 bars ago (buy setup is the inverse).
+    Returns current sell-setup count (max relevant = 9). Values 8-9 indicate exhaustion.
+    """
+    try:
+        if len(close) < 5:
+            return 0
+        # Sell setup: close > close[t-4]
+        cond_sell = (close > close.shift(4)).astype(int)
+        # Buy setup: close < close[t-4]
+        cond_buy = (close < close.shift(4)).astype(int)
+        # Count current consecutive run at the END of the series
+        sell_count = 0
+        for v in cond_sell.iloc[::-1].values:
+            if v == 1:
+                sell_count += 1
+            else:
+                break
+        buy_count = 0
+        for v in cond_buy.iloc[::-1].values:
+            if v == 1:
+                buy_count += 1
+            else:
+                break
+        # Return whichever is active and cap at 13 (full sequence)
+        if sell_count >= buy_count:
+            return min(sell_count, 13)
+        else:
+            return -min(buy_count, 13)  # negative = buy setup (potential bottom)
+    except Exception:
+        return 0
+
+
+def _macro_compute_technicals(df, spy_returns=None, qqq_returns=None):
+    """Given OHLC df, compute all technical indicators in one shot."""
+    out = {}
+    if df is None or len(df) < 50:
+        return out
+    try:
+        close = df["close"].astype(float)
+        high = df["high"].astype(float)
+        low = df["low"].astype(float)
+        vol = df["volume"].astype(float) if "volume" in df.columns else None
+
+        out["price"] = float(close.iloc[-1])
+
+        # Returns
+        if len(close) >= 6:
+            out["ret_1w"] = (close.iloc[-1] / close.iloc[-6] - 1) * 100
+        if len(close) >= 22:
+            out["ret_1m"] = (close.iloc[-1] / close.iloc[-22] - 1) * 100
+        if len(close) >= 66:
+            out["ret_3m"] = (close.iloc[-1] / close.iloc[-66] - 1) * 100
+
+        # RSI
+        rsi14 = _rsi(close, 14)
+        rsi5 = _rsi(close, 5)
+        out["rsi14"] = float(rsi14.iloc[-1]) if not pd.isna(rsi14.iloc[-1]) else None
+        out["rsi5"] = float(rsi5.iloc[-1]) if not pd.isna(rsi5.iloc[-1]) else None
+
+        # Williams %R
+        wr = _williams_r(high, low, close, 14)
+        out["williams_r"] = float(wr.iloc[-1]) if not pd.isna(wr.iloc[-1]) else None
+
+        # Moving averages
+        ma20 = close.rolling(20).mean()
+        ma50 = close.rolling(50).mean()
+        ma200 = close.rolling(200).mean()
+        if not pd.isna(ma20.iloc[-1]):
+            out["vs_20d"] = (close.iloc[-1] / ma20.iloc[-1] - 1) * 100
+        if not pd.isna(ma50.iloc[-1]):
+            out["vs_50d"] = (close.iloc[-1] / ma50.iloc[-1] - 1) * 100
+        if not pd.isna(ma200.iloc[-1]):
+            out["vs_200d"] = (close.iloc[-1] / ma200.iloc[-1] - 1) * 100
+
+        # MA slopes (% change over 20 days)
+        if len(ma50) >= 21 and not pd.isna(ma50.iloc[-21]):
+            out["slope_50d"] = (ma50.iloc[-1] / ma50.iloc[-21] - 1) * 100
+        if len(ma200) >= 21 and not pd.isna(ma200.iloc[-21]):
+            out["slope_200d"] = (ma200.iloc[-1] / ma200.iloc[-21] - 1) * 100
+
+        # Distance from 52W high
+        hh52 = close.tail(252).max() if len(close) >= 252 else close.max()
+        out["dist_52w_high"] = (close.iloc[-1] / hh52 - 1) * 100
+
+        # ATR%
+        atrp = _atr_pct(high, low, close, 14)
+        out["atr_pct"] = float(atrp.iloc[-1]) if not pd.isna(atrp.iloc[-1]) else None
+
+        # Volume ratio (last vs 20d avg)
+        if vol is not None and len(vol) >= 20:
+            vol_avg = vol.rolling(20).mean()
+            if not pd.isna(vol_avg.iloc[-1]) and vol_avg.iloc[-1] > 0:
+                out["vol_ratio"] = float(vol.iloc[-1] / vol_avg.iloc[-1])
+
+        # Relative strength vs SPY and QQQ (3-month relative return)
+        if spy_returns is not None and len(close) >= 66:
+            stock_3m = (close.iloc[-1] / close.iloc[-66] - 1) * 100
+            out["rs_spy"] = stock_3m - spy_returns
+        if qqq_returns is not None and len(close) >= 66:
+            stock_3m = (close.iloc[-1] / close.iloc[-66] - 1) * 100
+            out["rs_qqq"] = stock_3m - qqq_returns
+
+        # TD Setup
+        out["td_setup"] = _td_setup_count(close)
+
+        # === Composite Exhaustion Score (0-100, absolute) ===
+        # Weights tuned to match the AI Macro Nexus screenshot bands
+        score = 0.0
+        weight_sum = 0.0
+        if out.get("rsi14") is not None:
+            score += 0.30 * out["rsi14"]
+            weight_sum += 0.30
+        if out.get("rsi5") is not None:
+            score += 0.15 * out["rsi5"]
+            weight_sum += 0.15
+        if out.get("williams_r") is not None:
+            wr_norm = max(0, min(100, out["williams_r"] + 100))  # -100..0 -> 0..100
+            score += 0.10 * wr_norm
+            weight_sum += 0.10
+        if out.get("dist_52w_high") is not None:
+            # 0% from high -> 100, -20% -> 0
+            dist_norm = max(0, min(100, 100 + out["dist_52w_high"] * 5))
+            score += 0.20 * dist_norm
+            weight_sum += 0.20
+        if out.get("vs_20d") is not None:
+            # +10% above 20d -> 100, -10% -> 0
+            v20_norm = max(0, min(100, 50 + out["vs_20d"] * 5))
+            score += 0.15 * v20_norm
+            weight_sum += 0.15
+        if out.get("ret_1m") is not None:
+            # +20% 1M return -> 100, -20% -> 0
+            r1m_norm = max(0, min(100, 50 + out["ret_1m"] * 2.5))
+            score += 0.10 * r1m_norm
+            weight_sum += 0.10
+        if weight_sum > 0:
+            out["exh_score"] = score / weight_sum
+
+        # Band classification (absolute thresholds matching the screenshot)
+        sc = out.get("exh_score")
+        if sc is None:
+            out["band"] = "—"
+        elif sc >= 75:
+            out["band"] = "Extreme exhaustion"
+        elif sc >= 60:
+            out["band"] = "Elevated"
+        elif sc >= 40:
+            out["band"] = "Normal"
+        elif sc >= 25:
+            out["band"] = "Weak"
+        else:
+            out["band"] = "Oversold"
+    except Exception:
+        pass
+    return out
+
+
+@st.cache_data(ttl=900, show_spinner=False)
+def _macro_get_benchmark_3m_return(symbol="SPY"):
+    """Get 3-month return for benchmark (for relative strength calc)."""
+    try:
+        from_date = (datetime.now() - timedelta(days=120)).strftime("%Y-%m-%d")
+        url = f"{BASE_URL}/historical-price-eod/light?symbol={symbol}&from={from_date}&apikey={FMP_API_KEY}"
+        r = requests.get(url, timeout=10)
+        if r.status_code == 200:
+            d = r.json()
+            if isinstance(d, list) and len(d) >= 66:
+                df = pd.DataFrame(d).sort_values("date").reset_index(drop=True)
+                close = df["price"] if "price" in df.columns else df["close"]
+                return (close.iloc[-1] / close.iloc[-66] - 1) * 100
+    except Exception:
+        pass
+    return None
+
+
+@st.cache_data(ttl=900, show_spinner=False)
+def _macro_build_screener(_ticker_list_key="default"):
+    """Master orchestrator: fetch + compute for all tickers in universe.
+    Returns DataFrame with one row per ticker + all columns.
+    Uses ThreadPoolExecutor to parallelize FMP calls.
+    The _ticker_list_key arg exists so cache key is stable.
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    # Benchmarks for RS
+    spy_3m = _macro_get_benchmark_3m_return("SPY")
+    qqq_3m = _macro_get_benchmark_3m_return("QQQ")
+
+    rows = []
+    # Use threading - FMP Premium handles 750/min, our 60 tickers x 3 calls = 180 is fine
+    with ThreadPoolExecutor(max_workers=10) as exe:
+        # Stage 1: quote + metrics + estimates
+        fut_qm = {exe.submit(_macro_fetch_quote_metrics, t): t for t in _MACRO_NEXUS_TICKERS}
+        quote_metrics = {}
+        for fut in as_completed(fut_qm):
+            t = fut_qm[fut]
+            try:
+                quote_metrics[t] = fut.result()
+            except Exception:
+                quote_metrics[t] = {"ticker": t}
+
+        # Stage 2: history
+        fut_h = {exe.submit(_macro_fetch_history, t): t for t in _MACRO_NEXUS_TICKERS}
+        histories = {}
+        for fut in as_completed(fut_h):
+            t = fut_h[fut]
+            try:
+                histories[t] = fut.result()
+            except Exception:
+                histories[t] = None
+
+    # Compute and assemble
+    for t in _MACRO_NEXUS_TICKERS:
+        qm = quote_metrics.get(t, {})
+        hist = histories.get(t)
+        tech = _macro_compute_technicals(hist, spy_3m, qqq_3m)
+        # Forward PEG math
+        eps_next = qm.get("eps_next_fy")
+        eps_curr = qm.get("eps_curr_fy")
+        price = qm.get("price") or tech.get("price")
+        fwd_pe = None
+        eps_growth_pct = None
+        fwd_peg = None
+        if eps_next and price and eps_next > 0:
+            fwd_pe = price / eps_next
+        if eps_curr and eps_next and eps_curr > 0:
+            eps_growth_pct = (eps_next / eps_curr - 1) * 100
+        if fwd_pe is not None and eps_growth_pct is not None and eps_growth_pct > 0:
+            fwd_peg = fwd_pe / eps_growth_pct
+
+        rows.append({
+            "ticker": t,
+            "company": qm.get("company_name") or t,
+            "theme": _MACRO_NEXUS_TICKER_THEME.get(t, "Other"),
+            "price": price,
+            "mcap": qm.get("mcap"),
+            "pe_ttm": qm.get("pe_ttm"),
+            "ps_ttm": qm.get("ps_ttm"),
+            "div_yield": qm.get("div_yield"),
+            "eps_curr_fy": eps_curr,
+            "eps_next_fy": eps_next,
+            "curr_fy_end": qm.get("curr_fy_end"),
+            "next_fy_end": qm.get("next_fy_end"),
+            "fwd_pe": fwd_pe,
+            "eps_growth": eps_growth_pct,
+            "fwd_peg": fwd_peg,
+            "ret_1w": tech.get("ret_1w"),
+            "ret_1m": tech.get("ret_1m"),
+            "ret_3m": tech.get("ret_3m"),
+            "rsi14": tech.get("rsi14"),
+            "rsi5": tech.get("rsi5"),
+            "williams_r": tech.get("williams_r"),
+            "vs_20d": tech.get("vs_20d"),
+            "vs_50d": tech.get("vs_50d"),
+            "vs_200d": tech.get("vs_200d"),
+            "slope_50d": tech.get("slope_50d"),
+            "slope_200d": tech.get("slope_200d"),
+            "dist_52w_high": tech.get("dist_52w_high"),
+            "atr_pct": tech.get("atr_pct"),
+            "vol_ratio": tech.get("vol_ratio"),
+            "rs_spy": tech.get("rs_spy"),
+            "rs_qqq": tech.get("rs_qqq"),
+            "td_setup": tech.get("td_setup"),
+            "exh_score": tech.get("exh_score"),
+            "band": tech.get("band", "—"),
+        })
+    return pd.DataFrame(rows)
+
+
+def _fmt_mcap(v):
+    if v is None or pd.isna(v):
+        return "—"
+    if v >= 1e12:
+        return f"${v/1e12:.2f}T"
+    if v >= 1e9:
+        return f"${v/1e9:.1f}B"
+    if v >= 1e6:
+        return f"${v/1e6:.0f}M"
+    return f"${v:,.0f}"
+
+
+def _fmt_pct(v, decimals=1):
+    if v is None or pd.isna(v):
+        return "—"
+    return f"{v:+.{decimals}f}%"
+
+
+def _fmt_num(v, decimals=1, suffix=""):
+    if v is None or pd.isna(v):
+        return "—"
+    return f"{v:.{decimals}f}{suffix}"
+
+
+def _exh_color(score):
+    """Color for exhaustion score cell - matches screenshot."""
+    if score is None or pd.isna(score):
+        return ""
+    if score >= 75:
+        return "background-color:#8B0000;color:#FF6B6B;font-weight:700;"
+    if score >= 60:
+        return "background-color:#5C2A00;color:#FFA500;font-weight:600;"
+    if score >= 40:
+        return "background-color:#2D2D2D;color:#FFFFFF;"
+    if score >= 25:
+        return "background-color:#0F3D0F;color:#90EE90;"
+    return "background-color:#003300;color:#00FF7F;font-weight:600;"
+
+
+def _peg_color(peg):
+    """Color for PEG cell - <1 green, 1-2 amber, >2 red."""
+    if peg is None or pd.isna(peg):
+        return ""
+    if peg < 1:
+        return "background-color:#003300;color:#90EE90;font-weight:700;"
+    if peg < 2:
+        return "background-color:#5C2A00;color:#FFD700;font-weight:600;"
+    return "background-color:#8B0000;color:#FFB0B0;font-weight:600;"
+
+
+def _band_color(band):
+    """Color for the Band column."""
+    if band == "Extreme exhaustion":
+        return "color:#FF6B6B;font-weight:700;"
+    if band == "Elevated":
+        return "color:#FFA500;font-weight:600;"
+    if band == "Normal":
+        return "color:#CCCCCC;"
+    if band == "Weak":
+        return "color:#90EE90;"
+    if band == "Oversold":
+        return "color:#00FF7F;font-weight:600;"
+    return ""
+
 
 
 # ============= DASHBOARD: PREMIUM HOME BASE =============
@@ -31741,6 +32217,362 @@ elif selected_page == "📜 Founder Track Record":
     st.code("https://your-app-url.com/?page=founder-track-record", language="text")
     st.caption("*Share this URL to give others read-only access to the founder's track record.*")
 
+
+
+
+elif selected_page == "🎯 Macro Nexus":
+    # 🔒 Founder-only — non-founders see sign-in CTA instead of the page
+    if not _is_founder_user():
+        _show_signin_gate("Macro Nexus")
+        st.stop()
+
+    # ============= HEADER =============
+    st.markdown("""
+    <div style="background:linear-gradient(135deg,#0D1B2A 0%,#1B263B 100%);
+                border:2px solid #FFD700; border-radius:12px;
+                padding:18px 24px; margin-bottom:16px;">
+        <h1 style="color:#FFD700; margin:0; font-size:26px; letter-spacing:0.5px;">
+            🎯 AI MACRO NEXUS
+        </h1>
+        <p style="color:#90A4AE; margin:4px 0 0 0; font-size:13px;">
+            Theme-based screener · Absolute 1–100 exhaustion · Includes TD Sequential pressure
+            · {dt}
+        </p>
+    </div>
+    """.format(dt=datetime.now().strftime("%B %d, %Y")), unsafe_allow_html=True)
+
+    # Refresh control
+    col_r1, col_r2, col_r3 = st.columns([2, 1, 1])
+    with col_r1:
+        st.caption(f"Universe: {len(_MACRO_NEXUS_TICKERS)} tickers across {len(MACRO_NEXUS_THEMES)} themes. "
+                   "Cached 15 min · Powered by FMP Premium")
+    with col_r3:
+        if st.button("🔄 Refresh data", use_container_width=True, key="macro_refresh"):
+            _macro_build_screener.clear()
+            _macro_fetch_quote_metrics.clear()
+            _macro_fetch_history.clear()
+            _macro_get_benchmark_3m_return.clear()
+            st.rerun()
+
+    # Build screener (cached)
+    with st.spinner("Loading screener data (~30–60s first load, cached after)..."):
+        df = _macro_build_screener("default")
+
+    if df is None or len(df) == 0:
+        st.error("Could not load screener data. Check FMP API key and try refreshing.")
+        st.stop()
+
+    # ============= SUB-TABS =============
+    tab_rollup, tab_tech, tab_fund = st.tabs([
+        "🏆 Theme Rollup",
+        "📈 Technical Screener",
+        "💰 Fundamental Screener"
+    ])
+
+    # ===========================================================
+    # TAB 1: THEME ROLLUP — heat-colored avg exhaustion by theme
+    # ===========================================================
+    with tab_rollup:
+        st.markdown("##### Absolute Exhaustion Scores by Theme")
+        st.caption("Themes ranked by average exhaustion. Extreme ≥75 · Elevated ≥60.")
+
+        roll_rows = []
+        for theme, _tlist in MACRO_NEXUS_THEMES.items():
+            sub = df[df["theme"] == theme]
+            if len(sub) == 0:
+                continue
+            valid = sub.dropna(subset=["exh_score"])
+            if len(valid) == 0:
+                continue
+            avg_exh = valid["exh_score"].mean()
+            n_tickers = len(sub)
+            n_extreme = int((valid["exh_score"] >= 75).sum())
+            n_elevated = int((valid["exh_score"] >= 60).sum())
+            pct_elev_plus = (n_elevated / len(valid) * 100) if len(valid) > 0 else 0
+            # Top name (highest exhaustion in theme)
+            top_name = valid.sort_values("exh_score", ascending=False)["ticker"].iloc[0]
+            roll_rows.append({
+                "Theme": theme,
+                "#": n_tickers,
+                "Avg Exhaustion": round(avg_exh, 1),
+                "Extreme ≥75": n_extreme,
+                "Elevated ≥60": n_elevated,
+                "% Elevated+": round(pct_elev_plus, 1),
+                "Top Name": top_name,
+            })
+        roll_df = pd.DataFrame(roll_rows).sort_values("Avg Exhaustion", ascending=False).reset_index(drop=True) if roll_rows else pd.DataFrame()
+        if len(roll_df) == 0:
+            st.warning("No valid screener data yet. Try clicking 🔄 Refresh.")
+        else:
+            roll_df.insert(0, "Rank", range(1, len(roll_df) + 1))
+
+            # Style the rollup
+            def _style_rollup(row):
+                styles = [""] * len(row)
+                exh = row["Avg Exhaustion"]
+                # Color the Avg Exhaustion cell
+                avg_idx = row.index.get_loc("Avg Exhaustion")
+                if exh >= 60:
+                    styles[avg_idx] = "background-color:#8B0000;color:#FFD700;font-weight:700;font-size:15px;"
+                elif exh >= 40:
+                    styles[avg_idx] = "background-color:#5C2A00;color:#FFA500;font-weight:600;"
+                elif exh >= 25:
+                    styles[avg_idx] = "background-color:#1F3D1F;color:#FFFFFF;"
+                else:
+                    styles[avg_idx] = "background-color:#003300;color:#90EE90;font-weight:600;"
+                return styles
+
+            styled = roll_df.style.apply(_style_rollup, axis=1).format({
+                "Avg Exhaustion": "{:.1f}",
+                "% Elevated+": "{:.1f}",
+            })
+            st.dataframe(styled, use_container_width=True, hide_index=True)
+
+        # ============= TOP 20 MOST EXHAUSTED =============
+        st.markdown("---")
+        st.markdown("##### 🔥 Top 20 Most Exhausted (across all themes)")
+        top_df = df.dropna(subset=["exh_score"]).sort_values("exh_score", ascending=False).head(20).copy()
+        top_df_display = pd.DataFrame({
+            "Rank": range(1, len(top_df) + 1),
+            "Ticker": top_df["ticker"].values,
+            "Company": top_df["company"].values,
+            "Theme": top_df["theme"].values,
+            "Price": top_df["price"].apply(lambda x: f"{x:,.2f}" if x else "—").values,
+            "Exh Score": top_df["exh_score"].round(1).values,
+            "Band": top_df["band"].values,
+            "RSI14": top_df["rsi14"].round(1).values,
+            "RSI5": top_df["rsi5"].round(1).values,
+            "Will %R": top_df["williams_r"].round(1).values,
+            "Dist 52W H": top_df["dist_52w_high"].round(1).values,
+            "TD Setup": top_df["td_setup"].values,
+        })
+
+        def _style_top(row):
+            styles = [""] * len(row)
+            try:
+                exh = float(row["Exh Score"])
+                exh_idx = row.index.get_loc("Exh Score")
+                band_idx = row.index.get_loc("Band")
+                styles[exh_idx] = _exh_color(exh)
+                styles[band_idx] = _band_color(row["Band"])
+            except Exception:
+                pass
+            return styles
+
+        st.dataframe(top_df_display.style.apply(_style_top, axis=1),
+                     use_container_width=True, hide_index=True)
+
+    # ===========================================================
+    # TAB 2: TECHNICAL SCREENER — full table
+    # ===========================================================
+    with tab_tech:
+        st.markdown("##### Full Technical Table")
+
+        # Theme filter
+        col_f1, col_f2 = st.columns([2, 1])
+        with col_f1:
+            theme_filter = st.multiselect(
+                "Filter by theme",
+                options=list(MACRO_NEXUS_THEMES.keys()),
+                default=[],
+                key="macro_tech_theme_filter"
+            )
+        with col_f2:
+            sort_by_tech = st.selectbox(
+                "Sort by",
+                ["Exh Score", "RSI14", "Dist 52W High", "1M Return", "TD Setup"],
+                key="macro_tech_sort"
+            )
+
+        tech_df = df.copy()
+        if theme_filter:
+            tech_df = tech_df[tech_df["theme"].isin(theme_filter)]
+
+        # Apply sort
+        sort_col_map = {
+            "Exh Score": ("exh_score", False),
+            "RSI14": ("rsi14", False),
+            "Dist 52W High": ("dist_52w_high", False),  # Closest to high first
+            "1M Return": ("ret_1m", False),
+            "TD Setup": ("td_setup", False),
+        }
+        sort_col, asc = sort_col_map.get(sort_by_tech, ("exh_score", False))
+        tech_df = tech_df.sort_values(sort_col, ascending=asc, na_position="last").reset_index(drop=True)
+
+        tech_display = pd.DataFrame({
+            "Ticker": tech_df["ticker"].values,
+            "Company": tech_df["company"].values,
+            "Theme": tech_df["theme"].values,
+            "Price": tech_df["price"].apply(lambda x: f"{x:,.2f}" if x else "—").values,
+            "Exh Score": tech_df["exh_score"].round(1).values,
+            "Band": tech_df["band"].values,
+            "RSI14": tech_df["rsi14"].round(1).values,
+            "RSI5": tech_df["rsi5"].round(1).values,
+            "Will %R": tech_df["williams_r"].round(1).values,
+            "1W %": tech_df["ret_1w"].round(1).values,
+            "1M %": tech_df["ret_1m"].round(1).values,
+            "3M %": tech_df["ret_3m"].round(1).values,
+            "vs 20D": tech_df["vs_20d"].round(1).values,
+            "vs 50D": tech_df["vs_50d"].round(1).values,
+            "vs 200D": tech_df["vs_200d"].round(1).values,
+            "50D Slope": tech_df["slope_50d"].round(1).values,
+            "200D Slope": tech_df["slope_200d"].round(1).values,
+            "Dist 52W H": tech_df["dist_52w_high"].round(1).values,
+            "ATR %": tech_df["atr_pct"].round(1).values,
+            "Vol Ratio": tech_df["vol_ratio"].round(1).values,
+            "RS SPY": tech_df["rs_spy"].round(1).values,
+            "RS QQQ": tech_df["rs_qqq"].round(1).values,
+            "TD Setup": tech_df["td_setup"].values,
+        })
+
+        def _style_tech(row):
+            styles = [""] * len(row)
+            try:
+                exh = row["Exh Score"]
+                if not pd.isna(exh):
+                    exh_idx = row.index.get_loc("Exh Score")
+                    styles[exh_idx] = _exh_color(float(exh))
+                band_idx = row.index.get_loc("Band")
+                styles[band_idx] = _band_color(row["Band"])
+                # Color RSI14
+                rsi = row["RSI14"]
+                if not pd.isna(rsi):
+                    rsi_idx = row.index.get_loc("RSI14")
+                    if rsi >= 70:
+                        styles[rsi_idx] = "color:#FF6B6B;font-weight:600;"
+                    elif rsi <= 30:
+                        styles[rsi_idx] = "color:#90EE90;font-weight:600;"
+                # TD Setup color (8-9 = warning)
+                td = row["TD Setup"]
+                if not pd.isna(td):
+                    td_idx = row.index.get_loc("TD Setup")
+                    td_int = int(td)
+                    if td_int >= 8:
+                        styles[td_idx] = "background-color:#8B0000;color:#FFD700;font-weight:700;"
+                    elif td_int >= 6:
+                        styles[td_idx] = "color:#FFA500;font-weight:600;"
+                    elif td_int <= -8:
+                        styles[td_idx] = "background-color:#003300;color:#90EE90;font-weight:700;"
+            except Exception:
+                pass
+            return styles
+
+        st.dataframe(
+            tech_display.style.apply(_style_tech, axis=1),
+            use_container_width=True, hide_index=True, height=600
+        )
+
+        st.caption("**Exh Score**: composite 0–100 (RSI/Williams/distance-from-high/momentum). "
+                   "**TD Setup**: Tom DeMark sequential count — 8–9 = potential reversal zone. "
+                   "**RS SPY/QQQ**: 3-month relative return vs benchmark (points).")
+
+    # ===========================================================
+    # TAB 3: FUNDAMENTAL SCREENER — Forward PEG focus
+    # ===========================================================
+    with tab_fund:
+        st.markdown("##### AI Macro Nexus Fundamentals")
+
+        col_g1, col_g2 = st.columns([2, 1])
+        with col_g1:
+            theme_filter_f = st.multiselect(
+                "Filter by theme",
+                options=list(MACRO_NEXUS_THEMES.keys()),
+                default=[],
+                key="macro_fund_theme_filter"
+            )
+        with col_g2:
+            sort_by_fund = st.selectbox(
+                "Sort by",
+                ["Forward PEG (cheapest first)", "Forward P/E", "EPS Growth", "Market Cap"],
+                key="macro_fund_sort"
+            )
+
+        fund_df = df.copy()
+        if theme_filter_f:
+            fund_df = fund_df[fund_df["theme"].isin(theme_filter_f)]
+
+        sort_map_f = {
+            "Forward PEG (cheapest first)": ("fwd_peg", True),
+            "Forward P/E": ("fwd_pe", True),
+            "EPS Growth": ("eps_growth", False),
+            "Market Cap": ("mcap", False),
+        }
+        s_col, s_asc = sort_map_f.get(sort_by_fund, ("fwd_peg", True))
+        fund_df = fund_df.sort_values(s_col, ascending=s_asc, na_position="last").reset_index(drop=True)
+
+        # Rank within theme
+        fund_df["theme_rank"] = fund_df.groupby("theme")[s_col].rank(
+            ascending=s_asc, method="min", na_option="bottom"
+        ).astype("Int64")
+
+        fund_display = pd.DataFrame({
+            "Theme": fund_df["theme"].values,
+            "Rank": fund_df["theme_rank"].astype(str).values,
+            "Company": fund_df["company"].values,
+            "Ticker": fund_df["ticker"].values,
+            "Market Cap": fund_df["mcap"].apply(_fmt_mcap).values,
+            "Forward P/E": fund_df["fwd_pe"].apply(lambda x: f"{x:.1f}x" if x and not pd.isna(x) else "—").values,
+            "Next-Year EPS Growth": fund_df["eps_growth"].apply(lambda x: f"{x:.1f}%" if x and not pd.isna(x) else "—").values,
+            "Forward PEG": fund_df["fwd_peg"].round(2).values,
+            "Price": fund_df["price"].apply(lambda x: f"{x:,.2f}" if x else "—").values,
+            "Current FY EPS": fund_df["eps_curr_fy"].round(2).values,
+            "Next FY EPS": fund_df["eps_next_fy"].round(2).values,
+            "Current FY End": fund_df["curr_fy_end"].fillna("—").values,
+        })
+
+        def _style_fund(row):
+            styles = [""] * len(row)
+            try:
+                peg = row["Forward PEG"]
+                if not pd.isna(peg):
+                    peg_idx = row.index.get_loc("Forward PEG")
+                    styles[peg_idx] = _peg_color(float(peg))
+            except Exception:
+                pass
+            return styles
+
+        st.dataframe(
+            fund_display.style.apply(_style_fund, axis=1).format({
+                "Forward PEG": "{:.2f}",
+                "Current FY EPS": "{:.2f}",
+                "Next FY EPS": "{:.2f}",
+            }, na_rep="—"),
+            use_container_width=True, hide_index=True, height=600
+        )
+
+        st.caption("**Forward PEG** = Forward P/E ÷ Next-Year EPS Growth %. "
+                   "**Green <1** = cheap growth · **Amber 1–2** = fair · **Red >2** = expensive.")
+
+        # ============= TOP 20 CHEAPEST GROWTH =============
+        st.markdown("---")
+        st.markdown("##### 💎 Top 20 Cheapest Growth (lowest Forward PEG)")
+        cheap_df = df.dropna(subset=["fwd_peg"]).query("fwd_peg > 0").sort_values("fwd_peg").head(20).copy()
+        cheap_display = pd.DataFrame({
+            "Rank": range(1, len(cheap_df) + 1),
+            "Ticker": cheap_df["ticker"].values,
+            "Company": cheap_df["company"].values,
+            "Theme": cheap_df["theme"].values,
+            "Market Cap": cheap_df["mcap"].apply(_fmt_mcap).values,
+            "Forward P/E": cheap_df["fwd_pe"].apply(lambda x: f"{x:.1f}x" if x else "—").values,
+            "EPS Growth": cheap_df["eps_growth"].apply(lambda x: f"{x:.1f}%" if x else "—").values,
+            "Forward PEG": cheap_df["fwd_peg"].round(2).values,
+        })
+
+        def _style_cheap(row):
+            styles = [""] * len(row)
+            try:
+                peg = row["Forward PEG"]
+                if not pd.isna(peg):
+                    peg_idx = row.index.get_loc("Forward PEG")
+                    styles[peg_idx] = _peg_color(float(peg))
+            except Exception:
+                pass
+            return styles
+
+        st.dataframe(
+            cheap_display.style.apply(_style_cheap, axis=1).format({"Forward PEG": "{:.2f}"}),
+            use_container_width=True, hide_index=True
+        )
 
 
 elif selected_page == "💥 Stress Test":
