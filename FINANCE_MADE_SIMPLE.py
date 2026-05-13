@@ -18354,14 +18354,15 @@ def _williams_r(high, low, close, period=14):
 
 
 def _atr_pct(high, low, close, period=14):
-    """ATR as % of close — volatility normalized."""
+    """ATR as % of close — uses Wilder's smoothing (EMA with alpha=1/period)."""
     prev_close = close.shift(1)
     tr = pd.concat([
         (high - low),
         (high - prev_close).abs(),
         (low - prev_close).abs()
     ], axis=1).max(axis=1)
-    atr = tr.rolling(period).mean()
+    # Wilder's smoothing - more accurate than SMA
+    atr = tr.ewm(alpha=1/period, adjust=False).mean()
     return (atr / close) * 100
 
 
@@ -18699,6 +18700,75 @@ def _band_color(band):
     if band == "Oversold":
         return "color:#2ED573;font-weight:800;text-shadow:0 0 6px rgba(46,213,115,0.3);"
     return ""
+
+
+def _macro_signal(exh_score, fwd_peg, td_setup):
+    """Combine exhaustion + valuation + TD setup into a Buy/Sell/Hold verdict.
+    Returns (verdict, color, reasoning).
+
+    Logic:
+      - Extreme exhaustion (>=75) + TD setup 8-9 + expensive PEG => Strong Sell
+      - Extreme exhaustion (>=75) alone => Sell
+      - Oversold (<25) + cheap PEG (<1) => Strong Buy
+      - Oversold (<25) alone => Buy
+      - Cheap PEG (<1) + Normal/Weak exhaustion => Buy
+      - Expensive PEG (>2) + Elevated exhaustion => Sell
+      - Otherwise => Hold
+    """
+    if exh_score is None or pd.isna(exh_score):
+        return ("—", "#999", "Insufficient data")
+
+    # Convert to floats safely
+    try:
+        exh = float(exh_score)
+    except Exception:
+        return ("—", "#999", "Insufficient data")
+
+    peg_val = None
+    if fwd_peg is not None and not pd.isna(fwd_peg) and fwd_peg > 0:
+        try:
+            peg_val = float(fwd_peg)
+        except Exception:
+            pass
+
+    td_val = 0
+    if td_setup is not None and not pd.isna(td_setup):
+        try:
+            td_val = int(td_setup)
+        except Exception:
+            pass
+
+    # Strong Sell: extreme exhaustion + TD reversal signal + expensive
+    if exh >= 75 and td_val >= 8 and peg_val is not None and peg_val > 2:
+        return ("STRONG SELL", "#B00020", "Extreme exhaustion + TD 8-9 + expensive valuation")
+    # Strong Sell: extreme exhaustion + TD signal
+    if exh >= 75 and td_val >= 8:
+        return ("STRONG SELL", "#B00020", "Extreme exhaustion + TD reversal signal")
+    # Sell: extreme exhaustion
+    if exh >= 75:
+        return ("SELL", "#E53935", "Extreme exhaustion zone — reversion risk high")
+    # Sell: elevated + expensive
+    if exh >= 60 and peg_val is not None and peg_val > 2:
+        return ("SELL", "#E53935", "Elevated exhaustion + expensive valuation")
+
+    # Strong Buy: oversold + cheap growth
+    if exh < 25 and peg_val is not None and peg_val < 1:
+        return ("STRONG BUY", "#1B5E20", "Oversold + cheap growth (PEG<1)")
+    # Strong Buy: oversold + TD buy setup
+    if exh < 25 and td_val <= -8:
+        return ("STRONG BUY", "#1B5E20", "Oversold + TD buy setup")
+    # Buy: oversold or weak
+    if exh < 25:
+        return ("BUY", "#388E3C", "Oversold — potential bounce zone")
+    if exh < 40 and peg_val is not None and peg_val < 1:
+        return ("BUY", "#388E3C", "Weak momentum + cheap growth")
+    if peg_val is not None and peg_val < 1 and exh < 60:
+        return ("BUY", "#388E3C", "Cheap growth (PEG<1) + non-overbought")
+
+    # Hold default
+    if exh >= 60:
+        return ("HOLD-CAUTION", "#F57C00", "Elevated exhaustion — caution on adds")
+    return ("HOLD", "#616161", "No strong signal either direction")
 
 
 
@@ -32236,77 +32306,133 @@ elif selected_page == "🎯 Macro Nexus":
         """, unsafe_allow_html=True)
         st.stop()
 
-    # ─── TERMINAL CSS (scoped via wrapper class) ──────────────────────────────
+    # ─── LIGHT-MODE MODERN CSS ────────────────────────────────────────────────
     st.markdown("""
     <style>
-    /* Header strip */
-    .nexus-hero {
-        background: linear-gradient(135deg, #050B14 0%, #0D1B2A 50%, #1B263B 100%);
-        border: 1px solid #1F2937;
-        border-radius: 14px;
-        padding: 22px 28px;
-        margin-bottom: 14px;
-        box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+    /* Header */
+    .nx-hero {
+        background: linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #334155 100%);
+        border-radius: 16px;
+        padding: 24px 32px;
+        margin-bottom: 18px;
+        box-shadow: 0 10px 40px rgba(15,23,42,0.15), 0 0 0 1px rgba(255,215,0,0.1);
         position: relative;
         overflow: hidden;
     }
-    .nexus-hero::before {
-        content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    .nx-hero::before {
+        content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
         background: linear-gradient(90deg, #FFD700 0%, #FF6B35 50%, #FFD700 100%);
     }
-    .nexus-title {
-        font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
-        color: #FFD700; margin: 0; font-size: 28px; font-weight: 700;
-        letter-spacing: 2px; text-shadow: 0 0 12px rgba(255,215,0,0.25);
+    .nx-hero h1 {
+        font-family: -apple-system, 'SF Pro Display', system-ui, sans-serif;
+        color: #FFD700; margin: 0; font-size: 30px; font-weight: 700;
+        letter-spacing: 1.5px;
     }
-    .nexus-sub {
-        font-family: 'JetBrains Mono', monospace;
-        color: #6B7C93; margin: 6px 0 0 0; font-size: 12px;
-        letter-spacing: 1px; text-transform: uppercase;
+    .nx-hero .sub {
+        color: #94A3B8; margin: 6px 0 0 0; font-size: 13px;
+        letter-spacing: 0.5px; font-family: 'SF Mono', Monaco, Consolas, monospace;
     }
-    /* KPI tiles */
-    .nexus-kpis { display: flex; gap: 12px; margin: 12px 0 18px 0; flex-wrap: wrap; }
-    .nexus-kpi {
-        flex: 1; min-width: 140px;
-        background: linear-gradient(180deg, #0F1A2A 0%, #0A1320 100%);
-        border: 1px solid #1F2937; border-radius: 10px;
-        padding: 12px 16px;
+
+    /* KPI tiles - LIGHT background so text is readable */
+    .nx-kpi-row { display: flex; gap: 14px; margin: 16px 0 20px 0; flex-wrap: wrap; }
+    .nx-kpi {
+        flex: 1; min-width: 150px;
+        background: #FFFFFF;
+        border: 1px solid #E5E7EB;
+        border-radius: 12px;
+        padding: 16px 18px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
+        transition: transform 0.15s, box-shadow 0.15s;
     }
-    .nexus-kpi-label {
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 10px; color: #6B7C93; text-transform: uppercase; letter-spacing: 1.2px;
-        margin: 0 0 6px 0;
+    .nx-kpi:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+    .nx-kpi-label {
+        font-size: 11px; color: #6B7280; text-transform: uppercase;
+        letter-spacing: 1.2px; margin: 0 0 8px 0; font-weight: 600;
     }
-    .nexus-kpi-value {
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 22px; font-weight: 700; color: #E0E6ED; margin: 0;
+    .nx-kpi-val {
+        font-family: -apple-system, system-ui, sans-serif;
+        font-size: 28px; font-weight: 700; margin: 0; line-height: 1;
     }
-    .nexus-kpi-value.red { color: #FF4757; text-shadow: 0 0 8px rgba(255,71,87,0.3); }
-    .nexus-kpi-value.amber { color: #FFA726; text-shadow: 0 0 8px rgba(255,167,38,0.3); }
-    .nexus-kpi-value.green { color: #2ED573; text-shadow: 0 0 8px rgba(46,213,115,0.3); }
-    .nexus-kpi-value.gold { color: #FFD700; text-shadow: 0 0 8px rgba(255,215,0,0.3); }
-    /* Section caption */
-    .nexus-section {
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 11px; color: #FFD700; letter-spacing: 2px;
-        text-transform: uppercase; margin: 18px 0 8px 0;
-        padding-bottom: 6px; border-bottom: 1px solid #1F2937;
+    .nx-kpi-val.red { color: #DC2626; }
+    .nx-kpi-val.amber { color: #D97706; }
+    .nx-kpi-val.green { color: #059669; }
+    .nx-kpi-val.gold { color: #B45309; }
+    .nx-kpi-val.neutral { color: #1F2937; }
+    .nx-kpi-accent { width: 32px; height: 3px; border-radius: 2px; margin-top: 10px; }
+    .nx-kpi-accent.red { background: #DC2626; }
+    .nx-kpi-accent.amber { background: #D97706; }
+    .nx-kpi-accent.green { background: #059669; }
+    .nx-kpi-accent.gold { background: #B45309; }
+    .nx-kpi-accent.neutral { background: #94A3B8; }
+
+    /* Section headers */
+    .nx-section {
+        font-size: 14px; color: #0F172A; font-weight: 700; letter-spacing: 0.3px;
+        margin: 22px 0 4px 0; display: flex; align-items: center; gap: 10px;
+        padding-bottom: 10px; border-bottom: 2px solid #F1F5F9;
     }
-    .nexus-section-sub {
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 11px; color: #6B7C93; margin: -4px 0 10px 0;
+    .nx-section .badge {
+        background: #FFD700; color: #0F172A; padding: 2px 8px;
+        border-radius: 4px; font-size: 11px; font-weight: 700;
     }
+    .nx-section-sub {
+        font-size: 12px; color: #64748B; margin: -2px 0 12px 0;
+    }
+
+    /* Custom HTML tables */
+    .nx-table {
+        width: 100%; border-collapse: collapse;
+        font-family: -apple-system, system-ui, sans-serif;
+        font-size: 13px; margin: 8px 0 20px 0;
+        background: #FFFFFF; border-radius: 10px; overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.06);
+    }
+    .nx-table thead tr {
+        background: linear-gradient(180deg, #F8FAFC 0%, #F1F5F9 100%);
+        border-bottom: 2px solid #E2E8F0;
+    }
+    .nx-table th {
+        padding: 11px 12px; text-align: left; color: #475569;
+        font-weight: 600; font-size: 11px; text-transform: uppercase;
+        letter-spacing: 0.8px;
+    }
+    .nx-table td {
+        padding: 11px 12px; border-bottom: 1px solid #F1F5F9;
+        color: #0F172A;
+    }
+    .nx-table tbody tr:hover { background: #FAFBFC; }
+    .nx-table tbody tr:last-child td { border-bottom: none; }
+    .nx-num { font-family: 'SF Mono', Monaco, Consolas, monospace; font-variant-numeric: tabular-nums; }
+    .nx-tk { font-weight: 700; color: #0F172A; }
+    .nx-rank { color: #94A3B8; font-weight: 600; font-size: 12px; }
+
+    /* Signal pills */
+    .nx-pill {
+        display: inline-block; padding: 3px 10px; border-radius: 12px;
+        font-size: 11px; font-weight: 700; letter-spacing: 0.4px;
+    }
+
+    /* Cell heat colors */
+    .heat-extreme { background: linear-gradient(90deg, #FEE2E2, #FECACA); color: #991B1B; font-weight: 700; }
+    .heat-elev { background: linear-gradient(90deg, #FED7AA, #FDBA74); color: #9A3412; font-weight: 700; }
+    .heat-normal { background: #F8FAFC; color: #334155; }
+    .heat-weak { background: linear-gradient(90deg, #D1FAE5, #A7F3D0); color: #065F46; font-weight: 600; }
+    .heat-oversold { background: linear-gradient(90deg, #BBF7D0, #86EFAC); color: #14532D; font-weight: 700; }
+
+    .peg-cheap { background: linear-gradient(90deg, #BBF7D0, #86EFAC); color: #14532D; font-weight: 700; }
+    .peg-fair { background: linear-gradient(90deg, #FED7AA, #FDBA74); color: #9A3412; font-weight: 700; }
+    .peg-exp { background: linear-gradient(90deg, #FECACA, #FCA5A5); color: #991B1B; font-weight: 700; }
+
+    .td-warn { background: #FEE2E2; color: #991B1B; font-weight: 800; padding: 2px 6px; border-radius: 4px; }
+    .td-buy { background: #D1FAE5; color: #065F46; font-weight: 800; padding: 2px 6px; border-radius: 4px; }
     </style>
     """, unsafe_allow_html=True)
 
     # ─── HEADER ───────────────────────────────────────────────────────────────
     st.markdown(f"""
-    <div class="nexus-hero">
-        <h1 class="nexus-title">⊕ AI MACRO NEXUS</h1>
-        <p class="nexus-sub">
-            Theme screener · Absolute 1–100 exhaustion · TD Sequential pressure
-            · {datetime.now().strftime("%b %d, %Y · %H:%M")}
-        </p>
+    <div class="nx-hero">
+        <h1>⊕ AI MACRO NEXUS</h1>
+        <p class="sub">Theme screener · Absolute 1–100 exhaustion · TD Sequential pressure · {datetime.now().strftime("%b %d, %Y · %H:%M")}</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -32330,16 +32456,55 @@ elif selected_page == "🎯 Macro Nexus":
         st.error("Could not load screener data. Check FMP API key and try refreshing.")
         st.stop()
 
-    # ─── SAFE ROUND HELPER (handles all-None columns) ─────────────────────────
+    # ─── SAFE HELPERS ─────────────────────────────────────────────────────────
     def _safe_round(series, decimals=1):
-        """Convert to numeric (None -> NaN) then round. Avoids the round() NoneType crash."""
         return pd.to_numeric(series, errors='coerce').round(decimals)
 
     def _safe_int(series):
-        """Convert to nullable Int64 — handles None gracefully."""
         return pd.to_numeric(series, errors='coerce').astype('Int64')
 
-    # ─── KPI STRIP (universe-wide stats) ──────────────────────────────────────
+    def _exh_class(v):
+        if v is None or pd.isna(v): return "heat-normal"
+        if v >= 75: return "heat-extreme"
+        if v >= 60: return "heat-elev"
+        if v >= 40: return "heat-normal"
+        if v >= 25: return "heat-weak"
+        return "heat-oversold"
+
+    def _peg_class(v):
+        if v is None or pd.isna(v): return ""
+        if v < 1: return "peg-cheap"
+        if v < 2: return "peg-fair"
+        return "peg-exp"
+
+    def _signal_pill(verdict, color):
+        bg_map = {
+            "STRONG BUY": "#D1FAE5", "BUY": "#DCFCE7",
+            "HOLD": "#F1F5F9", "HOLD-CAUTION": "#FEF3C7",
+            "SELL": "#FEE2E2", "STRONG SELL": "#FECACA",
+            "—": "#F1F5F9",
+        }
+        bg = bg_map.get(verdict, "#F1F5F9")
+        return f'<span class="nx-pill" style="background:{bg};color:{color};">{verdict}</span>'
+
+    def _fmt_cell(v, decimals=1, suffix="", prefix=""):
+        if v is None or pd.isna(v): return "—"
+        try:
+            return f"{prefix}{float(v):.{decimals}f}{suffix}"
+        except Exception:
+            return "—"
+
+    def _td_cell(v):
+        if v is None or pd.isna(v): return "—"
+        try:
+            iv = int(v)
+            if iv >= 8: return f'<span class="td-warn">{iv}</span>'
+            if iv <= -8: return f'<span class="td-buy">{iv}</span>'
+            return str(iv)
+        except Exception:
+            return "—"
+
+    # ─── KPI STRIP ────────────────────────────────────────────────────────────
     valid_exh = df["exh_score"].dropna()
     valid_peg = df["fwd_peg"].dropna()
     valid_peg = valid_peg[valid_peg > 0]
@@ -32349,36 +32514,60 @@ elif selected_page == "🎯 Macro Nexus":
     cheap_peg_count = int((valid_peg < 1).sum())
     most_exh_ticker = df.loc[df["exh_score"].idxmax(), "ticker"] if len(valid_exh) > 0 else "—"
 
-    def _kpi_color(v, thr_hi=60, thr_lo=40):
-        if v >= 75: return "red"
-        if v >= thr_hi: return "amber"
-        if v <= thr_lo - 15: return "green"
-        return ""
+    avg_color = "red" if avg_exh_universe >= 70 else "amber" if avg_exh_universe >= 55 else "green" if avg_exh_universe <= 40 else "neutral"
+    ext_color = "red" if n_extreme >= 5 else "amber" if n_extreme >= 2 else "neutral"
+    elev_color = "amber" if n_elevated >= 8 else "neutral"
 
     st.markdown(f"""
-    <div class="nexus-kpis">
-        <div class="nexus-kpi">
-            <p class="nexus-kpi-label">Universe Avg Exh</p>
-            <p class="nexus-kpi-value {_kpi_color(avg_exh_universe)}">{avg_exh_universe:.1f}</p>
+    <div class="nx-kpi-row">
+        <div class="nx-kpi">
+            <p class="nx-kpi-label">Universe Avg Exh</p>
+            <p class="nx-kpi-val {avg_color}">{avg_exh_universe:.1f}</p>
+            <div class="nx-kpi-accent {avg_color}"></div>
         </div>
-        <div class="nexus-kpi">
-            <p class="nexus-kpi-label">Extreme ≥75</p>
-            <p class="nexus-kpi-value {'red' if n_extreme >= 5 else 'amber' if n_extreme >= 2 else ''}">{n_extreme}</p>
+        <div class="nx-kpi">
+            <p class="nx-kpi-label">Extreme ≥75</p>
+            <p class="nx-kpi-val {ext_color}">{n_extreme}</p>
+            <div class="nx-kpi-accent {ext_color}"></div>
         </div>
-        <div class="nexus-kpi">
-            <p class="nexus-kpi-label">Elevated ≥60</p>
-            <p class="nexus-kpi-value {'amber' if n_elevated >= 5 else ''}">{n_elevated}</p>
+        <div class="nx-kpi">
+            <p class="nx-kpi-label">Elevated ≥60</p>
+            <p class="nx-kpi-val {elev_color}">{n_elevated}</p>
+            <div class="nx-kpi-accent {elev_color}"></div>
         </div>
-        <div class="nexus-kpi">
-            <p class="nexus-kpi-label">Cheap PEG &lt;1</p>
-            <p class="nexus-kpi-value green">{cheap_peg_count}</p>
+        <div class="nx-kpi">
+            <p class="nx-kpi-label">Cheap PEG &lt;1</p>
+            <p class="nx-kpi-val green">{cheap_peg_count}</p>
+            <div class="nx-kpi-accent green"></div>
         </div>
-        <div class="nexus-kpi">
-            <p class="nexus-kpi-label">Top Exhausted</p>
-            <p class="nexus-kpi-value gold">{most_exh_ticker}</p>
+        <div class="nx-kpi">
+            <p class="nx-kpi-label">Top Exhausted</p>
+            <p class="nx-kpi-val gold">{most_exh_ticker}</p>
+            <div class="nx-kpi-accent gold"></div>
         </div>
     </div>
     """, unsafe_allow_html=True)
+
+    # ─── HOW SIGNALS WORK (top-level) ─────────────────────────────────────────
+    with st.expander("📖 How to read this screener (Buy/Sell/Hold logic)", expanded=False):
+        st.markdown("""
+        **Signal verdicts** combine three factors:
+
+        | Verdict | When | What it means |
+        |---|---|---|
+        | 🟢 **STRONG BUY** | Oversold (Exh<25) + cheap PEG (<1)  *or*  Oversold + TD buy setup | Stretched to the downside on technicals AND priced cheap for the growth — best risk/reward |
+        | 🟢 **BUY** | Oversold alone, OR cheap PEG + non-overbought, OR weak momentum + cheap PEG | Mean-reversion candidate or value setup |
+        | ⚪ **HOLD** | Normal exhaustion, no extreme valuation signal | No strong edge either direction |
+        | 🟡 **HOLD-CAUTION** | Elevated exhaustion (60-74) | Trim winners but not yet a full sell |
+        | 🔴 **SELL** | Extreme exhaustion (≥75), OR elevated + expensive PEG (>2) | Reversion risk is high — consider trimming |
+        | 🔴 **STRONG SELL** | Extreme exhaustion + TD 8-9, especially with expensive PEG | Classic distribution/exhaustion top setup |
+
+        **Important caveats:**
+        - Exhaustion scores are momentum-based, not fundamental. A stock can stay overbought longer than you can stay solvent on a short.
+        - Signals are for swing-trade timing (days–weeks), not long-term theses.
+        - TD Sequential 9 print doesn't guarantee a top — it's a *probabilistic* exhaustion bar.
+        - For oversold buy setups, look for trend confirmation (price > 20D MA bouncing).
+        """)
 
     # ─── TABS ─────────────────────────────────────────────────────────────────
     tab_rollup, tab_tech, tab_fund = st.tabs([
@@ -32391,8 +32580,21 @@ elif selected_page == "🎯 Macro Nexus":
     # TAB 1: THEME ROLLUP
     # ════════════════════════════════════════════════════════════════════════
     with tab_rollup:
-        st.markdown('<div class="nexus-section">▌ Absolute Exhaustion Scores by Theme</div>', unsafe_allow_html=True)
-        st.markdown('<div class="nexus-section-sub">Themes ranked by average exhaustion · Extreme ≥75 · Elevated ≥60</div>', unsafe_allow_html=True)
+        with st.expander("📖 What these terms mean (Theme Rollup)", expanded=False):
+            st.markdown("""
+            - **Theme** – Grouping of stocks by AI/macro narrative (e.g., Whole Rack = chips powering AI training racks)
+            - **# tickers** – How many stocks in this theme
+            - **Avg Exhaustion** – Average composite exhaustion score (0–100) across stocks in the theme. Higher = more stretched.
+            - **Extreme ≥75** – Count of stocks in the theme scoring ≥75 (true exhaustion zone)
+            - **Elevated ≥60** – Count of stocks scoring ≥60 (caution zone)
+            - **% Elev+** – Percentage of the theme that's in the elevated zone or higher
+            - **Top Name** – Most exhausted single stock in the theme
+
+            **How to use:** A theme with high Avg Exhaustion AND high % Elev+ is broadly stretched — risk-off signal for that whole basket. Look for themes with LOW avg exhaustion as candidates for rotation.
+            """)
+
+        st.markdown('<div class="nx-section"><span class="badge">▌</span>Absolute Exhaustion Scores by Theme</div>', unsafe_allow_html=True)
+        st.markdown('<div class="nx-section-sub">Themes ranked by average exhaustion · Extreme ≥75 · Elevated ≥60</div>', unsafe_allow_html=True)
 
         roll_rows = []
         for theme, _tlist in MACRO_NEXUS_THEMES.items():
@@ -32409,92 +32611,116 @@ elif selected_page == "🎯 Macro Nexus":
             pct_elev_plus = (n_elevated / len(valid) * 100) if len(valid) > 0 else 0
             top_name = valid.sort_values("exh_score", ascending=False)["ticker"].iloc[0]
             roll_rows.append({
-                "Theme": theme,
-                "#": n_tickers,
-                "Avg Exh": round(avg_exh, 1),
-                "Extreme ≥75": n_extreme,
-                "Elevated ≥60": n_elevated,
-                "% Elev+": round(pct_elev_plus, 1),
-                "Top Name": top_name,
+                "theme": theme, "n": n_tickers, "avg_exh": avg_exh,
+                "n_ext": n_extreme, "n_elev": n_elevated,
+                "pct_elev": pct_elev_plus, "top": top_name,
             })
+        roll_rows.sort(key=lambda x: x["avg_exh"], reverse=True)
 
-        roll_df = pd.DataFrame(roll_rows).sort_values("Avg Exh", ascending=False).reset_index(drop=True) if roll_rows else pd.DataFrame()
-
-        if len(roll_df) == 0:
+        if not roll_rows:
             st.warning("No valid screener data yet. Try clicking 🔄 Refresh.")
         else:
-            roll_df.insert(0, "Rank", range(1, len(roll_df) + 1))
+            html = ['<table class="nx-table">']
+            html.append('<thead><tr>'
+                        '<th style="width:50px">Rank</th>'
+                        '<th>Theme</th>'
+                        '<th style="text-align:center">#</th>'
+                        '<th style="text-align:right">Avg Exh</th>'
+                        '<th style="text-align:center">Extreme ≥75</th>'
+                        '<th style="text-align:center">Elevated ≥60</th>'
+                        '<th style="text-align:right">% Elev+</th>'
+                        '<th>Top Name</th>'
+                        '</tr></thead><tbody>')
+            for i, r in enumerate(roll_rows, 1):
+                exh_cls = _exh_class(r["avg_exh"])
+                html.append(
+                    f'<tr>'
+                    f'<td class="nx-rank">{i}</td>'
+                    f'<td><b>{r["theme"]}</b></td>'
+                    f'<td class="nx-num" style="text-align:center">{r["n"]}</td>'
+                    f'<td class="nx-num {exh_cls}" style="text-align:right;font-size:14px;">{r["avg_exh"]:.1f}</td>'
+                    f'<td class="nx-num" style="text-align:center">{r["n_ext"]}</td>'
+                    f'<td class="nx-num" style="text-align:center">{r["n_elev"]}</td>'
+                    f'<td class="nx-num" style="text-align:right">{r["pct_elev"]:.1f}%</td>'
+                    f'<td class="nx-tk">{r["top"]}</td>'
+                    f'</tr>'
+                )
+            html.append('</tbody></table>')
+            st.markdown(''.join(html), unsafe_allow_html=True)
 
-            def _style_rollup(row):
-                styles = [""] * len(row)
-                exh = row["Avg Exh"]
-                avg_idx = row.index.get_loc("Avg Exh")
-                if exh >= 70:
-                    styles[avg_idx] = "background:linear-gradient(90deg,#8B0000,#5C0000);color:#FFD700;font-weight:800;font-size:14px;"
-                elif exh >= 60:
-                    styles[avg_idx] = "background:linear-gradient(90deg,#7A1F00,#4A1300);color:#FFA726;font-weight:700;"
-                elif exh >= 45:
-                    styles[avg_idx] = "background:linear-gradient(90deg,#5C2A00,#3D1B00);color:#FFD580;font-weight:600;"
-                elif exh >= 30:
-                    styles[avg_idx] = "background:linear-gradient(90deg,#2D2D2D,#1A1A1A);color:#E0E6ED;"
-                else:
-                    styles[avg_idx] = "background:linear-gradient(90deg,#003D00,#002600);color:#90EE90;font-weight:600;"
-                return styles
-
-            styled = roll_df.style.apply(_style_rollup, axis=1).format({
-                "Avg Exh": "{:.1f}",
-                "% Elev+": "{:.1f}",
-            })
-            st.dataframe(styled, use_container_width=True, hide_index=True)
-
-        # ─── Top 20 Most Exhausted ──────────────────────────────────────────
-        st.markdown('<div class="nexus-section">🔥 Top 20 Most Exhausted (across all themes)</div>', unsafe_allow_html=True)
+        # ─── Top 20 Most Exhausted with SIGNAL column ──────────────────────
+        st.markdown('<div class="nx-section"><span class="badge">🔥</span>Top 20 Most Exhausted (across all themes)</div>', unsafe_allow_html=True)
 
         top_df = df.dropna(subset=["exh_score"]).sort_values("exh_score", ascending=False).head(20).copy()
         if len(top_df) == 0:
             st.info("No exhaustion data available.")
         else:
-            top_display = pd.DataFrame({
-                "Rank": range(1, len(top_df) + 1),
-                "Ticker": top_df["ticker"].values,
-                "Company": top_df["company"].values,
-                "Theme": top_df["theme"].values,
-                "Price": top_df["price"].apply(lambda x: f"{x:,.2f}" if x else "—").values,
-                "Exh Score": _safe_round(top_df["exh_score"], 1).values,
-                "Band": top_df["band"].values,
-                "RSI14": _safe_round(top_df["rsi14"], 1).values,
-                "RSI5": _safe_round(top_df["rsi5"], 1).values,
-                "Will %R": _safe_round(top_df["williams_r"], 1).values,
-                "Dist 52W H": _safe_round(top_df["dist_52w_high"], 1).values,
-                "TD Setup": _safe_int(top_df["td_setup"]).values,
-            })
-
-            def _style_top(row):
-                styles = [""] * len(row)
-                try:
-                    exh = row["Exh Score"]
-                    if not pd.isna(exh):
-                        exh_idx = row.index.get_loc("Exh Score")
-                        styles[exh_idx] = _exh_color(float(exh))
-                    band_idx = row.index.get_loc("Band")
-                    styles[band_idx] = _band_color(row["Band"])
-                except Exception:
-                    pass
-                return styles
-
-            st.dataframe(
-                top_display.style.apply(_style_top, axis=1).format({
-                    "Exh Score": "{:.1f}", "RSI14": "{:.1f}", "RSI5": "{:.1f}",
-                    "Will %R": "{:.1f}", "Dist 52W H": "{:.1f}",
-                }, na_rep="—"),
-                use_container_width=True, hide_index=True
-            )
+            html = ['<table class="nx-table">']
+            html.append('<thead><tr>'
+                        '<th style="width:40px">#</th>'
+                        '<th>Ticker</th>'
+                        '<th>Company</th>'
+                        '<th>Theme</th>'
+                        '<th style="text-align:right">Price</th>'
+                        '<th style="text-align:right">Exh Score</th>'
+                        '<th>Band</th>'
+                        '<th style="text-align:right">RSI14</th>'
+                        '<th style="text-align:right">Will %R</th>'
+                        '<th style="text-align:right">Dist 52W H</th>'
+                        '<th style="text-align:center">TD Setup</th>'
+                        '<th>Signal</th>'
+                        '</tr></thead><tbody>')
+            for i, (_, row) in enumerate(top_df.iterrows(), 1):
+                exh = row["exh_score"]
+                exh_cls = _exh_class(exh)
+                verdict, color, _ = _macro_signal(exh, row.get("fwd_peg"), row.get("td_setup"))
+                html.append(
+                    f'<tr>'
+                    f'<td class="nx-rank">{i}</td>'
+                    f'<td class="nx-tk">{row["ticker"]}</td>'
+                    f'<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{row["company"]}</td>'
+                    f'<td style="font-size:12px;color:#64748B">{row["theme"]}</td>'
+                    f'<td class="nx-num" style="text-align:right">{_fmt_cell(row["price"], 2)}</td>'
+                    f'<td class="nx-num {exh_cls}" style="text-align:right">{_fmt_cell(exh, 1)}</td>'
+                    f'<td style="font-size:12px;color:#475569">{row["band"]}</td>'
+                    f'<td class="nx-num" style="text-align:right">{_fmt_cell(row["rsi14"], 1)}</td>'
+                    f'<td class="nx-num" style="text-align:right">{_fmt_cell(row["williams_r"], 1)}</td>'
+                    f'<td class="nx-num" style="text-align:right">{_fmt_cell(row["dist_52w_high"], 1, "%")}</td>'
+                    f'<td style="text-align:center">{_td_cell(row["td_setup"])}</td>'
+                    f'<td>{_signal_pill(verdict, color)}</td>'
+                    f'</tr>'
+                )
+            html.append('</tbody></table>')
+            st.markdown(''.join(html), unsafe_allow_html=True)
 
     # ════════════════════════════════════════════════════════════════════════
     # TAB 2: TECHNICAL SCREENER
     # ════════════════════════════════════════════════════════════════════════
     with tab_tech:
-        st.markdown('<div class="nexus-section">▌ Full Technical Table</div>', unsafe_allow_html=True)
+        with st.expander("📖 What these terms mean (Technical Screener)", expanded=False):
+            st.markdown("""
+            - **Exh Score (0–100)** – Composite exhaustion index. Weighted blend: 30% RSI14 + 15% RSI5 + 10% Williams %R + 20% distance from 52W high + 15% vs 20-day MA + 10% 1-month return.
+              - **≥75** = Extreme (top/bottom likely near) · **60–74** = Elevated · **40–59** = Normal · **25–39** = Weak · **<25** = Oversold
+            - **Band** – Human-readable label for the Exh Score zone
+            - **RSI14** – 14-day Relative Strength Index (Wilder). >70 overbought, <30 oversold
+            - **RSI5** – 5-day RSI — faster, more sensitive to short-term swings
+            - **Will %R** – Williams %R. Scale: 0 = top of 14-day range, -100 = bottom. >−20 overbought, <−80 oversold
+            - **1W/1M/3M %** – Price returns over those periods
+            - **vs 20D / 50D / 200D** – % above (+) or below (−) the moving average. Trend confirmation
+            - **50D/200D Slope** – % change of the MA over the last 20 days. Positive slope = uptrend
+            - **Dist 52W H** – % below the 52-week high. 0% = at the high
+            - **ATR %** – Average True Range as a % of price. Daily volatility — higher = wider stops needed
+            - **Vol Ratio** – Today's volume / 20-day average. >1.5 = unusual activity
+            - **RS SPY / RS QQQ** – 3-month relative return vs SPY/QQQ in percentage points. Positive = outperforming
+            - **TD Setup** – Tom DeMark sequential count. +8 or +9 = potential top, −8 or −9 = potential bottom. Negative numbers indicate buy-setup count.
+
+            **Trading playbook:**
+            - **Strong shorting setup:** Exh ≥80 + TD ≥8 + price below 20D MA after touching it
+            - **Strong long setup:** Exh ≤20 + RSI14 ≤30 + price reclaiming 20D MA + cheap PEG
+            - **Trend continuation:** vs 200D positive + 200D Slope positive + RSI 40–65 = ride it
+            """)
+
+        st.markdown('<div class="nx-section"><span class="badge">▌</span>Full Technical Table</div>', unsafe_allow_html=True)
 
         col_f1, col_f2 = st.columns([2, 1])
         with col_f1:
@@ -32530,7 +32756,6 @@ elif selected_page == "🎯 Macro Nexus":
         else:
             tech_display = pd.DataFrame({
                 "Ticker": tech_df["ticker"].values,
-                "Company": tech_df["company"].values,
                 "Theme": tech_df["theme"].values,
                 "Price": tech_df["price"].apply(lambda x: f"{x:,.2f}" if x else "—").values,
                 "Exh Score": _safe_round(tech_df["exh_score"], 1).values,
@@ -32565,19 +32790,19 @@ elif selected_page == "🎯 Macro Nexus":
                     if not pd.isna(rsi):
                         rsi_idx = row.index.get_loc("RSI14")
                         if rsi >= 70:
-                            styles[rsi_idx] = "color:#FF6B6B;font-weight:700;"
+                            styles[rsi_idx] = "color:#DC2626;font-weight:700;"
                         elif rsi <= 30:
-                            styles[rsi_idx] = "color:#2ED573;font-weight:700;"
+                            styles[rsi_idx] = "color:#059669;font-weight:700;"
                     td = row["TD Setup"]
                     if not pd.isna(td):
                         td_idx = row.index.get_loc("TD Setup")
                         td_int = int(td)
                         if td_int >= 8:
-                            styles[td_idx] = "background:#8B0000;color:#FFD700;font-weight:800;"
+                            styles[td_idx] = "background:#FEE2E2;color:#991B1B;font-weight:800;"
                         elif td_int >= 6:
-                            styles[td_idx] = "color:#FFA726;font-weight:600;"
+                            styles[td_idx] = "color:#D97706;font-weight:600;"
                         elif td_int <= -8:
-                            styles[td_idx] = "background:#003D00;color:#90EE90;font-weight:800;"
+                            styles[td_idx] = "background:#D1FAE5;color:#065F46;font-weight:800;"
                 except Exception:
                     pass
                 return styles
@@ -32591,18 +32816,34 @@ elif selected_page == "🎯 Macro Nexus":
 
             st.dataframe(
                 tech_display.style.apply(_style_tech, axis=1).format(fmt_dict, na_rep="—"),
-                use_container_width=True, hide_index=True, height=620
+                use_container_width=True, hide_index=True, height=600
             )
-
-        st.caption("**Exh Score**: composite 0–100 (RSI/Williams/distance-from-high/momentum). "
-                   "**TD Setup**: Tom DeMark sequential count — 8–9 = potential reversal. "
-                   "**RS SPY/QQQ**: 3M relative return vs benchmark (pts).")
 
     # ════════════════════════════════════════════════════════════════════════
     # TAB 3: FUNDAMENTAL SCREENER
     # ════════════════════════════════════════════════════════════════════════
     with tab_fund:
-        st.markdown('<div class="nexus-section">▌ AI Macro Nexus Fundamentals</div>', unsafe_allow_html=True)
+        with st.expander("📖 What these terms mean (Fundamental Screener)", expanded=False):
+            st.markdown("""
+            - **Theme** – AI/macro grouping (e.g., Mega-Cap AI Platforms)
+            - **Rank** – Position within the theme based on current sort
+            - **Market Cap** – Total equity value (price × shares outstanding)
+            - **Forward P/E** – Current price ÷ next fiscal year's expected EPS. Lower = cheaper for the same growth
+            - **Next-Year EPS Growth** – % growth in EPS from current FY to next FY (analyst consensus)
+            - **Forward PEG** – Forward P/E ÷ (Next-Year EPS Growth %). The most underrated valuation metric.
+              - 🟢 **<1** = Cheap for the growth · 🟡 **1–2** = Fair · 🔴 **>2** = Expensive
+              - Example: Microsoft at 21.6x Fwd P/E with 15.4% growth → PEG = 1.40 (fair)
+              - Example: GOOGL at 26.9x Fwd P/E with only 5.7% growth → PEG = 4.72 (expensive)
+            - **Curr FY EPS / Next FY EPS** – Consensus EPS forecasts for current and next fiscal year
+            - **Curr FY End** – When the current fiscal year ends (varies by company)
+
+            **Trading playbook:**
+            - **Best long-term setups:** PEG <1 + theme momentum + non-overbought Exh
+            - **Trap to avoid:** Low Fwd P/E with negative or single-digit EPS growth (looks cheap, isn't)
+            - **Cross-reference:** Use Technical tab to time entry — a cheap PEG stock can stay cheap for months while exhaustion drains
+            """)
+
+        st.markdown('<div class="nx-section"><span class="badge">▌</span>AI Macro Nexus Fundamentals</div>', unsafe_allow_html=True)
 
         col_g1, col_g2 = st.columns([2, 1])
         with col_g1:
@@ -32632,7 +32873,6 @@ elif selected_page == "🎯 Macro Nexus":
         s_col, s_asc = sort_map_f.get(sort_by_fund, ("fwd_peg", True))
         fund_df = fund_df.sort_values(s_col, ascending=s_asc, na_position="last").reset_index(drop=True)
 
-        # Rank within theme
         try:
             fund_df["theme_rank"] = fund_df.groupby("theme")[s_col].rank(
                 ascending=s_asc, method="min", na_option="bottom"
@@ -32646,7 +32886,6 @@ elif selected_page == "🎯 Macro Nexus":
             fund_display = pd.DataFrame({
                 "Theme": fund_df["theme"].values,
                 "Rank": fund_df["theme_rank"].astype(str).values,
-                "Company": fund_df["company"].values,
                 "Ticker": fund_df["ticker"].values,
                 "Market Cap": fund_df["mcap"].apply(_fmt_mcap).values,
                 "Forward P/E": fund_df["fwd_pe"].apply(lambda x: f"{x:.1f}x" if x and not pd.isna(x) else "—").values,
@@ -32674,44 +32913,50 @@ elif selected_page == "🎯 Macro Nexus":
                     "Curr FY EPS": "{:.2f}",
                     "Next FY EPS": "{:.2f}",
                 }, na_rep="—"),
-                use_container_width=True, hide_index=True, height=620
+                use_container_width=True, hide_index=True, height=600
             )
 
-        st.caption("**Forward PEG** = Forward P/E ÷ Next-Year EPS Growth %. "
-                   "**Green <1** = cheap growth · **Amber 1–2** = fair · **Red >2** = expensive.")
-
-        # ─── Top 20 Cheapest Growth ─────────────────────────────────────────
-        st.markdown('<div class="nexus-section">💎 Top 20 Cheapest Growth (lowest Forward PEG)</div>', unsafe_allow_html=True)
+        # ─── Top 20 Cheapest Growth (HTML table w/ Signal column) ───────────
+        st.markdown('<div class="nx-section"><span class="badge">💎</span>Top 20 Cheapest Growth (lowest Forward PEG)</div>', unsafe_allow_html=True)
 
         cheap_df = df.dropna(subset=["fwd_peg"]).query("fwd_peg > 0").sort_values("fwd_peg").head(20).copy()
         if len(cheap_df) == 0:
             st.info("No PEG data available yet.")
         else:
-            cheap_display = pd.DataFrame({
-                "Rank": range(1, len(cheap_df) + 1),
-                "Ticker": cheap_df["ticker"].values,
-                "Company": cheap_df["company"].values,
-                "Theme": cheap_df["theme"].values,
-                "Market Cap": cheap_df["mcap"].apply(_fmt_mcap).values,
-                "Forward P/E": cheap_df["fwd_pe"].apply(lambda x: f"{x:.1f}x" if x else "—").values,
-                "EPS Growth": cheap_df["eps_growth"].apply(lambda x: f"{x:.1f}%" if x else "—").values,
-                "Forward PEG": _safe_round(cheap_df["fwd_peg"], 2).values,
-            })
-
-            def _style_cheap(row):
-                styles = [""] * len(row)
-                try:
-                    peg = row["Forward PEG"]
-                    if not pd.isna(peg):
-                        styles[row.index.get_loc("Forward PEG")] = _peg_color(float(peg))
-                except Exception:
-                    pass
-                return styles
-
-            st.dataframe(
-                cheap_display.style.apply(_style_cheap, axis=1).format({"Forward PEG": "{:.2f}"}, na_rep="—"),
-                use_container_width=True, hide_index=True
-            )
+            html = ['<table class="nx-table">']
+            html.append('<thead><tr>'
+                        '<th style="width:40px">#</th>'
+                        '<th>Ticker</th>'
+                        '<th>Company</th>'
+                        '<th>Theme</th>'
+                        '<th style="text-align:right">Market Cap</th>'
+                        '<th style="text-align:right">Fwd P/E</th>'
+                        '<th style="text-align:right">EPS Growth</th>'
+                        '<th style="text-align:right">Fwd PEG</th>'
+                        '<th style="text-align:right">Exh Score</th>'
+                        '<th>Signal</th>'
+                        '</tr></thead><tbody>')
+            for i, (_, row) in enumerate(cheap_df.iterrows(), 1):
+                peg = row["fwd_peg"]
+                peg_cls = _peg_class(peg)
+                exh_cls = _exh_class(row.get("exh_score"))
+                verdict, color, _ = _macro_signal(row.get("exh_score"), peg, row.get("td_setup"))
+                html.append(
+                    f'<tr>'
+                    f'<td class="nx-rank">{i}</td>'
+                    f'<td class="nx-tk">{row["ticker"]}</td>'
+                    f'<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{row["company"]}</td>'
+                    f'<td style="font-size:12px;color:#64748B">{row["theme"]}</td>'
+                    f'<td class="nx-num" style="text-align:right">{_fmt_mcap(row["mcap"])}</td>'
+                    f'<td class="nx-num" style="text-align:right">{_fmt_cell(row["fwd_pe"], 1, "x")}</td>'
+                    f'<td class="nx-num" style="text-align:right">{_fmt_cell(row["eps_growth"], 1, "%")}</td>'
+                    f'<td class="nx-num {peg_cls}" style="text-align:right">{_fmt_cell(peg, 2)}</td>'
+                    f'<td class="nx-num {exh_cls}" style="text-align:right">{_fmt_cell(row.get("exh_score"), 1)}</td>'
+                    f'<td>{_signal_pill(verdict, color)}</td>'
+                    f'</tr>'
+                )
+            html.append('</tbody></table>')
+            st.markdown(''.join(html), unsafe_allow_html=True)
 
 
 elif selected_page == "💥 Stress Test":
