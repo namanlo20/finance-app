@@ -18661,43 +18661,43 @@ def _fmt_num(v, decimals=1, suffix=""):
 
 
 def _exh_color(score):
-    """Color for exhaustion score cell - matches screenshot."""
+    """Color for exhaustion score cell — terminal/Bloomberg style with depth."""
     if score is None or pd.isna(score):
         return ""
     if score >= 75:
-        return "background-color:#8B0000;color:#FF6B6B;font-weight:700;"
+        return "background:linear-gradient(90deg,#6B0000,#3D0000);color:#FFD700;font-weight:800;text-shadow:0 0 6px rgba(255,215,0,0.4);"
     if score >= 60:
-        return "background-color:#5C2A00;color:#FFA500;font-weight:600;"
+        return "background:linear-gradient(90deg,#5C2A00,#3D1B00);color:#FFA726;font-weight:700;"
     if score >= 40:
-        return "background-color:#2D2D2D;color:#FFFFFF;"
+        return "background:linear-gradient(90deg,#1F1F1F,#0F0F0F);color:#E0E6ED;"
     if score >= 25:
-        return "background-color:#0F3D0F;color:#90EE90;"
-    return "background-color:#003300;color:#00FF7F;font-weight:600;"
+        return "background:linear-gradient(90deg,#0F3D0F,#082608);color:#90EE90;font-weight:600;"
+    return "background:linear-gradient(90deg,#003D00,#002600);color:#2ED573;font-weight:700;text-shadow:0 0 6px rgba(46,213,115,0.4);"
 
 
 def _peg_color(peg):
-    """Color for PEG cell - <1 green, 1-2 amber, >2 red."""
+    """Color for PEG cell — green<1, amber 1-2, red>2."""
     if peg is None or pd.isna(peg):
         return ""
     if peg < 1:
-        return "background-color:#003300;color:#90EE90;font-weight:700;"
+        return "background:linear-gradient(90deg,#003D00,#002600);color:#2ED573;font-weight:800;text-shadow:0 0 6px rgba(46,213,115,0.4);"
     if peg < 2:
-        return "background-color:#5C2A00;color:#FFD700;font-weight:600;"
-    return "background-color:#8B0000;color:#FFB0B0;font-weight:600;"
+        return "background:linear-gradient(90deg,#5C2A00,#3D1B00);color:#FFD700;font-weight:700;"
+    return "background:linear-gradient(90deg,#6B0000,#3D0000);color:#FF6B6B;font-weight:700;"
 
 
 def _band_color(band):
     """Color for the Band column."""
     if band == "Extreme exhaustion":
-        return "color:#FF6B6B;font-weight:700;"
+        return "color:#FF4757;font-weight:800;text-shadow:0 0 6px rgba(255,71,87,0.3);"
     if band == "Elevated":
-        return "color:#FFA500;font-weight:600;"
+        return "color:#FFA726;font-weight:700;"
     if band == "Normal":
-        return "color:#CCCCCC;"
+        return "color:#90A4AE;"
     if band == "Weak":
-        return "color:#90EE90;"
+        return "color:#90EE90;font-weight:600;"
     if band == "Oversold":
-        return "color:#00FF7F;font-weight:600;"
+        return "color:#2ED573;font-weight:800;text-shadow:0 0 6px rgba(46,213,115,0.3);"
     return ""
 
 
@@ -32221,33 +32221,101 @@ elif selected_page == "📜 Founder Track Record":
 
 
 elif selected_page == "🎯 Macro Nexus":
-    # 🔒 Founder-only — non-founders see sign-in CTA instead of the page
+    # ─── Founder-only inline gate (avoids dialog dupe-ID error) ───────────────
     if not _is_founder_user():
-        _show_signin_gate("Macro Nexus")
+        st.markdown("""
+        <div style="text-align:center; padding:80px 20px 40px 20px; max-width:600px; margin:0 auto;">
+            <div style="font-size:56px; margin-bottom:16px;">🔒</div>
+            <h1 style="font-size:32px; font-weight:700; margin:0; color:#1a1a2e;">
+                Sign in to access Macro Nexus
+            </h1>
+            <p style="font-size:16px; color:#666; margin-top:14px; line-height:1.5;">
+                Use the <b>Sign In</b> button in the top-right corner to continue.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
         st.stop()
 
-    # ============= HEADER =============
+    # ─── TERMINAL CSS (scoped via wrapper class) ──────────────────────────────
     st.markdown("""
-    <div style="background:linear-gradient(135deg,#0D1B2A 0%,#1B263B 100%);
-                border:2px solid #FFD700; border-radius:12px;
-                padding:18px 24px; margin-bottom:16px;">
-        <h1 style="color:#FFD700; margin:0; font-size:26px; letter-spacing:0.5px;">
-            🎯 AI MACRO NEXUS
-        </h1>
-        <p style="color:#90A4AE; margin:4px 0 0 0; font-size:13px;">
-            Theme-based screener · Absolute 1–100 exhaustion · Includes TD Sequential pressure
-            · {dt}
+    <style>
+    /* Header strip */
+    .nexus-hero {
+        background: linear-gradient(135deg, #050B14 0%, #0D1B2A 50%, #1B263B 100%);
+        border: 1px solid #1F2937;
+        border-radius: 14px;
+        padding: 22px 28px;
+        margin-bottom: 14px;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+        position: relative;
+        overflow: hidden;
+    }
+    .nexus-hero::before {
+        content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+        background: linear-gradient(90deg, #FFD700 0%, #FF6B35 50%, #FFD700 100%);
+    }
+    .nexus-title {
+        font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+        color: #FFD700; margin: 0; font-size: 28px; font-weight: 700;
+        letter-spacing: 2px; text-shadow: 0 0 12px rgba(255,215,0,0.25);
+    }
+    .nexus-sub {
+        font-family: 'JetBrains Mono', monospace;
+        color: #6B7C93; margin: 6px 0 0 0; font-size: 12px;
+        letter-spacing: 1px; text-transform: uppercase;
+    }
+    /* KPI tiles */
+    .nexus-kpis { display: flex; gap: 12px; margin: 12px 0 18px 0; flex-wrap: wrap; }
+    .nexus-kpi {
+        flex: 1; min-width: 140px;
+        background: linear-gradient(180deg, #0F1A2A 0%, #0A1320 100%);
+        border: 1px solid #1F2937; border-radius: 10px;
+        padding: 12px 16px;
+    }
+    .nexus-kpi-label {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 10px; color: #6B7C93; text-transform: uppercase; letter-spacing: 1.2px;
+        margin: 0 0 6px 0;
+    }
+    .nexus-kpi-value {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 22px; font-weight: 700; color: #E0E6ED; margin: 0;
+    }
+    .nexus-kpi-value.red { color: #FF4757; text-shadow: 0 0 8px rgba(255,71,87,0.3); }
+    .nexus-kpi-value.amber { color: #FFA726; text-shadow: 0 0 8px rgba(255,167,38,0.3); }
+    .nexus-kpi-value.green { color: #2ED573; text-shadow: 0 0 8px rgba(46,213,115,0.3); }
+    .nexus-kpi-value.gold { color: #FFD700; text-shadow: 0 0 8px rgba(255,215,0,0.3); }
+    /* Section caption */
+    .nexus-section {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 11px; color: #FFD700; letter-spacing: 2px;
+        text-transform: uppercase; margin: 18px 0 8px 0;
+        padding-bottom: 6px; border-bottom: 1px solid #1F2937;
+    }
+    .nexus-section-sub {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 11px; color: #6B7C93; margin: -4px 0 10px 0;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # ─── HEADER ───────────────────────────────────────────────────────────────
+    st.markdown(f"""
+    <div class="nexus-hero">
+        <h1 class="nexus-title">⊕ AI MACRO NEXUS</h1>
+        <p class="nexus-sub">
+            Theme screener · Absolute 1–100 exhaustion · TD Sequential pressure
+            · {datetime.now().strftime("%b %d, %Y · %H:%M")}
         </p>
     </div>
-    """.format(dt=datetime.now().strftime("%B %d, %Y")), unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
     # Refresh control
-    col_r1, col_r2, col_r3 = st.columns([2, 1, 1])
+    col_r1, col_r2 = st.columns([4, 1])
     with col_r1:
-        st.caption(f"Universe: {len(_MACRO_NEXUS_TICKERS)} tickers across {len(MACRO_NEXUS_THEMES)} themes. "
-                   "Cached 15 min · Powered by FMP Premium")
-    with col_r3:
-        if st.button("🔄 Refresh data", use_container_width=True, key="macro_refresh"):
+        st.caption(f"Universe: {len(_MACRO_NEXUS_TICKERS)} tickers · {len(MACRO_NEXUS_THEMES)} themes · Cached 15 min · FMP Premium")
+    with col_r2:
+        if st.button("🔄 Refresh", use_container_width=True, key="macro_refresh"):
             _macro_build_screener.clear()
             _macro_fetch_quote_metrics.clear()
             _macro_fetch_history.clear()
@@ -32255,26 +32323,76 @@ elif selected_page == "🎯 Macro Nexus":
             st.rerun()
 
     # Build screener (cached)
-    with st.spinner("Loading screener data (~30–60s first load, cached after)..."):
+    with st.spinner("⚡ Loading screener (~10-15s first load, cached after)..."):
         df = _macro_build_screener("default")
 
     if df is None or len(df) == 0:
         st.error("Could not load screener data. Check FMP API key and try refreshing.")
         st.stop()
 
-    # ============= SUB-TABS =============
+    # ─── SAFE ROUND HELPER (handles all-None columns) ─────────────────────────
+    def _safe_round(series, decimals=1):
+        """Convert to numeric (None -> NaN) then round. Avoids the round() NoneType crash."""
+        return pd.to_numeric(series, errors='coerce').round(decimals)
+
+    def _safe_int(series):
+        """Convert to nullable Int64 — handles None gracefully."""
+        return pd.to_numeric(series, errors='coerce').astype('Int64')
+
+    # ─── KPI STRIP (universe-wide stats) ──────────────────────────────────────
+    valid_exh = df["exh_score"].dropna()
+    valid_peg = df["fwd_peg"].dropna()
+    valid_peg = valid_peg[valid_peg > 0]
+    n_extreme = int((valid_exh >= 75).sum())
+    n_elevated = int((valid_exh >= 60).sum())
+    avg_exh_universe = valid_exh.mean() if len(valid_exh) > 0 else 0
+    cheap_peg_count = int((valid_peg < 1).sum())
+    most_exh_ticker = df.loc[df["exh_score"].idxmax(), "ticker"] if len(valid_exh) > 0 else "—"
+
+    def _kpi_color(v, thr_hi=60, thr_lo=40):
+        if v >= 75: return "red"
+        if v >= thr_hi: return "amber"
+        if v <= thr_lo - 15: return "green"
+        return ""
+
+    st.markdown(f"""
+    <div class="nexus-kpis">
+        <div class="nexus-kpi">
+            <p class="nexus-kpi-label">Universe Avg Exh</p>
+            <p class="nexus-kpi-value {_kpi_color(avg_exh_universe)}">{avg_exh_universe:.1f}</p>
+        </div>
+        <div class="nexus-kpi">
+            <p class="nexus-kpi-label">Extreme ≥75</p>
+            <p class="nexus-kpi-value {'red' if n_extreme >= 5 else 'amber' if n_extreme >= 2 else ''}">{n_extreme}</p>
+        </div>
+        <div class="nexus-kpi">
+            <p class="nexus-kpi-label">Elevated ≥60</p>
+            <p class="nexus-kpi-value {'amber' if n_elevated >= 5 else ''}">{n_elevated}</p>
+        </div>
+        <div class="nexus-kpi">
+            <p class="nexus-kpi-label">Cheap PEG &lt;1</p>
+            <p class="nexus-kpi-value green">{cheap_peg_count}</p>
+        </div>
+        <div class="nexus-kpi">
+            <p class="nexus-kpi-label">Top Exhausted</p>
+            <p class="nexus-kpi-value gold">{most_exh_ticker}</p>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ─── TABS ─────────────────────────────────────────────────────────────────
     tab_rollup, tab_tech, tab_fund = st.tabs([
-        "🏆 Theme Rollup",
-        "📈 Technical Screener",
-        "💰 Fundamental Screener"
+        "🏆  Theme Rollup",
+        "📈  Technical Screener",
+        "💰  Fundamental Screener"
     ])
 
-    # ===========================================================
-    # TAB 1: THEME ROLLUP — heat-colored avg exhaustion by theme
-    # ===========================================================
+    # ════════════════════════════════════════════════════════════════════════
+    # TAB 1: THEME ROLLUP
+    # ════════════════════════════════════════════════════════════════════════
     with tab_rollup:
-        st.markdown("##### Absolute Exhaustion Scores by Theme")
-        st.caption("Themes ranked by average exhaustion. Extreme ≥75 · Elevated ≥60.")
+        st.markdown('<div class="nexus-section">▌ Absolute Exhaustion Scores by Theme</div>', unsafe_allow_html=True)
+        st.markdown('<div class="nexus-section-sub">Themes ranked by average exhaustion · Extreme ≥75 · Elevated ≥60</div>', unsafe_allow_html=True)
 
         roll_rows = []
         for theme, _tlist in MACRO_NEXUS_THEMES.items():
@@ -32289,86 +32407,95 @@ elif selected_page == "🎯 Macro Nexus":
             n_extreme = int((valid["exh_score"] >= 75).sum())
             n_elevated = int((valid["exh_score"] >= 60).sum())
             pct_elev_plus = (n_elevated / len(valid) * 100) if len(valid) > 0 else 0
-            # Top name (highest exhaustion in theme)
             top_name = valid.sort_values("exh_score", ascending=False)["ticker"].iloc[0]
             roll_rows.append({
                 "Theme": theme,
                 "#": n_tickers,
-                "Avg Exhaustion": round(avg_exh, 1),
+                "Avg Exh": round(avg_exh, 1),
                 "Extreme ≥75": n_extreme,
                 "Elevated ≥60": n_elevated,
-                "% Elevated+": round(pct_elev_plus, 1),
+                "% Elev+": round(pct_elev_plus, 1),
                 "Top Name": top_name,
             })
-        roll_df = pd.DataFrame(roll_rows).sort_values("Avg Exhaustion", ascending=False).reset_index(drop=True) if roll_rows else pd.DataFrame()
+
+        roll_df = pd.DataFrame(roll_rows).sort_values("Avg Exh", ascending=False).reset_index(drop=True) if roll_rows else pd.DataFrame()
+
         if len(roll_df) == 0:
             st.warning("No valid screener data yet. Try clicking 🔄 Refresh.")
         else:
             roll_df.insert(0, "Rank", range(1, len(roll_df) + 1))
 
-            # Style the rollup
             def _style_rollup(row):
                 styles = [""] * len(row)
-                exh = row["Avg Exhaustion"]
-                # Color the Avg Exhaustion cell
-                avg_idx = row.index.get_loc("Avg Exhaustion")
-                if exh >= 60:
-                    styles[avg_idx] = "background-color:#8B0000;color:#FFD700;font-weight:700;font-size:15px;"
-                elif exh >= 40:
-                    styles[avg_idx] = "background-color:#5C2A00;color:#FFA500;font-weight:600;"
-                elif exh >= 25:
-                    styles[avg_idx] = "background-color:#1F3D1F;color:#FFFFFF;"
+                exh = row["Avg Exh"]
+                avg_idx = row.index.get_loc("Avg Exh")
+                if exh >= 70:
+                    styles[avg_idx] = "background:linear-gradient(90deg,#8B0000,#5C0000);color:#FFD700;font-weight:800;font-size:14px;"
+                elif exh >= 60:
+                    styles[avg_idx] = "background:linear-gradient(90deg,#7A1F00,#4A1300);color:#FFA726;font-weight:700;"
+                elif exh >= 45:
+                    styles[avg_idx] = "background:linear-gradient(90deg,#5C2A00,#3D1B00);color:#FFD580;font-weight:600;"
+                elif exh >= 30:
+                    styles[avg_idx] = "background:linear-gradient(90deg,#2D2D2D,#1A1A1A);color:#E0E6ED;"
                 else:
-                    styles[avg_idx] = "background-color:#003300;color:#90EE90;font-weight:600;"
+                    styles[avg_idx] = "background:linear-gradient(90deg,#003D00,#002600);color:#90EE90;font-weight:600;"
                 return styles
 
             styled = roll_df.style.apply(_style_rollup, axis=1).format({
-                "Avg Exhaustion": "{:.1f}",
-                "% Elevated+": "{:.1f}",
+                "Avg Exh": "{:.1f}",
+                "% Elev+": "{:.1f}",
             })
             st.dataframe(styled, use_container_width=True, hide_index=True)
 
-        # ============= TOP 20 MOST EXHAUSTED =============
-        st.markdown("---")
-        st.markdown("##### 🔥 Top 20 Most Exhausted (across all themes)")
+        # ─── Top 20 Most Exhausted ──────────────────────────────────────────
+        st.markdown('<div class="nexus-section">🔥 Top 20 Most Exhausted (across all themes)</div>', unsafe_allow_html=True)
+
         top_df = df.dropna(subset=["exh_score"]).sort_values("exh_score", ascending=False).head(20).copy()
-        top_df_display = pd.DataFrame({
-            "Rank": range(1, len(top_df) + 1),
-            "Ticker": top_df["ticker"].values,
-            "Company": top_df["company"].values,
-            "Theme": top_df["theme"].values,
-            "Price": top_df["price"].apply(lambda x: f"{x:,.2f}" if x else "—").values,
-            "Exh Score": top_df["exh_score"].round(1).values,
-            "Band": top_df["band"].values,
-            "RSI14": top_df["rsi14"].round(1).values,
-            "RSI5": top_df["rsi5"].round(1).values,
-            "Will %R": top_df["williams_r"].round(1).values,
-            "Dist 52W H": top_df["dist_52w_high"].round(1).values,
-            "TD Setup": top_df["td_setup"].values,
-        })
+        if len(top_df) == 0:
+            st.info("No exhaustion data available.")
+        else:
+            top_display = pd.DataFrame({
+                "Rank": range(1, len(top_df) + 1),
+                "Ticker": top_df["ticker"].values,
+                "Company": top_df["company"].values,
+                "Theme": top_df["theme"].values,
+                "Price": top_df["price"].apply(lambda x: f"{x:,.2f}" if x else "—").values,
+                "Exh Score": _safe_round(top_df["exh_score"], 1).values,
+                "Band": top_df["band"].values,
+                "RSI14": _safe_round(top_df["rsi14"], 1).values,
+                "RSI5": _safe_round(top_df["rsi5"], 1).values,
+                "Will %R": _safe_round(top_df["williams_r"], 1).values,
+                "Dist 52W H": _safe_round(top_df["dist_52w_high"], 1).values,
+                "TD Setup": _safe_int(top_df["td_setup"]).values,
+            })
 
-        def _style_top(row):
-            styles = [""] * len(row)
-            try:
-                exh = float(row["Exh Score"])
-                exh_idx = row.index.get_loc("Exh Score")
-                band_idx = row.index.get_loc("Band")
-                styles[exh_idx] = _exh_color(exh)
-                styles[band_idx] = _band_color(row["Band"])
-            except Exception:
-                pass
-            return styles
+            def _style_top(row):
+                styles = [""] * len(row)
+                try:
+                    exh = row["Exh Score"]
+                    if not pd.isna(exh):
+                        exh_idx = row.index.get_loc("Exh Score")
+                        styles[exh_idx] = _exh_color(float(exh))
+                    band_idx = row.index.get_loc("Band")
+                    styles[band_idx] = _band_color(row["Band"])
+                except Exception:
+                    pass
+                return styles
 
-        st.dataframe(top_df_display.style.apply(_style_top, axis=1),
-                     use_container_width=True, hide_index=True)
+            st.dataframe(
+                top_display.style.apply(_style_top, axis=1).format({
+                    "Exh Score": "{:.1f}", "RSI14": "{:.1f}", "RSI5": "{:.1f}",
+                    "Will %R": "{:.1f}", "Dist 52W H": "{:.1f}",
+                }, na_rep="—"),
+                use_container_width=True, hide_index=True
+            )
 
-    # ===========================================================
-    # TAB 2: TECHNICAL SCREENER — full table
-    # ===========================================================
+    # ════════════════════════════════════════════════════════════════════════
+    # TAB 2: TECHNICAL SCREENER
+    # ════════════════════════════════════════════════════════════════════════
     with tab_tech:
-        st.markdown("##### Full Technical Table")
+        st.markdown('<div class="nexus-section">▌ Full Technical Table</div>', unsafe_allow_html=True)
 
-        # Theme filter
         col_f1, col_f2 = st.columns([2, 1])
         with col_f1:
             theme_filter = st.multiselect(
@@ -32388,89 +32515,94 @@ elif selected_page == "🎯 Macro Nexus":
         if theme_filter:
             tech_df = tech_df[tech_df["theme"].isin(theme_filter)]
 
-        # Apply sort
         sort_col_map = {
             "Exh Score": ("exh_score", False),
             "RSI14": ("rsi14", False),
-            "Dist 52W High": ("dist_52w_high", False),  # Closest to high first
+            "Dist 52W High": ("dist_52w_high", False),
             "1M Return": ("ret_1m", False),
             "TD Setup": ("td_setup", False),
         }
         sort_col, asc = sort_col_map.get(sort_by_tech, ("exh_score", False))
         tech_df = tech_df.sort_values(sort_col, ascending=asc, na_position="last").reset_index(drop=True)
 
-        tech_display = pd.DataFrame({
-            "Ticker": tech_df["ticker"].values,
-            "Company": tech_df["company"].values,
-            "Theme": tech_df["theme"].values,
-            "Price": tech_df["price"].apply(lambda x: f"{x:,.2f}" if x else "—").values,
-            "Exh Score": tech_df["exh_score"].round(1).values,
-            "Band": tech_df["band"].values,
-            "RSI14": tech_df["rsi14"].round(1).values,
-            "RSI5": tech_df["rsi5"].round(1).values,
-            "Will %R": tech_df["williams_r"].round(1).values,
-            "1W %": tech_df["ret_1w"].round(1).values,
-            "1M %": tech_df["ret_1m"].round(1).values,
-            "3M %": tech_df["ret_3m"].round(1).values,
-            "vs 20D": tech_df["vs_20d"].round(1).values,
-            "vs 50D": tech_df["vs_50d"].round(1).values,
-            "vs 200D": tech_df["vs_200d"].round(1).values,
-            "50D Slope": tech_df["slope_50d"].round(1).values,
-            "200D Slope": tech_df["slope_200d"].round(1).values,
-            "Dist 52W H": tech_df["dist_52w_high"].round(1).values,
-            "ATR %": tech_df["atr_pct"].round(1).values,
-            "Vol Ratio": tech_df["vol_ratio"].round(1).values,
-            "RS SPY": tech_df["rs_spy"].round(1).values,
-            "RS QQQ": tech_df["rs_qqq"].round(1).values,
-            "TD Setup": tech_df["td_setup"].values,
-        })
+        if len(tech_df) == 0:
+            st.info("No data for selected filters.")
+        else:
+            tech_display = pd.DataFrame({
+                "Ticker": tech_df["ticker"].values,
+                "Company": tech_df["company"].values,
+                "Theme": tech_df["theme"].values,
+                "Price": tech_df["price"].apply(lambda x: f"{x:,.2f}" if x else "—").values,
+                "Exh Score": _safe_round(tech_df["exh_score"], 1).values,
+                "Band": tech_df["band"].values,
+                "RSI14": _safe_round(tech_df["rsi14"], 1).values,
+                "RSI5": _safe_round(tech_df["rsi5"], 1).values,
+                "Will %R": _safe_round(tech_df["williams_r"], 1).values,
+                "1W %": _safe_round(tech_df["ret_1w"], 1).values,
+                "1M %": _safe_round(tech_df["ret_1m"], 1).values,
+                "3M %": _safe_round(tech_df["ret_3m"], 1).values,
+                "vs 20D": _safe_round(tech_df["vs_20d"], 1).values,
+                "vs 50D": _safe_round(tech_df["vs_50d"], 1).values,
+                "vs 200D": _safe_round(tech_df["vs_200d"], 1).values,
+                "50D Slope": _safe_round(tech_df["slope_50d"], 1).values,
+                "200D Slope": _safe_round(tech_df["slope_200d"], 1).values,
+                "Dist 52W H": _safe_round(tech_df["dist_52w_high"], 1).values,
+                "ATR %": _safe_round(tech_df["atr_pct"], 1).values,
+                "Vol Ratio": _safe_round(tech_df["vol_ratio"], 2).values,
+                "RS SPY": _safe_round(tech_df["rs_spy"], 1).values,
+                "RS QQQ": _safe_round(tech_df["rs_qqq"], 1).values,
+                "TD Setup": _safe_int(tech_df["td_setup"]).values,
+            })
 
-        def _style_tech(row):
-            styles = [""] * len(row)
-            try:
-                exh = row["Exh Score"]
-                if not pd.isna(exh):
-                    exh_idx = row.index.get_loc("Exh Score")
-                    styles[exh_idx] = _exh_color(float(exh))
-                band_idx = row.index.get_loc("Band")
-                styles[band_idx] = _band_color(row["Band"])
-                # Color RSI14
-                rsi = row["RSI14"]
-                if not pd.isna(rsi):
-                    rsi_idx = row.index.get_loc("RSI14")
-                    if rsi >= 70:
-                        styles[rsi_idx] = "color:#FF6B6B;font-weight:600;"
-                    elif rsi <= 30:
-                        styles[rsi_idx] = "color:#90EE90;font-weight:600;"
-                # TD Setup color (8-9 = warning)
-                td = row["TD Setup"]
-                if not pd.isna(td):
-                    td_idx = row.index.get_loc("TD Setup")
-                    td_int = int(td)
-                    if td_int >= 8:
-                        styles[td_idx] = "background-color:#8B0000;color:#FFD700;font-weight:700;"
-                    elif td_int >= 6:
-                        styles[td_idx] = "color:#FFA500;font-weight:600;"
-                    elif td_int <= -8:
-                        styles[td_idx] = "background-color:#003300;color:#90EE90;font-weight:700;"
-            except Exception:
-                pass
-            return styles
+            def _style_tech(row):
+                styles = [""] * len(row)
+                try:
+                    exh = row["Exh Score"]
+                    if not pd.isna(exh):
+                        styles[row.index.get_loc("Exh Score")] = _exh_color(float(exh))
+                    styles[row.index.get_loc("Band")] = _band_color(row["Band"])
+                    rsi = row["RSI14"]
+                    if not pd.isna(rsi):
+                        rsi_idx = row.index.get_loc("RSI14")
+                        if rsi >= 70:
+                            styles[rsi_idx] = "color:#FF6B6B;font-weight:700;"
+                        elif rsi <= 30:
+                            styles[rsi_idx] = "color:#2ED573;font-weight:700;"
+                    td = row["TD Setup"]
+                    if not pd.isna(td):
+                        td_idx = row.index.get_loc("TD Setup")
+                        td_int = int(td)
+                        if td_int >= 8:
+                            styles[td_idx] = "background:#8B0000;color:#FFD700;font-weight:800;"
+                        elif td_int >= 6:
+                            styles[td_idx] = "color:#FFA726;font-weight:600;"
+                        elif td_int <= -8:
+                            styles[td_idx] = "background:#003D00;color:#90EE90;font-weight:800;"
+                except Exception:
+                    pass
+                return styles
 
-        st.dataframe(
-            tech_display.style.apply(_style_tech, axis=1),
-            use_container_width=True, hide_index=True, height=600
-        )
+            fmt_dict = {c: "{:.1f}" for c in [
+                "Exh Score", "RSI14", "RSI5", "Will %R", "1W %", "1M %", "3M %",
+                "vs 20D", "vs 50D", "vs 200D", "50D Slope", "200D Slope",
+                "Dist 52W H", "ATR %", "RS SPY", "RS QQQ"
+            ]}
+            fmt_dict["Vol Ratio"] = "{:.2f}"
+
+            st.dataframe(
+                tech_display.style.apply(_style_tech, axis=1).format(fmt_dict, na_rep="—"),
+                use_container_width=True, hide_index=True, height=620
+            )
 
         st.caption("**Exh Score**: composite 0–100 (RSI/Williams/distance-from-high/momentum). "
-                   "**TD Setup**: Tom DeMark sequential count — 8–9 = potential reversal zone. "
-                   "**RS SPY/QQQ**: 3-month relative return vs benchmark (points).")
+                   "**TD Setup**: Tom DeMark sequential count — 8–9 = potential reversal. "
+                   "**RS SPY/QQQ**: 3M relative return vs benchmark (pts).")
 
-    # ===========================================================
-    # TAB 3: FUNDAMENTAL SCREENER — Forward PEG focus
-    # ===========================================================
+    # ════════════════════════════════════════════════════════════════════════
+    # TAB 3: FUNDAMENTAL SCREENER
+    # ════════════════════════════════════════════════════════════════════════
     with tab_fund:
-        st.markdown("##### AI Macro Nexus Fundamentals")
+        st.markdown('<div class="nexus-section">▌ AI Macro Nexus Fundamentals</div>', unsafe_allow_html=True)
 
         col_g1, col_g2 = st.columns([2, 1])
         with col_g1:
@@ -32501,78 +32633,85 @@ elif selected_page == "🎯 Macro Nexus":
         fund_df = fund_df.sort_values(s_col, ascending=s_asc, na_position="last").reset_index(drop=True)
 
         # Rank within theme
-        fund_df["theme_rank"] = fund_df.groupby("theme")[s_col].rank(
-            ascending=s_asc, method="min", na_option="bottom"
-        ).astype("Int64")
+        try:
+            fund_df["theme_rank"] = fund_df.groupby("theme")[s_col].rank(
+                ascending=s_asc, method="min", na_option="bottom"
+            ).astype("Int64")
+        except Exception:
+            fund_df["theme_rank"] = pd.NA
 
-        fund_display = pd.DataFrame({
-            "Theme": fund_df["theme"].values,
-            "Rank": fund_df["theme_rank"].astype(str).values,
-            "Company": fund_df["company"].values,
-            "Ticker": fund_df["ticker"].values,
-            "Market Cap": fund_df["mcap"].apply(_fmt_mcap).values,
-            "Forward P/E": fund_df["fwd_pe"].apply(lambda x: f"{x:.1f}x" if x and not pd.isna(x) else "—").values,
-            "Next-Year EPS Growth": fund_df["eps_growth"].apply(lambda x: f"{x:.1f}%" if x and not pd.isna(x) else "—").values,
-            "Forward PEG": fund_df["fwd_peg"].round(2).values,
-            "Price": fund_df["price"].apply(lambda x: f"{x:,.2f}" if x else "—").values,
-            "Current FY EPS": fund_df["eps_curr_fy"].round(2).values,
-            "Next FY EPS": fund_df["eps_next_fy"].round(2).values,
-            "Current FY End": fund_df["curr_fy_end"].fillna("—").values,
-        })
+        if len(fund_df) == 0:
+            st.info("No data for selected filters.")
+        else:
+            fund_display = pd.DataFrame({
+                "Theme": fund_df["theme"].values,
+                "Rank": fund_df["theme_rank"].astype(str).values,
+                "Company": fund_df["company"].values,
+                "Ticker": fund_df["ticker"].values,
+                "Market Cap": fund_df["mcap"].apply(_fmt_mcap).values,
+                "Forward P/E": fund_df["fwd_pe"].apply(lambda x: f"{x:.1f}x" if x and not pd.isna(x) else "—").values,
+                "Next-Yr EPS Growth": fund_df["eps_growth"].apply(lambda x: f"{x:.1f}%" if x and not pd.isna(x) else "—").values,
+                "Forward PEG": _safe_round(fund_df["fwd_peg"], 2).values,
+                "Price": fund_df["price"].apply(lambda x: f"{x:,.2f}" if x else "—").values,
+                "Curr FY EPS": _safe_round(fund_df["eps_curr_fy"], 2).values,
+                "Next FY EPS": _safe_round(fund_df["eps_next_fy"], 2).values,
+                "Curr FY End": fund_df["curr_fy_end"].fillna("—").values,
+            })
 
-        def _style_fund(row):
-            styles = [""] * len(row)
-            try:
-                peg = row["Forward PEG"]
-                if not pd.isna(peg):
-                    peg_idx = row.index.get_loc("Forward PEG")
-                    styles[peg_idx] = _peg_color(float(peg))
-            except Exception:
-                pass
-            return styles
+            def _style_fund(row):
+                styles = [""] * len(row)
+                try:
+                    peg = row["Forward PEG"]
+                    if not pd.isna(peg):
+                        styles[row.index.get_loc("Forward PEG")] = _peg_color(float(peg))
+                except Exception:
+                    pass
+                return styles
 
-        st.dataframe(
-            fund_display.style.apply(_style_fund, axis=1).format({
-                "Forward PEG": "{:.2f}",
-                "Current FY EPS": "{:.2f}",
-                "Next FY EPS": "{:.2f}",
-            }, na_rep="—"),
-            use_container_width=True, hide_index=True, height=600
-        )
+            st.dataframe(
+                fund_display.style.apply(_style_fund, axis=1).format({
+                    "Forward PEG": "{:.2f}",
+                    "Curr FY EPS": "{:.2f}",
+                    "Next FY EPS": "{:.2f}",
+                }, na_rep="—"),
+                use_container_width=True, hide_index=True, height=620
+            )
 
         st.caption("**Forward PEG** = Forward P/E ÷ Next-Year EPS Growth %. "
                    "**Green <1** = cheap growth · **Amber 1–2** = fair · **Red >2** = expensive.")
 
-        # ============= TOP 20 CHEAPEST GROWTH =============
-        st.markdown("---")
-        st.markdown("##### 💎 Top 20 Cheapest Growth (lowest Forward PEG)")
+        # ─── Top 20 Cheapest Growth ─────────────────────────────────────────
+        st.markdown('<div class="nexus-section">💎 Top 20 Cheapest Growth (lowest Forward PEG)</div>', unsafe_allow_html=True)
+
         cheap_df = df.dropna(subset=["fwd_peg"]).query("fwd_peg > 0").sort_values("fwd_peg").head(20).copy()
-        cheap_display = pd.DataFrame({
-            "Rank": range(1, len(cheap_df) + 1),
-            "Ticker": cheap_df["ticker"].values,
-            "Company": cheap_df["company"].values,
-            "Theme": cheap_df["theme"].values,
-            "Market Cap": cheap_df["mcap"].apply(_fmt_mcap).values,
-            "Forward P/E": cheap_df["fwd_pe"].apply(lambda x: f"{x:.1f}x" if x else "—").values,
-            "EPS Growth": cheap_df["eps_growth"].apply(lambda x: f"{x:.1f}%" if x else "—").values,
-            "Forward PEG": cheap_df["fwd_peg"].round(2).values,
-        })
+        if len(cheap_df) == 0:
+            st.info("No PEG data available yet.")
+        else:
+            cheap_display = pd.DataFrame({
+                "Rank": range(1, len(cheap_df) + 1),
+                "Ticker": cheap_df["ticker"].values,
+                "Company": cheap_df["company"].values,
+                "Theme": cheap_df["theme"].values,
+                "Market Cap": cheap_df["mcap"].apply(_fmt_mcap).values,
+                "Forward P/E": cheap_df["fwd_pe"].apply(lambda x: f"{x:.1f}x" if x else "—").values,
+                "EPS Growth": cheap_df["eps_growth"].apply(lambda x: f"{x:.1f}%" if x else "—").values,
+                "Forward PEG": _safe_round(cheap_df["fwd_peg"], 2).values,
+            })
 
-        def _style_cheap(row):
-            styles = [""] * len(row)
-            try:
-                peg = row["Forward PEG"]
-                if not pd.isna(peg):
-                    peg_idx = row.index.get_loc("Forward PEG")
-                    styles[peg_idx] = _peg_color(float(peg))
-            except Exception:
-                pass
-            return styles
+            def _style_cheap(row):
+                styles = [""] * len(row)
+                try:
+                    peg = row["Forward PEG"]
+                    if not pd.isna(peg):
+                        styles[row.index.get_loc("Forward PEG")] = _peg_color(float(peg))
+                except Exception:
+                    pass
+                return styles
 
-        st.dataframe(
-            cheap_display.style.apply(_style_cheap, axis=1).format({"Forward PEG": "{:.2f}"}),
-            use_container_width=True, hide_index=True
-        )
+            st.dataframe(
+                cheap_display.style.apply(_style_cheap, axis=1).format({"Forward PEG": "{:.2f}"}, na_rep="—"),
+                use_container_width=True, hide_index=True
+            )
 
 
 elif selected_page == "💥 Stress Test":
