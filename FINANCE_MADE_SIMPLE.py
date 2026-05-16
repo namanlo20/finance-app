@@ -9298,6 +9298,102 @@ def _safe_chart_dedupe(df, period_type='quarter'):
     return _dedupe_fmp_periods(df, period_type)
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Fiscal-quarter relabeling
+# FMP returns calendar-quarter labels (period="Q1" if date is Jan-Mar) regardless
+# of the company's actual fiscal year. For companies with non-December fiscal
+# years (FICO ends Sep, AAPL ends Sep, MSFT ends Jun, ORCL ends May, NVDA ends
+# Jan, CSCO ends Jul, etc), this is wrong: FICO's Jan-Mar 2026 quarter is its
+# fiscal Q2 2026, not "Q1 2026" as FMP labels it.
+#
+# This helper rewrites `period` and `calendarYear` columns after fetch so every
+# chart, comparison box, and export shows the company's actual fiscal labels.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Hardcoded fiscal-year-end month for tickers FMP/yfinance commonly mislabel.
+# Month is the LAST month of the company's fiscal year.
+# Add to this map when you find new mislabels — preferred over relying on
+# yfinance .info['fiscalYearEnd'] which is missing/wrong for some tickers.
+_FY_END_MONTH_OVERRIDES = {
+    # Sep fiscal-year-end (Q1 = Oct-Dec, Q2 = Jan-Mar, Q3 = Apr-Jun, Q4 = Jul-Sep)
+    "AAPL": 9, "FICO": 9, "ADBE": 11, "CSCO": 7, "ORCL": 5, "NVDA": 1,
+    "MSFT": 6, "HPE": 10, "HPQ": 10, "ADSK": 1, "INTU": 7, "AVGO": 10,
+    "WDAY": 1, "CRM": 1, "SNPS": 10, "MU": 8, "DELL": 1, "CRWD": 1,
+    "MDB": 1, "VEEV": 1, "ZS": 7, "NTAP": 4, "SPLK": 1, "PANW": 7,
+    "ANET": 12,  # explicit Dec to skip relabel
+    # Retail / consumer with non-Dec fiscal years
+    "WMT": 1, "TGT": 1, "COST": 8, "HD": 1, "LOW": 1, "BBY": 1, "TJX": 1,
+    "ROST": 1, "DLTR": 1, "DG": 1, "FIVE": 1, "ULTA": 1, "M": 1, "KSS": 1,
+    "GPS": 1, "ANF": 1, "AEO": 1, "URBN": 1, "JWN": 1, "DKS": 1,
+    # Other common non-Dec
+    "MCK": 3, "CAG": 5, "GIS": 5, "HRL": 10, "CPB": 7, "MKC": 11,
+    "DE": 10, "AGCO": 12, "FDX": 5, "NKE": 5, "DIS": 9,
+    "ACN": 8, "JEF": 11, "MS": 12, "GS": 12,
+}
+
+def _get_fy_end_month(ticker):
+    """Return the fiscal-year-end month (1-12) for a ticker. December default."""
+    t = (ticker or "").upper().strip()
+    if t in _FY_END_MONTH_OVERRIDES:
+        return _FY_END_MONTH_OVERRIDES[t]
+    # Fall back to yfinance (best-effort, may be missing)
+    try:
+        import yfinance as yf
+        info = yf.Ticker(t).info or {}
+        fy_str = str(info.get("fiscalYearEnd", "") or "").strip()
+        if fy_str.isdigit() and len(fy_str) >= 3:
+            m = int(fy_str[:2]) if len(fy_str) == 4 else int(fy_str[:1])
+            if 1 <= m <= 12:
+                return m
+        months = {'jan':1,'feb':2,'mar':3,'apr':4,'may':5,'jun':6,
+                  'jul':7,'aug':8,'sep':9,'oct':10,'nov':11,'dec':12}
+        for k, v in months.items():
+            if k in fy_str.lower():
+                return v
+    except Exception:
+        pass
+    return 12  # default to calendar year
+
+def _relabel_fmp_fiscal_quarters(df, ticker, period):
+    """Rewrite FMP's calendar-quarter labels into the company's fiscal-quarter labels.
+
+    For Dec-fiscal-year companies this is a no-op. For all others, it rewrites
+    `period` (Q1/Q2/Q3/Q4) and `calendarYear` (the fiscal year, not calendar)
+    so charts show the right label.
+
+    Fiscal-quarter math: Q1 starts the month AFTER fy-end.
+      AAPL (fy ends Sep) → Q1 = Oct-Dec, Q2 = Jan-Mar, Q3 = Apr-Jun, Q4 = Jul-Sep.
+    Fiscal-year math: for non-Dec, the fiscal year is labeled by the year the
+    fiscal year ENDS. AAPL's Oct-Dec 2025 quarter is part of FY2026.
+    """
+    if df is None or df.empty or period != 'quarter':
+        return df
+    if 'date' not in df.columns:
+        return df
+
+    fy_end = _get_fy_end_month(ticker)
+    if fy_end == 12:
+        return df  # calendar year already correct
+
+    df = df.copy()
+    try:
+        dates = pd.to_datetime(df['date'])
+    except Exception:
+        return df
+
+    # months since fy-end (1..12), then map to Q1..Q4
+    months_since = (dates.dt.month - fy_end - 1) % 12 + 1
+    fiscal_q = ((months_since - 1) // 3 + 1).astype(int)
+    df['period'] = "Q" + fiscal_q.astype(str)
+
+    # Fiscal year = calendar year the fiscal year ends in.
+    # If filing month > fy_end, the period belongs to NEXT fiscal year.
+    fy_year = dates.dt.year.where(dates.dt.month <= fy_end, dates.dt.year + 1)
+    df['calendarYear'] = fy_year.astype(int).astype(str)
+
+    return df
+
+
 @st.cache_data(ttl=3600)
 def get_income_statement(ticker, period='annual', limit=5):
     """Get income statement — FMP primary, yfinance fallback"""
@@ -9311,6 +9407,7 @@ def get_income_statement(ticker, period='annual', limit=5):
                 df['date'] = pd.to_datetime(df['date'])
                 df = df.sort_values('date')
             df = _dedupe_fmp_periods(df, period)
+            df = _relabel_fmp_fiscal_quarters(df, ticker, period)
             if not _fmp_data_is_bad(df, ['revenue', 'netIncome']):
                 return df
     except Exception:
@@ -9319,6 +9416,7 @@ def get_income_statement(ticker, period='annual', limit=5):
     yf_df = _yf_income_to_fmp(ticker, period, limit)
     if not yf_df.empty:
         yf_df = _dedupe_fmp_periods(yf_df, period)
+        yf_df = _relabel_fmp_fiscal_quarters(yf_df, ticker, period)
         return yf_df
     return pd.DataFrame()
 
@@ -9335,6 +9433,7 @@ def get_balance_sheet(ticker, period='annual', limit=5):
                 df['date'] = pd.to_datetime(df['date'])
                 df = df.sort_values('date')
             df = _dedupe_fmp_periods(df, period)
+            df = _relabel_fmp_fiscal_quarters(df, ticker, period)
             if not _fmp_data_is_bad(df, ['totalAssets', 'totalStockholdersEquity']):
                 return df
     except Exception:
@@ -9343,6 +9442,7 @@ def get_balance_sheet(ticker, period='annual', limit=5):
     yf_df = _yf_balance_to_fmp(ticker, period, limit)
     if not yf_df.empty:
         yf_df = _dedupe_fmp_periods(yf_df, period)
+        yf_df = _relabel_fmp_fiscal_quarters(yf_df, ticker, period)
         return yf_df
     return pd.DataFrame()
 
@@ -9418,6 +9518,7 @@ def get_cash_flow(ticker, period='annual', limit=5):
                 df['date'] = pd.to_datetime(df['date'])
                 df = df.sort_values('date')
             df = _dedupe_fmp_periods(df, period)
+            df = _relabel_fmp_fiscal_quarters(df, ticker, period)
             if not _fmp_data_is_bad(df, ['operatingCashFlow', 'freeCashFlow']):
                 # Apply known FMP data corrections (e.g. GOOGL Q1 2026 shift bug)
                 df = _apply_known_data_corrections(df, ticker, period, "cash")
@@ -9428,6 +9529,7 @@ def get_cash_flow(ticker, period='annual', limit=5):
     yf_df = _yf_cashflow_to_fmp(ticker, period, limit)
     if not yf_df.empty:
         yf_df = _dedupe_fmp_periods(yf_df, period)
+        yf_df = _relabel_fmp_fiscal_quarters(yf_df, ticker, period)
         yf_df = _apply_known_data_corrections(yf_df, ticker, period, "cash")
         return yf_df
     return pd.DataFrame()
