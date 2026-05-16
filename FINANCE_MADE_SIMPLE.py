@@ -7135,11 +7135,13 @@ def _score_dip_quality(quote, profile, ratios_ttm, rev_growth, consensus, pt_con
         target_median = pt_consensus.get("targetMedian") or pt_consensus.get("targetConsensus")
         if target_median and price > 0:
             upside_pct = (target_median - price) / price * 100
-            if upside_pct >= 40:   pt_score = 25
-            elif upside_pct >= 25: pt_score = 20
-            elif upside_pct >= 15: pt_score = 15
-            elif upside_pct >= 5:  pt_score = 10
+            if upside_pct >= 50:   pt_score = 25
+            elif upside_pct >= 35: pt_score = 22
+            elif upside_pct >= 25: pt_score = 18
+            elif upside_pct >= 15: pt_score = 14
+            elif upside_pct >= 8:  pt_score = 10
             elif upside_pct >= 0:  pt_score = 5
+            elif upside_pct >= -5: pt_score = 2
             else:                  pt_score = 0
             pt_detail = f"Median PT ${target_median:.0f} → {upside_pct:+.1f}% upside"
             if target_high:
@@ -7167,6 +7169,7 @@ def _score_dip_quality(quote, profile, ratios_ttm, rev_growth, consensus, pt_con
         elif pe < 25: pe_pts = 9
         elif pe < 35: pe_pts = 6
         elif pe < 50: pe_pts = 3
+        elif pe < 80: pe_pts = 1
         else:         pe_pts = 0
         val_parts.append(f"P/E {pe:.1f}x")
     else:
@@ -7177,12 +7180,24 @@ def _score_dip_quality(quote, profile, ratios_ttm, rev_growth, consensus, pt_con
         elif ps < 8:  ps_pts = 9
         elif ps < 15: ps_pts = 6
         elif ps < 25: ps_pts = 3
+        elif ps < 40: ps_pts = 1
         else:         ps_pts = 0
         val_parts.append(f"P/S {ps:.1f}x")
     else:
         ps_pts = 5  # neutral
 
     val_score = pe_pts + ps_pts
+
+    # Growth-adjusted rescue: high multiples are more defensible when growth is high
+    # PEG-style sanity check — if rev growth >> P/E or P/S compression rate, add back points
+    if rev_growth is not None and val_score < 10:
+        if rev_growth >= 50:   val_score += 6   # hyper-growth justifies premium
+        elif rev_growth >= 30: val_score += 4
+        elif rev_growth >= 20: val_score += 2
+        val_score = min(val_score, 25)
+        if rev_growth >= 20:
+            val_parts.append(f"growth-adj +{rev_growth:.0f}% rev")
+
     val_detail = " · ".join(val_parts) if val_parts else "Valuation data unavailable"
     scores["valuation"] = val_score
     details["valuation"] = val_detail
@@ -7196,42 +7211,69 @@ def _score_dip_quality(quote, profile, ratios_ttm, rev_growth, consensus, pt_con
         above50  = tech.get("above_sma50")
         above200 = tech.get("above_sma200")
         atr_pct  = tech.get("atr_pct")
+        sma50    = tech.get("sma50")
+        sma200   = tech.get("sma200")
+        pct_from_high = tech.get("pct_from_52w_high")
         tech_parts = []
 
-        # RSI-14 (0-8 pts) — lower RSI = deeper dip = more points
+        # RSI-14 (0-7 pts) — lower RSI = deeper dip = bounce setup
+        # But penalize extreme oversold (<20) as falling-knife risk
         rsi_pts = 0
         if rsi is not None:
-            if rsi < 30:   rsi_pts = 8   # deeply oversold
+            if rsi < 20:   rsi_pts = 4   # extreme oversold = capitulation risk
+            elif rsi < 30: rsi_pts = 7   # classic oversold = best dip-buy zone
             elif rsi < 40: rsi_pts = 6
             elif rsi < 50: rsi_pts = 4
             elif rsi < 60: rsi_pts = 2
             else:          rsi_pts = 0
             tech_parts.append(f"RSI {rsi:.0f}")
 
-        # Bollinger Band position (0-6 pts) — near lower band = potential bounce
+        # Bollinger Band position (0-4 pts) — near lower band = potential bounce
         bb_pts = 0
         if bb_pct is not None:
-            if bb_pct < 0.1:    bb_pts = 6
-            elif bb_pct < 0.25: bb_pts = 4
-            elif bb_pct < 0.5:  bb_pts = 2
+            if bb_pct < 0.1:    bb_pts = 4
+            elif bb_pct < 0.25: bb_pts = 3
+            elif bb_pct < 0.5:  bb_pts = 1
             else:                bb_pts = 0
             tech_parts.append(f"BB {bb_pct*100:.0f}%ile")
 
-        # Moving average position (0-5 pts)
+        # Moving-average regime (0-7 pts) — the key trend-context check.
+        # Scores the QUALITY of the dip based on whether the larger trend is intact.
         ma_pts = 0
         if above50 is not None and above200 is not None:
-            if not above50 and not above200:   ma_pts = 5  # below both = deep dip
-            elif not above50 and above200:     ma_pts = 4  # healthy pullback in uptrend
-            elif above50 and above200:         ma_pts = 1  # uptrend, less dip
-            tech_parts.append(f"{'Below' if not above50 else 'Above'} SMA50")
+            if above50 and above200:
+                # Still in uptrend — minor pullback, not really a dip
+                ma_pts = 2
+                tech_parts.append("Uptrend intact")
+            elif (not above50) and above200:
+                # Healthy pullback within long-term uptrend = ideal dip setup
+                ma_pts = 7
+                tech_parts.append("Pullback in uptrend")
+            elif above50 and (not above200):
+                # Recovering from downtrend — early stage
+                ma_pts = 4
+                tech_parts.append("Recovering")
+            else:
+                # Below both MAs — trend is broken. Check if 50 is below 200 (death cross territory)
+                if sma50 and sma200 and sma50 < sma200:
+                    ma_pts = 0  # confirmed downtrend / falling knife risk
+                    tech_parts.append("Downtrend (50<200)")
+                else:
+                    ma_pts = 2  # below both but 50 still above 200 — broken but not dead
+                    tech_parts.append("Below both MAs")
 
-        # ATR volatility bonus (0-1 pt) — moderate vol is ideal for dip buying
-        atr_pts = 0
-        if atr_pct is not None:
-            if 1.5 <= atr_pct <= 4.0: atr_pts = 1  # sweet spot — not too calm, not too wild
-            tech_parts.append(f"ATR {atr_pct:.1f}%")
+        # 52-week-high distance (0-2 pts) — sanity check that this is actually a dip
+        # Too close to highs = not a dip. Too far = falling knife.
+        h_pts = 0
+        if pct_from_high is not None:
+            if -25 <= pct_from_high <= -8:  h_pts = 2   # ideal dip zone: 8-25% off highs
+            elif -40 <= pct_from_high < -25: h_pts = 1  # deeper dip — riskier
+            elif pct_from_high > -8: h_pts = 0          # not really dipping
+            else: h_pts = 0                              # >40% off highs = falling knife
+            tech_parts.append(f"{pct_from_high:+.0f}% vs 52w hi")
 
-        tech_score = rsi_pts + bb_pts + ma_pts + atr_pts
+        tech_score = rsi_pts + bb_pts + ma_pts + h_pts
+        tech_score = min(tech_score, 20)
         tech_detail = " · ".join(tech_parts) if tech_parts else "Limited technical data"
 
     scores["technicals"] = tech_score
@@ -7242,28 +7284,43 @@ def _score_dip_quality(quote, profile, ratios_ttm, rev_growth, consensus, pt_con
     mom_detail = "No momentum data"
     mom_parts = []
 
-    # Revenue growth (0-8 pts)
+    # Revenue growth (0-7 pts)
     if rev_growth is not None:
-        if rev_growth >= 30:   rg_pts = 8
-        elif rev_growth >= 20: rg_pts = 6
-        elif rev_growth >= 10: rg_pts = 4
-        elif rev_growth >= 0:  rg_pts = 2
+        if rev_growth >= 40:   rg_pts = 7
+        elif rev_growth >= 25: rg_pts = 6
+        elif rev_growth >= 15: rg_pts = 4
+        elif rev_growth >= 5:  rg_pts = 2
+        elif rev_growth >= 0:  rg_pts = 1
         else:                  rg_pts = 0
         mom_score += rg_pts
         mom_parts.append(f"Rev growth {rev_growth:+.1f}%")
 
-    # Analyst buy % (0-7 pts)
+    # Analyst buy % (0-5 pts)
     if consensus and consensus.get("total", 0) > 0:
         total = consensus["total"]
         buys  = consensus.get("strongBuy", 0) + consensus.get("buy", 0)
         buy_pct = buys / total * 100
-        if buy_pct >= 80:   ap_pts = 7
-        elif buy_pct >= 65: ap_pts = 5
-        elif buy_pct >= 50: ap_pts = 3
+        if buy_pct >= 80:   ap_pts = 5
+        elif buy_pct >= 65: ap_pts = 4
+        elif buy_pct >= 50: ap_pts = 2
         else:               ap_pts = 0
         mom_score += ap_pts
         mom_parts.append(f"{buy_pct:.0f}% analyst buy")
 
+    # Price momentum off the lows (0-3 pts) — using distance from 52w low
+    # Far enough off lows to show conviction, but not so far that it's overheated
+    if tech:
+        pct_from_low = tech.get("pct_from_52w_low")
+        if pct_from_low is not None:
+            if 10 <= pct_from_low <= 40:   pm_pts = 3  # constructive bounce off lows
+            elif 5 <= pct_from_low < 10:   pm_pts = 2
+            elif 40 < pct_from_low <= 80:  pm_pts = 2  # extended but not yet euphoric
+            elif pct_from_low < 5:         pm_pts = 1  # right at the lows = risky
+            else:                          pm_pts = 1  # >80% off lows = overheated
+            mom_score += pm_pts
+            mom_parts.append(f"{pct_from_low:+.0f}% off 52w low")
+
+    mom_score = min(mom_score, 15)
     mom_detail = " · ".join(mom_parts) if mom_parts else "No momentum data"
     scores["momentum"] = mom_score
     details["momentum"] = mom_detail
