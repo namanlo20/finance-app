@@ -28498,8 +28498,8 @@ elif selected_page == "👤 Naman's Portfolio":
     # Recent trading activity note — shown next to the holdings table so readers
     # understand why this month's allocation differs from last month's.
     _RECENT_MOVES_NOTE = (
-        "**Recent moves (Apr 23, 2026):** Closed **AVGO** and **NVDA** positions; "
-        "reopened a **PLTR** stake after 2 years on the sidelines."
+        "**Recent moves (YTD 2026):** Closed **NVDA**, **ASML**, and **AVGO** "
+        "positions for gains of +15–25%; reopened a **PLTR** stake after 2 years on the sidelines."
     )
     
     # ── YTD Portfolio Return ────────────────────────────────────────────────
@@ -28580,9 +28580,11 @@ elif selected_page == "👤 Naman's Portfolio":
 
     # HERO YTD NUMBER — Naman's ACTUAL cost-basis return (from Fidelity), not
     # the passive weighted-Jan-1 calc. Cost-basis YTD is meaningfully better
-    # because dips were bought at lower prices throughout the year.
+    # because dips were bought at lower prices throughout the year AND it
+    # captures realized gains on closed positions (NVDA, ASML, AVGO all sold
+    # at +15–25% gains earlier in 2026).
     # Update this number manually when cost basis changes materially.
-    COST_BASIS_YTD = 1.0  # %, from Fidelity as of Apr 23, 2026
+    COST_BASIS_YTD = 10.05  # %, from Fidelity as of May 17, 2026
 
     portfolio_ytd = COST_BASIS_YTD
 
