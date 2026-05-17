@@ -18399,17 +18399,47 @@ def render_investing_journal():
 
 # Universe organized by AI/macro themes (not pure GICS sectors)
 MACRO_NEXUS_THEMES = {
+    # ─── Tech megacaps & AI platforms ──────────────────────────────────────
     "Mega-Cap AI Platforms": ["MSFT", "AMZN", "META", "AAPL", "GOOGL", "NVDA"],
-    "Whole Rack": ["AMD", "INTC", "MU", "AVGO", "MRVL", "DELL", "SMCI"],
-    "Semicon Architecture": ["QCOM", "ASML", "KLAC", "AMAT", "LRCX", "LSCC", "AMKR", "TSM", "ARM"],
+    "AI Compute & Quantum": ["PLTR", "AI", "IONQ", "RGTI", "QBTS", "BBAI", "SOUN"],
+
+    # ─── Semis ─────────────────────────────────────────────────────────────
+    "Semis – Compute & Memory": ["AMD", "INTC", "MU", "AVGO", "MRVL", "DELL", "SMCI"],
+    "Semis – Equipment & Design": ["QCOM", "ASML", "KLAC", "AMAT", "LRCX", "LSCC", "AMKR", "TSM", "ARM"],
     "Optical & Interconnects": ["ANET", "CIEN", "COHR", "LITE", "VRT", "FN", "ALAB"],
+
+    # ─── Software & data ───────────────────────────────────────────────────
+    "Software & SaaS": ["CRM", "ORCL", "NOW", "ADBE", "INTU", "WDAY", "TEAM", "SAP", "ADSK", "ZM"],
+    "Cloud Data & DevOps": ["SNOW", "DDOG", "MDB", "ESTC", "NET", "CFLT", "GTLB", "PATH"],
+    "Cybersecurity": ["PANW", "CRWD", "ZS", "OKTA", "S", "FTNT", "CYBR"],
+
+    # ─── Financials ────────────────────────────────────────────────────────
+    "Financials – Banks": ["JPM", "BAC", "GS", "MS", "WFC", "C"],
+    "Financials – Payments": ["V", "MA", "AXP", "PYPL"],
+    "Fintech & Crypto": ["HOOD", "COIN", "SOFI", "AFRM", "NU", "SQ", "MSTR"],
+
+    # ─── Streaming, media, consumer ────────────────────────────────────────
+    "Streaming & Media": ["NFLX", "DIS", "ROKU", "SPOT", "WBD", "PARA"],
+    "Consumer Disc": ["TSLA", "HD", "NKE", "MCD", "SBUX", "LULU", "CMG"],
+    "Consumer Staples": ["WMT", "COST", "PG", "KO", "PEP"],
+
+    # ─── EV / mobility / industrials ───────────────────────────────────────
+    "EV & Mobility (ex-TSLA)": ["RIVN", "F", "GM", "LCID"],
+    "Defense & Aerospace": ["LMT", "RTX", "NOC", "GD", "BA"],
+    "Industrials & Robotics": ["CAT", "DE", "ROK", "HON"],
+
+    # ─── Healthcare ────────────────────────────────────────────────────────
+    "Healthcare": ["LLY", "UNH", "JNJ", "PFE", "ABBV", "MRK", "NVO"],
+
+    # ─── Materials / energy ────────────────────────────────────────────────
     "Chemicals & Materials": ["CC", "ESI", "ENTG", "MKSI", "ROG", "LIN", "APD", "ECL"],
     "Energy & Infrastructure": ["VST", "CEG", "NRG", "GEV", "FLNC", "ETN", "PWR", "TLN", "EXC", "AES"],
-    "Macro Satellite": ["GLD", "SLV", "USO", "URA", "TLT"],
-    "Financials": ["JPM", "BAC", "GS", "MS", "V", "MA", "BX"],
-    "Healthcare": ["LLY", "UNH", "JNJ", "PFE", "ABBV", "MRK"],
-    "Consumer Disc": ["TSLA", "HD", "NKE", "MCD", "SBUX"],
-    "Consumer Staples": ["WMT", "COST", "PG", "KO", "PEP"],
+
+    # ─── China tech ────────────────────────────────────────────────────────
+    "China Tech": ["BABA", "JD", "PDD", "BIDU", "NIO"],
+
+    # ─── Macro satellite (ETFs/commodities) ────────────────────────────────
+    "Macro Satellite": ["GLD", "SLV", "USO", "URA", "TLT", "BITO"],
 }
 
 # Flatten to one list with theme attribution
@@ -18475,8 +18505,13 @@ def _macro_fetch_quote_metrics(ticker):
 
 
 @st.cache_data(ttl=900, show_spinner=False)
-def _macro_fetch_history(ticker, days=260):
-    """Fetch ~1Y daily OHLCV for technical analysis. Cached 15min."""
+def _macro_fetch_history(ticker, days=400):
+    """Fetch ~14 months daily OHLCV for technical analysis. Cached 15min.
+    Need 400 calendar days (~282 trading days) to reliably compute:
+      - 200-day SMA (needs ≥200 trading days)
+      - 200-day slope (needs ≥220 trading days)
+      - 52-week high (needs ≥252 trading days)
+    """
     try:
         from_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
         url = f"{BASE_URL}/historical-price-eod/full?symbol={ticker}&from={from_date}&apikey={FMP_API_KEY}"
@@ -33033,8 +33068,8 @@ elif selected_page == "🎯 Macro Nexus":
             unsafe_allow_html=True
         )
         st.markdown(
-            '<div class="nx-section-sub">Track only the names you actually trade — sorted by exhaustion, '
-            'works for ANY ticker (auto-fetches if not in the 75-ticker universe).</div>',
+            f'<div class="nx-section-sub">Track only the names you actually trade — sorted by exhaustion, '
+            f'works for ANY ticker (auto-fetches if not in the {len(_MACRO_NEXUS_TICKERS)}-ticker universe).</div>',
             unsafe_allow_html=True
         )
 
@@ -33068,7 +33103,7 @@ elif selected_page == "🎯 Macro Nexus":
                     options=universe_options,
                     default=[],
                     key="macro_wl_picker",
-                    placeholder="Quick add from the 75-ticker universe",
+                    placeholder=f"Quick add from the {len(_MACRO_NEXUS_TICKERS)}-ticker universe",
                 )
                 if picked:
                     if st.button(f"➕ Add {len(picked)} selected", use_container_width=True, key="macro_wl_picker_add"):
