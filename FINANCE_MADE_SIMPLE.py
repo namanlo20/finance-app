@@ -18818,6 +18818,121 @@ def _macro_build_screener(_ticker_list_key="default"):
     return pd.DataFrame(rows)
 
 
+@st.cache_data(ttl=900, show_spinner=False)
+def _macro_compute_single_ticker(ticker):
+    """Fetch + compute one ticker — for watchlist additions outside the 75-ticker
+    universe. Returns a single-row dict matching the schema of _macro_build_screener,
+    or None if the ticker can't be resolved.
+    Cached 15 minutes by ticker so refresh of the watchlist doesn't pound FMP.
+    """
+    if not ticker:
+        return None
+    ticker = ticker.upper().strip()
+    try:
+        spy_3m = _macro_get_benchmark_3m_return("SPY")
+        qqq_3m = _macro_get_benchmark_3m_return("QQQ")
+        qm = _macro_fetch_quote_metrics(ticker) or {}
+        hist = _macro_fetch_history(ticker)
+        if hist is None or len(hist) < 30:
+            return None
+        tech = _macro_compute_technicals(hist, spy_3m, qqq_3m)
+        if not tech:
+            return None
+
+        eps_next = qm.get("eps_next_fy")
+        eps_curr = qm.get("eps_curr_fy")
+        price = qm.get("price") or tech.get("price")
+        fwd_pe = price / eps_next if (eps_next and price and eps_next > 0) else None
+        eps_growth_pct = ((eps_next / eps_curr - 1) * 100
+                          if (eps_curr and eps_next and eps_curr > 0) else None)
+        fwd_peg = (fwd_pe / eps_growth_pct
+                   if (fwd_pe is not None and eps_growth_pct and eps_growth_pct > 0) else None)
+
+        return {
+            "ticker": ticker,
+            "company": qm.get("company_name") or ticker,
+            "theme": _MACRO_NEXUS_TICKER_THEME.get(ticker, "Custom"),
+            "price": price, "mcap": qm.get("mcap"),
+            "pe_ttm": qm.get("pe_ttm"), "ps_ttm": qm.get("ps_ttm"),
+            "div_yield": qm.get("div_yield"),
+            "eps_curr_fy": eps_curr, "eps_next_fy": eps_next,
+            "curr_fy_end": qm.get("curr_fy_end"), "next_fy_end": qm.get("next_fy_end"),
+            "fwd_pe": fwd_pe, "eps_growth": eps_growth_pct, "fwd_peg": fwd_peg,
+            "ret_1w": tech.get("ret_1w"), "ret_1m": tech.get("ret_1m"),
+            "ret_3m": tech.get("ret_3m"),
+            "rsi14": tech.get("rsi14"), "rsi5": tech.get("rsi5"),
+            "williams_r": tech.get("williams_r"),
+            "vs_20d": tech.get("vs_20d"), "vs_50d": tech.get("vs_50d"),
+            "vs_200d": tech.get("vs_200d"),
+            "slope_50d": tech.get("slope_50d"), "slope_200d": tech.get("slope_200d"),
+            "dist_52w_high": tech.get("dist_52w_high"),
+            "atr_pct": tech.get("atr_pct"), "vol_ratio": tech.get("vol_ratio"),
+            "rs_spy": tech.get("rs_spy"), "rs_qqq": tech.get("rs_qqq"),
+            "td_setup": tech.get("td_setup"),
+            "exh_score": tech.get("exh_score"),
+            "band": tech.get("band", "—"),
+        }
+    except Exception:
+        return None
+
+
+# ─── Watchlist persistence (Supabase) ──────────────────────────────────────
+# Table schema (create once in Supabase SQL editor):
+#   create table macro_nexus_watchlist (
+#     id bigserial primary key,
+#     user_id uuid not null references auth.users(id) on delete cascade,
+#     ticker text not null,
+#     added_at timestamptz default now(),
+#     unique(user_id, ticker)
+#   );
+#   create index on macro_nexus_watchlist(user_id);
+def _macro_get_watchlist(user_id):
+    """Return list of tickers in the user's watchlist (most recently added first)."""
+    if not user_id:
+        return []
+    try:
+        res = (supabase.table("macro_nexus_watchlist")
+               .select("ticker")
+               .eq("user_id", user_id)
+               .order("added_at", desc=True)
+               .execute())
+        return [r["ticker"] for r in (res.data or []) if r.get("ticker")]
+    except Exception:
+        return []
+
+def _macro_add_to_watchlist(user_id, ticker):
+    """Add a ticker. Returns (ok, message). Safe against duplicates."""
+    if not user_id:
+        return False, "Not signed in"
+    ticker = (ticker or "").upper().strip()
+    if not ticker:
+        return False, "Empty ticker"
+    if len(ticker) > 10 or not all(c.isalnum() or c in ".-" for c in ticker):
+        return False, "Invalid ticker format"
+    try:
+        supabase.table("macro_nexus_watchlist").upsert(
+            {"user_id": user_id, "ticker": ticker},
+            on_conflict="user_id,ticker"
+        ).execute()
+        return True, f"Added {ticker}"
+    except Exception as e:
+        return False, f"Save failed: {e}"
+
+def _macro_remove_from_watchlist(user_id, ticker):
+    """Remove a ticker from the watchlist."""
+    if not user_id or not ticker:
+        return False
+    try:
+        (supabase.table("macro_nexus_watchlist")
+         .delete()
+         .eq("user_id", user_id)
+         .eq("ticker", ticker.upper().strip())
+         .execute())
+        return True
+    except Exception:
+        return False
+
+
 def _fmt_mcap(v):
     if v is None or pd.isna(v):
         return "—"
@@ -32907,50 +33022,165 @@ elif selected_page == "🎯 Macro Nexus":
             html.append('</tbody></table>')
             st.markdown(''.join(html), unsafe_allow_html=True)
 
-        # ─── Top 20 Most Exhausted with SIGNAL column ──────────────────────
-        st.markdown('<div class="nx-section"><span class="badge">🔥</span>Top 20 Most Exhausted (across all themes)</div>', unsafe_allow_html=True)
+        # ─── MY WATCHLIST ───────────────────────────────────────────────────
+        user_id = st.session_state.get("user_id")
+        wl_tickers = _macro_get_watchlist(user_id) if user_id else []
 
-        top_df = df.dropna(subset=["exh_score"]).sort_values("exh_score", ascending=False).head(20).copy()
-        if len(top_df) == 0:
-            st.info("No exhaustion data available.")
+        st.markdown(
+            '<div class="nx-section"><span class="badge">⭐</span>My Watchlist</div>',
+            unsafe_allow_html=True
+        )
+        st.markdown(
+            '<div class="nx-section-sub">Track only the names you actually trade — sorted by exhaustion, '
+            'works for ANY ticker (auto-fetches if not in the 75-ticker universe).</div>',
+            unsafe_allow_html=True
+        )
+
+        if not user_id:
+            st.info("🔒 Sign in to save your watchlist across sessions.")
         else:
-            html = ['<table class="nx-table">']
-            html.append('<thead><tr>'
-                        '<th style="width:40px">#</th>'
-                        '<th>Ticker</th>'
-                        '<th>Company</th>'
-                        '<th>Theme</th>'
-                        '<th style="text-align:right">Price</th>'
-                        '<th style="text-align:right">Exh Score</th>'
-                        '<th>Band</th>'
-                        '<th style="text-align:right">RSI14</th>'
-                        '<th style="text-align:right">Will %R</th>'
-                        '<th style="text-align:right">Dist 52W H</th>'
-                        '<th style="text-align:center">TD Setup</th>'
-                        '<th>Signal</th>'
-                        '</tr></thead><tbody>')
-            for i, (_, row) in enumerate(top_df.iterrows(), 1):
-                exh = row["exh_score"]
-                exh_cls = _exh_class(exh)
-                verdict, color, _ = _macro_signal(exh, row.get("fwd_peg"), row.get("td_setup"))
-                html.append(
-                    f'<tr>'
-                    f'<td class="nx-rank">{i}</td>'
-                    f'<td class="nx-tk">{row["ticker"]}</td>'
-                    f'<td class="nx-co" style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{row["company"]}</td>'
-                    f'<td class="nx-th-sm">{row["theme"]}</td>'
-                    f'<td class="nx-num" style="text-align:right">{_fmt_cell(row["price"], 2)}</td>'
-                    f'<td class="nx-num {exh_cls}" style="text-align:right">{_fmt_cell(exh, 1)}</td>'
-                    f'<td class="nx-th-sm">{row["band"]}</td>'
-                    f'<td class="nx-num" style="text-align:right">{_fmt_cell(row["rsi14"], 1)}</td>'
-                    f'<td class="nx-num" style="text-align:right">{_fmt_cell(row["williams_r"], 1)}</td>'
-                    f'<td class="nx-num" style="text-align:right">{_fmt_cell(row["dist_52w_high"], 1, "%")}</td>'
-                    f'<td style="text-align:center">{_td_cell(row["td_setup"])}</td>'
-                    f'<td>{_signal_pill(verdict, color)}</td>'
-                    f'</tr>'
+            # Add ticker controls — text input + universe picker side by side
+            col_add1, col_add2, col_add3 = st.columns([2, 2, 1])
+            with col_add1:
+                with st.form("macro_wl_add_form", clear_on_submit=True):
+                    typed = st.text_input(
+                        "Add ticker (any symbol)",
+                        placeholder="e.g. PLTR, TSM, COIN…",
+                        key="macro_wl_input",
+                        label_visibility="visible",
+                    )
+                    add_clicked = st.form_submit_button("➕ Add", use_container_width=True)
+                    if add_clicked and typed:
+                        ok, msg = _macro_add_to_watchlist(user_id, typed)
+                        if ok:
+                            st.success(msg, icon="✅")
+                            st.rerun()
+                        else:
+                            st.error(msg, icon="⚠️")
+            with col_add2:
+                # Multi-select from the 75-ticker universe
+                already = set(wl_tickers)
+                universe_options = [t for t in _MACRO_NEXUS_TICKERS if t not in already]
+                picked = st.multiselect(
+                    "…or pick from universe",
+                    options=universe_options,
+                    default=[],
+                    key="macro_wl_picker",
+                    placeholder="Quick add from the 75-ticker universe",
                 )
-            html.append('</tbody></table>')
-            st.markdown(''.join(html), unsafe_allow_html=True)
+                if picked:
+                    if st.button(f"➕ Add {len(picked)} selected", use_container_width=True, key="macro_wl_picker_add"):
+                        added_any = False
+                        for t in picked:
+                            ok, _ = _macro_add_to_watchlist(user_id, t)
+                            added_any = added_any or ok
+                        if added_any:
+                            st.rerun()
+            with col_add3:
+                st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)  # spacer
+                if wl_tickers:
+                    if st.button("🗑️ Clear all", use_container_width=True, key="macro_wl_clear"):
+                        for t in wl_tickers:
+                            _macro_remove_from_watchlist(user_id, t)
+                        st.rerun()
+
+            # Current watchlist as removable chips
+            if wl_tickers:
+                st.caption(f"**{len(wl_tickers)}** in watchlist")
+                # Render as chips with remove buttons (Streamlit columns)
+                chip_cols = st.columns(min(8, max(1, len(wl_tickers))))
+                for idx, tk in enumerate(wl_tickers):
+                    with chip_cols[idx % len(chip_cols)]:
+                        if st.button(f"✕ {tk}", key=f"macro_wl_rm_{tk}", use_container_width=True,
+                                     help=f"Remove {tk} from watchlist"):
+                            _macro_remove_from_watchlist(user_id, tk)
+                            st.rerun()
+
+        # ─── Watchlist table ────────────────────────────────────────────────
+        if user_id and wl_tickers:
+            # Split into universe vs custom — universe rows already in df
+            in_universe = [t for t in wl_tickers if t in _MACRO_NEXUS_TICKERS]
+            custom = [t for t in wl_tickers if t not in _MACRO_NEXUS_TICKERS]
+
+            wl_rows = []
+            if in_universe:
+                wl_rows.extend(
+                    df[df["ticker"].isin(in_universe)].to_dict("records")
+                )
+            # Fetch custom tickers on the fly (cached 15min per ticker)
+            if custom:
+                with st.spinner(f"Fetching {len(custom)} custom ticker(s)…"):
+                    for tk in custom:
+                        row = _macro_compute_single_ticker(tk)
+                        if row:
+                            wl_rows.append(row)
+                        else:
+                            st.warning(f"Couldn't fetch data for **{tk}** — symbol may be invalid or new.", icon="⚠️")
+
+            if wl_rows:
+                # Sort: extreme exhaustion (highest) first; NaN sinks
+                wl_df = pd.DataFrame(wl_rows)
+                wl_df = wl_df.sort_values("exh_score", ascending=False, na_position="last").reset_index(drop=True)
+
+                html = ['<table class="nx-table">']
+                html.append('<thead><tr>'
+                            '<th style="width:40px">#</th>'
+                            '<th>Ticker</th>'
+                            '<th>Company</th>'
+                            '<th>Theme</th>'
+                            '<th style="text-align:right">Price</th>'
+                            '<th style="text-align:right">Exh Score</th>'
+                            '<th>Band</th>'
+                            '<th style="text-align:right">RSI14</th>'
+                            '<th style="text-align:right">Will %R</th>'
+                            '<th style="text-align:right">Dist 52W H</th>'
+                            '<th style="text-align:right">Fwd PEG</th>'
+                            '<th style="text-align:center">TD Setup</th>'
+                            '<th>Signal</th>'
+                            '</tr></thead><tbody>')
+                for i, (_, row) in enumerate(wl_df.iterrows(), 1):
+                    exh = row.get("exh_score")
+                    exh_cls = _exh_class(exh)
+                    peg = row.get("fwd_peg")
+                    peg_cls = _peg_class(peg)
+                    verdict, color, _ = _macro_signal(exh, peg, row.get("td_setup"))
+                    html.append(
+                        f'<tr>'
+                        f'<td class="nx-rank">{i}</td>'
+                        f'<td class="nx-tk">{row["ticker"]}</td>'
+                        f'<td class="nx-co" style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{row.get("company","")}</td>'
+                        f'<td class="nx-th-sm">{row.get("theme","")}</td>'
+                        f'<td class="nx-num" style="text-align:right">{_fmt_cell(row.get("price"), 2)}</td>'
+                        f'<td class="nx-num {exh_cls}" style="text-align:right">{_fmt_cell(exh, 1)}</td>'
+                        f'<td class="nx-th-sm">{row.get("band","—")}</td>'
+                        f'<td class="nx-num" style="text-align:right">{_fmt_cell(row.get("rsi14"), 1)}</td>'
+                        f'<td class="nx-num" style="text-align:right">{_fmt_cell(row.get("williams_r"), 1)}</td>'
+                        f'<td class="nx-num" style="text-align:right">{_fmt_cell(row.get("dist_52w_high"), 1, "%")}</td>'
+                        f'<td class="nx-num {peg_cls}" style="text-align:right">{_fmt_cell(peg, 2)}</td>'
+                        f'<td style="text-align:center">{_td_cell(row.get("td_setup"))}</td>'
+                        f'<td>{_signal_pill(verdict, color)}</td>'
+                        f'</tr>'
+                    )
+                html.append('</tbody></table>')
+                st.markdown(''.join(html), unsafe_allow_html=True)
+        elif user_id:
+            # Empty watchlist — show helpful empty state
+            st.markdown("""
+            <div style="background:#FFFFFF;border:1px dashed #CBD5E1;border-radius:12px;
+                        padding:32px 28px;text-align:center;margin:8px 0 20px 0;">
+                <div style="font-size:42px;margin-bottom:8px;opacity:0.5;">⭐</div>
+                <div style="font-size:16px;font-weight:700;color:#0F172A;margin-bottom:6px;">
+                    Your watchlist is empty
+                </div>
+                <div style="font-size:13px;color:#64748B;max-width:440px;margin:0 auto 14px;line-height:1.5;">
+                    Add the tickers you actually trade. Sorted by exhaustion every refresh —
+                    so you instantly see which of YOUR names are overbought or washed out.
+                </div>
+                <div style="font-size:12px;color:#94A3B8;">
+                    Try adding: <b>AAPL · NVDA · TSLA · PLTR · COIN · TSM</b>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
     # ════════════════════════════════════════════════════════════════════════
     # TAB 2: TECHNICAL SCREENER
