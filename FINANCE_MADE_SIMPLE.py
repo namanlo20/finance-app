@@ -18527,35 +18527,52 @@ def _atr_pct(high, low, close, period=14):
 
 def _td_setup_count(close):
     """
-    Tom DeMark Sequential Setup count.
-    Counts consecutive closes greater than the close 4 bars ago (buy setup is the inverse).
-    Returns current sell-setup count (max relevant = 9). Values 8-9 indicate exhaustion.
+    Tom DeMark Sequential Setup count — proper implementation.
+
+    Rules:
+      - A SELL SETUP begins when close > close[4 bars ago] AND the previous bar's
+        close ≤ close 4 bars before that (a "price flip" up).
+      - Bars 2-9 of the sell setup each require close > close[t-4].
+      - BUY SETUP is the inverse (close < close[t-4] after a flip down).
+      - If the comparison breaks mid-sequence, the setup resets.
+      - Returns the CURRENT active count at the last bar, capped at 13.
+        Positive = sell setup (overbought), Negative = buy setup (oversold).
+        0 means no active setup.
+
+    This is a closer-to-canonical implementation than naive consecutive-from-end,
+    which would over-count when the run started without a proper price flip.
     """
     try:
-        if len(close) < 5:
+        if close is None or len(close) < 6:
             return 0
-        # Sell setup: close > close[t-4]
-        cond_sell = (close > close.shift(4)).astype(int)
-        # Buy setup: close < close[t-4]
-        cond_buy = (close < close.shift(4)).astype(int)
-        # Count current consecutive run at the END of the series
+        # Build the per-bar sell/buy comparison series
+        sell_cmp = (close > close.shift(4))
+        buy_cmp = (close < close.shift(4))
+
+        # Walk forward, resetting on flips and on broken comparisons.
+        # We track which setup type is active and its count.
         sell_count = 0
-        for v in cond_sell.iloc[::-1].values:
-            if v == 1:
-                sell_count += 1
-            else:
-                break
         buy_count = 0
-        for v in cond_buy.iloc[::-1].values:
-            if v == 1:
-                buy_count += 1
+        for i in range(4, len(close)):
+            s = bool(sell_cmp.iloc[i]) if not pd.isna(sell_cmp.iloc[i]) else False
+            b = bool(buy_cmp.iloc[i]) if not pd.isna(buy_cmp.iloc[i]) else False
+            if s:
+                sell_count = sell_count + 1 if sell_count > 0 else 1
+                buy_count = 0
+            elif b:
+                buy_count = buy_count + 1 if buy_count > 0 else 1
+                sell_count = 0
             else:
-                break
-        # Return whichever is active and cap at 13 (full sequence)
-        if sell_count >= buy_count:
+                # Equal closes — break the count
+                sell_count = 0
+                buy_count = 0
+
+        # Cap at 13 (full TD sequence: setup 1-9 plus countdown overlap)
+        if sell_count >= buy_count and sell_count > 0:
             return min(sell_count, 13)
-        else:
-            return -min(buy_count, 13)  # negative = buy setup (potential bottom)
+        elif buy_count > 0:
+            return -min(buy_count, 13)
+        return 0
     except Exception:
         return 0
 
@@ -18634,7 +18651,10 @@ def _macro_compute_technicals(df, spy_returns=None, qqq_returns=None):
         out["td_setup"] = _td_setup_count(close)
 
         # === Composite Exhaustion Score (0-100, absolute) ===
-        # Weights tuned to match the AI Macro Nexus screenshot bands
+        # Higher score = more "exhausted" / overbought / extended.
+        # Lower score = washed out / oversold.
+        # Weights are tuned so RSI dominates but distance-from-highs and
+        # short-term return are meaningful tiebreakers.
         score = 0.0
         weight_sum = 0.0
         if out.get("rsi14") is not None:
@@ -18648,8 +18668,10 @@ def _macro_compute_technicals(df, spy_returns=None, qqq_returns=None):
             score += 0.10 * wr_norm
             weight_sum += 0.10
         if out.get("dist_52w_high") is not None:
-            # 0% from high -> 100, -20% -> 0
-            dist_norm = max(0, min(100, 100 + out["dist_52w_high"] * 5))
+            # 0% off high -> 100 (most extended/exhausted)
+            # -30% off high -> 0 (washed out)
+            # x3.33 multiplier gives a 30% range for the full 0-100 scale.
+            dist_norm = max(0, min(100, 100 + out["dist_52w_high"] * 3.33))
             score += 0.20 * dist_norm
             weight_sum += 0.20
         if out.get("vs_20d") is not None:
@@ -18658,8 +18680,8 @@ def _macro_compute_technicals(df, spy_returns=None, qqq_returns=None):
             score += 0.15 * v20_norm
             weight_sum += 0.15
         if out.get("ret_1m") is not None:
-            # +20% 1M return -> 100, -20% -> 0
-            r1m_norm = max(0, min(100, 50 + out["ret_1m"] * 2.5))
+            # +25% 1M return -> 100, -25% -> 0 (less steep than prior)
+            r1m_norm = max(0, min(100, 50 + out["ret_1m"] * 2.0))
             score += 0.10 * r1m_norm
             weight_sum += 0.10
         if weight_sum > 0:
@@ -32468,13 +32490,14 @@ elif selected_page == "🎯 Macro Nexus":
     # ─── LIGHT-MODE MODERN CSS ────────────────────────────────────────────────
     st.markdown("""
     <style>
-    /* Header */
+    /* Header — big, bold, BULLETPROOF text colors (Streamlit's global theme
+       tries to enforce its own h1/p colors so we need !important to win) */
     .nx-hero {
         background: linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #334155 100%);
         border-radius: 16px;
-        padding: 24px 32px;
-        margin-bottom: 18px;
-        box-shadow: 0 10px 40px rgba(15,23,42,0.15), 0 0 0 1px rgba(255,215,0,0.1);
+        padding: 32px 36px 28px 36px;
+        margin: 0 0 18px 0;
+        box-shadow: 0 10px 40px rgba(15,23,42,0.20), 0 0 0 1px rgba(255,215,0,0.12);
         position: relative;
         overflow: hidden;
     }
@@ -32482,15 +32505,57 @@ elif selected_page == "🎯 Macro Nexus":
         content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
         background: linear-gradient(90deg, #FFD700 0%, #FF6B35 50%, #FFD700 100%);
     }
+    .nx-hero::after {
+        content: ""; position: absolute; top: -50%; right: -10%; width: 360px; height: 360px;
+        background: radial-gradient(circle, rgba(255,215,0,0.10) 0%, transparent 60%);
+        pointer-events: none;
+    }
+    /* Use very specific selectors with !important so Streamlit's defaults can't override */
+    div[data-testid="stMarkdownContainer"] .nx-hero h1,
     .nx-hero h1 {
-        font-family: -apple-system, 'SF Pro Display', system-ui, sans-serif;
-        color: #FFD700; margin: 0; font-size: 30px; font-weight: 700;
-        letter-spacing: 1.5px;
+        font-family: -apple-system, 'SF Pro Display', system-ui, sans-serif !important;
+        color: #FFD700 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        font-size: 38px !important;
+        font-weight: 800 !important;
+        letter-spacing: 1.5px !important;
+        line-height: 1.1 !important;
+        text-shadow: 0 2px 16px rgba(255,215,0,0.25);
     }
+    div[data-testid="stMarkdownContainer"] .nx-hero .sub,
+    .nx-hero p.sub,
     .nx-hero .sub {
-        color: #94A3B8; margin: 6px 0 0 0; font-size: 13px;
-        letter-spacing: 0.5px; font-family: 'SF Mono', Monaco, Consolas, monospace;
+        color: #CBD5E1 !important;
+        margin: 10px 0 0 0 !important;
+        padding: 0 !important;
+        font-size: 13.5px !important;
+        font-weight: 500 !important;
+        letter-spacing: 0.6px !important;
+        font-family: 'SF Mono', 'JetBrains Mono', Menlo, Monaco, Consolas, monospace !important;
+        opacity: 0.95;
     }
+    .nx-hero .sub .dot {
+        color: #FFD700 !important; margin: 0 8px; opacity: 0.7;
+    }
+    .nx-hero .pill-live {
+        display: inline-block;
+        background: rgba(34,197,94,0.15);
+        color: #4ADE80 !important;
+        border: 1px solid rgba(74,222,128,0.4);
+        padding: 2px 9px;
+        border-radius: 10px;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.6px;
+        margin-right: 10px;
+        text-transform: uppercase;
+    }
+    .nx-hero .pill-live::before {
+        content: "●"; color: #22C55E; margin-right: 4px; font-size: 9px;
+        animation: nx-pulse 2s ease-in-out infinite;
+    }
+    @keyframes nx-pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
 
     /* KPI tiles - LIGHT background so text is readable */
     .nx-kpi-row { display: flex; gap: 14px; margin: 16px 0 20px 0; flex-wrap: wrap; }
@@ -32542,33 +32607,49 @@ elif selected_page == "🎯 Macro Nexus":
     .nx-table {
         width: 100%; border-collapse: collapse;
         font-family: -apple-system, system-ui, sans-serif;
-        font-size: 13px; margin: 8px 0 20px 0;
-        background: #FFFFFF; border-radius: 10px; overflow: hidden;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.06);
+        font-size: 13px; margin: 8px 0 24px 0;
+        background: #FFFFFF; border-radius: 12px; overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 4px 14px rgba(15,23,42,0.04);
+        border: 1px solid #E5E7EB;
     }
     .nx-table thead tr {
         background: linear-gradient(180deg, #F8FAFC 0%, #F1F5F9 100%);
         border-bottom: 2px solid #E2E8F0;
     }
     .nx-table th {
-        padding: 11px 12px; text-align: left; color: #475569;
-        font-weight: 600; font-size: 11px; text-transform: uppercase;
-        letter-spacing: 0.8px;
+        padding: 12px 14px; text-align: left; color: #475569;
+        font-weight: 700; font-size: 10.5px; text-transform: uppercase;
+        letter-spacing: 0.9px; white-space: nowrap;
     }
     .nx-table td {
-        padding: 11px 12px; border-bottom: 1px solid #F1F5F9;
-        color: #0F172A;
+        padding: 11px 14px; border-bottom: 1px solid #F1F5F9;
+        color: #0F172A; vertical-align: middle;
     }
     .nx-table tbody tr:hover { background: #FAFBFC; }
     .nx-table tbody tr:last-child td { border-bottom: none; }
-    .nx-num { font-family: 'SF Mono', Monaco, Consolas, monospace; font-variant-numeric: tabular-nums; }
-    .nx-tk { font-weight: 700; color: #0F172A; }
+    .nx-num { font-family: 'SF Mono', 'JetBrains Mono', Menlo, Monaco, Consolas, monospace; font-variant-numeric: tabular-nums; }
+    .nx-tk {
+        font-family: 'SF Mono', 'JetBrains Mono', Menlo, Monaco, Consolas, monospace;
+        font-weight: 700; color: #0F172A; font-size: 13px; letter-spacing: 0.3px;
+    }
     .nx-rank { color: #94A3B8; font-weight: 600; font-size: 12px; }
+    .nx-co { color: #475569; font-size: 12.5px; }
+    .nx-th-sm { color: #64748B; font-size: 11.5px; font-weight: 500; }
+
+    /* Ticker chips (used in Theme Rollup) */
+    .nx-chip {
+        display: inline-block; padding: 3px 9px; border-radius: 6px;
+        font-family: 'SF Mono', 'JetBrains Mono', Menlo, Monaco, Consolas, monospace;
+        font-size: 11.5px; font-weight: 700; letter-spacing: 0.3px;
+        margin: 1px 3px 1px 0; border: 1px solid transparent;
+        cursor: help;
+    }
 
     /* Signal pills */
     .nx-pill {
         display: inline-block; padding: 3px 10px; border-radius: 12px;
-        font-size: 11px; font-weight: 700; letter-spacing: 0.4px;
+        font-size: 10.5px; font-weight: 700; letter-spacing: 0.5px;
+        white-space: nowrap;
     }
 
     /* Cell heat colors */
@@ -32591,7 +32672,10 @@ elif selected_page == "🎯 Macro Nexus":
     st.markdown(f"""
     <div class="nx-hero">
         <h1>⊕ AI MACRO NEXUS</h1>
-        <p class="sub">Theme screener · Absolute 1–100 exhaustion · TD Sequential pressure · {datetime.now().strftime("%b %d, %Y · %H:%M")}</p>
+        <p class="sub">
+            <span class="pill-live">LIVE</span>
+            Theme screener<span class="dot">·</span>Absolute 1–100 exhaustion<span class="dot">·</span>TD Sequential pressure<span class="dot">·</span>{datetime.now().strftime("%b %d, %Y · %H:%M")}
+        </p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -32768,11 +32852,18 @@ elif selected_page == "🎯 Macro Nexus":
             n_extreme = int((valid["exh_score"] >= 75).sum())
             n_elevated = int((valid["exh_score"] >= 60).sum())
             pct_elev_plus = (n_elevated / len(valid) * 100) if len(valid) > 0 else 0
-            top_name = valid.sort_values("exh_score", ascending=False)["ticker"].iloc[0]
+            sorted_valid = valid.sort_values("exh_score", ascending=False)
+            top_name = sorted_valid["ticker"].iloc[0]
+            # Top 4 constituent tickers ranked by exhaustion (with score for hover)
+            top_tickers = list(zip(
+                sorted_valid["ticker"].head(4).tolist(),
+                sorted_valid["exh_score"].head(4).tolist(),
+            ))
             roll_rows.append({
                 "theme": theme, "n": n_tickers, "avg_exh": avg_exh,
                 "n_ext": n_extreme, "n_elev": n_elevated,
                 "pct_elev": pct_elev_plus, "top": top_name,
+                "top_tickers": top_tickers,
             })
         roll_rows.sort(key=lambda x: x["avg_exh"], reverse=True)
 
@@ -32785,13 +32876,22 @@ elif selected_page == "🎯 Macro Nexus":
                         '<th>Theme</th>'
                         '<th style="text-align:center">#</th>'
                         '<th style="text-align:right">Avg Exh</th>'
-                        '<th style="text-align:center">Extreme ≥75</th>'
-                        '<th style="text-align:center">Elevated ≥60</th>'
+                        '<th style="text-align:center">Extreme<br>≥75</th>'
+                        '<th style="text-align:center">Elevated<br>≥60</th>'
                         '<th style="text-align:right">% Elev+</th>'
-                        '<th>Top Name</th>'
+                        '<th>Top Tickers (by exhaustion)</th>'
                         '</tr></thead><tbody>')
             for i, r in enumerate(roll_rows, 1):
                 exh_cls = _exh_class(r["avg_exh"])
+                # Build chips for the top tickers — each chip color-coded by its own exh score
+                chips = []
+                for tk, sc in r["top_tickers"]:
+                    chip_cls = _exh_class(sc)
+                    chips.append(
+                        f'<span class="nx-chip {chip_cls}" '
+                        f'title="{tk} · Exh {sc:.1f}">{tk}</span>'
+                    )
+                tickers_html = ' '.join(chips)
                 html.append(
                     f'<tr>'
                     f'<td class="nx-rank">{i}</td>'
@@ -32801,7 +32901,7 @@ elif selected_page == "🎯 Macro Nexus":
                     f'<td class="nx-num" style="text-align:center">{r["n_ext"]}</td>'
                     f'<td class="nx-num" style="text-align:center">{r["n_elev"]}</td>'
                     f'<td class="nx-num" style="text-align:right">{r["pct_elev"]:.1f}%</td>'
-                    f'<td class="nx-tk">{r["top"]}</td>'
+                    f'<td>{tickers_html}</td>'
                     f'</tr>'
                 )
             html.append('</tbody></table>')
@@ -32837,11 +32937,11 @@ elif selected_page == "🎯 Macro Nexus":
                     f'<tr>'
                     f'<td class="nx-rank">{i}</td>'
                     f'<td class="nx-tk">{row["ticker"]}</td>'
-                    f'<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{row["company"]}</td>'
-                    f'<td style="font-size:12px;color:#64748B">{row["theme"]}</td>'
+                    f'<td class="nx-co" style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{row["company"]}</td>'
+                    f'<td class="nx-th-sm">{row["theme"]}</td>'
                     f'<td class="nx-num" style="text-align:right">{_fmt_cell(row["price"], 2)}</td>'
                     f'<td class="nx-num {exh_cls}" style="text-align:right">{_fmt_cell(exh, 1)}</td>'
-                    f'<td style="font-size:12px;color:#475569">{row["band"]}</td>'
+                    f'<td class="nx-th-sm">{row["band"]}</td>'
                     f'<td class="nx-num" style="text-align:right">{_fmt_cell(row["rsi14"], 1)}</td>'
                     f'<td class="nx-num" style="text-align:right">{_fmt_cell(row["williams_r"], 1)}</td>'
                     f'<td class="nx-num" style="text-align:right">{_fmt_cell(row["dist_52w_high"], 1, "%")}</td>'
@@ -32941,6 +33041,13 @@ elif selected_page == "🎯 Macro Nexus":
             def _style_tech(row):
                 styles = [""] * len(row)
                 try:
+                    # Ticker — monospace bold for visual hierarchy
+                    styles[row.index.get_loc("Ticker")] = (
+                        "font-family:'SF Mono',Monaco,Consolas,monospace;"
+                        "font-weight:700;color:#0F172A;letter-spacing:0.3px;"
+                    )
+                    # Theme — muted
+                    styles[row.index.get_loc("Theme")] = "color:#64748B;font-size:12px;"
                     exh = row["Exh Score"]
                     if not pd.isna(exh):
                         styles[row.index.get_loc("Exh Score")] = _exh_color(float(exh))
@@ -32952,6 +33059,32 @@ elif selected_page == "🎯 Macro Nexus":
                             styles[rsi_idx] = "color:#DC2626;font-weight:700;"
                         elif rsi <= 30:
                             styles[rsi_idx] = "color:#059669;font-weight:700;"
+                    # Williams %R — overbought/oversold color
+                    wr = row["Will %R"]
+                    if not pd.isna(wr):
+                        wr_idx = row.index.get_loc("Will %R")
+                        if wr >= -20:
+                            styles[wr_idx] = "color:#DC2626;font-weight:600;"
+                        elif wr <= -80:
+                            styles[wr_idx] = "color:#059669;font-weight:600;"
+                    # 1M / 3M returns — green/red sign
+                    for col_name in ("1W %", "1M %", "3M %"):
+                        v = row[col_name]
+                        if not pd.isna(v):
+                            idx = row.index.get_loc(col_name)
+                            if v > 0:
+                                styles[idx] = "color:#059669;"
+                            elif v < 0:
+                                styles[idx] = "color:#DC2626;"
+                    # vs MAs — color by sign
+                    for col_name in ("vs 20D", "vs 50D", "vs 200D"):
+                        v = row[col_name]
+                        if not pd.isna(v):
+                            idx = row.index.get_loc(col_name)
+                            if v > 0:
+                                styles[idx] = "color:#059669;"
+                            elif v < 0:
+                                styles[idx] = "color:#DC2626;"
                     td = row["TD Setup"]
                     if not pd.isna(td):
                         td_idx = row.index.get_loc("TD Setup")
@@ -32962,6 +33095,8 @@ elif selected_page == "🎯 Macro Nexus":
                             styles[td_idx] = "color:#D97706;font-weight:600;"
                         elif td_int <= -8:
                             styles[td_idx] = "background:#D1FAE5;color:#065F46;font-weight:800;"
+                        elif td_int <= -6:
+                            styles[td_idx] = "color:#059669;font-weight:600;"
                 except Exception:
                     pass
                 return styles
@@ -33042,9 +33177,11 @@ elif selected_page == "🎯 Macro Nexus":
         if len(fund_df) == 0:
             st.info("No data for selected filters.")
         else:
+            # Build Rank display — Int64 .astype(str) produces "<NA>" for nulls; fix to em-dash
+            _rank_disp = fund_df["theme_rank"].apply(lambda v: str(int(v)) if pd.notna(v) else "—").values
             fund_display = pd.DataFrame({
                 "Theme": fund_df["theme"].values,
-                "Rank": fund_df["theme_rank"].astype(str).values,
+                "Rank": _rank_disp,
                 "Ticker": fund_df["ticker"].values,
                 "Market Cap": fund_df["mcap"].apply(_fmt_mcap).values,
                 "Forward P/E": fund_df["fwd_pe"].apply(lambda x: f"{x:.1f}x" if x and not pd.isna(x) else "—").values,
@@ -33059,9 +33196,30 @@ elif selected_page == "🎯 Macro Nexus":
             def _style_fund(row):
                 styles = [""] * len(row)
                 try:
+                    # Ticker — monospace bold
+                    styles[row.index.get_loc("Ticker")] = (
+                        "font-family:'SF Mono',Monaco,Consolas,monospace;"
+                        "font-weight:700;color:#0F172A;letter-spacing:0.3px;"
+                    )
+                    # Theme — muted
+                    styles[row.index.get_loc("Theme")] = "color:#64748B;font-size:12px;"
+                    # Rank — light gray
+                    styles[row.index.get_loc("Rank")] = "color:#94A3B8;font-weight:600;"
                     peg = row["Forward PEG"]
                     if not pd.isna(peg):
                         styles[row.index.get_loc("Forward PEG")] = _peg_color(float(peg))
+                    # EPS growth — green if positive, red if negative
+                    try:
+                        eps_raw = str(row["Next-Yr EPS Growth"]).replace("%", "").strip()
+                        if eps_raw not in ("", "—"):
+                            v = float(eps_raw)
+                            idx = row.index.get_loc("Next-Yr EPS Growth")
+                            if v > 0:
+                                styles[idx] = "color:#059669;font-weight:600;"
+                            elif v < 0:
+                                styles[idx] = "color:#DC2626;font-weight:600;"
+                    except Exception:
+                        pass
                 except Exception:
                     pass
                 return styles
@@ -33104,8 +33262,8 @@ elif selected_page == "🎯 Macro Nexus":
                     f'<tr>'
                     f'<td class="nx-rank">{i}</td>'
                     f'<td class="nx-tk">{row["ticker"]}</td>'
-                    f'<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{row["company"]}</td>'
-                    f'<td style="font-size:12px;color:#64748B">{row["theme"]}</td>'
+                    f'<td class="nx-co" style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{row["company"]}</td>'
+                    f'<td class="nx-th-sm">{row["theme"]}</td>'
                     f'<td class="nx-num" style="text-align:right">{_fmt_mcap(row["mcap"])}</td>'
                     f'<td class="nx-num" style="text-align:right">{_fmt_cell(row["fwd_pe"], 1, "x")}</td>'
                     f'<td class="nx-num" style="text-align:right">{_fmt_cell(row["eps_growth"], 1, "%")}</td>'
