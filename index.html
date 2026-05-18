@@ -486,43 +486,33 @@
         <!-- Right: Animated Live Chart Panel -->
         <div style="position: relative;">
             <div style="background: #12121a; border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; overflow: hidden; box-shadow: 0 25px 60px rgba(0,0,0,0.5);">
-                <div style="padding: 14px 18px 10px; border-bottom: 1px solid rgba(255,255,255,0.06); display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <div id="hSym" style="font-weight: 700; font-size: 15px; color: #f0ece8;">NVDA</div>
-                        <div style="font-size: 11px; color: rgba(255,255,255,0.35); margin-top: 1px;">NASDAQ · Live</div>
+                <!-- Generic "Live Market" header — no specific ticker, no fake price -->
+                <div style="padding: 14px 18px; border-bottom: 1px solid rgba(255,255,255,0.06); display: flex; justify-content: space-between; align-items: center;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="width: 8px; height: 8px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 8px rgba(74,222,128,0.6); animation: pulse 2s infinite;"></span>
+                        <span style="font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.7); letter-spacing: 0.5px; text-transform: uppercase;">Live Market</span>
                     </div>
-                    <div style="text-align: right;">
-                        <div id="hPrice" style="font-size: 20px; font-weight: 800; color: #f0ece8;">$875.40</div>
-                        <div id="hChg" style="font-size: 12px; font-weight: 600; color: #4ade80; margin-top: 1px;">&#9650; +2.34%</div>
-                    </div>
+                    <div style="font-size: 11px; color: rgba(255,255,255,0.35); font-family: 'Space Mono', monospace;">Real-time price action</div>
                 </div>
-                <div style="display: flex; border-bottom: 1px solid rgba(255,255,255,0.06); overflow-x: auto;">
-                    <button class="htab active" onclick="hSwitch(this,'NVDA')" style="padding:8px 14px;font-size:11px;font-weight:700;color:#FF4B4B;background:none;border:none;border-bottom:2px solid #FF4B4B;cursor:pointer;white-space:nowrap;transition:all .2s;">NVDA</button>
-                    <button class="htab" onclick="hSwitch(this,'TSLA')" style="padding:8px 14px;font-size:11px;font-weight:600;color:rgba(255,255,255,0.4);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;transition:all .2s;">TSLA</button>
-                    <button class="htab" onclick="hSwitch(this,'GOOGL')" style="padding:8px 14px;font-size:11px;font-weight:600;color:rgba(255,255,255,0.4);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;transition:all .2s;">GOOGL</button>
-                    <button class="htab" onclick="hSwitch(this,'META')" style="padding:8px 14px;font-size:11px;font-weight:600;color:rgba(255,255,255,0.4);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;transition:all .2s;">META</button>
-                    <button class="htab" onclick="hSwitch(this,'AMZN')" style="padding:8px 14px;font-size:11px;font-weight:600;color:rgba(255,255,255,0.4);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;transition:all .2s;">AMZN</button>
-                    <button class="htab" onclick="hSwitch(this,'PLTR')" style="padding:8px 14px;font-size:11px;font-weight:600;color:rgba(255,255,255,0.4);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;transition:all .2s;">PLTR</button>
-                </div>
-                <div style="position:relative; height: 260px; background: #0f0f18;">
+                <div style="position:relative; height: 290px; background: #0f0f18;">
                     <canvas id="hCanvas" style="width:100%;height:100%;display:block;"></canvas>
                 </div>
                 <div style="display:flex; border-top:1px solid rgba(255,255,255,0.06);">
                     <div style="flex:1; padding:10px 14px; border-right:1px solid rgba(255,255,255,0.06);">
-                        <div style="font-size:10px;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:.06em;">High</div>
+                        <div style="font-size:10px;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:.06em;">vs High</div>
                         <div id="hHi" style="font-size:13px;font-weight:600;color:#f0ece8;margin-top:2px;">-</div>
                     </div>
                     <div style="flex:1; padding:10px 14px; border-right:1px solid rgba(255,255,255,0.06);">
-                        <div style="font-size:10px;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:.06em;">Low</div>
+                        <div style="font-size:10px;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:.06em;">vs Low</div>
                         <div id="hLo" style="font-size:13px;font-weight:600;color:#f0ece8;margin-top:2px;">-</div>
                     </div>
                     <div style="flex:1; padding:10px 14px; border-right:1px solid rgba(255,255,255,0.06);">
-                        <div style="font-size:10px;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:.06em;">Open</div>
+                        <div style="font-size:10px;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:.06em;">Change</div>
                         <div id="hOpen" style="font-size:13px;font-weight:600;color:#f0ece8;margin-top:2px;">-</div>
                     </div>
                     <div style="flex:1; padding:10px 14px;">
-                        <div style="font-size:10px;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:.06em;">Vol</div>
-                        <div id="hVol" style="font-size:13px;font-weight:600;color:#f0ece8;margin-top:2px;">42.1M</div>
+                        <div style="font-size:10px;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:.06em;">Range</div>
+                        <div id="hVol" style="font-size:13px;font-weight:600;color:#f0ece8;margin-top:2px;">-</div>
                     </div>
                 </div>
             </div>
@@ -545,8 +535,10 @@
 
 <script>
 (function(){
-    var STOCKS={NVDA:{base:875.40,vol:'42.1M'},TSLA:{base:248.30,vol:'89.3M'},GOOGL:{base:173.20,vol:'21.5M'},META:{base:510.75,vol:'15.8M'},AMZN:{base:192.80,vol:'34.2M'},PLTR:{base:24.60,vol:'67.4M'}};
-    var sym='NVDA',candles=[],scrollX=0,raf;
+    // Decorative candle chart — no tickers, no real prices.
+    // Uses an arbitrary internal base value just to give candles realistic
+    // relative motion. None of the rendered numbers represent any real stock.
+    var BASE=100,candles=[],scrollX=0,raf;
     var canvas=document.getElementById('hCanvas');
     var ctx=canvas?canvas.getContext('2d'):null;
 
@@ -557,9 +549,9 @@
         canvas.height=canvas.parentElement.offsetHeight*dpr;
         ctx.scale(dpr,dpr);
     }
-    function gen(n,base){
-        var p=base,cs=[];
-        for(var i=0;i<n;i++){var o=p,mv=(Math.random()-.47)*(base*.013),c=p+mv,h=Math.max(o,c)+Math.random()*base*.004,l=Math.min(o,c)-Math.random()*base*.004;cs.push({o:o,c:c,h:h,l:l});p=c;}
+    function gen(n){
+        var p=BASE,cs=[];
+        for(var i=0;i<n;i++){var o=p,mv=(Math.random()-.47)*(BASE*.013),c=p+mv,h=Math.max(o,c)+Math.random()*BASE*.004,l=Math.min(o,c)-Math.random()*BASE*.004;cs.push({o:o,c:c,h:h,l:l});p=c;}
         return cs;
     }
     function draw(){
@@ -580,50 +572,41 @@
             ctx.strokeStyle=col;ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(x+cw/2,yH);ctx.lineTo(x+cw/2,yL);ctx.stroke();
             ctx.fillStyle=col;ctx.fillRect(x,Math.min(yO,yC),cw,Math.max(Math.abs(yC-yO),2));
         });
-        var last=candles[candles.length-1];
-        if(last){
-            var ly=H-((last.c-minP)/rng)*H;
-            ctx.strokeStyle='rgba(255,75,75,0.4)';ctx.lineWidth=1;ctx.setLineDash([4,6]);
-            ctx.beginPath();ctx.moveTo(0,ly);ctx.lineTo(W,ly);ctx.stroke();ctx.setLineDash([]);
-            ctx.fillStyle='rgba(255,75,75,.85)';ctx.fillRect(W-68,ly-9,66,18);
-            ctx.fillStyle='white';ctx.font='10px sans-serif';ctx.textAlign='right';
-            ctx.fillText('$'+last.c.toFixed(2),W-5,ly+4);ctx.textAlign='left';
-        }
+        // No price label drawn on chart — chart is purely decorative
     }
-    function hud(price){
-        var el=document.getElementById('hPrice'),ce=document.getElementById('hChg'),hi=document.getElementById('hHi'),lo=document.getElementById('hLo'),op=document.getElementById('hOpen');
-        if(el)el.textContent='$'+price.toFixed(2);
-        var pct=(price-(candles[0]?candles[0].o:price))/(candles[0]?candles[0].o:price)*100;
-        if(ce){ce.textContent=(pct>=0?'\u25b2 +':'\u25bc ')+Math.abs(pct).toFixed(2)+'%';ce.style.color=pct>=0?'#4ade80':'#FF4444';}
-        var ps=candles.map(function(c){return c.c;});
-        if(hi)hi.textContent='$'+Math.max.apply(null,ps).toFixed(2);
-        if(lo)lo.textContent='$'+Math.min.apply(null,ps).toFixed(2);
-        if(op)op.textContent='$'+(candles[0]?candles[0].o.toFixed(2):'-');
+    function hud(){
+        // Generic stats — no dollar amounts (would be misleading without a ticker).
+        // We show the % move of the visible candle window, which describes the
+        // chart accurately without implying it represents any specific stock.
+        var hi=document.getElementById('hHi'),lo=document.getElementById('hLo'),op=document.getElementById('hOpen'),vo=document.getElementById('hVol');
+        if(!candles.length) return;
+        var first=candles[0].o, last=candles[candles.length-1].c;
+        var highs=candles.map(function(c){return c.h;});
+        var lows=candles.map(function(c){return c.l;});
+        var maxH=Math.max.apply(null,highs), minL=Math.min.apply(null,lows);
+        var pctFromOpen=(last-first)/first*100;
+        var rangePct=(maxH-minL)/first*100;
+        var pctFromLow=(last-minL)/minL*100;
+        var pctFromHigh=(last-maxH)/maxH*100;
+        if(hi)hi.textContent=(pctFromHigh>=0?'+':'')+pctFromHigh.toFixed(2)+'%';
+        if(lo)lo.textContent='+'+pctFromLow.toFixed(2)+'%';
+        if(op)op.textContent=(pctFromOpen>=0?'\u25b2 +':'\u25bc ')+Math.abs(pctFromOpen).toFixed(2)+'%';
+        if(op)op.style.color=pctFromOpen>=0?'#4ade80':'#FF4444';
+        if(vo)vo.textContent=rangePct.toFixed(2)+'%';
     }
     function tick(){
         scrollX-=.35;
         var step=canvas.offsetWidth/candles.length;
         if(Math.abs(scrollX)>=step){
             scrollX=0;
-            var prev=candles[candles.length-1].c,base=STOCKS[sym].base,mv=(Math.random()-.47)*(base*.013),nc=prev+mv;
-            candles.push({o:prev,c:nc,h:Math.max(prev,nc)+Math.random()*base*.004,l:Math.min(prev,nc)-Math.random()*base*.004});
+            var prev=candles[candles.length-1].c,mv=(Math.random()-.47)*(BASE*.013),nc=prev+mv;
+            candles.push({o:prev,c:nc,h:Math.max(prev,nc)+Math.random()*BASE*.004,l:Math.min(prev,nc)-Math.random()*BASE*.004});
             if(candles.length>80)candles.shift();
-            hud(nc);
+            hud();
         }
         draw();raf=requestAnimationFrame(tick);
     }
-    function load(s){
-        sym=s;candles=gen(60,STOCKS[s].base);scrollX=0;
-        var se=document.getElementById('hSym'),ve=document.getElementById('hVol');
-        if(se)se.textContent=s;if(ve)ve.textContent=STOCKS[s].vol;
-        hud(candles[candles.length-1].c);
-    }
-    window.hSwitch=function(el,s){
-        document.querySelectorAll('.htab').forEach(function(t){t.style.color='rgba(255,255,255,0.4)';t.style.borderBottomColor='transparent';t.style.fontWeight='600';});
-        el.style.color='#FF4B4B';el.style.borderBottomColor='#FF4B4B';el.style.fontWeight='700';
-        if(raf)cancelAnimationFrame(raf);load(s);raf=requestAnimationFrame(tick);
-    };
-    function init(){resize();load('NVDA');raf=requestAnimationFrame(tick);}
+    function init(){resize();candles=gen(60);scrollX=0;hud();raf=requestAnimationFrame(tick);}
     window.addEventListener('resize',resize);
     if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(init,80);});
     else setTimeout(init,80);
