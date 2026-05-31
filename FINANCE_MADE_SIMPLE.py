@@ -9536,49 +9536,137 @@ def get_cash_flow(ticker, period='annual', limit=5):
 
 @st.cache_data(ttl=3600)
 def get_financial_ratios(ticker, period='annual', limit=5):
-    """Get financial ratios.
+    """Get financial ratios for BOTH annual and quarterly views.
 
-    FMP's stable /ratios endpoint honors period=quarter — exactly like the
-    income-statement / balance-sheet / cash-flow endpoints — so we use it for
-    BOTH annual and quarterly. The legacy /v3/ratios endpoint is kept only as a
-    fallback for the rare case where stable returns nothing. (Routing quarterly
-    straight to v3 is what previously broke the Quarterly view: v3 has been
-    deprecated on newer keys and now comes back empty, so annual worked while
-    quarterly showed no data.)
+    Why this is assembled rather than a single call: FMP's stable /ratios
+    endpoint does NOT serve quarterly data (period=quarter errors out, and
+    unknown period tokens silently fall back to FY rows), and the legacy
+    /v3/ratios endpoint is deprecated/empty on current keys. That combination
+    is what made the Quarterly view come back blank while Annual worked.
+
+    So we source from endpoints that DO honor both periods and normalize them
+    to ONE schema using the legacy field names the rest of the app reads
+    (priceEarningsRatio, debtToEquity, priceToFreeCashFlowsRatio, returnOnEquity,
+    returnOnAssets, returnOnCapitalEmployed, freeCashFlowYield, …):
+
+      ANNUAL  : /stable/ratios (margins, P/E, P/S, P/B, P/FCF, current, quick,
+                debt/equity, EV/EBITDA) enriched with /stable/key-metrics for
+                ROE/ROA/ROCE/ROIC + FCF yield (which /ratios omits).
+      QUARTER : /stable/key-metrics (ROE/ROA/ROCE/ROIC, FCF yield, EV/EBITDA,
+                current ratio, marketCap) + /stable/income-statement for margins
+                and TTM-based P/E and P/S (rolling 4-quarter earnings/revenue so
+                the multiples are comparable across quarters, not 4× distorted).
+
+    Note: P/B, quick ratio and debt/equity are not assembled for the quarterly
+    view yet (they need the balance-sheet endpoint); the multiselect simply
+    omits any ratio whose column isn't present, so this degrades gracefully.
     """
-    def _parse(payload):
-        if not payload or not isinstance(payload, list):
+    def _get(endpoint, per, lim):
+        """Fetch one stable endpoint -> date-sorted DataFrame (empty on failure)."""
+        try:
+            url = f"{BASE_URL}/{endpoint}?symbol={ticker}&period={per}&limit={lim}&apikey={FMP_API_KEY}"
+            data = requests.get(url, timeout=12).json()
+            if isinstance(data, list) and data:
+                d = pd.DataFrame(data)
+                if 'date' in d.columns:
+                    d['date'] = pd.to_datetime(d['date'], errors='coerce')
+                    d = d.sort_values('date')
+                return d
+        except Exception:
+            pass
+        return pd.DataFrame()
+
+    # FMP "stable" field names -> the legacy names the app reads everywhere.
+    _STABLE_TO_LEGACY = {
+        "priceToEarningsRatio": "priceEarningsRatio",
+        "priceToFreeCashFlowRatio": "priceToFreeCashFlowsRatio",
+        "debtToEquityRatio": "debtToEquity",
+    }
+
+    def _apply_aliases(d):
+        for src, dst in _STABLE_TO_LEGACY.items():
+            if src in d.columns and dst not in d.columns:
+                d[dst] = d[src]
+        return d
+
+    def _col(d, name):
+        return pd.to_numeric(d[name], errors='coerce') if name in d.columns else np.nan
+
+    try:
+        if period == 'quarter':
+            km = _get("key-metrics", "quarter", limit)
+            # Pull extra income quarters so the 4-quarter TTM rolling window is valid
+            inc = _get("income-statement", "quarter", limit + 4)
+            if km.empty and inc.empty:
+                return pd.DataFrame()
+
+            # ── Margins + TTM aggregates from the income statement ──
+            base = inc.copy() if not inc.empty else pd.DataFrame()
+            if not base.empty:
+                base = base.sort_values("date")
+                rev = _col(base, "revenue")
+                ni = _col(base, "bottomLineNetIncome")
+                if ni is np.nan or (hasattr(ni, "isna") and ni.isna().all()):
+                    ni = _col(base, "netIncome")
+                base["grossProfitMargin"] = _col(base, "grossProfit") / rev
+                base["operatingProfitMargin"] = _col(base, "operatingIncome") / rev
+                base["netProfitMargin"] = ni / rev
+                base["_rev_ttm"] = rev.rolling(4).sum()
+                base["_ni_ttm"] = ni.rolling(4).sum()
+
+            # ── Returns / FCF yield / EV-EBITDA / current ratio / marketCap ──
+            if not km.empty:
+                km = km.rename(columns={"evToEBITDA": "enterpriseValueMultiple"})
+                keep = [c for c in ["date", "fiscalYear", "period", "marketCap",
+                                    "returnOnEquity", "returnOnAssets",
+                                    "returnOnCapitalEmployed", "returnOnInvestedCapital",
+                                    "freeCashFlowYield", "enterpriseValueMultiple",
+                                    "currentRatio"] if c in km.columns]
+                km = km[keep]
+
+            if not base.empty and not km.empty:
+                df = pd.merge(base, km, on="date", how="outer", suffixes=("", "_km"))
+            elif not base.empty:
+                df = base
+            else:
+                df = km
+            df = df.sort_values("date")
+
+            # ── TTM-based valuation multiples (comparable across quarters) ──
+            if "marketCap" in df.columns:
+                mc = pd.to_numeric(df["marketCap"], errors='coerce')
+                if "_ni_ttm" in df.columns:
+                    pe = mc / pd.to_numeric(df["_ni_ttm"], errors='coerce')
+                    df["priceEarningsRatio"] = pe.where(pe > 0)
+                if "_rev_ttm" in df.columns:
+                    ps = mc / pd.to_numeric(df["_rev_ttm"], errors='coerce')
+                    df["priceToSalesRatio"] = ps.where(ps > 0)
+
+            df = df.drop(columns=[c for c in ["_rev_ttm", "_ni_ttm"] if c in df.columns],
+                         errors='ignore')
+            df = _apply_aliases(df)
+            # Most recent `limit` quarters
+            return df.sort_values("date").tail(limit).reset_index(drop=True)
+
+        # ── ANNUAL ──────────────────────────────────────────────────────────
+        base = _apply_aliases(_get("ratios", "annual", limit))
+        km = _get("key-metrics", "annual", limit)
+        if not km.empty:
+            add_cols = [c for c in ["returnOnEquity", "returnOnAssets",
+                                    "returnOnCapitalEmployed", "returnOnInvestedCapital",
+                                    "freeCashFlowYield"] if c in km.columns]
+            if not base.empty and "date" in base.columns and "date" in km.columns and add_cols:
+                base = pd.merge(base, km[["date"] + add_cols], on="date",
+                                how="left", suffixes=("", "_km"))
+            elif base.empty:
+                base = km
+        if base.empty:
             return pd.DataFrame()
-        df = pd.DataFrame(payload)
-        if 'date' in df.columns:
-            df['date'] = pd.to_datetime(df['date'])
-            df = df.sort_values('date')
-        return _dedupe_fmp_periods(df, period)
-
-    # ── Primary: stable endpoint (honors period=quarter like the statements) ──
-    try:
-        url = f"{BASE_URL}/ratios?symbol={ticker}&period={period}&limit={limit}&apikey={FMP_API_KEY}"
-        df = _parse(requests.get(url, timeout=10).json())
-        # Guard: if quarterly was requested but stable handed back annual rows
-        # (every period == 'FY'), force the v3 fallback rather than draw wrong bars.
-        if period == 'quarter' and not df.empty and 'period' in df.columns:
-            if not df['period'].astype(str).str.upper().str.startswith('Q').any():
-                df = pd.DataFrame()
-        if not df.empty:
-            return df
+        if "date" in base.columns:
+            base = base.sort_values("date")
+        return _dedupe_fmp_periods(base, period)
     except Exception:
-        pass
-
-    # ── Fallback: legacy v3 endpoint ──
-    try:
-        url = f"https://financialmodelingprep.com/api/v3/ratios/{ticker}?period={period}&limit={limit}&apikey={FMP_API_KEY}"
-        df = _parse(requests.get(url, timeout=10).json())
-        if not df.empty:
-            return df
-    except Exception:
-        pass
-
-    return pd.DataFrame()
+        return pd.DataFrame()
 
 @st.cache_data(ttl=3600)
 def get_product_segments(ticker, period='annual'):
@@ -33161,18 +33249,69 @@ elif selected_page == "🎯 Macro Nexus":
     # ════════════════════════════════════════════════════════════════════════
     # 🔄 TREND CHANGE RADAR  (additive section — reuses df, edits nothing)
     # ════════════════════════════════════════════════════════════════════════
+    # Score the FULL universe once — used for the breadth internals below and
+    # for the default top-10 scan.
     tcdf = df.copy()
     _tc = tcdf.apply(_macro_trend_change_row, axis=1)
     tcdf["tc_dir"] = _tc.apply(lambda x: x[0])
     tcdf["tc_score"] = _tc.apply(lambda x: x[1])
     tcdf["tc_signals"] = _tc.apply(lambda x: x[2])
 
+    # Index internals are ALWAYS computed on the full universe (breadth of a
+    # hand-picked list is meaningless), regardless of the scan mode chosen.
     internals = _macro_index_internals(tcdf, tcdf["tc_dir"])
-    ranked = (tcdf[tcdf["tc_dir"] != "Stable"]
-              .sort_values("tc_score", ascending=False)
-              .head(10).reset_index(drop=True))
 
-    st.markdown('<div class="nx-section"><span class="badge">🔄</span>Trend Change Radar — Top 10 Most Likely to Flip</div>', unsafe_allow_html=True)
+    # ── Scan mode: full universe (auto top-10) OR your own tradeable list ──
+    # Reuses the existing watchlist + single-ticker compute — no new persistence.
+    _tcr_uid = st.session_state.get("user_id")
+    _tcr_wl = _macro_get_watchlist(_tcr_uid) if _tcr_uid else []
+    _scan_opts = ["🔝 Top 10 — full universe", "✏️ My list"]
+    if _tcr_wl:
+        _scan_opts.append("⭐ My watchlist")
+    _scan = st.radio("Scan", _scan_opts, horizontal=True,
+                     key="tcr_scan_mode", label_visibility="collapsed")
+
+    _custom_tickers = []
+    if _scan.startswith("✏️"):
+        _txt = st.text_input(
+            "Tickers to scan (comma or space separated)",
+            value=st.session_state.get("tcr_custom_text", "NVDA, TSLA, PLTR, AAPL, AMD, MSFT"),
+            key="tcr_custom_text",
+            help="Type the names you actually trade. Any ticker works — if it's "
+                 "not in the screener universe it's fetched on the fly.")
+        _custom_tickers = [t.strip().upper() for t in _re.split(r"[,\s]+", _txt) if t.strip()]
+    elif _scan.startswith("⭐"):
+        _custom_tickers = _tcr_wl
+
+    if _custom_tickers:
+        # Reuse already-scored universe rows where possible (no refetch);
+        # compute + score anything outside the universe via the existing helper.
+        _uni_map = {row["ticker"]: row for _, row in tcdf.iterrows()}
+        _sel_rows, _missing = [], []
+        for t in dict.fromkeys(_custom_tickers):       # dedupe, keep order
+            if t in _uni_map:
+                _sel_rows.append(_uni_map[t].to_dict())
+            else:
+                _r = _macro_compute_single_ticker(t)
+                if _r:
+                    _d, _s, _sig = _macro_trend_change_row(_r)
+                    _r = dict(_r)
+                    _r["tc_dir"], _r["tc_score"], _r["tc_signals"] = _d, _s, _sig
+                    _sel_rows.append(_r)
+                else:
+                    _missing.append(t)
+        if _missing:
+            st.caption(f"⚠️ Couldn't resolve: {', '.join(_missing)}")
+        ranked = (pd.DataFrame(_sel_rows).sort_values("tc_score", ascending=False).reset_index(drop=True)
+                  if _sel_rows else pd.DataFrame(columns=list(tcdf.columns)))
+        _radar_title = "Your list — ranked by reversal pressure"
+    else:
+        ranked = (tcdf[tcdf["tc_dir"] != "Stable"]
+                  .sort_values("tc_score", ascending=False)
+                  .head(10).reset_index(drop=True))
+        _radar_title = "Top 10 Most Likely to Flip"
+
+    st.markdown(f'<div class="nx-section"><span class="badge">🔄</span>Trend Change Radar — {_radar_title}</div>', unsafe_allow_html=True)
     st.markdown('<div class="nx-section-sub">Reversal pressure (0–100) built from TD Sequential, RSI 14/5 momentum, '
                 'loss/reclaim of the 20-day, momentum deceleration, RS roll-over &amp; volume — separate from the exhaustion score.</div>',
                 unsafe_allow_html=True)
@@ -33187,19 +33326,23 @@ elif selected_page == "🎯 Macro Nexus":
         """)
 
     if len(ranked) == 0:
-        st.info("No names currently clear the reversal threshold — the tape is trending cleanly with few flip signals.")
+        if _custom_tickers:
+            st.info("None of those tickers could be scored — check the symbols and try again.")
+        else:
+            st.info("No names currently clear the reversal threshold — the tape is trending cleanly with few flip signals.")
     else:
         def _dir_badge(d):
             if d == "Bearish Reversal":
                 return '<span style="background:#FEE2E2;color:#DC2626;font-weight:700;font-size:11px;padding:3px 8px;border-radius:5px;white-space:nowrap;">🔻 Bearish</span>'
             if d == "Bullish Reversal":
                 return '<span style="background:#DCFCE7;color:#059669;font-weight:700;font-size:11px;padding:3px 8px;border-radius:5px;white-space:nowrap;">🔺 Bullish</span>'
-            return '<span style="color:#64748B;">—</span>'
+            return '<span style="background:#F1F5F9;color:#64748B;font-weight:700;font-size:11px;padding:3px 8px;border-radius:5px;white-space:nowrap;">● Stable</span>'
 
         rows_html = []
         for i, r in ranked.iterrows():
             sc = r["tc_score"]
-            bar_col = "#DC2626" if r["tc_dir"] == "Bearish Reversal" else "#059669"
+            bar_col = ("#DC2626" if r["tc_dir"] == "Bearish Reversal"
+                       else "#059669" if r["tc_dir"] == "Bullish Reversal" else "#94A3B8")
             bar = (f'<div style="background:#F1F5F9;border-radius:4px;height:8px;width:70px;display:inline-block;vertical-align:middle;overflow:hidden;">'
                    f'<div style="background:{bar_col};height:8px;width:{max(4,min(100,sc)):.0f}%;"></div></div>'
                    f'<span style="font-weight:700;color:{bar_col};margin-left:7px;font-size:12px;">{sc:.0f}</span>')
@@ -33231,9 +33374,10 @@ elif selected_page == "🎯 Macro Nexus":
         # Per-name "why" — the firing signals that drive each score
         st.markdown('<div class="nx-section-sub" style="margin-top:16px;">Why each name is flagged (the firing signals):</div>', unsafe_allow_html=True)
         for i, r in ranked.iterrows():
-            arrow = "🔻" if r["tc_dir"] == "Bearish Reversal" else "🔺"
+            arrow = ("🔻" if r["tc_dir"] == "Bearish Reversal"
+                     else "🔺" if r["tc_dir"] == "Bullish Reversal" else "●")
             sigs = r["tc_signals"] or []
-            sig_txt = " · ".join(sigs) if sigs else "—"
+            sig_txt = " · ".join(sigs) if sigs else "No reversal signals firing yet"
             st.markdown(f"**{arrow} {r['ticker']}** ({r['tc_score']:.0f}) — {sig_txt}")
 
     # ─── INDEX INTERNALS ──────────────────────────────────────────────────────
