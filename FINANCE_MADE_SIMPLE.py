@@ -9538,29 +9538,46 @@ def get_cash_flow(ticker, period='annual', limit=5):
 def get_financial_ratios(ticker, period='annual', limit=5):
     """Get financial ratios.
 
-    Note on FMP endpoints: the /stable/ratios endpoint quietly ignores the
-    period=quarter param and always returns annual data, which makes the
-    Quarterly view show only ~5 bars (one per fiscal year). The /v3/ratios
-    endpoint correctly honors period=quarter, so we route quarterly requests
-    there explicitly. Annual requests stay on /stable/ for parity with other
-    endpoints.
+    FMP's stable /ratios endpoint honors period=quarter — exactly like the
+    income-statement / balance-sheet / cash-flow endpoints — so we use it for
+    BOTH annual and quarterly. The legacy /v3/ratios endpoint is kept only as a
+    fallback for the rare case where stable returns nothing. (Routing quarterly
+    straight to v3 is what previously broke the Quarterly view: v3 has been
+    deprecated on newer keys and now comes back empty, so annual worked while
+    quarterly showed no data.)
     """
-    if period == 'quarter':
-        url = f"https://financialmodelingprep.com/api/v3/ratios/{ticker}?period=quarter&limit={limit}&apikey={FMP_API_KEY}"
-    else:
-        url = f"{BASE_URL}/ratios?symbol={ticker}&period={period}&limit={limit}&apikey={FMP_API_KEY}"
+    def _parse(payload):
+        if not payload or not isinstance(payload, list):
+            return pd.DataFrame()
+        df = pd.DataFrame(payload)
+        if 'date' in df.columns:
+            df['date'] = pd.to_datetime(df['date'])
+            df = df.sort_values('date')
+        return _dedupe_fmp_periods(df, period)
+
+    # ── Primary: stable endpoint (honors period=quarter like the statements) ──
     try:
-        response = requests.get(url, timeout=10)
-        data = response.json()
-        if data:
-            df = pd.DataFrame(data)
-            if 'date' in df.columns:
-                df['date'] = pd.to_datetime(df['date'])
-                df = df.sort_values('date')
-            df = _dedupe_fmp_periods(df, period)
+        url = f"{BASE_URL}/ratios?symbol={ticker}&period={period}&limit={limit}&apikey={FMP_API_KEY}"
+        df = _parse(requests.get(url, timeout=10).json())
+        # Guard: if quarterly was requested but stable handed back annual rows
+        # (every period == 'FY'), force the v3 fallback rather than draw wrong bars.
+        if period == 'quarter' and not df.empty and 'period' in df.columns:
+            if not df['period'].astype(str).str.upper().str.startswith('Q').any():
+                df = pd.DataFrame()
+        if not df.empty:
             return df
     except Exception:
         pass
+
+    # ── Fallback: legacy v3 endpoint ──
+    try:
+        url = f"https://financialmodelingprep.com/api/v3/ratios/{ticker}?period={period}&limit={limit}&apikey={FMP_API_KEY}"
+        df = _parse(requests.get(url, timeout=10).json())
+        if not df.empty:
+            return df
+    except Exception:
+        pass
+
     return pd.DataFrame()
 
 @st.cache_data(ttl=3600)
