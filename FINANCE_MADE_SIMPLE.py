@@ -18911,6 +18911,183 @@ def _macro_compute_single_ticker(ticker):
         return None
 
 
+# ============================================================================
+# 🔄 TREND CHANGE RADAR — reversal detection on top of the screener df
+# Additive: consumes only columns already produced by _macro_build_screener.
+# Distinct from exhaustion (how *stretched*) — measures how likely the CURRENT
+# trend is to FLIP, and in which direction.
+# ============================================================================
+def _macro_trend_change_row(row):
+    """
+    Score reversal pressure for one screener row using only existing fields.
+
+    Returns (direction, score, signals):
+      direction ∈ {"Bearish Reversal", "Bullish Reversal", "Stable"}
+      score     = 0..100 magnitude for the dominant side
+      signals   = list[str] human-readable firing reasons for that side
+    """
+    def _g(k):
+        v = row.get(k)
+        try:
+            if v is None or pd.isna(v):
+                return None
+            return float(v)
+        except Exception:
+            return None
+
+    rsi14 = _g("rsi14"); rsi5 = _g("rsi5"); wr = _g("williams_r")
+    vs20 = _g("vs_20d"); vs50 = _g("vs_50d")
+    r1w = _g("ret_1w"); r1m = _g("ret_1m"); r3m = _g("ret_3m")
+    dist = _g("dist_52w_high"); vol = _g("vol_ratio")
+    rs = _g("rs_spy"); td = _g("td_setup")
+
+    brp = 0.0; blp = 0.0          # bearish / bullish reversal pressure
+    bear_sig = []; bull_sig = []
+
+    # ── BEARISH reversal (topping an uptrend) ──────────────────────────────
+    if td is not None:
+        if td >= 9:   brp += 30; bear_sig.append("TD sell-setup 9 (exhaustion print)")
+        elif td >= 8: brp += 22; bear_sig.append("TD sell-setup 8")
+        elif td >= 7: brp += 12; bear_sig.append("TD sell-setup 7 (approaching)")
+    if rsi14 is not None and rsi14 >= 70:
+        brp += 12; bear_sig.append(f"RSI14 overbought ({rsi14:.0f})")
+    if rsi14 is not None and rsi5 is not None and rsi14 >= 65 and rsi5 < rsi14 - 3:
+        brp += 10; bear_sig.append("Short-term RSI rolling below RSI14 (momentum fading)")
+    if wr is not None and wr >= -15:
+        brp += 8; bear_sig.append("Williams %R pinned overbought")
+    if r3m is not None and r1w is not None and r3m > 10 and r1w < 0:
+        brp += 14; bear_sig.append("Strong 3M uptrend but 1W turned negative")
+    elif r1m is not None and r1w is not None and r1m > 0 and r1w < -3:
+        brp += 8; bear_sig.append("1W selling against a positive 1M")
+    if vs20 is not None and vs50 is not None and vs20 < 0 and vs50 > 0:
+        brp += 12; bear_sig.append("Lost the 20-day while still above 50-day (first crack)")
+    if rs is not None and r3m is not None and rs < 0 and r3m > 0:
+        brp += 6; bear_sig.append("Relative strength vs SPY rolling over")
+    if dist is not None and rsi14 is not None and dist > -3 and rsi14 >= 68:
+        brp += 6; bear_sig.append("At 52W highs with overbought RSI")
+    if vol is not None and r1w is not None and vol > 1.5 and r1w < 0:
+        brp += 8; bear_sig.append("Heavy volume on a down week (distribution)")
+
+    # ── BULLISH reversal (bottoming a downtrend) ───────────────────────────
+    if td is not None:
+        if td <= -9:   blp += 30; bull_sig.append("TD buy-setup 9 (exhaustion print)")
+        elif td <= -8: blp += 22; bull_sig.append("TD buy-setup 8")
+        elif td <= -7: blp += 12; bull_sig.append("TD buy-setup 7 (approaching)")
+    if rsi14 is not None and rsi14 <= 30:
+        blp += 12; bull_sig.append(f"RSI14 oversold ({rsi14:.0f})")
+    if rsi14 is not None and rsi5 is not None and rsi14 <= 35 and rsi5 > rsi14 + 3:
+        blp += 10; bull_sig.append("Short-term RSI turning up from oversold")
+    if wr is not None and wr <= -85:
+        blp += 8; bull_sig.append("Williams %R pinned oversold")
+    if r3m is not None and r1w is not None and r3m < -10 and r1w > 0:
+        blp += 14; bull_sig.append("Deep 3M downtrend but 1W turned positive")
+    elif r1m is not None and r1w is not None and r1m < 0 and r1w > 3:
+        blp += 8; bull_sig.append("1W buying against a negative 1M")
+    if vs20 is not None and vs50 is not None and vs20 > 0 and vs50 < 0:
+        blp += 12; bull_sig.append("Reclaimed the 20-day while still below 50-day (first turn)")
+    if rs is not None and r3m is not None and rs > 0 and r3m < 0:
+        blp += 6; bull_sig.append("Relative strength vs SPY improving")
+    if dist is not None and rsi14 is not None and dist < -25 and rsi14 <= 40 and (r1w or 0) > 0:
+        blp += 6; bull_sig.append("Deeply off highs and turning up")
+    if vol is not None and r1w is not None and vol > 1.5 and r1w > 0:
+        blp += 8; bull_sig.append("Heavy volume on an up week (accumulation)")
+
+    brp = min(brp, 100.0); blp = min(blp, 100.0)
+
+    if max(brp, blp) < 22:
+        return ("Stable", round(max(brp, blp), 1), [])
+    if brp >= blp:
+        return ("Bearish Reversal", round(brp, 1), bear_sig)
+    return ("Bullish Reversal", round(blp, 1), bull_sig)
+
+
+def _macro_index_internals(df_in, tc_dir_series=None):
+    """
+    Aggregate breadth / internals of the universe + alarming-sign flags.
+    Returns a dict of metrics, a 'flags' list of (severity, message), and a
+    'verdict' tuple (label, severity). severity ∈ {"ok","warn","alarm"}.
+    Consumes only existing screener columns.
+    """
+    out = {}
+    n = len(df_in)
+    out["n"] = n
+    if n == 0:
+        out["flags"] = []
+        out["verdict"] = ("No data", "warn")
+        return out
+
+    def _num(col):
+        return pd.to_numeric(df_in[col], errors="coerce")
+
+    def _pct(mask):
+        return 100.0 * float(mask.sum()) / n
+
+    vs20 = _num("vs_20d"); vs50 = _num("vs_50d"); vs200 = _num("vs_200d")
+    sl50 = _num("slope_50d")
+    r1w = _num("ret_1w"); r1m = _num("ret_1m")
+    dist = _num("dist_52w_high"); rs = _num("rs_spy"); exh = _num("exh_score")
+
+    out["pct_above_20"]  = _pct(vs20 > 0)
+    out["pct_above_50"]  = _pct(vs50 > 0)
+    out["pct_above_200"] = _pct(vs200 > 0)
+    out["pct_slope50_up"] = _pct(sl50 > 0)
+    out["avg_ret_1w"] = float(r1w.mean()) if r1w.notna().any() else 0.0
+    out["med_ret_1m"] = float(r1m.median()) if r1m.notna().any() else 0.0
+    out["near_high"]  = int((dist > -3).sum())     # within 3% of 52W high
+    out["near_low"]   = int((dist < -25).sum())    # 25%+ off the high
+    out["avg_rs_spy"] = float(rs.mean()) if rs.notna().any() else 0.0
+    out["avg_exh"]    = float(exh.mean()) if exh.notna().any() else 0.0
+
+    # Megacap leadership concentration
+    mega = MACRO_NEXUS_THEMES.get("Mega-Cap AI Platforms", [])
+    mega_mask = df_in["ticker"].isin(mega)
+    mega_r1m = pd.to_numeric(df_in.loc[mega_mask, "ret_1m"], errors="coerce")
+    out["mega_ret_1m"] = float(mega_r1m.mean()) if mega_r1m.notna().any() else 0.0
+    out["concentration_gap"] = out["mega_ret_1m"] - out["med_ret_1m"]
+
+    if tc_dir_series is not None:
+        out["n_bear_rev"] = int((tc_dir_series == "Bearish Reversal").sum())
+        out["n_bull_rev"] = int((tc_dir_series == "Bullish Reversal").sum())
+    else:
+        out["n_bear_rev"] = 0; out["n_bull_rev"] = 0
+
+    # ── Alarming-sign flags ────────────────────────────────────────────────
+    flags = []
+    if out["pct_above_50"] < 50 and out["near_high"] >= max(3, int(0.08 * n)):
+        flags.append(("alarm",
+            f"Breadth divergence — {out['near_high']} names sit near 52W highs "
+            f"but only {out['pct_above_50']:.0f}% of the universe is above its 50-day."))
+    if out["concentration_gap"] > 5 and out["med_ret_1m"] < 2:
+        flags.append(("alarm",
+            f"Narrow leadership — megacaps {out['mega_ret_1m']:+.1f}% on 1M vs a "
+            f"{out['med_ret_1m']:+.1f}% median for the rest of the tape."))
+    if out["pct_slope50_up"] < 50:
+        flags.append(("warn",
+            f"Trend fatigue — only {out['pct_slope50_up']:.0f}% of 50-day trends are still rising."))
+    if out["n_bear_rev"] >= max(10, int(0.12 * n)):
+        flags.append(("warn",
+            f"Reversal cluster — {out['n_bear_rev']} names flashing bearish-reversal signals at once."))
+    if out["near_low"] > out["near_high"]:
+        flags.append(("warn",
+            f"More names deeply off highs ({out['near_low']}) than near highs ({out['near_high']})."))
+    if out["avg_rs_spy"] < -3:
+        flags.append(("warn",
+            f"Universe lagging SPY — average relative strength {out['avg_rs_spy']:.1f}."))
+
+    n_alarm = sum(1 for s, _ in flags if s == "alarm")
+    n_warn = sum(1 for s, _ in flags if s == "warn")
+    if n_alarm >= 1:
+        out["verdict"] = ("Deteriorating", "alarm")
+    elif n_warn >= 2:
+        out["verdict"] = ("Mixed / Cautious", "warn")
+    elif n_warn == 1:
+        out["verdict"] = ("Mostly Healthy", "ok")
+    else:
+        out["verdict"] = ("Healthy", "ok")
+    out["flags"] = flags
+    return out
+
+
 # ─── Watchlist persistence (Supabase) ──────────────────────────────────────
 # Table schema (create once in Supabase SQL editor):
 #   create table macro_nexus_watchlist (
@@ -32963,6 +33140,166 @@ elif selected_page == "🎯 Macro Nexus":
         - TD Sequential 9 print doesn't guarantee a top — it's a *probabilistic* exhaustion bar.
         - For oversold buy setups, look for trend confirmation (price > 20D MA bouncing).
         """)
+
+    # ════════════════════════════════════════════════════════════════════════
+    # 🔄 TREND CHANGE RADAR  (additive section — reuses df, edits nothing)
+    # ════════════════════════════════════════════════════════════════════════
+    tcdf = df.copy()
+    _tc = tcdf.apply(_macro_trend_change_row, axis=1)
+    tcdf["tc_dir"] = _tc.apply(lambda x: x[0])
+    tcdf["tc_score"] = _tc.apply(lambda x: x[1])
+    tcdf["tc_signals"] = _tc.apply(lambda x: x[2])
+
+    internals = _macro_index_internals(tcdf, tcdf["tc_dir"])
+    ranked = (tcdf[tcdf["tc_dir"] != "Stable"]
+              .sort_values("tc_score", ascending=False)
+              .head(10).reset_index(drop=True))
+
+    st.markdown('<div class="nx-section"><span class="badge">🔄</span>Trend Change Radar — Top 10 Most Likely to Flip</div>', unsafe_allow_html=True)
+    st.markdown('<div class="nx-section-sub">Reversal pressure (0–100) built from TD Sequential, RSI 14/5 momentum, '
+                'loss/reclaim of the 20-day, momentum deceleration, RS roll-over &amp; volume — separate from the exhaustion score.</div>',
+                unsafe_allow_html=True)
+
+    with st.expander("📖 How to read the Trend Change Radar", expanded=False):
+        st.markdown("""
+        **Direction**
+        - 🔻 **Bearish Reversal** — name is in/near an uptrend showing topping tells (TD 8-9 sell setup, RSI rolling, lost the 20-day, momentum decelerating, distribution volume). Candidate to *trim/short*.
+        - 🔺 **Bullish Reversal** — name is in/near a downtrend showing bottoming tells (TD 8-9 buy setup, RSI turning up from oversold, reclaimed the 20-day, accumulation volume). Candidate to *buy the turn*.
+
+        **TC Score (0–100)** is the strength of the reversal case — higher = more signals firing together. This is *timing*, not a thesis: a high score flags that the current trend is fragile, not that it has already broken. Confirm with a price trigger (e.g. a daily close back through the 20-day) before acting.
+        """)
+
+    if len(ranked) == 0:
+        st.info("No names currently clear the reversal threshold — the tape is trending cleanly with few flip signals.")
+    else:
+        def _dir_badge(d):
+            if d == "Bearish Reversal":
+                return '<span style="background:#FEE2E2;color:#DC2626;font-weight:700;font-size:11px;padding:3px 8px;border-radius:5px;white-space:nowrap;">🔻 Bearish</span>'
+            if d == "Bullish Reversal":
+                return '<span style="background:#DCFCE7;color:#059669;font-weight:700;font-size:11px;padding:3px 8px;border-radius:5px;white-space:nowrap;">🔺 Bullish</span>'
+            return '<span style="color:#64748B;">—</span>'
+
+        rows_html = []
+        for i, r in ranked.iterrows():
+            sc = r["tc_score"]
+            bar_col = "#DC2626" if r["tc_dir"] == "Bearish Reversal" else "#059669"
+            bar = (f'<div style="background:#F1F5F9;border-radius:4px;height:8px;width:70px;display:inline-block;vertical-align:middle;overflow:hidden;">'
+                   f'<div style="background:{bar_col};height:8px;width:{max(4,min(100,sc)):.0f}%;"></div></div>'
+                   f'<span style="font-weight:700;color:{bar_col};margin-left:7px;font-size:12px;">{sc:.0f}</span>')
+            rows_html.append(
+                "<tr>"
+                f'<td style="color:#94A3B8;font-weight:700;">{i+1}</td>'
+                f'<td style="font-family:\'SF Mono\',Monaco,Consolas,monospace;font-weight:700;color:#0F172A;">{r["ticker"]}</td>'
+                f'<td style="color:#64748B;font-size:12px;">{r["theme"]}</td>'
+                f'<td>{_dir_badge(r["tc_dir"])}</td>'
+                f'<td>{bar}</td>'
+                f'<td>{_fmt_cell(r.get("price"), 2, prefix="$")}</td>'
+                f'<td>{_fmt_cell(r.get("rsi14"), 0)}</td>'
+                f'<td>{_td_cell(r.get("td_setup"))}</td>'
+                f'<td>{_fmt_cell(r.get("ret_1w"), 1, suffix="%")}</td>'
+                f'<td>{_fmt_cell(r.get("ret_1m"), 1, suffix="%")}</td>'
+                f'<td>{_fmt_cell(r.get("vs_20d"), 1, suffix="%")}</td>'
+                f'<td>{_fmt_cell(r.get("dist_52w_high"), 1, suffix="%")}</td>'
+                "</tr>"
+            )
+        table_html = (
+            '<table class="nx-table" style="width:100%;border-collapse:collapse;font-size:13px;">'
+            '<thead><tr style="border-bottom:2px solid #E5E7EB;text-align:left;color:#64748B;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;">'
+            '<th>#</th><th>Ticker</th><th>Theme</th><th>Direction</th><th>TC Score</th>'
+            '<th>Price</th><th>RSI</th><th>TD</th><th>1W</th><th>1M</th><th>vs20D</th><th>Dist 52WH</th>'
+            '</tr></thead><tbody>' + "".join(rows_html) + '</tbody></table>'
+        )
+        st.markdown(table_html, unsafe_allow_html=True)
+
+        # Per-name "why" — the firing signals that drive each score
+        st.markdown('<div class="nx-section-sub" style="margin-top:16px;">Why each name is flagged (the firing signals):</div>', unsafe_allow_html=True)
+        for i, r in ranked.iterrows():
+            arrow = "🔻" if r["tc_dir"] == "Bearish Reversal" else "🔺"
+            sigs = r["tc_signals"] or []
+            sig_txt = " · ".join(sigs) if sigs else "—"
+            st.markdown(f"**{arrow} {r['ticker']}** ({r['tc_score']:.0f}) — {sig_txt}")
+
+    # ─── INDEX INTERNALS ──────────────────────────────────────────────────────
+    st.markdown('<div class="nx-section"><span class="badge">▌</span>Index Internals — Breadth &amp; Health</div>', unsafe_allow_html=True)
+    v_label, v_sev = internals.get("verdict", ("—", "ok"))
+    v_color = {"alarm": "red", "warn": "amber", "ok": "green"}.get(v_sev, "neutral")
+    st.markdown(f'<div class="nx-section-sub">Aggregate read across the {internals.get("n",0)}-name universe · '
+                f'Verdict: <b style="color:{ {"red":"#DC2626","amber":"#D97706","green":"#059669","neutral":"#1F2937"}[v_color] }">{v_label}</b></div>',
+                unsafe_allow_html=True)
+
+    def _bcol(v, good_high=True, hi=60, lo=40):
+        if v is None: return "neutral"
+        if good_high:
+            return "green" if v >= hi else "red" if v <= lo else "amber"
+        return "red" if v >= hi else "green" if v <= lo else "amber"
+
+    p50 = internals.get("pct_above_50", 0); p200 = internals.get("pct_above_200", 0)
+    sl_up = internals.get("pct_slope50_up", 0)
+    nb = internals.get("n_bear_rev", 0); nbl = internals.get("n_bull_rev", 0)
+    st.markdown(f"""
+    <div class="nx-kpi-row">
+        <div class="nx-kpi">
+            <p class="nx-kpi-label">% Above 50-Day</p>
+            <p class="nx-kpi-val {_bcol(p50)}">{p50:.0f}%</p>
+            <div class="nx-kpi-accent {_bcol(p50)}"></div>
+        </div>
+        <div class="nx-kpi">
+            <p class="nx-kpi-label">% Above 200-Day</p>
+            <p class="nx-kpi-val {_bcol(p200)}">{p200:.0f}%</p>
+            <div class="nx-kpi-accent {_bcol(p200)}"></div>
+        </div>
+        <div class="nx-kpi">
+            <p class="nx-kpi-label">50D Trends Rising</p>
+            <p class="nx-kpi-val {_bcol(sl_up)}">{sl_up:.0f}%</p>
+            <div class="nx-kpi-accent {_bcol(sl_up)}"></div>
+        </div>
+        <div class="nx-kpi">
+            <p class="nx-kpi-label">Near 52W High</p>
+            <p class="nx-kpi-val neutral">{internals.get("near_high",0)}</p>
+            <div class="nx-kpi-accent neutral"></div>
+        </div>
+        <div class="nx-kpi">
+            <p class="nx-kpi-label">Bear / Bull Reversals</p>
+            <p class="nx-kpi-val {("red" if nb > nbl else "green" if nbl > nb else "neutral")}">{nb} / {nbl}</p>
+            <div class="nx-kpi-accent {("red" if nb > nbl else "green" if nbl > nb else "neutral")}"></div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    flags = internals.get("flags", [])
+    if flags:
+        for sev, msg in flags:
+            bg, bd, ic = {
+                "alarm": ("#FEF2F2", "#DC2626", "🚨"),
+                "warn":  ("#FFFBEB", "#D97706", "⚠️"),
+                "ok":    ("#F0FDF4", "#059669", "✅"),
+            }.get(sev, ("#F8FAFC", "#94A3B8", "•"))
+            st.markdown(
+                f'<div style="background:{bg};border-left:4px solid {bd};padding:10px 14px;'
+                f'border-radius:6px;margin:6px 0;font-size:13px;color:#1F2937;">{ic}&nbsp; {msg}</div>',
+                unsafe_allow_html=True)
+    else:
+        st.markdown('<div style="background:#F0FDF4;border-left:4px solid #059669;padding:10px 14px;'
+                    'border-radius:6px;margin:6px 0;font-size:13px;color:#1F2937;">✅&nbsp; '
+                    'No breadth alarms — internals broadly confirm the tape.</div>', unsafe_allow_html=True)
+
+    # ─── AUTO-DRAFT POST (for X / Substack) ────────────────────────────────────
+    with st.expander("✍️ Draft a post from this (copy-ready)", expanded=False):
+        _today = datetime.now().strftime("%b %d")
+        bear_names = ranked[ranked["tc_dir"] == "Bearish Reversal"]["ticker"].head(5).tolist() if len(ranked) else []
+        bull_names = ranked[ranked["tc_dir"] == "Bullish Reversal"]["ticker"].head(5).tolist() if len(ranked) else []
+        lines = [f"Trend-change radar — {_today}", ""]
+        if bear_names:
+            lines.append("Topping signals (trim watch): " + ", ".join(f"${t}" for t in bear_names))
+        if bull_names:
+            lines.append("Bottoming signals (turn watch): " + ", ".join(f"${t}" for t in bull_names))
+        lines.append("")
+        lines.append(f"Internals: {v_label}. {p50:.0f}% of names above their 50-day, {sl_up:.0f}% of trends still rising.")
+        if flags:
+            lines.append(flags[0][1])
+        post_text = "\n".join(lines)
+        st.code(post_text, language=None)
+        st.caption("Edit freely before posting. Numbers are pulled live from the screener above.")
 
     # ─── TABS ─────────────────────────────────────────────────────────────────
     tab_rollup, tab_tech, tab_fund = st.tabs([
