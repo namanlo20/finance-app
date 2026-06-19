@@ -25089,7 +25089,83 @@ elif selected_page == "📊 Company Analysis":
                         hovermode='x unified'
                     )
                 
-                st.plotly_chart(fig_price, use_container_width=True)
+                # ── Valuation overlays (P/E · P/S · FCF Yield) ────────────────
+                # Controls sit to the RIGHT of the chart; selected metrics plot on
+                # a secondary right axis OVER the price chart (price stays intact).
+                _cchart, _cval = st.columns([5, 1])
+                with _cval:
+                    st.markdown(
+                        "<div style='font-size:12px;font-weight:700;color:#475569;"
+                        "margin:4px 0 1px;'>📐 Overlay valuation</div>"
+                        "<div style='font-size:10px;color:#94A3B8;margin-bottom:6px;'>"
+                        "right axis · TTM</div>",
+                        unsafe_allow_html=True)
+                    _ov_pe  = st.checkbox("P/E",       key="ca_val_pe")
+                    _ov_ps  = st.checkbox("P/S",       key="ca_val_ps")
+                    _ov_fcf = st.checkbox("FCF Yield", key="ca_val_fcf")
+
+                _val_pick = [_p for _p, _on in
+                             (("pe", _ov_pe), ("ps", _ov_ps), ("fcf", _ov_fcf)) if _on]
+
+                if _val_pick and show_sp500:
+                    with _cval:
+                        st.caption("Turn off S&P compare to overlay valuations.")
+                elif _val_pick:
+                    try:
+                        _vr = get_financial_ratios(ticker, period='quarter', limit=28)
+                        if _vr is not None and not _vr.empty and 'date' in _vr.columns:
+                            _vr = _vr.copy()
+                            _vr['date'] = pd.to_datetime(_vr['date'], errors='coerce')
+                            _vr = _vr[_vr['date'] >= cutoff_date].sort_values('date')
+                            # FCF Yield: prefer the served value; otherwise derive it
+                            # from 1 / (Price-to-FCF) so the option still works.
+                            _has_fcf = ('freeCashFlowYield' in _vr.columns
+                                        and not pd.to_numeric(_vr['freeCashFlowYield'],
+                                                              errors='coerce').dropna().empty)
+                            if not _has_fcf and 'priceToFreeCashFlowsRatio' in _vr.columns:
+                                _pfcf = pd.to_numeric(_vr['priceToFreeCashFlowsRatio'], errors='coerce')
+                                _vr['freeCashFlowYield'] = (1.0 / _pfcf).where(_pfcf != 0)
+                            # label, source column, color, display multiplier, suffix
+                            _val_defs = {
+                                "pe":  ("P/E",       "priceEarningsRatio", "#F59E0B", 1.0,   "x"),
+                                "ps":  ("P/S",       "priceToSalesRatio",  "#3B82F6", 1.0,   "x"),
+                                "fcf": ("FCF Yield", "freeCashFlowYield",  "#10B981", 100.0, "%"),
+                            }
+                            _added_val = False
+                            for _key in _val_pick:
+                                _label, _vcol, _clr, _mult, _suf = _val_defs[_key]
+                                if _vcol in _vr.columns:
+                                    _yv = pd.to_numeric(_vr[_vcol], errors='coerce') * _mult
+                                    _m = _yv.notna()
+                                    if _m.any():
+                                        fig_price.add_trace(go.Scatter(
+                                            x=_vr['date'][_m], y=_yv[_m],
+                                            mode='lines+markers', name=_label, yaxis='y2',
+                                            line=dict(color=_clr, width=2, dash='dot'),
+                                            marker=dict(size=5),
+                                            hovertemplate='%{x|%b %Y}<br>' + _label + ': %{y:.2f}' + _suf + '<extra></extra>',
+                                        ))
+                                        _added_val = True
+                            if _added_val:
+                                fig_price.update_layout(
+                                    yaxis2=dict(title="Valuation (TTM)", overlaying="y",
+                                                side="right", showgrid=False, zeroline=False,
+                                                tickfont=dict(size=10)),
+                                    legend=dict(orientation="h", yanchor="bottom", y=1.02,
+                                                xanchor="right", x=1),
+                                )
+                            else:
+                                with _cval:
+                                    st.caption("No valuation history in this timeframe — try 1Y or 5Y.")
+                        else:
+                            with _cval:
+                                st.caption("Valuation data unavailable for this ticker.")
+                    except Exception:
+                        with _cval:
+                            st.caption("Couldn't load valuations.")
+
+                with _cchart:
+                    st.plotly_chart(fig_price, use_container_width=True)
                 
                 # Show % change for the selected timeframe
                 price_col = 'close' if 'close' in price_history.columns else 'price'
