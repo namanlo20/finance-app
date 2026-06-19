@@ -6729,7 +6729,16 @@ def get_quote(ticker):
     try:
         response = requests.get(url, timeout=10)
         data = response.json()
-        return data[0] if data and len(data) > 0 else None
+        if data and len(data) > 0:
+            q = data[0]
+            # FMP's /stable endpoint returns the daily % field as `changePercentage`
+            # (the legacy /api/v3 name was `changesPercentage`). Normalize so every
+            # call site that reads `changesPercentage` keeps working — this is what
+            # was making the whole app show "+0.00% today".
+            if q.get("changesPercentage") in (None, 0, 0.0) and q.get("changePercentage") is not None:
+                q["changesPercentage"] = q.get("changePercentage")
+            return q
+        return None
     except Exception:
         return None
 
@@ -19859,7 +19868,11 @@ if selected_page == "🏠 Dashboard":
                         if ytd_data and isinstance(ytd_data, list) and len(ytd_data) > 0:
                             # Sort by date, take earliest
                             ytd_data_sorted = sorted(ytd_data, key=lambda x: x.get('date', ''))
-                            start_price = ytd_data_sorted[0].get('close', 0)
+                            # The /historical-price-eod/light endpoint returns `price`
+                            # (the /full endpoint uses `close`). Read price first so we
+                            # don't silently get 0 and show "+0.00% YTD".
+                            _first = ytd_data_sorted[0]
+                            start_price = _first.get('price') or _first.get('close') or 0
                             if start_price > 0 and mprice > 0:
                                 ytd_return = ((mprice - start_price) / start_price) * 100
                 except Exception:
@@ -30453,11 +30466,26 @@ elif selected_page == "👑 Ultimate":
     if _ult_btn or st.session_state.ult_cache_key_v2 != _ult_cache_key:
         _ult_tf_years = {"3M": 0.25, "6M": 0.5, "1Y": 1, "2Y": 2}
         _ult_yrs = _ult_tf_years.get(_ult_timeframe, 1)
+        # Fetch ~1 extra year of history beyond the visible window so the 50/100/200
+        # SMAs are fully populated across the WHOLE chart instead of starting partway
+        # in (the old behavior — SMA200 only appeared in the last ~50 bars of a 1Y view).
+        _ult_fetch_yrs = _ult_yrs + 1.1
         with st.spinner(f"Loading {_ult_ticker} data..."):
-            _ult_df    = get_historical_ohlc(_ult_ticker, _ult_yrs)
+            _ult_df_full = get_historical_ohlc(_ult_ticker, _ult_fetch_yrs)
             _ult_quote = get_quote(_ult_ticker)
-        if _ult_df is not None and len(_ult_df) > 10:
-            _ult_facts = compute_technical_facts(_ult_df)
+        if _ult_df_full is not None and len(_ult_df_full) > 10:
+            _ult_df_full = _ult_df_full.sort_values("date").reset_index(drop=True)
+            # Precompute moving averages on the FULL series (with lookback buffer)
+            if "close" in _ult_df_full.columns:
+                for _w in (50, 100, 200):
+                    _ult_df_full[f"sma{_w}"] = _ult_df_full["close"].rolling(_w).mean()
+            # Slice down to the visible window, keeping the precomputed SMA columns
+            _ult_cutoff = pd.Timestamp(datetime.now() - timedelta(days=int(_ult_yrs * 365)))
+            _ult_df = _ult_df_full[_ult_df_full["date"] >= _ult_cutoff].reset_index(drop=True)
+            if len(_ult_df) < 10:
+                _ult_df = _ult_df_full.tail(60).reset_index(drop=True)
+            # Facts computed on the FULL series so SMA50/SMA200 are always valid
+            _ult_facts = compute_technical_facts(_ult_df_full)
             _ult_facts["ticker"]       = _ult_ticker
             _ult_facts["company_name"] = _ult_quote.get("name", _ult_ticker) if _ult_quote else _ult_ticker
             st.session_state.ult_cache_key_v2 = _ult_cache_key
@@ -30707,15 +30735,28 @@ elif selected_page == "👑 Ultimate":
         _fig.add_trace(go.Scatter(x=_ph["date"], y=_ph[_close_col], mode="lines",
             name="Price", line=dict(color="#2962FF", width=2)), row=1, col=1)
 
-    # SMA overlays — TradingView-style colors (blue/orange/purple)
-    if len(_ph) >= 50:
-        _fig.add_trace(go.Scatter(x=_ph["date"], y=_ph[_close_col].rolling(50).mean(),
+    # SMA overlays — TradingView-style colors (blue/orange/purple).
+    # Use the columns precomputed on the FULL history (with lookback buffer) so the
+    # averages span the entire visible window instead of starting partway in. Falls
+    # back to inline rolling() if the precomputed columns aren't present.
+    def _sma_series(_w):
+        _col = f"sma{_w}"
+        if _col in _ph.columns and _ph[_col].notna().any():
+            return _ph[_col]
+        if len(_ph) >= _w:
+            return _ph[_close_col].rolling(_w).mean()
+        return None
+    _sma50_ser  = _sma_series(50)
+    _sma100_ser = _sma_series(100)
+    _sma200_ser = _sma_series(200)
+    if _sma50_ser is not None and _sma50_ser.notna().any():
+        _fig.add_trace(go.Scatter(x=_ph["date"], y=_sma50_ser,
             mode="lines", name="SMA 50", line=dict(color="#FF9800", width=1.8)), row=1, col=1)
-    if len(_ph) >= 100:
-        _fig.add_trace(go.Scatter(x=_ph["date"], y=_ph[_close_col].rolling(100).mean(),
+    if _sma100_ser is not None and _sma100_ser.notna().any():
+        _fig.add_trace(go.Scatter(x=_ph["date"], y=_sma100_ser,
             mode="lines", name="SMA 100", line=dict(color="#2196F3", width=1.8)), row=1, col=1)
-    if len(_ph) >= 200:
-        _fig.add_trace(go.Scatter(x=_ph["date"], y=_ph[_close_col].rolling(200).mean(),
+    if _sma200_ser is not None and _sma200_ser.notna().any():
+        _fig.add_trace(go.Scatter(x=_ph["date"], y=_sma200_ser,
             mode="lines", name="SMA 200", line=dict(color="#E91E63", width=2)), row=1, col=1)
 
     # Bollinger Bands
@@ -33105,7 +33146,10 @@ elif selected_page == "🎯 Macro Nexus":
     # ─── HEADER ───────────────────────────────────────────────────────────────
     st.markdown(f"""
     <div class="nx-hero">
-        <h1>⊕ AI MACRO NEXUS</h1>
+        <div style="font-family:-apple-system,'SF Pro Display',system-ui,sans-serif;
+                    color:#FFD700 !important; margin:0; padding:0; font-size:38px;
+                    font-weight:800; letter-spacing:1.5px; line-height:1.1;
+                    text-shadow:0 2px 16px rgba(255,215,0,0.25);">⊕ AI MACRO NEXUS</div>
         <p class="sub">
             <span class="pill-live">LIVE</span>
             Theme screener<span class="dot">·</span>Absolute 1–100 exhaustion<span class="dot">·</span>TD Sequential pressure<span class="dot">·</span>{datetime.now().strftime("%b %d, %Y · %H:%M")}
@@ -33189,7 +33233,12 @@ elif selected_page == "🎯 Macro Nexus":
     n_elevated = int((valid_exh >= 60).sum())
     avg_exh_universe = valid_exh.mean() if len(valid_exh) > 0 else 0
     cheap_peg_count = int((valid_peg < 1).sum())
-    most_exh_ticker = df.loc[df["exh_score"].idxmax(), "ticker"] if len(valid_exh) > 0 else "—"
+    if len(valid_exh) > 0:
+        _idx_max = df["exh_score"].idxmax()
+        most_exh_ticker = df.loc[_idx_max, "ticker"]
+        most_exh_score = df.loc[_idx_max, "exh_score"]
+    else:
+        most_exh_ticker, most_exh_score = "—", None
 
     avg_color = "red" if avg_exh_universe >= 70 else "amber" if avg_exh_universe >= 55 else "green" if avg_exh_universe <= 40 else "neutral"
     ext_color = "red" if n_extreme >= 5 else "amber" if n_extreme >= 2 else "neutral"
@@ -33219,14 +33268,112 @@ elif selected_page == "🎯 Macro Nexus":
         </div>
         <div class="nx-kpi">
             <p class="nx-kpi-label">Top Exhausted</p>
-            <p class="nx-kpi-val gold">{most_exh_ticker}</p>
+            <p class="nx-kpi-val gold">{most_exh_ticker}<span style="font-size:14px;color:#94A3B8;font-weight:600;"> {(' · ' + format(most_exh_score, '.0f')) if most_exh_score is not None else ''}</span></p>
             <div class="nx-kpi-accent gold"></div>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
-    # ─── HOW SIGNALS WORK (top-level) ─────────────────────────────────────────
-    with st.expander("📖 How to read this screener (Buy/Sell/Hold logic)", expanded=False):
+    # ════════════════════════════════════════════════════════════════════════
+    # Score the FULL universe ONCE — drives the Market Read synthesis, the
+    # breadth internals, and the default top-10 radar scan. (Computed up here so
+    # the one-glance summary can render right under the KPI tiles.)
+    # ════════════════════════════════════════════════════════════════════════
+    tcdf = df.copy()
+    _tc = tcdf.apply(_macro_trend_change_row, axis=1)
+    tcdf["tc_dir"] = _tc.apply(lambda x: x[0])
+    tcdf["tc_score"] = _tc.apply(lambda x: x[1])
+    tcdf["tc_signals"] = _tc.apply(lambda x: x[2])
+    internals = _macro_index_internals(tcdf, tcdf["tc_dir"])
+
+    # ─── MARKET READ — plain-English synthesis of the whole tape ──────────────
+    # Regime from universe-average exhaustion
+    if   avg_exh_universe >= 70: _regime, _rcol = "OVERHEATED", "#DC2626"
+    elif avg_exh_universe >= 55: _regime, _rcol = "STRETCHED",  "#D97706"
+    elif avg_exh_universe >= 40: _regime, _rcol = "BALANCED",   "#2563EB"
+    elif avg_exh_universe >= 25: _regime, _rcol = "WASHED OUT", "#059669"
+    else:                        _regime, _rcol = "DEEPLY OVERSOLD", "#047857"
+
+    # Hottest / coolest themes by average exhaustion (min 2 names to avoid noise)
+    _theme_stats = (df.dropna(subset=["exh_score"]).groupby("theme")
+                      .agg(avg=("exh_score", "mean"), n=("exh_score", "size")))
+    _theme_stats = _theme_stats[_theme_stats["n"] >= 2].sort_values("avg", ascending=False)
+    _hot_themes  = list(_theme_stats.head(2).index)
+    _cool_themes = list(_theme_stats.tail(2).index)
+
+    # Standout actionable names from the reversal radar
+    _mr_bear = (tcdf[tcdf["tc_dir"] == "Bearish Reversal"]
+                .sort_values("tc_score", ascending=False))
+    _mr_bull = (tcdf[tcdf["tc_dir"] == "Bullish Reversal"]
+                .sort_values("tc_score", ascending=False))
+    _trim_names = _mr_bear[["ticker", "tc_score"]].head(3).values.tolist()
+    _turn_names = _mr_bull[["ticker", "tc_score"]].head(3).values.tolist()
+
+    p50  = internals.get("pct_above_50", 0);  p200 = internals.get("pct_above_200", 0)
+    nb   = internals.get("n_bear_rev", 0);     nbl  = internals.get("n_bull_rev", 0)
+    _v_label, _v_sev = internals.get("verdict", ("—", "ok"))
+    _v_hex = {"alarm": "#DC2626", "warn": "#D97706", "ok": "#059669"}.get(_v_sev, "#1F2937")
+    _tilt = ("bearish — more topping than bottoming" if nb > nbl
+             else "bullish — more bottoming than topping" if nbl > nb
+             else "balanced")
+
+    # Build the narrative
+    _mr_lines = [
+        f"The <b>{internals.get('n', len(df))}-name</b> universe is "
+        f"<b style='color:{_rcol};'>{_regime.lower()}</b> "
+        f"(avg exhaustion <b>{avg_exh_universe:.0f}</b>/100): "
+        f"<b>{n_extreme}</b> names extreme (≥75), <b>{n_elevated}</b> elevated (≥60), "
+        f"<b>{cheap_peg_count}</b> screening cheap on forward PEG (&lt;1).",
+    ]
+    if _hot_themes:
+        _mr_lines.append(f"Most stretched themes: <b>{' · '.join(_hot_themes)}</b>.")
+    if _cool_themes:
+        _mr_lines.append(f"Most room to run: <b>{' · '.join(_cool_themes)}</b>.")
+    _mr_lines.append(
+        f"Breadth reads <b style='color:{_v_hex};'>{_v_label.lower()}</b> — "
+        f"<b>{p50:.0f}%</b> of names above their 50-day, <b>{p200:.0f}%</b> above the 200-day; "
+        f"reversal pressure tilts <b>{_tilt}</b> ({nb} topping vs {nbl} bottoming).")
+    _mr_text = " ".join(_mr_lines)
+
+    def _mr_chiplist(pairs, color, empty):
+        if not pairs:
+            return f'<span style="color:#94A3B8;font-size:12.5px;">{empty}</span>'
+        return " ".join(
+            f'<span style="display:inline-block;font-family:\'SF Mono\',Monaco,Consolas,monospace;'
+            f'font-weight:700;font-size:12px;background:{color}1A;color:{color};'
+            f'border:1px solid {color}40;border-radius:6px;padding:3px 9px;margin:2px 4px 2px 0;">'
+            f'{tk} <span style="opacity:.7;font-weight:600;">{sc:.0f}</span></span>'
+            for tk, sc in pairs)
+
+    st.markdown(f"""
+    <div style="background:#FFFFFF;border:1px solid #E5E7EB;border-left:5px solid {_rcol};
+                border-radius:12px;padding:18px 22px;margin:4px 0 22px 0;
+                box-shadow:0 1px 3px rgba(0,0,0,0.04),0 4px 14px rgba(15,23,42,0.04);">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+            <span style="font-size:12px;font-weight:700;letter-spacing:1.2px;color:#94A3B8;
+                         text-transform:uppercase;">📋 Market Read</span>
+            <span style="background:{_rcol};color:#fff;font-size:11px;font-weight:800;
+                         letter-spacing:0.6px;padding:2px 10px;border-radius:10px;">{_regime}</span>
+        </div>
+        <div style="font-size:14px;line-height:1.65;color:#1F2937;">{_mr_text}</div>
+        <div style="display:flex;gap:28px;flex-wrap:wrap;margin-top:14px;
+                    padding-top:12px;border-top:1px solid #F1F5F9;">
+            <div>
+                <div style="font-size:11px;font-weight:700;letter-spacing:0.6px;color:#DC2626;
+                            text-transform:uppercase;margin-bottom:5px;">🔻 Trim / short watch</div>
+                {_mr_chiplist(_trim_names, "#DC2626", "No topping signals firing")}
+            </div>
+            <div>
+                <div style="font-size:11px;font-weight:700;letter-spacing:0.6px;color:#059669;
+                            text-transform:uppercase;margin-bottom:5px;">🔺 Buy-the-turn watch</div>
+                {_mr_chiplist(_turn_names, "#059669", "No bottoming signals firing")}
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ─── HOW SIGNALS WORK (collapsed reference) ───────────────────────────────
+    with st.expander("📖 How to read this page (verdicts, bands & TD signals)", expanded=False):
         st.markdown("""
         **Signal verdicts** combine three factors:
 
@@ -33247,19 +33394,8 @@ elif selected_page == "🎯 Macro Nexus":
         """)
 
     # ════════════════════════════════════════════════════════════════════════
-    # 🔄 TREND CHANGE RADAR  (additive section — reuses df, edits nothing)
+    # 🔄 TREND CHANGE RADAR  (reuses the tcdf scored above)
     # ════════════════════════════════════════════════════════════════════════
-    # Score the FULL universe once — used for the breadth internals below and
-    # for the default top-10 scan.
-    tcdf = df.copy()
-    _tc = tcdf.apply(_macro_trend_change_row, axis=1)
-    tcdf["tc_dir"] = _tc.apply(lambda x: x[0])
-    tcdf["tc_score"] = _tc.apply(lambda x: x[1])
-    tcdf["tc_signals"] = _tc.apply(lambda x: x[2])
-
-    # Index internals are ALWAYS computed on the full universe (breadth of a
-    # hand-picked list is meaningless), regardless of the scan mode chosen.
-    internals = _macro_index_internals(tcdf, tcdf["tc_dir"])
 
     # ── Scan mode: full universe (auto top-10) OR your own tradeable list ──
     # Reuses the existing watchlist + single-ticker compute — no new persistence.
@@ -33349,7 +33485,8 @@ elif selected_page == "🎯 Macro Nexus":
             rows_html.append(
                 "<tr>"
                 f'<td style="color:#94A3B8;font-weight:700;">{i+1}</td>'
-                f'<td style="font-family:\'SF Mono\',Monaco,Consolas,monospace;font-weight:700;color:#0F172A;">{r["ticker"]}</td>'
+                f'<td style="font-family:\'SF Mono\',Monaco,Consolas,monospace;font-weight:700;color:#0F172A;line-height:1.2;">{r["ticker"]}'
+                f'<div style="font-family:-apple-system,system-ui,sans-serif;font-weight:500;color:#94A3B8;font-size:10.5px;letter-spacing:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px;">{str(r.get("company") or "")[:26]}</div></td>'
                 f'<td style="color:#64748B;font-size:12px;">{r["theme"]}</td>'
                 f'<td>{_dir_badge(r["tc_dir"])}</td>'
                 f'<td>{bar}</td>'
@@ -33371,14 +33508,26 @@ elif selected_page == "🎯 Macro Nexus":
         )
         st.markdown(table_html, unsafe_allow_html=True)
 
-        # Per-name "why" — the firing signals that drive each score
-        st.markdown('<div class="nx-section-sub" style="margin-top:16px;">Why each name is flagged (the firing signals):</div>', unsafe_allow_html=True)
+        # Per-name "why" — firing signals, rendered as one compact block
+        _why_rows = []
         for i, r in ranked.iterrows():
-            arrow = ("🔻" if r["tc_dir"] == "Bearish Reversal"
-                     else "🔺" if r["tc_dir"] == "Bullish Reversal" else "●")
+            _bear = r["tc_dir"] == "Bearish Reversal"
+            _bull = r["tc_dir"] == "Bullish Reversal"
+            arrow = "🔻" if _bear else "🔺" if _bull else "●"
+            _ac = "#DC2626" if _bear else "#059669" if _bull else "#64748B"
             sigs = r["tc_signals"] or []
             sig_txt = " · ".join(sigs) if sigs else "No reversal signals firing yet"
-            st.markdown(f"**{arrow} {r['ticker']}** ({r['tc_score']:.0f}) — {sig_txt}")
+            _why_rows.append(
+                f'<div style="padding:6px 0;border-bottom:1px solid #F1F5F9;font-size:12.5px;line-height:1.45;">'
+                f'<span style="color:{_ac};">{arrow}</span> '
+                f'<b style="font-family:\'SF Mono\',Monaco,Consolas,monospace;color:#0F172A;">{r["ticker"]}</b> '
+                f'<span style="color:{_ac};font-weight:700;">({r["tc_score"]:.0f})</span> '
+                f'<span style="color:#475569;">— {sig_txt}</span></div>')
+        st.markdown(
+            '<div class="nx-section-sub" style="margin-top:16px;">Why each name is flagged (the firing signals):</div>'
+            '<div style="background:#FFFFFF;border:1px solid #E5E7EB;border-radius:10px;'
+            'padding:6px 16px;margin-bottom:8px;">' + "".join(_why_rows) + '</div>',
+            unsafe_allow_html=True)
 
     # ─── INDEX INTERNALS ──────────────────────────────────────────────────────
     st.markdown('<div class="nx-section"><span class="badge">▌</span>Index Internals — Breadth &amp; Health</div>', unsafe_allow_html=True)
@@ -33780,6 +33929,7 @@ elif selected_page == "🎯 Macro Nexus":
         else:
             tech_display = pd.DataFrame({
                 "Ticker": tech_df["ticker"].values,
+                "Company": tech_df["company"].fillna("").apply(lambda s: str(s)[:28]).values,
                 "Theme": tech_df["theme"].values,
                 "Price": tech_df["price"].apply(lambda x: f"{x:,.2f}" if x else "—").values,
                 "Exh Score": _safe_round(tech_df["exh_score"], 1).values,
@@ -33813,7 +33963,8 @@ elif selected_page == "🎯 Macro Nexus":
                     )
                     # Theme — muted
                     styles[row.index.get_loc("Theme")] = "color:#64748B;font-size:12px;"
-                    exh = row["Exh Score"]
+                    if "Company" in row.index:
+                        styles[row.index.get_loc("Company")] = "color:#94A3B8;font-size:12px;"
                     if not pd.isna(exh):
                         styles[row.index.get_loc("Exh Score")] = _exh_color(float(exh))
                     styles[row.index.get_loc("Band")] = _band_color(row["Band"])
@@ -33948,6 +34099,7 @@ elif selected_page == "🎯 Macro Nexus":
                 "Theme": fund_df["theme"].values,
                 "Rank": _rank_disp,
                 "Ticker": fund_df["ticker"].values,
+                "Company": fund_df["company"].fillna("").apply(lambda s: str(s)[:28]).values,
                 "Market Cap": fund_df["mcap"].apply(_fmt_mcap).values,
                 "Forward P/E": fund_df["fwd_pe"].apply(lambda x: f"{x:.1f}x" if x and not pd.isna(x) else "—").values,
                 "Next-Yr EPS Growth": fund_df["eps_growth"].apply(lambda x: f"{x:.1f}%" if x and not pd.isna(x) else "—").values,
@@ -33970,6 +34122,8 @@ elif selected_page == "🎯 Macro Nexus":
                     styles[row.index.get_loc("Theme")] = "color:#64748B;font-size:12px;"
                     # Rank — light gray
                     styles[row.index.get_loc("Rank")] = "color:#94A3B8;font-weight:600;"
+                    if "Company" in row.index:
+                        styles[row.index.get_loc("Company")] = "color:#94A3B8;font-size:12px;"
                     peg = row["Forward PEG"]
                     if not pd.isna(peg):
                         styles[row.index.get_loc("Forward PEG")] = _peg_color(float(peg))
