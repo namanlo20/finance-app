@@ -9678,6 +9678,59 @@ def get_financial_ratios(ticker, period='annual', limit=5):
         return pd.DataFrame()
 
 @st.cache_data(ttl=3600)
+def get_valuation_quarterly(ticker, n_quarters=48):
+    """Quarterly TTM per-share fundamentals used to draw DAILY valuation overlays
+    (P/E, P/S, FCF yield) on the price chart. Returns [date, ttm_eps, ttm_sps,
+    ttm_fcfps]. Each is a trailing-4-quarter figure so the multiples are smooth
+    and comparable over time instead of lumpy single-quarter prints."""
+    def _q(endpoint, lim):
+        try:
+            url = f"{BASE_URL}/{endpoint}?symbol={ticker}&period=quarter&limit={lim}&apikey={FMP_API_KEY}"
+            d = requests.get(url, timeout=12).json()
+            if isinstance(d, list) and d:
+                df = pd.DataFrame(d)
+                if 'date' in df.columns:
+                    df['date'] = pd.to_datetime(df['date'], errors='coerce')
+                    return df.dropna(subset=['date']).sort_values('date')
+        except Exception:
+            pass
+        return pd.DataFrame()
+
+    inc = _q("income-statement", n_quarters + 5)
+    if inc.empty:
+        return pd.DataFrame()
+    cf = _q("cash-flow-statement", n_quarters + 5)
+
+    rev = pd.to_numeric(inc.get("revenue"), errors="coerce")
+    ni = pd.to_numeric(inc.get("bottomLineNetIncome"), errors="coerce")
+    if ni is None or ni.isna().all():
+        ni = pd.to_numeric(inc.get("netIncome"), errors="coerce")
+    eps_col = "epsdiluted" if "epsdiluted" in inc.columns else "eps" if "eps" in inc.columns else None
+    eps = pd.to_numeric(inc[eps_col], errors="coerce") if eps_col else pd.Series([np.nan] * len(inc))
+    sh_col = ("weightedAverageShsOutDil" if "weightedAverageShsOutDil" in inc.columns
+              else "weightedAverageShsOut" if "weightedAverageShsOut" in inc.columns else None)
+    sh = pd.to_numeric(inc[sh_col], errors="coerce") if sh_col else pd.Series([np.nan] * len(inc))
+
+    out = pd.DataFrame({"date": inc["date"].values})
+    out["_sh"] = sh.values
+    # TTM EPS: prefer summed diluted EPS; fall back to TTM net income / shares
+    out["ttm_eps"] = pd.Series(eps.rolling(4).sum().values, index=out.index)
+    _fallback_eps = pd.Series(ni.rolling(4).sum().values, index=out.index) / out["_sh"]
+    out["ttm_eps"] = out["ttm_eps"].fillna(_fallback_eps)
+    out["ttm_sps"] = pd.Series(rev.rolling(4).sum().values, index=out.index) / out["_sh"]
+
+    if not cf.empty and "freeCashFlow" in cf.columns:
+        fcf = pd.to_numeric(cf["freeCashFlow"], errors="coerce")
+        cf2 = pd.DataFrame({"date": cf["date"].values,
+                            "_fcf_ttm": fcf.rolling(4).sum().values})
+        out = pd.merge(out, cf2, on="date", how="left")
+        out["ttm_fcfps"] = pd.to_numeric(out["_fcf_ttm"], errors="coerce") / out["_sh"]
+
+    keep = [c for c in ["date", "ttm_eps", "ttm_sps", "ttm_fcfps"] if c in out.columns]
+    return out[keep].dropna(subset=["date"]).reset_index(drop=True)
+
+
+@st.cache_data(ttl=3600)
 def get_product_segments(ticker, period='annual'):
     """Get product-level revenue segmentation from FMP.
 
@@ -25112,40 +25165,43 @@ elif selected_page == "📊 Company Analysis":
                         st.caption("Turn off S&P compare to overlay valuations.")
                 elif _val_pick:
                     try:
-                        _vr = get_financial_ratios(ticker, period='quarter', limit=28)
-                        if _vr is not None and not _vr.empty and 'date' in _vr.columns:
-                            _vr = _vr.copy()
-                            _vr['date'] = pd.to_datetime(_vr['date'], errors='coerce')
-                            _vr = _vr[_vr['date'] >= cutoff_date].sort_values('date')
-                            # FCF Yield: prefer the served value; otherwise derive it
-                            # from 1 / (Price-to-FCF) so the option still works.
-                            _has_fcf = ('freeCashFlowYield' in _vr.columns
-                                        and not pd.to_numeric(_vr['freeCashFlowYield'],
-                                                              errors='coerce').dropna().empty)
-                            if not _has_fcf and 'priceToFreeCashFlowsRatio' in _vr.columns:
-                                _pfcf = pd.to_numeric(_vr['priceToFreeCashFlowsRatio'], errors='coerce')
-                                _vr['freeCashFlowYield'] = (1.0 / _pfcf).where(_pfcf != 0)
-                            # label, source column, color, display multiplier, suffix
-                            _val_defs = {
-                                "pe":  ("P/E",       "priceEarningsRatio", "#F59E0B", 1.0,   "x"),
-                                "ps":  ("P/S",       "priceToSalesRatio",  "#3B82F6", 1.0,   "x"),
-                                "fcf": ("FCF Yield", "freeCashFlowYield",  "#10B981", 100.0, "%"),
-                            }
+                        price_col = 'close' if 'close' in price_history.columns else 'price'
+                        # Quarters needed to cover the visible window (+ buffer for TTM warm-up)
+                        _n_q = int(days_to_show / 365 * 4) + 8
+                        _vq = get_valuation_quarterly(ticker, max(_n_q, 12))
+                        if _vq is not None and not _vq.empty:
+                            # Build a DAILY valuation series: daily price ÷ the most-recent
+                            # TTM fundamental (step-forward via merge_asof). This spans the
+                            # whole chart and flows smoothly with price, instead of jumping
+                            # between lumpy quarterly dots.
+                            _pf = price_history[['date', price_col]].copy()
+                            _pf['date'] = pd.to_datetime(_pf['date'], errors='coerce')
+                            _pf = _pf.dropna(subset=['date']).sort_values('date')
+                            _merged = pd.merge_asof(
+                                _pf, _vq.sort_values('date'), on='date', direction='backward')
+                            _px = pd.to_numeric(_merged[price_col], errors='coerce')
+                            _series = {}
+                            if 'pe' in _val_pick and 'ttm_eps' in _merged.columns:
+                                _eps = pd.to_numeric(_merged['ttm_eps'], errors='coerce')
+                                _series['P/E'] = ((_px / _eps).where(_eps > 0), "#F59E0B", "x")
+                            if 'ps' in _val_pick and 'ttm_sps' in _merged.columns:
+                                _sps = pd.to_numeric(_merged['ttm_sps'], errors='coerce')
+                                _series['P/S'] = ((_px / _sps).where(_sps > 0), "#3B82F6", "x")
+                            if 'fcf' in _val_pick and 'ttm_fcfps' in _merged.columns:
+                                _fps = pd.to_numeric(_merged['ttm_fcfps'], errors='coerce')
+                                _series['FCF Yield'] = ((_fps / _px * 100).where(_px > 0), "#10B981", "%")
                             _added_val = False
-                            for _key in _val_pick:
-                                _label, _vcol, _clr, _mult, _suf = _val_defs[_key]
-                                if _vcol in _vr.columns:
-                                    _yv = pd.to_numeric(_vr[_vcol], errors='coerce') * _mult
-                                    _m = _yv.notna()
-                                    if _m.any():
-                                        fig_price.add_trace(go.Scatter(
-                                            x=_vr['date'][_m], y=_yv[_m],
-                                            mode='lines+markers', name=_label, yaxis='y2',
-                                            line=dict(color=_clr, width=2, dash='dot'),
-                                            marker=dict(size=5),
-                                            hovertemplate='%{x|%b %Y}<br>' + _label + ': %{y:.2f}' + _suf + '<extra></extra>',
-                                        ))
-                                        _added_val = True
+                            for _label, (_yv, _clr, _suf) in _series.items():
+                                _m = _yv.notna()
+                                if int(_m.sum()) >= 2:
+                                    fig_price.add_trace(go.Scatter(
+                                        x=_merged['date'][_m], y=_yv[_m],
+                                        mode='lines', name=_label, yaxis='y2',
+                                        line=dict(color=_clr, width=2, shape='spline', smoothing=0.5),
+                                        connectgaps=True,
+                                        hovertemplate='%{x|%b %d, %Y}<br>' + _label + ': %{y:.2f}' + _suf + '<extra></extra>',
+                                    ))
+                                    _added_val = True
                             if _added_val:
                                 fig_price.update_layout(
                                     yaxis2=dict(title="Valuation (TTM)", overlaying="y",
@@ -25156,7 +25212,7 @@ elif selected_page == "📊 Company Analysis":
                                 )
                             else:
                                 with _cval:
-                                    st.caption("No valuation history in this timeframe — try 1Y or 5Y.")
+                                    st.caption("Not enough fundamental history to plot here.")
                         else:
                             with _cval:
                                 st.caption("Valuation data unavailable for this ticker.")
